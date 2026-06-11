@@ -113,6 +113,21 @@ When you export the pipeline using `my_pipeline.to_dict()`, you get a precise re
 }
 ```
 
+## Execution Semantics & Custom Runners
+
+The native `run()` function in SynaFlow is designed as an **In-Process Lockstep Executor**. Its semantics are carefully crafted for streaming:
+
+1. **Topological Order**: Steps are evaluated in topological order, guaranteeing dependencies are resolved before a step starts.
+2. **Lockstep Execution**: If multiple steps depend on the same `Generator`, SynaFlow forks it (using `itertools.tee`) and advances them together (lockstep). It yields one item from the generator, passes it to the first consumer, then the second consumer, before pulling the next item. This ensures peak memory efficiency.
+3. **Lazy Materialization**: If a step explicitly requests a `list` or `set`, SynaFlow will consume the entire generator and hold it in memory, but *only* for that specific branch.
+
+### Build Your Own Runner!
+The `pipeline(...)` definition is simply a static description of the DAG. It produces a `PipelineDef` object. **You are not locked into our native runner!** 
+Because the DAG is fully decoupled from execution, you or the community can write custom runners to process the `PipelineDef` in different ways:
+- An **AsyncRunner** that executes independent branches using `asyncio.gather`.
+- A **DistributedRunner** that compiles the DAG into an Airflow or Ray graph.
+- A **VisualizerRunner** that turns the DAG into an HTML diagram.
+
 ## Advanced Features
 - **Auto-DAG compilation and validation** before execution.
 - Strict type-checking: Pipeline refuses to run if type annotations are incompatible.
