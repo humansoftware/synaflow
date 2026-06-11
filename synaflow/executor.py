@@ -17,8 +17,9 @@ class PipelineStopException(Exception):
 class PipelineExecutor:
     """Executes a compiled Directed Acyclic Graph (DAG) for a pipeline."""
 
-    def __init__(self, dag: dict[str, dict], materialize_fn: Callable = list):
-        self.dag = dag
+    def __init__(self, pipeline: PipelineDef, materialize_fn: Callable = list):
+        self.pipeline = pipeline
+        self.dag = pipeline._dag
         self.materialize_fn = materialize_fn
         self.context: dict[str, Any] = {}
         self.executed_steps: set[str] = set()
@@ -27,7 +28,7 @@ class PipelineExecutor:
         self._initialize_context_with_params(params)
 
         try:
-            levels = self._compute_topological_levels()
+            levels = self.pipeline.get_execution_levels()
             for level in levels:
                 self._execute_level(level)
         except PipelineStopException:
@@ -57,34 +58,6 @@ class PipelineExecutor:
             tees = itertools.tee(iterator_value, len(consumers))
             return {"__tees__": dict(zip(consumers, tees))}
         return iterator_value
-
-    def _compute_topological_levels(self) -> list[list[str]]:
-        in_degree: dict[str, int] = {name: 0 for name in self.dag}
-        for name, node in self.dag.items():
-            for dep in node.get("deps", {}):
-                if dep in in_degree:
-                    in_degree[name] += 1
-
-        levels: list[list[str]] = []
-        processed: set[str] = set()
-
-        while len(processed) < len(self.dag):
-            level = [
-                name
-                for name, degree in in_degree.items()
-                if degree == 0 and name not in processed
-            ]
-            if not level:
-                break
-            levels.append(level)
-            processed.update(level)
-
-            for name in level:
-                for other_name, node in self.dag.items():
-                    if name in node.get("deps", {}):
-                        in_degree[other_name] -= 1
-
-        return levels
 
     def _execute_level(self, level: list[str]) -> None:
         (
@@ -414,5 +387,5 @@ def run(
     materialize: Callable = list,
 ) -> None:
     """Executes a pipeline definition."""
-    executor = PipelineExecutor(pipeline._dag, materialize)
+    executor = PipelineExecutor(pipeline, materialize)
     executor.execute(params)

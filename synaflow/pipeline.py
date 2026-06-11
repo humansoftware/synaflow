@@ -35,5 +35,37 @@ class PipelineDef:
             }
         return serialized
 
+    def get_execution_levels(self) -> list[list[str]]:
+        """
+        Returns the steps grouped into topological levels.
+        Steps in the same level have no dependencies on each other and could theoretically be executed in parallel.
+        """
+        in_degree: dict[str, int] = {name: 0 for name in self._dag}
+        for name, node in self._dag.items():
+            for dep in node.get("deps", {}):
+                if dep in in_degree:
+                    in_degree[name] += 1
+
+        levels: list[list[str]] = []
+        processed: set[str] = set()
+
+        while len(processed) < len(self._dag):
+            level = [
+                name
+                for name, degree in in_degree.items()
+                if degree == 0 and name not in processed
+            ]
+            if not level:
+                break
+            levels.append(level)
+            processed.update(level)
+
+            for name in level:
+                for other_name, node in self._dag.items():
+                    if name in node.get("deps", {}):
+                        in_degree[other_name] -= 1
+
+        return levels
+
 
 pipeline = PipelineDef
