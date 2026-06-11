@@ -28,3 +28,11 @@ testpaths = ["tests"]
 
 [tool.hatch.build.targets.wheel]
 packages = ["synaflow"]
+
+[tool.semantic_release]
+version_toml = [
+    "pyproject.toml:project.version"
+]
+commit_parser = "angular"
+major_on_zero = false
+build_command = "python -m build"
