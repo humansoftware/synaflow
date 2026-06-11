@@ -2,6 +2,25 @@
 
 
 
+## v0.2.0 (2026-06-11)
+
+### Chore
+
+* chore: apply pre-commit formatting ([`58da73e`](https://github.com/humansoftware/synaflow/commit/58da73eb7bb8365eba53e3495733d89fc9ac00ce))
+
+### Documentation
+
+* docs: Add Execution Semantics and Custom Runners section ([`acce236`](https://github.com/humansoftware/synaflow/commit/acce2363aa00db4edee77a10141e3b507f3feeac))
+
+* docs: Add DAG JSON to README and rename fixtures to corpus ([`c078184`](https://github.com/humansoftware/synaflow/commit/c0781841ce57c8513ebeaf31d6b121ee8bfa5533))
+
+### Feature
+
+* feat: add fibonacci streaming generator to corpus ([`bb3624a`](https://github.com/humansoftware/synaflow/commit/bb3624a88c4a1b9dbcd354b3c36a35cd4c0f7fd4))
+
+* feat: decouple topological sort into PipelineDef and expand corpus ([`a98980d`](https://github.com/humansoftware/synaflow/commit/a98980dea1093e85df02bc99a6710702a6c1f151))
+
+
 ## v0.1.0 (2026-06-11)
 
 ### Documentation
