@@ -5,8 +5,14 @@ from typing import Any
 
 from .iterator_utils import InterleavedIterator
 from .pipeline import PipelineDef
+from .types import OnError
 from .type_compatibility import is_iterable_type, is_scalar
 
+
+
+class TeeWrapper:
+    def __init__(self, tees: dict[str, Iterator]):
+        self.tees = tees
 
 class PipelineStopException(Exception):
     """Raised to stop the pipeline execution early."""
@@ -56,7 +62,7 @@ class PipelineExecutor:
         ]
         if len(consumers) > 1:
             tees = itertools.tee(iterator_value, len(consumers))
-            return {"__tees__": dict(zip(consumers, tees))}
+            return TeeWrapper(dict(zip(consumers, tees)))
         return iterator_value
 
     def _execute_level(self, level: list[str]) -> None:
@@ -166,7 +172,7 @@ class PipelineExecutor:
                         item_kwargs[dep_name] = item
                         fn(**item_kwargs)
                     except Exception as e:
-                        if on_error and on_error.value == "stop":
+                        if on_error and on_error == OnError.STOP:
                             raise PipelineStopException() from e
 
                 return cb
@@ -200,8 +206,8 @@ class PipelineExecutor:
         kwargs = self._resolve_node_arguments(node_name, node)
 
         dep_val = kwargs.get(dep_name)
-        if isinstance(dep_val, dict) and "__tees__" in dep_val:
-            dep_val = dep_val["__tees__"][node_name]
+        if isinstance(dep_val, TeeWrapper):
+            dep_val = dep_val.tees[node_name]
 
         kwargs[dep_name] = InterleavedIterator(dep_val, callbacks)
 
@@ -210,7 +216,7 @@ class PipelineExecutor:
             if node_name and not node_name.startswith("_"):
                 self.context[node_name] = output
         except Exception:
-            if node.get("on_error") and node["on_error"].value == "stop":
+            if node.get("on_error") and node["on_error"] == OnError.STOP:
                 raise PipelineStopException()
 
         self.executed_steps.add(node_name)
@@ -219,14 +225,14 @@ class PipelineExecutor:
         self, items_source: Any, callbacks: list[Callable], dep_name: str
     ) -> None:
         dep_val = items_source
-        if isinstance(dep_val, dict) and "__tees__" in dep_val:
+        if isinstance(dep_val, TeeWrapper):
             consumers = [
                 cn
                 for cn, cnode in self.dag.items()
                 if dep_name in cnode.get("deps", {})
             ]
-            first_tee_name = next(c for c in consumers if c in dep_val["__tees__"])
-            dep_val = dep_val["__tees__"][first_tee_name]
+            first_tee_name = next(c for c in consumers if c in dep_val.tees)
+            dep_val = dep_val.tees[first_tee_name]
 
         for item in dep_val:
             for cb in callbacks:
@@ -257,8 +263,8 @@ class PipelineExecutor:
         first_dep = next(iter(deps))
         items = self.context.get(first_dep)
 
-        if isinstance(items, dict) and "__tees__" in items:
-            items = items["__tees__"][name]
+        if isinstance(items, TeeWrapper):
+            items = items.tees[name]
 
         consumers = [
             cn for cn, cnode in self.dag.items() if name in cnode.get("deps", {})
@@ -272,7 +278,7 @@ class PipelineExecutor:
                     item_kwargs[first_dep] = item
                     fn(**item_kwargs)
                 except Exception:
-                    if node.get("on_error") and node["on_error"].value == "stop":
+                    if node.get("on_error") and node["on_error"] == OnError.STOP:
                         raise PipelineStopException()
         else:
 
@@ -283,14 +289,14 @@ class PipelineExecutor:
                         item_kwargs[first_dep] = item
                         yield fn(**item_kwargs)
                     except Exception as e:
-                        if on_error and on_error.value == "stop":
+                        if on_error and on_error == OnError.STOP:
                             raise PipelineStopException() from e
 
             output = each_generator(items, kwargs, first_dep, fn, node.get("on_error"))
 
             if len(consumers) > 1:
                 tees = itertools.tee(output, len(consumers))
-                output = {"__tees__": dict(zip(consumers, tees))}
+                output = TeeWrapper(dict(zip(consumers, tees)))
 
             self.context[name] = output
 
@@ -309,7 +315,7 @@ class PipelineExecutor:
                 self.context[name] = output
 
         except Exception:
-            if node.get("on_error") and node["on_error"].value == "stop":
+            if node.get("on_error") and node["on_error"] == OnError.STOP:
                 raise PipelineStopException()
 
     def _resolve_node_arguments(self, consumer_name: str, node: dict) -> dict[str, Any]:
@@ -321,8 +327,8 @@ class PipelineExecutor:
             if param_name in self.context:
                 value = self.context.get(param_name)
 
-                if isinstance(value, dict) and "__tees__" in value:
-                    value = value["__tees__"][consumer_name]
+                if isinstance(value, TeeWrapper):
+                    value = value.tees[consumer_name]
 
                 if param_name in deps:
                     consumer_type = deps[param_name]
