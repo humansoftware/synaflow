@@ -1,12 +1,23 @@
-# SynaFlow
+# SynaFlow 🌊🧠
 
-SynaFlow is a lightweight, pure-Python pipeline engine that uses Type Hints to magically wire and execute Directed Acyclic Graphs (DAGs).
+**SynaFlow** is a lightweight, pure-Python pipeline engine that uses **Type Hints** to magically wire and execute Directed Acyclic Graphs (DAGs). 
 
-## Features
+It solves the "dependency hell" and boilerplate associated with building data pipelines by automatically inferring the flow of data based exclusively on Python's static type annotations. 
 
-- **No Boilerplate:** Uses standard Python Type Hints (`inspect.signature`) to build the dependency graph.
-- **Generator Lockstep Execution:** Efficiently streams data using native Python generators, ensuring low memory consumption.
-- **Auto-Materialization:** Automatically infers when a collection needs to be materialized into a list or evaluated lazily as an iterator.
+## The Problem It Solves
+
+Building data pipelines usually involves two headaches:
+1. **Explicit Wiring:** You have to manually define which function outputs go to which function inputs (e.g., `A >> B >> C`), creating verbose and fragile architectures.
+2. **Memory Explosions vs. Lazy Evaluation:** Passing large datasets around usually means holding them entirely in memory (Lists) or dealing with complex generator management. If you have multiple consumers for a single generator, you usually have to write clunky `itertools.tee` boilerplate yourself.
+
+## The SynaFlow Solution
+
+SynaFlow looks at the **Type Hints** of your functions and automatically wires everything together for you. If `Step A` outputs an `int` and `Step B` requires an `int`, SynaFlow connects them instantly.
+
+Furthermore, SynaFlow has a **smart lockstep streaming engine**:
+- If a producer yields a `Generator` and a consumer expects an `Iterator`, SynaFlow streams the data lazily without ever holding it in memory.
+- If multiple consumers want that same generator, SynaFlow automatically forks it (`tee`) and drives them in parallel (lockstep).
+- If one consumer explicitly asks for a `list`, SynaFlow automatically materializes the data only for that specific branch.
 
 ## Quickstart
 
@@ -15,20 +26,25 @@ from typing import NamedTuple
 from collections.abc import Generator, Iterator
 from synaflow import pipeline, step, run
 
+# Define the data required to start your pipeline
 class MyParams(NamedTuple):
     count: int
 
+# 1. Producer outputs a stream
 def producer(count: int) -> Generator[int, None, None]:
     yield from range(count)
 
-def transformer(producer: int) -> int:
-    return producer * 10
+# 2. Transformer consumes the stream lazily
+def transformer(producer: Iterator[int]) -> Generator[int, None, None]:
+    for val in producer:
+        yield val * 10
 
+# 3. Consumer automatically gets the stream!
 def consumer(transformer: Iterator[int]) -> None:
     for x in transformer:
-        print(x)
+        print(f"Consumed: {x}")
 
-# The DAG is auto-wired!
+# SynaFlow reads the Type Hints and wires the DAG automatically!
 my_pipeline = pipeline(
     name="example",
     params=MyParams,
@@ -43,5 +59,10 @@ my_pipeline = pipeline(
 run(my_pipeline, MyParams(count=5))
 ```
 
+## Advanced Features
+- **Auto-DAG compilation and validation** before execution.
+- Strict type-checking: Pipeline refuses to run if type annotations are incompatible.
+- Easily export DAG structures as JSON (`my_pipeline.to_dict()`) for snapshot testing or UI rendering.
+
 ## License
-MIT
+MIT License
