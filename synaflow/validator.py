@@ -2,14 +2,9 @@ import inspect
 from typing import Any, NamedTuple
 
 from .step import Step
-from .type_compatibility import (
-    ListType,
-    get_type_name,
-    is_iterable_type,
-    is_materialized_consumer,
-    is_scalar,
-    is_type_compatible,
-)
+from .type_compatibility import (ListType, get_type_name, is_iterable_type,
+                                 is_materialized_consumer, is_scalar,
+                                 is_type_compatible)
 
 
 def validate_and_build_dag(

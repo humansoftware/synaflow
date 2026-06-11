@@ -11,7 +11,7 @@ jobs:
     permissions:
       id-token: write  # MANDATORY for Trusted Publishing
       contents: write  # to create github release and tag
-    
+
     steps:
     - uses: actions/checkout@v4
       with:

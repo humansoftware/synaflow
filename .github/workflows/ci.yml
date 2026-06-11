@@ -34,7 +34,7 @@ jobs:
       run: |
         # Builds the wheel and installs it the way a user would
         uv pip install --system .
-        
+
     - name: Run Tests
       run: |
         # Runs pytest, verifying that the installed package works

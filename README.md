@@ -1,8 +1,8 @@
 # SynaFlow 🌊🧠
 
-**SynaFlow** is a lightweight, pure-Python pipeline engine that uses **Type Hints** to magically wire and execute Directed Acyclic Graphs (DAGs). 
+**SynaFlow** is a lightweight, pure-Python pipeline engine that uses **Type Hints** to magically wire and execute Directed Acyclic Graphs (DAGs).
 
-It solves the "dependency hell" and boilerplate associated with building data pipelines by automatically inferring the flow of data based exclusively on Python's static type annotations. 
+It solves the "dependency hell" and boilerplate associated with building data pipelines by automatically inferring the flow of data based exclusively on Python's static type annotations.
 
 ## The Problem It Solves
 

@@ -87,9 +87,11 @@ class PipelineExecutor:
         return levels
 
     def _execute_level(self, level: list[str]) -> None:
-        dep_each_nodes, dep_all_nodes, independent_nodes = (
-            self._group_nodes_by_execution_mode(level)
-        )
+        (
+            dep_each_nodes,
+            dep_all_nodes,
+            independent_nodes,
+        ) = self._group_nodes_by_execution_mode(level)
 
         all_dependencies = set(dep_each_nodes.keys()) | set(dep_all_nodes.keys())
 
