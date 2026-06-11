@@ -67,6 +67,50 @@ my_pipeline = pipeline(
 
 # Run it
 run(my_pipeline, MyParams(count=5))
+
+# Export the DAG as JSON
+print(my_pipeline.to_dict())
+```
+
+When you export the pipeline using `my_pipeline.to_dict()`, you get a precise representation of the nodes, their inferred dependencies, and their return types:
+
+```json
+{
+  "producer": {
+    "deps": {
+      "count": "int"
+    },
+    "output": "Generator[int, None, None]",
+    "fn": "producer",
+    "on_error": "stop",
+    "needs_materialize": false
+  },
+  "transformer": {
+    "deps": {
+      "producer": "Iterator[int]"
+    },
+    "output": "Generator[int, None, None]",
+    "fn": "transformer",
+    "on_error": "stop",
+    "needs_materialize": false
+  },
+  "consumer": {
+    "deps": {
+      "transformer": "Iterator[int]"
+    },
+    "output": "None",
+    "fn": "consumer",
+    "on_error": "stop",
+    "needs_materialize": false
+  },
+  "count": {
+    "deps": {},
+    "output": "int",
+    "fn": null,
+    "on_error": null,
+    "needs_materialize": false
+  }
+}
 ```
 
 ## Advanced Features
