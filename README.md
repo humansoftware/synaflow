@@ -19,6 +19,16 @@ Furthermore, SynaFlow has a **smart lockstep streaming engine**:
 - If multiple consumers want that same generator, SynaFlow automatically forks it (`tee`) and drives them in parallel (lockstep).
 - If one consumer explicitly asks for a `list`, SynaFlow automatically materializes the data only for that specific branch.
 
+## How is it different from other frameworks?
+
+There are many amazing orchestration frameworks out there, but SynaFlow fills a very specific gap: **In-process Streaming Micro-Orchestration**.
+
+### vs. Hamilton
+[Hamilton](https://github.com/DAGWorks-Inc/hamilton) is a fantastic tool that also uses Python function signatures to build DAGs. However, Hamilton is heavily geared towards DataFrames and feature engineering, generally expecting functions to return concrete values (columns/scalars). **SynaFlow**, on the other hand, is built from the ground up to support **Native Generators and Lazy Streaming**. While Hamilton maps functions to columns, SynaFlow maps functions to continuous data streams, automatically interleaving multiple consumers in lockstep without memory spikes.
+
+### vs. Airflow / Prefect / Dagster
+These are **Macro-Orchestrators**. They are designed to orchestrate heavy, distributed tasks across clusters, Docker containers, and different machines. They rely on state databases and massive IO overhead. **SynaFlow is a Micro-Orchestrator**. It runs entirely within a single Python process. You would use Airflow to trigger a daily job, but you would use SynaFlow *inside* that job to smartly route and stream millions of rows between your Python functions.
+
 ## Quickstart
 
 ```python
