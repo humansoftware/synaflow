@@ -1,0 +1,39 @@
+from dataclasses import dataclass
+from typing import Any
+
+from .step import Step
+
+
+@dataclass
+class PipelineDef:
+    """
+    Defines a Pipeline workflow.
+    """
+
+    name: str
+    params: Any
+    steps: list[Step]
+    description: str = ""
+
+    def __post_init__(self) -> None:
+        from .validator import validate_and_build_dag
+
+        self._dag = validate_and_build_dag(self.name, self.steps, self.params)
+
+    def to_dict(self) -> dict:
+        """Exports the compiled DAG structure to a JSON-serializable dictionary."""
+        from .type_compatibility import get_type_name
+
+        serialized = {}
+        for name, node in self._dag.items():
+            serialized[name] = {
+                "deps": {k: get_type_name(v) for k, v in node["deps"].items()},
+                "output": get_type_name(node["output"]),
+                "fn": node["fn"].__name__ if node["fn"] else None,
+                "on_error": node["on_error"].value if node["on_error"] else None,
+                "needs_materialize": node["needs_materialize"],
+            }
+        return serialized
+
+
+pipeline = PipelineDef
