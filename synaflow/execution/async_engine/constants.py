@@ -1,0 +1,1 @@
+EOF_MARKER = object()

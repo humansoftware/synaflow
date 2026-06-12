@@ -95,7 +95,7 @@ async def test_given_sync_stream_pipeline_when_run_asynchronously_then_raises():
     import pytest
 
     from synaflow import pipeline, step
-    from synaflow.execution.async_engine.executor import async_run
+    from synaflow.execution.async_engine.pipeline import async_run
 
     class P(NamedTuple):
         items: list[int] = [1, 2, 3]

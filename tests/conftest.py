@@ -16,7 +16,7 @@ def run_pipeline(request):
     elif request.param == "async":
 
         def wrapper(pipeline, params, **kwargs):
-            from synaflow.execution.async_engine.executor import async_run
+            from synaflow.execution.async_engine.pipeline import async_run
 
             return asyncio.run(async_run(pipeline, params, **kwargs))
 
