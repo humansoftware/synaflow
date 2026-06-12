@@ -56,6 +56,30 @@ def test_given_multiple_steps_when_run_then_second_receives_first_output(run_pip
     s2.assert_called_once_with(numbers=[0, 1, 2])
 
 
+def test_given_multiple_steps_when_run_then_intermediate_step_receives_params(
+    run_pipeline,
+):
+    class P(NamedTuple):
+        count: int = 3
+        multiplier: int = 10
+
+    s1 = mock_step(count=int)
+    s1.return_value = 5
+
+    # s2 depends on s1 and also requests a parameter directly
+    s2 = mock_step(s1=int, multiplier=int)
+
+    my_pipeline = pipeline(
+        name="test",
+        params=P,
+        steps=[step("s1", fn=s1), step("s2", fn=s2)],
+    )
+    run_pipeline(my_pipeline, params=P(count=2, multiplier=4))
+
+    s1.assert_called_once_with(count=2)
+    s2.assert_called_once_with(s1=5, multiplier=4)
+
+
 def test_given_params_with_defaults_when_run_then_uses_defaults(run_pipeline):
     class P(NamedTuple):
         count: int = 5
