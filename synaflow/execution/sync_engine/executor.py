@@ -3,16 +3,10 @@ import itertools
 from collections.abc import Callable, Generator, Iterator
 from typing import Any, Iterable
 
-from synaflow.core.materializer import (
-    AsyncMaterializer,
-    AsyncMaterializerFactory,
-    MaterializeContext,
-    SyncMaterializer,
-    SyncMaterializerFactory,
-)
 from synaflow.core.pipeline import PipelineDef
 from synaflow.core.type_compatibility import is_iterable_type, is_scalar
 from synaflow.core.types import OnError
+from synaflow.execution.sync_engine.materializer import SyncMaterializerFactory
 
 from .iterator_utils import InterleavedIterator
 

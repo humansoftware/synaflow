@@ -12,7 +12,7 @@ class Step:
     fn: Callable
     on_error: OnError = OnError.CONTINUE
     params: StepParams | None = None
-    materializer: SyncMaterializer | AsyncMaterializer | Callable | None = None
+    materializer: Callable | None = None
     description: str = ""
 
 

@@ -622,7 +622,7 @@ async def test_given_step_materializer_when_run_then_overrides_pipeline_factory(
 
 
 async def test_given_factory_with_context_when_run_then_context_is_injected():
-    from synaflow.core.materializer import MaterializeContext
+    from synaflow.core.types import MaterializeContext
 
     class P(NamedTuple):
         count: int = 3

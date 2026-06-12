@@ -23,3 +23,10 @@ class StepResult:
     output: Any = None
     error: Exception | None = None
     metrics: dict[str, int] = field(default_factory=dict)
+
+
+@dataclass
+class MaterializeContext:
+    pipeline_name: str
+    dataset_name: str
+    item_type: Any
