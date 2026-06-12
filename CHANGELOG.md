@@ -2,6 +2,49 @@
 
 
 
+## v0.7.0 (2026-06-12)
+
+### Documentation
+
+* docs: document architectural parity between validation and execution engines ([`6b871ab`](https://github.com/humansoftware/synaflow/commit/6b871abcacb29891ff8518411159647c0ae1f7cf))
+
+### Feature
+
+* feat: implement sub-pipeline macro expansion with Each/All support ([`bf90dde`](https://github.com/humansoftware/synaflow/commit/bf90ddee26400bd208a10b552b3503fb2c8697c4))
+
+### Refactor
+
+* refactor: remove TYPE_CHECKING from step.py and use string annotation ([`0c261b5`](https://github.com/humansoftware/synaflow/commit/0c261b54623028d9180cb55990d5b3dabc368bf4))
+
+* refactor: address PR comments (BaseStep, IncludeStep typing, parent_pipeline tracking, on_error scope) ([`0294069`](https://github.com/humansoftware/synaflow/commit/0294069e7263e0fae37ab9c064317b4a05360d8b))
+
+* refactor: simplify MacroExpander into top-level functions ([`a4c3924`](https://github.com/humansoftware/synaflow/commit/a4c39245146ad8d411c027a593eecf93d76b4984))
+
+* refactor: break sync executor into symmetric runners and resolvers ([`4efbb69`](https://github.com/humansoftware/synaflow/commit/4efbb693b00ed6b868b0aeb764941aa00cb9bb16))
+
+* refactor: break async executor into dependency, topology, and step runners ([`3c926fc`](https://github.com/humansoftware/synaflow/commit/3c926fcd2b160be3d4eb6cd29f05879e3fe692f2))
+
+* refactor: break validator.py into symmetric core validation modules ([`f8d71ac`](https://github.com/humansoftware/synaflow/commit/f8d71acacb56dde7d10428e638f65bb63922fa9b))
+
+### Test
+
+* test: translate sub_pipelines corpus and tests to English ([`47742fe`](https://github.com/humansoftware/synaflow/commit/47742fe1ab6844c1de1929abc347cb006e43fd8b))
+
+* test: assert that directories exist in parity test ([`b623e93`](https://github.com/humansoftware/synaflow/commit/b623e93b90efa0448f7d3a0a538e76f5e4e2be5c))
+
+* test: add async runner test, fix parity, add corpus, and support sub_pipeline serialization ([`83a8928`](https://github.com/humansoftware/synaflow/commit/83a892851fee619a60e55d39f03056aef5bf4c1b))
+
+### Unknown
+
+* Merge pull request #5 from humansoftware/feature/sub_pipelines
+
+feat: Sub-Pipelines (Macro Expansion) ([`c07a5e6`](https://github.com/humansoftware/synaflow/commit/c07a5e6888fc39b25726165e74ff7eb22052c538))
+
+* Merge pull request #4 from humansoftware/feature/executor_refactoring
+
+refactor: symmetric breakdown of validation and execution engines ([`f69b169`](https://github.com/humansoftware/synaflow/commit/f69b169b3abc4614e78e65f6e395655ab5504f34))
+
+
 ## v0.6.0 (2026-06-12)
 
 ### Documentation
