@@ -189,3 +189,23 @@ def is_materialized_consumer(tp: Any) -> bool:
         return any(is_materialized_consumer(a) for a in get_args(tp))
 
     return False
+
+
+def is_sync_stream_type(tp: Any) -> bool:
+    if tp is None: return False
+    origin = get_origin(tp) or tp
+    if origin in (Iterator, Generator):
+        return True
+    if _is_union(tp, get_origin(tp)):
+        return any(is_sync_stream_type(a) for a in get_args(tp))
+    return False
+
+
+def is_async_stream_type(tp: Any) -> bool:
+    if tp is None: return False
+    origin = get_origin(tp) or tp
+    if origin in (AsyncIterator, AsyncGenerator):
+        return True
+    if _is_union(tp, get_origin(tp)):
+        return any(is_async_stream_type(a) for a in get_args(tp))
+    return False

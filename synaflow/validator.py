@@ -4,7 +4,8 @@ from typing import Any, NamedTuple
 from .step import Step
 from .type_compatibility import (ListType, get_type_name, is_iterable_type,
                                  is_materialized_consumer, is_scalar,
-                                 is_type_compatible)
+                                 is_type_compatible, is_sync_stream_type,
+                                 is_async_stream_type)
 
 
 def validate_and_build_dag(
@@ -31,8 +32,45 @@ def validate_and_build_dag(
 
     _add_parameter_nodes_to_dag(dag, produced)
     _compute_needs_materialize(dag)
+    _validate_sync_async_consistency(dag, name)
 
     return dag
+
+def _validate_sync_async_consistency(dag: dict, pipeline_name: str) -> None:
+    has_sync = False
+    has_async = False
+
+    for name, node in dag.items():
+        if not node.get("fn"): continue
+
+        if inspect.iscoroutinefunction(node["fn"]):
+            has_async = True
+
+        output = node.get("output")
+        if is_sync_stream_type(output):
+            has_sync = True
+        if is_async_stream_type(output):
+            has_async = True
+
+        for dep_type in node.get("deps", {}).values():
+            if is_sync_stream_type(dep_type):
+                has_sync = True
+            if is_async_stream_type(dep_type):
+                has_async = True
+
+    if has_sync and has_async:
+        raise ValueError(
+            f"Pipeline '{pipeline_name}' is UNRUNNABLE. It contains synchronous streams (Iterator) "
+            "and asynchronous features (async def or AsyncIterator). "
+            "You must convert all streams to AsyncIterator to run it asynchronously, "
+            "or remove async functions to run it synchronously."
+        )
+
+    # We store these flags on the dag metadata so PipelineDef can read them
+    dag["__metadata__"] = {
+        "requires_sync_runner": has_sync,
+        "requires_async_runner": has_async
+    }
 
 
 def _validate_params_is_namedtuple(params: Any, pipeline_name: str) -> None:

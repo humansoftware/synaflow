@@ -236,5 +236,8 @@ async def async_run(
     pipeline: PipelineDef, params: Any, *, materialize: Callable = list
 ) -> None:
     """Executes a pipeline definition asynchronously."""
+    if getattr(pipeline, "requires_sync_runner", False):
+        raise RuntimeError("This pipeline contains synchronous streams (Iterator). It must be executed with run() or migrated to AsyncIterator.")
+
     executor = AsyncPipelineExecutor(pipeline, materialize)
     await executor.execute(params)

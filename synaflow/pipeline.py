@@ -19,6 +19,9 @@ class PipelineDef:
         from .validator import validate_and_build_dag
 
         self._dag = validate_and_build_dag(self.name, self.steps, self.params)
+        metadata = self._dag.pop("__metadata__", {})
+        self.requires_sync_runner = metadata.get("requires_sync_runner", False)
+        self.requires_async_runner = metadata.get("requires_async_runner", False)
 
     def to_dict(self) -> dict:
         """Exports the compiled DAG structure to a JSON-serializable dictionary."""

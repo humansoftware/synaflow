@@ -386,12 +386,10 @@ class PipelineExecutor:
         return origin in (list, set, tuple)
 
 
-def run(
-    pipeline: PipelineDef,
-    params: Any,
-    *,
-    materialize: Callable = list,
-) -> None:
-    """Executes a pipeline definition."""
+def run(pipeline: PipelineDef, params: Any, *, materialize: Callable = list) -> None:
+    """Executes a pipeline definition synchronously."""
+    if getattr(pipeline, "requires_async_runner", False):
+        raise RuntimeError("This pipeline contains async features (async def or AsyncIterator) and must be executed with async_run().")
+
     executor = PipelineExecutor(pipeline, materialize)
     executor.execute(params)
