@@ -2,6 +2,21 @@
 
 
 
+## v0.4.1 (2026-06-12)
+
+### Fix
+
+* fix: async materialization, queue fallbacks, and error propagation ([`5b2f249`](https://github.com/humansoftware/synaflow/commit/5b2f249f09e088438db73c5059d27bb1f23bc44e))
+
+### Test
+
+* test: rename sync/async to test_sync/test_async for static imports ([`e3f396b`](https://github.com/humansoftware/synaflow/commit/e3f396b9fe78d85e14fca8058e16995a57ba8456))
+
+* test: move corpus to tests/sync/corpus and tests/async/corpus ([`44843fb`](https://github.com/humansoftware/synaflow/commit/44843fba5c105dd149c8c1d8c5906ca7e79cb848))
+
+* test: split corpus into sync_topologies and async_topologies ([`a575f06`](https://github.com/humansoftware/synaflow/commit/a575f06dd56bd95801cec933f0e1d3415f36cea7))
+
+
 ## v0.4.0 (2026-06-12)
 
 ### Feature
