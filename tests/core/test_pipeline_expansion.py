@@ -6,11 +6,11 @@ from synaflow import include, pipeline, step
 
 
 class BParams(NamedTuple):
-    texto: str
+    text: str
 
 
-def func_b1(texto: str) -> str:
-    return texto.upper()
+def func_b1(text: str) -> str:
+    return text.upper()
 
 
 def func_b2(func_b1: str) -> int:
@@ -18,7 +18,7 @@ def func_b2(func_b1: str) -> int:
 
 
 pipe_b = pipeline(
-    name="ProcessadorDeTexto",
+    name="TextProcessor",
     params=BParams,
     exports="func_b2",
     steps=[step("func_b1", fn=func_b1), step("func_b2", fn=func_b2)],
@@ -26,16 +26,16 @@ pipe_b = pipeline(
 
 
 class AParams(NamedTuple):
-    textos_brutos: list[str]
+    raw_texts: list[str]
 
 
-def preparar_b_each(textos_brutos: list[str]) -> Iterator[BParams]:
-    for t in textos_brutos:
-        yield BParams(texto=t)
+def prepare_b_each(raw_texts: list[str]) -> Iterator[BParams]:
+    for t in raw_texts:
+        yield BParams(text=t)
 
 
-def consolidar(meu_processador_b: list[int]) -> int:
-    return sum(meu_processador_b)
+def consolidate(my_text_processor: list[int]) -> int:
+    return sum(my_text_processor)
 
 
 def test_pipeline_compiles_flattened_dag():
@@ -43,25 +43,25 @@ def test_pipeline_compiles_flattened_dag():
         name="MainPipeline",
         params=AParams,
         steps=[
-            include("meu_processador_b", pipeline=pipe_b, fn=preparar_b_each),
-            step("consolidar", fn=consolidar),
+            include("my_text_processor", pipeline=pipe_b, fn=prepare_b_each),
+            step("consolidate", fn=consolidate),
         ],
     )
 
     dag = pipe_a._dag
-    assert "meu_processador_b__adapter" in dag
-    assert "meu_processador_b__func_b1" in dag
-    assert "meu_processador_b" in dag  # This is func_b2
-    assert "consolidar" in dag
+    assert "my_text_processor__adapter" in dag
+    assert "my_text_processor__func_b1" in dag
+    assert "my_text_processor" in dag  # This is func_b2
+    assert "consolidate" in dag
 
-    assert "meu_processador_b__adapter" in dag["meu_processador_b__func_b1"]["deps"]
-    assert "meu_processador_b__func_b1" in dag["meu_processador_b"]["deps"]
-    assert "meu_processador_b" in dag["consolidar"]["deps"]
+    assert "my_text_processor__adapter" in dag["my_text_processor__func_b1"]["deps"]
+    assert "my_text_processor__func_b1" in dag["my_text_processor"]["deps"]
+    assert "my_text_processor" in dag["consolidate"]["deps"]
 
 
 def test_include_step_requires_return_type_hint():
-    def bad_adapter(textos_brutos: list[str]):
-        return BParams(texto="test")
+    def bad_adapter(raw_texts: list[str]):
+        return BParams(text="test")
 
     with pytest.raises(ValueError, match="must have a return type hint"):
         pipeline(
@@ -80,5 +80,5 @@ def test_include_step_requires_pipeline_exports():
         pipeline(
             name="MainPipeline",
             params=AParams,
-            steps=[include("bad_sub", pipeline=pipe_no_exports, fn=preparar_b_each)],
+            steps=[include("bad_sub", pipeline=pipe_no_exports, fn=prepare_b_each)],
         )

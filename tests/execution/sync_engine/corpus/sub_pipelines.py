@@ -4,11 +4,11 @@ from synaflow import include, pipeline, step
 
 
 class BParams(NamedTuple):
-    texto: str
+    text: str
 
 
-def func_b1(texto: str) -> str:
-    return texto.upper()
+def func_b1(text: str) -> str:
+    return text.upper()
 
 
 def func_b2(func_b1: str) -> int:
@@ -16,7 +16,7 @@ def func_b2(func_b1: str) -> int:
 
 
 pipe_b = pipeline(
-    name="ProcessadorDeTexto",
+    name="TextProcessor",
     params=BParams,
     exports="func_b2",
     steps=[step("func_b1", fn=func_b1), step("func_b2", fn=func_b2)],
@@ -24,31 +24,31 @@ pipe_b = pipeline(
 
 
 class AParams(NamedTuple):
-    textos_brutos: list[str]
+    raw_texts: list[str]
 
 
-def preparar_b_each(textos_brutos: list[str]) -> Iterator[BParams]:
-    for t in textos_brutos:
-        yield BParams(texto=t)
+def prepare_b_each(raw_texts: list[str]) -> Iterator[BParams]:
+    for t in raw_texts:
+        yield BParams(text=t)
 
 
-def consolidar(meu_processador_b: list[int]) -> int:
-    return sum(meu_processador_b)
+def consolidate(my_text_processor: list[int]) -> int:
+    return sum(my_text_processor)
 
 
 pipe = pipeline(
     name="MainPipeline",
     params=AParams,
     steps=[
-        include("meu_processador_b", pipeline=pipe_b, fn=preparar_b_each),
-        step("consolidar", fn=consolidar),
+        include("my_text_processor", pipeline=pipe_b, fn=prepare_b_each),
+        step("consolidate", fn=consolidate),
     ],
 )
 
-expected_params = AParams(textos_brutos=["oi", "mundo", "synaflow"])
+expected_params = AParams(raw_texts=["hi", "world", "synaflow"])
 expected_results = {
-    "meu_processador_b__adapter": None,  # the adapter returns None technically from executor context since it's an iterator
-    "meu_processador_b__func_b1": ["OI", "MUNDO", "SYNAFLOW"],
-    "meu_processador_b": [2, 5, 8],
-    "consolidar": 15,
+    "my_text_processor__adapter": None,  # the adapter returns None technically from executor context since it's an iterator
+    "my_text_processor__func_b1": ["HI", "WORLD", "SYNAFLOW"],
+    "my_text_processor": [2, 5, 8],
+    "consolidate": 15,
 }
