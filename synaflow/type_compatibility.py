@@ -163,10 +163,18 @@ def get_inner_type(tp: Any) -> Any:
 def get_type_name(tp: Any) -> str:
     if tp is None:
         return "None"
+    
+    from collections.abc import Iterator, Generator, AsyncIterator, AsyncGenerator
+    if tp in (Iterator, Generator, AsyncIterator, AsyncGenerator):
+        return "Stream"
+
     origin = get_origin(tp)
     if origin is not None:
         arg_names = ", ".join(get_type_name(a) for a in get_args(tp))
-        origin_name = getattr(origin, "__name__", str(origin))
+        if origin in (Iterator, Generator, AsyncIterator, AsyncGenerator):
+            origin_name = "Stream"
+        else:
+            origin_name = getattr(origin, "__name__", str(origin))
         return f"{origin_name}[{arg_names}]"
     return getattr(tp, "__name__", str(tp))
 

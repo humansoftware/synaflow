@@ -70,3 +70,23 @@ async def test_given_params_with_defaults_when_run_then_uses_defaults():
     my_pipeline = pipeline(name="test", params=P, steps=[step("s1", fn=s1)])
     await async_run(my_pipeline, params=P())
     s1.assert_called_once_with(count=5)
+
+
+@pytest.mark.asyncio
+async def test_given_sync_stream_pipeline_when_run_asynchronously_then_raises():
+    import pytest
+    from synaflow.pipeline import pipeline
+    from synaflow.step import step
+    from synaflow.async_executor import async_run
+    from typing import NamedTuple, Iterator
+
+    class P(NamedTuple):
+        items: list[int] = [1, 2, 3]
+
+    def s1(items: list[int]) -> Iterator[int]:
+        for i in items: yield i
+        
+    my_pipeline = pipeline(name="t", params=P, steps=[step("s1", fn=s1)])
+    
+    with pytest.raises(RuntimeError, match="must be executed with run"):
+        await async_run(my_pipeline, params=P())
