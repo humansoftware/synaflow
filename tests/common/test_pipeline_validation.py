@@ -103,17 +103,24 @@ def test_given_on_error_stop_when_pipeline_created_then_forces_materialization()
     def consumer(gen: int) -> int:
         return gen
 
+    def downstream(consumer: int) -> int:
+        return consumer
+
     p = pipeline(
         name="test",
         params=P,
         steps=[
-            step("gen", fn=gen, on_error=OnError.STOP),
-            step("consumer", fn=consumer),
+            step("gen", fn=gen, on_error=OnError.CONTINUE),
+            step("consumer", fn=consumer, on_error=OnError.STOP),
+            step("downstream", fn=downstream, on_error=OnError.CONTINUE),
         ],
     )
 
-    # gen should have needs_materialize = True because of OnError.STOP
-    assert p._dag["gen"]["needs_materialize"] is True
+    # consumer should have needs_materialize = True because of OnError.STOP
+    assert p._dag["consumer"]["needs_materialize"] is True
+
+    # gen should remain lazy (needs_materialize = False) because consumer processes it one-by-one
+    assert p._dag["gen"]["needs_materialize"] is False
 
 
 def test_given_non_namedtuple_params_when_constructed_then_raises():
