@@ -1,7 +1,7 @@
 from dataclasses import dataclass, field
 from typing import Any
 
-from synaflow.types import MaterializerFactory
+from synaflow.core.types import MaterializerFactory
 
 from .step import Step
 

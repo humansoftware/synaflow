@@ -3,10 +3,11 @@ import itertools
 from collections.abc import Callable, Generator, Iterator
 from typing import Any, Iterable
 
+from synaflow.core.pipeline import PipelineDef
+from synaflow.core.type_compatibility import is_iterable_type, is_scalar
+from synaflow.core.types import MaterializeContext, MaterializerFactory, OnError
+
 from .iterator_utils import InterleavedIterator
-from .pipeline import PipelineDef
-from .type_compatibility import is_iterable_type, is_scalar
-from .types import MaterializeContext, MaterializerFactory, OnError
 
 
 class TeeWrapper:

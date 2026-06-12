@@ -2,9 +2,8 @@ from typing import NamedTuple
 
 import pytest
 
-from synaflow.pipeline import pipeline
-from synaflow.step import step
-from synaflow.types import OnError
+from synaflow import pipeline, step
+from synaflow.core.types import OnError
 
 
 def test_given_scalar_params_when_constructed_then_passes():

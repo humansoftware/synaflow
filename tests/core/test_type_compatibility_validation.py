@@ -2,8 +2,7 @@ from typing import Generator, Iterator, NamedTuple
 
 import pytest
 
-from synaflow.pipeline import pipeline
-from synaflow.step import step
+from synaflow import pipeline, step
 
 
 @pytest.mark.parametrize(
