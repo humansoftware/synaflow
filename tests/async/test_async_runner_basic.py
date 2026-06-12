@@ -2,7 +2,7 @@ from synaflow import async_run
 from typing import AsyncGenerator, AsyncIterator
 import inspect
 from typing import Generator, Iterator, List, NamedTuple
-from unittest.mock import MagicMock, call
+from unittest.mock import AsyncMock as MagicMock, call
 
 import pytest
 
@@ -11,7 +11,7 @@ from synaflow.step import step
 from synaflow.types import OnError
 
 
-async def mock_step(**params: type) -> MagicMock:
+def mock_step(**params: type) -> MagicMock:
     mock = MagicMock()
     if params:
         annotations = {name: tp for name, tp in params.items()}

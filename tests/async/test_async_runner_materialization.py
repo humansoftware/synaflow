@@ -2,7 +2,7 @@ from synaflow import async_run
 from typing import AsyncGenerator, AsyncIterator
 import inspect
 from typing import Generator, Iterator, List, NamedTuple
-from unittest.mock import MagicMock, call
+from unittest.mock import AsyncMock as MagicMock, call
 
 import pytest
 
@@ -11,7 +11,7 @@ from synaflow.step import step
 from synaflow.types import OnError
 
 
-async def mock_step(**params: type) -> MagicMock:
+def mock_step(**params: type) -> MagicMock:
     mock = MagicMock()
     if params:
         annotations = {name: tp for name, tp in params.items()}
@@ -47,9 +47,9 @@ async def test_given_generator_output_and_two_each_consumers_when_run_then_mater
 
     materialized = []
 
-    def spy_materialize(g):
+    async def spy_materialize(g):
         materialized.append("called")
-        return list(g)
+        return [x async for x in g]
 
     my_pipeline = pipeline(
         name="test",
@@ -87,9 +87,9 @@ async def test_given_generator_and_scalar_and_iterator_consumers_when_run_then_n
 
     materialized = []
 
-    def spy_materialize(g):
+    async def spy_materialize(g):
         materialized.append("called")
-        return list(g)
+        return [x async for x in g]
 
     my_pipeline = pipeline(
         name="test",
@@ -128,9 +128,9 @@ async def test_given_generator_and_two_iterator_consumers_when_run_then_no_mater
 
     materialized = []
 
-    def spy_materialize(g):
+    async def spy_materialize(g):
         materialized.append("called")
-        return list(g)
+        return [x async for x in g]
 
     my_pipeline = pipeline(
         name="test",
@@ -168,9 +168,9 @@ async def test_given_generator_and_union_scalar_and_union_iterator_consumers_whe
 
     materialized = []
 
-    def spy_materialize(g):
+    async def spy_materialize(g):
         materialized.append("called")
-        return list(g)
+        return [x async for x in g]
 
     my_pipeline = pipeline(
         name="test",
@@ -193,7 +193,7 @@ async def test_given_generator_of_union_and_union_scalar_consumers_when_run_then
     class P(NamedTuple):
         count: int = 3
 
-    async def gen(count: int) -> AsyncGenerator[int | str, None, None]:
+    async def gen(count: int) -> AsyncGenerator[int | str, None]:
         for _i in range(count):
             yield _i
 
@@ -207,9 +207,9 @@ async def test_given_generator_of_union_and_union_scalar_consumers_when_run_then
 
     materialized = []
 
-    def spy_materialize(g):
+    async def spy_materialize(g):
         materialized.append("called")
-        return list(g)
+        return [x async for x in g]
 
     my_pipeline = pipeline(
         name="test",
@@ -246,9 +246,9 @@ async def test_given_generator_and_list_consumer_when_run_then_materialized_once
 
     materialized = []
 
-    def spy_materialize(g):
+    async def spy_materialize(g):
         materialized.append("called")
-        return list(g)
+        return [x async for x in g]
 
     my_pipeline = pipeline(
         name="test",
@@ -287,9 +287,9 @@ async def test_given_generator_and_each_transformer_and_iterator_consumer_when_r
 
     materialized = []
 
-    def spy_materialize(g):
+    async def spy_materialize(g):
         materialized.append("called")
-        return list(g)
+        return [x async for x in g]
 
     my_pipeline = pipeline(
         name="test",
@@ -359,9 +359,9 @@ async def test_given_generator_and_set_consumer_when_run_then_materialized_once(
 
     materialized = []
 
-    def spy_materialize(g):
+    async def spy_materialize(g):
         materialized.append("called")
-        return list(g)
+        return [x async for x in g]
 
     my_pipeline = pipeline(
         name="test",
@@ -402,9 +402,9 @@ async def test_given_two_generators_when_consumed_by_single_step_then_no_materia
 
     materialized = []
 
-    def spy_materialize(g):
+    async def spy_materialize(g):
         materialized.append("called")
-        return list(g)
+        return [x async for x in g]
 
     my_pipeline = pipeline(
         name="test",
@@ -445,9 +445,9 @@ async def test_given_chain_and_bypass_dependencies_when_run_then_no_materializat
 
     materialized = []
 
-    def spy_materialize(g):
+    async def spy_materialize(g):
         materialized.append("called")
-        return list(g)
+        return [x async for x in g]
 
     my_pipeline = pipeline(
         name="test",
@@ -485,9 +485,9 @@ async def test_given_generator_and_tuple_consumer_when_run_then_materialized_onc
 
     materialized = []
 
-    def spy_materialize(g):
+    async def spy_materialize(g):
         materialized.append("called")
-        return list(g)
+        return [x async for x in g]
 
     my_pipeline = pipeline(
         name="test",
@@ -520,7 +520,7 @@ async def test_given_scalar_producer_and_list_and_iterator_consumers_when_run_th
         call_order.append(("s2", s1))
 
     async def s3(s1: AsyncIterator[int]):
-        call_order.append(("s3", list(s1)))
+        call_order.append(("s3", [x async for x in s1]))
 
     my_pipeline = pipeline(
         name="test",
@@ -559,9 +559,9 @@ async def test_given_collection_producer_and_scalar_transformer_and_iterator_con
 
     materialized = []
 
-    def spy_materialize(g):
+    async def spy_materialize(g):
         materialized.append("called")
-        return list(g)
+        return [x async for x in g]
 
     my_pipeline = pipeline(
         name="test",

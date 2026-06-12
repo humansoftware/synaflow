@@ -2,7 +2,7 @@ from synaflow import async_run
 from typing import AsyncGenerator, AsyncIterator
 import inspect
 from typing import Generator, Iterator, List, NamedTuple
-from unittest.mock import MagicMock, call
+from unittest.mock import AsyncMock as MagicMock, call
 
 import pytest
 
@@ -11,7 +11,7 @@ from synaflow.step import step
 from synaflow.types import OnError
 
 
-async def mock_step(**params: type) -> MagicMock:
+def mock_step(**params: type) -> MagicMock:
     mock = MagicMock()
     if params:
         annotations = {name: tp for name, tp in params.items()}
@@ -39,7 +39,7 @@ async def test_given_on_error_stop_when_item_fails_then_pipeline_stops():
 
     s1 = mock_step(items=int)
     s1.side_effect = fail_on_2
-    s2 = mock_step(items=list)
+    s2 = mock_step(s1=list)
 
     my_pipeline = pipeline(
         name="test",
@@ -84,7 +84,7 @@ async def test_given_on_error_stop_when_all_mode_fails_then_pipeline_stops():
 
     s1 = mock_step(items=list)
     s1.side_effect = ValueError("boom")
-    s2 = mock_step(items=list)
+    s2 = mock_step(s1=list)
 
     my_pipeline = pipeline(
         name="test",

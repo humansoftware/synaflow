@@ -6,6 +6,7 @@ from typing import Any, Callable
 from .pipeline import PipelineDef
 from .type_compatibility import is_iterable_type, is_scalar
 from .types import OnError
+from .executor import PipelineStopException
 
 EOF_MARKER = object()
 
@@ -18,15 +19,20 @@ class AsyncTeeWrapper:
 async def _queue_to_async_gen(queue: asyncio.Queue):
     while True:
         item = await queue.get()
+        if isinstance(item, Exception):
+            raise item
         if item is EOF_MARKER:
             break
         yield item
 
 
+async def async_list(gen):
+    return [x async for x in gen]
+
 class AsyncPipelineExecutor:
     """Executes a compiled Directed Acyclic Graph (DAG) asynchronously."""
 
-    def __init__(self, pipeline: PipelineDef, materialize_fn: Callable = list):
+    def __init__(self, pipeline: PipelineDef, materialize_fn: Callable = async_list):
         self.pipeline = pipeline
         self.dag = pipeline._dag
         self.materialize_fn = materialize_fn
@@ -36,14 +42,17 @@ class AsyncPipelineExecutor:
     async def execute(self, params: Any) -> None:
         self._initialize_context_with_params(params)
 
-        levels = self.pipeline.get_execution_levels()
-        for level in levels:
-            tasks = [self._execute_node(name) for name in level]
-            if tasks:
-                await asyncio.gather(*tasks)
+        try:
+            levels = self.pipeline.get_execution_levels()
+            for level in levels:
+                tasks = [self._execute_node(name) for name in level]
+                if tasks:
+                    await asyncio.gather(*tasks)
 
-        if self.pump_tasks:
-            await asyncio.gather(*self.pump_tasks)
+            if self.pump_tasks:
+                await asyncio.gather(*self.pump_tasks)
+        except PipelineStopException:
+            pass
 
     def _initialize_context_with_params(self, params: Any) -> None:
         for field, value in params._asdict().items():
@@ -77,6 +86,9 @@ class AsyncPipelineExecutor:
                 for item in iterator:
                     for q in queues.values():
                         await q.put(item)
+        except Exception as e:
+            for q in queues.values():
+                await q.put(e)
         finally:
             for q in queues.values():
                 await q.put(EOF_MARKER)
@@ -105,7 +117,7 @@ class AsyncPipelineExecutor:
                 await self._execute_standard_node(name, fn, node)
         except Exception:
             if node.get("on_error") == OnError.STOP:
-                raise
+                raise PipelineStopException()
 
     async def _execute_each_node(
         self, name: str, fn: Callable, node: dict, first_dep_name: str
@@ -116,9 +128,13 @@ class AsyncPipelineExecutor:
         if isinstance(wrapper, AsyncTeeWrapper):
             queue = wrapper.queues[name]
         else:
-            # Create a dummy queue for scalar fallback
+            # Create a dummy queue for iterable fallback
             queue = asyncio.Queue()
-            await queue.put(wrapper)
+            if isinstance(wrapper, (list, tuple, set)):
+                for w in wrapper:
+                    await queue.put(w)
+            else:
+                await queue.put(wrapper)
             await queue.put(EOF_MARKER)
 
         async def each_gen():
@@ -135,7 +151,7 @@ class AsyncPipelineExecutor:
                         yield fn(**item_kwargs)
                 except Exception:
                     if node.get("on_error") == OnError.STOP:
-                        raise
+                        raise PipelineStopException()
 
         consumers = [
             c for c, cnode in self.dag.items() if name in cnode.get("deps", {})
@@ -164,7 +180,7 @@ class AsyncPipelineExecutor:
                 self._store_output(name, output)
         except Exception:
             if node.get("on_error") == OnError.STOP:
-                raise
+                raise PipelineStopException()
 
     async def _resolve_node_arguments(
         self, consumer_name: str, node: dict
@@ -198,7 +214,10 @@ class AsyncPipelineExecutor:
 
         origin = getattr(consumer_type, "__origin__", consumer_type)
         if origin in (list, set, tuple) or consumer_type in (list, set, tuple):
-            items = [x async for x in _queue_to_async_gen(queue)]
+            if inspect.iscoroutinefunction(self.materialize_fn):
+                items = await self.materialize_fn(_queue_to_async_gen(queue))
+            else:
+                items = self.materialize_fn(_queue_to_async_gen(queue))
             if origin is set or consumer_type is set:
                 return set(items)
             elif origin is tuple or consumer_type is tuple:
@@ -233,7 +252,7 @@ class AsyncPipelineExecutor:
 
 
 async def async_run(
-    pipeline: PipelineDef, params: Any, *, materialize: Callable = list
+    pipeline: PipelineDef, params: Any, *, materialize: Callable = async_list
 ) -> None:
     """Executes a pipeline definition asynchronously."""
     if getattr(pipeline, "requires_sync_runner", False):
