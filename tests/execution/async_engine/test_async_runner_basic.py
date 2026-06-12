@@ -116,9 +116,58 @@ from tests.execution.async_engine.corpus import PACKS as ASYNC_PACKS
 @pytest.mark.asyncio
 @pytest.mark.parametrize("pack_name, pack", ASYNC_PACKS.items())
 async def test_run_corpus_packs(pack_name, pack):
-    from synaflow.execution.async_engine.pipeline import AsyncPipelineExecutor
+    import asyncio
+    from collections.abc import AsyncGenerator, AsyncIterator
+    from typing import Any
 
-    executor = AsyncPipelineExecutor(pack.pipeline)
+    from synaflow.execution.async_engine.pipeline import AsyncPipelineExecutor
+    from synaflow.execution.async_engine.topology import (
+        AsyncStreamManager,
+        AsyncTeeWrapper,
+    )
+
+    class TestAsyncStreamManager(AsyncStreamManager):
+        def __init__(self, *args, **kwargs):
+            super().__init__(*args, **kwargs)
+            self.recorded_queues = {}
+            self.recorded_scalars = {}
+
+        def store_output(
+            self, name: str, value: Any, needs_materialize: bool = False
+        ) -> None:
+            consumers = [
+                c for c, cnode in self.dag.items() if name in cnode.get("deps", {})
+            ]
+
+            if isinstance(value, (AsyncIterator, AsyncGenerator)):
+                queues = {c: asyncio.Queue(maxsize=100) for c in consumers}
+
+                # ADD RECORDER QUEUE!
+                rec_queue = asyncio.Queue(maxsize=100)
+                queues["__test_recorder"] = rec_queue
+                self.recorded_queues[name] = rec_queue
+
+                self.context[name] = AsyncTeeWrapper(queues)
+                node = self.dag.get(name, {})
+                on_error = node.get("on_error")
+                task = asyncio.create_task(
+                    self.pump_iterator(name, value, queues, needs_materialize, on_error)
+                )
+                self.pump_tasks.append(task)
+            else:
+                self.recorded_scalars[name] = value
+                self.context[name] = value
+
+    class TestAsyncPipelineExecutor(AsyncPipelineExecutor):
+        def __init__(self, *args, **kwargs):
+            super().__init__(*args, **kwargs)
+            # Replace stream_manager
+            self.stream_manager = TestAsyncStreamManager(
+                self.pipeline, self.context, self.pump_tasks
+            )
+            self.runner.stream_manager = self.stream_manager
+
+    executor = TestAsyncPipelineExecutor(pack.pipeline)
 
     if pack.exception_match:
         import pytest
@@ -129,10 +178,23 @@ async def test_run_corpus_packs(pack_name, pack):
 
     await executor.execute(pack.input_params)
 
+    from synaflow.execution.async_engine.constants import EOF_MARKER
+
+    # Read queues to lists
+    final_results = dict(executor.stream_manager.recorded_scalars)
+    for key, q in executor.stream_manager.recorded_queues.items():
+        items = []
+        while True:
+            item = await q.get()
+            if item is EOF_MARKER:
+                break
+            items.append(item)
+        final_results[key] = items
+
     # Assert expected results
     for key, expected_val in pack.expected_results.items():
         if expected_val is not None:
-            assert executor.context.get(key) == expected_val
+            assert final_results.get(key) == expected_val
 
     # Assert expected call order if provided
     if pack.expected_call_order:

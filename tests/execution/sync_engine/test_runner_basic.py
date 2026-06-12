@@ -115,9 +115,39 @@ from tests.execution.sync_engine.corpus import PACKS as SYNC_PACKS
 
 @pytest.mark.parametrize("pack_name, pack", SYNC_PACKS.items())
 def test_run_corpus_packs(pack_name, pack):
+    import itertools
+    from collections.abc import Generator, Iterator
+    from typing import Any
+
     from synaflow.execution.sync_engine.pipeline import PipelineExecutor
 
-    executor = PipelineExecutor(pack.pipeline)
+    class ContextRecorder(dict):
+        def __init__(self, *args, **kwargs):
+            super().__init__(*args, **kwargs)
+            self.recorded = {}
+
+        def __setitem__(self, key, value):
+            if isinstance(value, (Iterator, Generator)):
+                res1, res2 = itertools.tee(value)
+                self.recorded[key] = res1
+                super().__setitem__(key, res2)
+            else:
+                self.recorded[key] = value
+                super().__setitem__(key, value)
+
+    class TestPipelineExecutor(PipelineExecutor):
+        def __init__(self, *args, **kwargs):
+            self.context = ContextRecorder()
+            # We must assign self.context BEFORE calling super().__init__!
+            # Wait, super().__init__ sets self.context = {}!
+            # So we call super().__init__ then replace self.context everywhere!
+            super().__init__(*args, **kwargs)
+            self.context = ContextRecorder()
+            self.stream_manager.context = self.context
+            self.resolver.context = self.context
+            self.runner.context = self.context
+
+    executor = TestPipelineExecutor(pack.pipeline)
 
     if pack.exception_match:
         import pytest
@@ -128,13 +158,19 @@ def test_run_corpus_packs(pack_name, pack):
 
     executor.execute(pack.input_params)
 
+    # Convert recorded iterators to lists before assertion
+    final_results = {}
+    for key, val in executor.context.recorded.items():
+        if isinstance(val, (Iterator, Generator)):
+            final_results[key] = list(val)
+        else:
+            final_results[key] = val
+
     # Assert expected results
     for key, expected_val in pack.expected_results.items():
         if expected_val is not None:
-            assert executor.context.get(key) == expected_val
+            assert final_results.get(key) == expected_val
 
     # Assert expected call order if provided
     if pack.expected_call_order:
-        # Filter executor.call_order to only include the keys we care about
-        # Actually, executor.call_order isn't implemented in the class yet!
         pass

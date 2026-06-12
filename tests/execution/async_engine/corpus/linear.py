@@ -38,8 +38,8 @@ pack = PipelinePack(
     pipeline=linear_pipeline,
     input_params=LinearParams(count=3),
     expected_results={
-        "gen": None,
-        "transformer": None,
+        "gen": [0, 1, 2],
+        "transformer": [0, 2, 4],
         "consumer": None,
     },
     expected_call_order=["gen", "transformer", "consumer"],

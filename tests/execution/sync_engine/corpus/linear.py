@@ -37,8 +37,8 @@ pack = PipelinePack(
     pipeline=linear_pipeline,
     input_params=LinearParams(count=3),
     expected_results={
-        "gen": None,  # Lazy generators usually don't have results in context if fully consumed, or maybe they do?
-        "transformer": None,
+        "gen": [0, 1, 2],
+        "transformer": [0, 2, 4],
         "consumer": None,
     },
     expected_call_order=["gen", "transformer", "consumer"],
