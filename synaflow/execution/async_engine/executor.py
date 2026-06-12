@@ -3,6 +3,7 @@ import inspect
 from collections.abc import AsyncGenerator, AsyncIterator, Generator, Iterator
 from typing import Any, Callable, NamedTuple
 
+from synaflow.core.exceptions import StepExecutionError
 from synaflow.core.pipeline import PipelineDef
 from synaflow.core.type_compatibility import is_iterable_type, is_scalar
 from synaflow.core.types import MaterializeContext, OnError
@@ -115,6 +116,31 @@ class AsyncPipelineExecutor:
         else:
             self.context[name] = value
 
+    async def _safe_iterate(self, name: str, iterable: Any):
+        if isinstance(iterable, (AsyncIterator, AsyncGenerator)):
+            while True:
+                try:
+                    item = await anext(iterable)
+                    yield item
+                except StopAsyncIteration:
+                    break
+                except Exception as e:
+                    if isinstance(e, StepExecutionError):
+                        raise e
+                    raise StepExecutionError(f"Error iterating step '{name}'") from e
+        else:
+            iterator = iter(iterable)
+            while True:
+                try:
+                    item = next(iterator)
+                    yield item
+                except StopIteration:
+                    break
+                except Exception as e:
+                    if isinstance(e, StepExecutionError):
+                        raise e
+                    raise StepExecutionError(f"Error iterating step '{name}'") from e
+
     async def _pump_iterator(
         self,
         name: str,
@@ -124,26 +150,17 @@ class AsyncPipelineExecutor:
         on_error: Any = None,
     ) -> None:
         try:
+            safe_iterator = self._safe_iterate(name, iterator)
             if needs_materialize:
-                items = await self._apply_materializer(name, iterator)
-                if isinstance(items, (AsyncIterator, AsyncGenerator)):
-                    async for item in items:
-                        for q in queues.values():
-                            await q.put(item)
-                else:
-                    for item in items:
-                        for q in queues.values():
-                            await q.put(item)
+                items = await self._apply_materializer(name, safe_iterator)
+                async for item in self._safe_iterate(name, items):
+                    for q in queues.values():
+                        await q.put(item)
             else:
-                if isinstance(iterator, (AsyncIterator, AsyncGenerator)):
-                    async for item in iterator:
-                        for q in queues.values():
-                            await q.put(item)
-                else:
-                    for item in iterator:
-                        for q in queues.values():
-                            await q.put(item)
-        except Exception as e:
+                async for item in safe_iterator:
+                    for q in queues.values():
+                        await q.put(item)
+        except StepExecutionError as e:
             if on_error == OnError.STOP:
                 for q in queues.values():
                     await q.put(PipelineStopException())
@@ -176,7 +193,7 @@ class AsyncPipelineExecutor:
                 await self._execute_each_node(name, fn, node, first_dep_name)
             else:
                 await self._execute_standard_node(name, fn, node)
-        except Exception:
+        except StepExecutionError:
             if node.get("on_error") == OnError.STOP:
                 raise PipelineStopException()
 
@@ -212,9 +229,11 @@ class AsyncPipelineExecutor:
                         yield await fn(**item_kwargs)
                     else:
                         yield fn(**item_kwargs)
-                except Exception:
+                except Exception as e:
                     if node.get("on_error") == OnError.STOP:
-                        raise PipelineStopException()
+                        raise PipelineStopException() from e
+                    # For CONTINUE, we just log and skip this item
+                    continue
 
         consumers = [
             c for c, cnode in self.dag.items() if name in cnode.get("deps", {})
@@ -237,11 +256,14 @@ class AsyncPipelineExecutor:
                 output = await fn(**kwargs)
             else:
                 output = fn(**kwargs)
+        except Exception as e:
+            raise StepExecutionError(f"Error executing step '{name}'") from e
 
+        try:
             if name and not name.startswith("_"):
                 needs_materialize = node.get("needs_materialize", False)
                 self._store_output(name, output, needs_materialize)
-        except Exception:
+        except StepExecutionError:
             if node.get("on_error") == OnError.STOP:
                 raise PipelineStopException()
 
