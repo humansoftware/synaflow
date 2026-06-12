@@ -27,8 +27,15 @@ def get_test_functions_in_dir(directory: Path) -> set[str]:
 
 
 def test_sync_async_test_parity():
-    sync_dir = Path(__file__).parent.parent / "test_sync"
-    async_dir = Path(__file__).parent.parent / "test_async"
+    sync_dir = Path(__file__).parent.parent / "execution" / "sync_engine"
+    async_dir = Path(__file__).parent.parent / "execution" / "async_engine"
+
+    assert (
+        sync_dir.exists() and sync_dir.is_dir()
+    ), f"Sync test directory not found: {sync_dir}"
+    assert (
+        async_dir.exists() and async_dir.is_dir()
+    ), f"Async test directory not found: {async_dir}"
 
     sync_tests = get_test_functions_in_dir(sync_dir)
     async_tests = get_test_functions_in_dir(async_dir)

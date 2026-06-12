@@ -12,7 +12,8 @@ class PipelineDef:
 
     name: str
     params: Any
-    steps: list[Step]
+    steps: list[Step | Any]  # Allow IncludeStep
+    exports: str | None = None
     default_materializer_factory: Callable | None = None
     _dag: dict[str, dict[str, Any]] = field(default_factory=dict)
     _compiled: bool = False
@@ -40,6 +41,8 @@ class PipelineDef:
                 "fn": node["fn"].__name__ if node["fn"] else None,
                 "on_error": node["on_error"].value if node["on_error"] else None,
                 "needs_materialize": node["needs_materialize"],
+                "pipeline": node.get("pipeline"),
+                "parent_pipeline": node.get("parent_pipeline"),
             }
         return serialized
 
