@@ -36,7 +36,7 @@ linear_pipeline = pipeline(
 pack = PipelinePack(
     pipeline=linear_pipeline,
     input_params=LinearParams(count=3),
-    expected_results={
+    step_results={
         "gen": [0, 1, 2],
         "transformer": [0, 2, 4],
         "consumer": None,

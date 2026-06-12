@@ -192,7 +192,7 @@ async def test_run_corpus_packs(pack_name, pack):
         final_results[key] = items
 
     # Assert expected results
-    for key, expected_val in pack.expected_results.items():
+    for key, expected_val in pack.step_results.items():
         if expected_val is not None:
             assert final_results.get(key) == expected_val
 

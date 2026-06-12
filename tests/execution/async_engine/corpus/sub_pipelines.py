@@ -50,7 +50,7 @@ from tests.pipeline_pack import PipelinePack
 pack = PipelinePack(
     pipeline=pipe,
     input_params=AParams(raw_texts=["hi", "world", "synaflow"]),
-    expected_results={
+    step_results={
         "my_text_processor__adapter": [
             BParams(text="hi"),
             BParams(text="world"),

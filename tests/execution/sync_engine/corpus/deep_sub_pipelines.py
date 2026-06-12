@@ -77,7 +77,7 @@ pipe_l1 = pipeline(
 pack = PipelinePack(
     pipeline=pipe_l1,
     input_params=Level1Params(values=[10, 20]),
-    expected_results={
+    step_results={
         "l2_each__adapter": [Level2Params(y=10), Level2Params(y=20)],
         "l2_single__adapter": Level2Params(y=10),
         "l2_each__l3_res__adapter": [Level3Params(x=11), Level3Params(x=21)],

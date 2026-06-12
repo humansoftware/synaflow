@@ -39,7 +39,7 @@ diamond_pipeline = pipeline(
 pack = PipelinePack(
     pipeline=diamond_pipeline,
     input_params=DiamondParams(base_val=10),
-    expected_results={
+    step_results={
         "start": 10,
         "branch_a": 11,
         "branch_b": 12,

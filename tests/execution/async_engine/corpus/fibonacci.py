@@ -41,7 +41,7 @@ pipeline_def = pipeline(
 pack = PipelinePack(
     pipeline=pipeline_def,
     input_params=FibonacciParams(count=10),
-    expected_results={
+    step_results={
         "fibonacci_generator": [0, 1, 1, 2, 3, 5, 8, 13, 21, 34],
         "square_numbers": [0, 1, 1, 4, 9, 25, 64, 169, 441, 1156],
         "consumer": None,

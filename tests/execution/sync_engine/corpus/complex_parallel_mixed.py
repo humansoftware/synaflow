@@ -54,7 +54,7 @@ pipeline_def = pipeline(
 pack = PipelinePack(
     pipeline=pipeline_def,
     input_params=ComplexParallelMixedParams(base=1),
-    expected_results={
+    step_results={
         "step1": [1, 2, 3, 4, 5],
         "step2": [10, 20, 30, 40, 50],
         "step3": [11, 21, 31, 41, 51],
