@@ -1,12 +1,14 @@
 import asyncio
 import inspect
 from collections.abc import AsyncGenerator, AsyncIterator, Generator, Iterator
-from typing import Any, Callable
+from typing import Any, Callable, NamedTuple
 
-from .executor import PipelineStopException
-from .pipeline import PipelineDef
-from .type_compatibility import is_iterable_type, is_scalar
-from .types import OnError
+from synaflow.core.exceptions import StepExecutionError
+from synaflow.core.pipeline import PipelineDef
+from synaflow.core.type_compatibility import is_iterable_type, is_scalar
+from synaflow.core.types import MaterializeContext, OnError
+from synaflow.execution.sync_engine.executor import PipelineStopException
+from synaflow.execution.sync_engine.materializer import SyncMaterializerFactory
 
 EOF_MARKER = object()
 
@@ -33,12 +35,42 @@ async def async_list(gen):
 class AsyncPipelineExecutor:
     """Executes a compiled Directed Acyclic Graph (DAG) asynchronously."""
 
-    def __init__(self, pipeline: PipelineDef, materialize_fn: Callable = async_list):
+    def __init__(self, pipeline: PipelineDef):
         self.pipeline = pipeline
         self.dag = pipeline._dag
-        self.materialize_fn = materialize_fn
         self.context: dict[str, Any] = {}
         self.pump_tasks: list[asyncio.Task] = []
+
+    async def _apply_materializer(self, name: str, iterator: Any) -> Any:
+        node = self.dag.get(name)
+        step_def = None
+        if node and node.get("fn"):
+            step_def = next((s for s in self.pipeline.steps if s.name == name), None)
+
+        mat = getattr(step_def, "materializer", None) if step_def else None
+
+        if mat is None:
+            mat = self.pipeline.default_materializer_factory
+
+        if mat is None:
+            return await async_list(iterator)
+
+        sig = inspect.signature(mat)
+        if (
+            len(sig.parameters) > 1
+            or "ctx" in sig.parameters
+            or "context" in sig.parameters
+        ):
+            ctx = MaterializeContext(
+                pipeline_name=self.pipeline.name,
+                dataset_name=name,
+                item_type=node.get("output") if node else Any,
+            )
+            mat = mat(ctx)
+
+        if inspect.iscoroutinefunction(mat):
+            return await mat(iterator)
+        return mat(iterator)
 
     async def execute(self, params: Any) -> None:
         self._initialize_context_with_params(params)
@@ -74,7 +106,9 @@ class AsyncPipelineExecutor:
                 node = self.dag.get(name, {})
                 on_error = node.get("on_error")
                 task = asyncio.create_task(
-                    self._pump_iterator(value, queues, needs_materialize, on_error)
+                    self._pump_iterator(
+                        name, value, queues, needs_materialize, on_error
+                    )
                 )
                 self.pump_tasks.append(task)
             else:
@@ -82,35 +116,51 @@ class AsyncPipelineExecutor:
         else:
             self.context[name] = value
 
+    async def _safe_iterate(self, name: str, iterable: Any):
+        if isinstance(iterable, (AsyncIterator, AsyncGenerator)):
+            while True:
+                try:
+                    item = await anext(iterable)
+                    yield item
+                except StopAsyncIteration:
+                    break
+                except Exception as e:
+                    if isinstance(e, StepExecutionError):
+                        raise e
+                    raise StepExecutionError(f"Error iterating step '{name}'") from e
+        else:
+            iterator = iter(iterable)
+            while True:
+                try:
+                    item = next(iterator)
+                    yield item
+                except StopIteration:
+                    break
+                except Exception as e:
+                    if isinstance(e, StepExecutionError):
+                        raise e
+                    raise StepExecutionError(f"Error iterating step '{name}'") from e
+
     async def _pump_iterator(
         self,
+        name: str,
         iterator: Any,
         queues: dict[str, asyncio.Queue],
         needs_materialize: bool = False,
         on_error: Any = None,
     ) -> None:
         try:
+            safe_iterator = self._safe_iterate(name, iterator)
             if needs_materialize:
-                items = []
-                if isinstance(iterator, (AsyncIterator, AsyncGenerator)):
-                    async for item in iterator:
-                        items.append(item)
-                else:
-                    for item in iterator:
-                        items.append(item)
-                for item in items:
+                items = await self._apply_materializer(name, safe_iterator)
+                async for item in self._safe_iterate(name, items):
                     for q in queues.values():
                         await q.put(item)
             else:
-                if isinstance(iterator, (AsyncIterator, AsyncGenerator)):
-                    async for item in iterator:
-                        for q in queues.values():
-                            await q.put(item)
-                else:
-                    for item in iterator:
-                        for q in queues.values():
-                            await q.put(item)
-        except Exception as e:
+                async for item in safe_iterator:
+                    for q in queues.values():
+                        await q.put(item)
+        except StepExecutionError as e:
             if on_error == OnError.STOP:
                 for q in queues.values():
                     await q.put(PipelineStopException())
@@ -143,7 +193,7 @@ class AsyncPipelineExecutor:
                 await self._execute_each_node(name, fn, node, first_dep_name)
             else:
                 await self._execute_standard_node(name, fn, node)
-        except Exception:
+        except StepExecutionError:
             if node.get("on_error") == OnError.STOP:
                 raise PipelineStopException()
 
@@ -179,9 +229,11 @@ class AsyncPipelineExecutor:
                         yield await fn(**item_kwargs)
                     else:
                         yield fn(**item_kwargs)
-                except Exception:
+                except Exception as e:
                     if node.get("on_error") == OnError.STOP:
-                        raise PipelineStopException()
+                        raise PipelineStopException() from e
+                    # For CONTINUE, we just log and skip this item
+                    continue
 
         consumers = [
             c for c, cnode in self.dag.items() if name in cnode.get("deps", {})
@@ -204,11 +256,14 @@ class AsyncPipelineExecutor:
                 output = await fn(**kwargs)
             else:
                 output = fn(**kwargs)
+        except Exception as e:
+            raise StepExecutionError(f"Error executing step '{name}'") from e
 
+        try:
             if name and not name.startswith("_"):
                 needs_materialize = node.get("needs_materialize", False)
                 self._store_output(name, output, needs_materialize)
-        except Exception:
+        except StepExecutionError:
             if node.get("on_error") == OnError.STOP:
                 raise PipelineStopException()
 
@@ -244,10 +299,7 @@ class AsyncPipelineExecutor:
 
         origin = getattr(consumer_type, "__origin__", consumer_type)
         if origin in (list, set, tuple) or consumer_type in (list, set, tuple):
-            if inspect.iscoroutinefunction(self.materialize_fn):
-                items = await self.materialize_fn(_queue_to_async_gen(queue))
-            else:
-                items = self.materialize_fn(_queue_to_async_gen(queue))
+            items = await async_list(_queue_to_async_gen(queue))
             if origin is set or consumer_type is set:
                 return set(items)
             elif origin is tuple or consumer_type is tuple:
@@ -287,14 +339,12 @@ class AsyncPipelineExecutor:
         return origin in (AsyncIterator, AsyncGenerator)
 
 
-async def async_run(
-    pipeline: PipelineDef, params: Any, *, materialize: Callable = async_list
-) -> None:
+async def async_run(pipeline: PipelineDef, params: Any) -> None:
     """Executes a pipeline definition asynchronously."""
     if getattr(pipeline, "requires_sync_runner", False):
         raise RuntimeError(
             "This pipeline contains synchronous streams (Iterator). It must be executed with run() or migrated to AsyncIterator."
         )
 
-    executor = AsyncPipelineExecutor(pipeline, materialize)
+    executor = AsyncPipelineExecutor(pipeline)
     await executor.execute(params)

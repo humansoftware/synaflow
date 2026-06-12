@@ -1,8 +1,8 @@
 import pytest
 
-from synaflow.pipeline import PipelineDef
-from tests.test_async.corpus import EXAMPLES as ASYNC_EXAMPLES
-from tests.test_sync.corpus import EXAMPLES as SYNC_EXAMPLES
+from synaflow.core.pipeline import PipelineDef
+from tests.execution.async_engine.corpus import EXAMPLES as ASYNC_EXAMPLES
+from tests.execution.sync_engine.corpus import EXAMPLES as SYNC_EXAMPLES
 
 EXAMPLES = {**SYNC_EXAMPLES, **ASYNC_EXAMPLES}
 

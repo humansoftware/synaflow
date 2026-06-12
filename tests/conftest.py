@@ -2,7 +2,7 @@ import asyncio
 
 import pytest
 
-from synaflow.executor import run as sync_run
+from synaflow.execution.sync_engine.executor import run as sync_run
 
 
 @pytest.fixture(params=["sync"])
@@ -16,7 +16,7 @@ def run_pipeline(request):
     elif request.param == "async":
 
         def wrapper(pipeline, params, **kwargs):
-            from synaflow.async_executor import async_run
+            from synaflow.execution.async_engine.executor import async_run
 
             return asyncio.run(async_run(pipeline, params, **kwargs))
 

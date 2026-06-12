@@ -5,10 +5,8 @@ from unittest.mock import call
 
 import pytest
 
-from synaflow import async_run
-from synaflow.pipeline import pipeline
-from synaflow.step import step
-from synaflow.types import OnError
+from synaflow import async_run, pipeline, step
+from synaflow.core.types import OnError
 
 
 def mock_step(return_annotation=inspect.Parameter.empty, **params: type) -> MagicMock:

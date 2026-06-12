@@ -1,23 +1,15 @@
-"""
-Pipeline Engine
-
-A lightweight, robust engine for defining and executing typed Directed Acyclic Graphs (DAGs).
-This module defines the public interface for clients.
-"""
-
-from .async_executor import async_run
-from .executor import run
-from .pipeline import PipelineDef, pipeline
-from .step import Step, step
-from .types import OnError, StepParams
+from .core.pipeline import pipeline
+from .core.step import step
+from .core.types import OnError, StepParams, StepResult
+from .execution.async_engine.executor import async_run
+from .execution.sync_engine.executor import run
 
 __all__ = [
-    "PipelineDef",
     "pipeline",
-    "Step",
     "step",
-    "OnError",
-    "StepParams",
     "run",
     "async_run",
+    "OnError",
+    "StepParams",
+    "StepResult",
 ]

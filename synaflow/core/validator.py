@@ -16,7 +16,10 @@ from .types import OnError
 
 
 def validate_and_build_dag(
-    name: str, steps: list[Step], params: type[NamedTuple]
+    name: str,
+    steps: list[Step],
+    params: type[NamedTuple],
+    default_materializer_factory: Any = None,
 ) -> dict[str, dict]:
     """
     Validates a list of steps and pipeline parameters and compiles them into a
@@ -39,12 +42,14 @@ def validate_and_build_dag(
 
     _add_parameter_nodes_to_dag(dag, produced)
     _compute_needs_materialize(dag)
-    _validate_sync_async_consistency(dag, name)
+    _validate_sync_async_consistency(dag, name, steps, default_materializer_factory)
 
     return dag
 
 
-def _validate_sync_async_consistency(dag: dict, pipeline_name: str) -> None:
+def _validate_sync_async_consistency(
+    dag: dict, pipeline_name: str, steps: list[Step], default_materializer_factory: Any
+) -> None:
     has_sync = False
     has_async = False
 
@@ -66,6 +71,49 @@ def _validate_sync_async_consistency(dag: dict, pipeline_name: str) -> None:
                 has_sync = True
             if is_async_stream_type(dep_type):
                 has_async = True
+
+    has_async_materializer = False
+    has_sync_materializer = False
+
+    def _is_async_mat(m: Any) -> bool:
+        sig = inspect.signature(m)
+        if (
+            len(sig.parameters) > 1
+            or "ctx" in sig.parameters
+            or "context" in sig.parameters
+        ):
+            from .types import MaterializeContext
+
+            ctx = MaterializeContext(
+                pipeline_name=pipeline_name, dataset_name="validator", item_type=Any
+            )
+            m = m(ctx)
+        return inspect.iscoroutinefunction(m)
+
+    if default_materializer_factory:
+        if _is_async_mat(default_materializer_factory):
+            has_async_materializer = True
+        else:
+            has_sync_materializer = True
+
+    for step in steps:
+        if getattr(step, "materializer", None):
+            if _is_async_mat(step.materializer):
+                has_async_materializer = True
+            else:
+                has_sync_materializer = True
+
+    if has_sync and has_async_materializer:
+        raise ValueError(
+            f"Pipeline '{pipeline_name}' is UNRUNNABLE. It contains synchronous streams "
+            "but has an asynchronous materializer."
+        )
+
+    if has_async and has_sync_materializer:
+        raise ValueError(
+            f"Pipeline '{pipeline_name}' is UNRUNNABLE. It contains asynchronous streams "
+            "but has a synchronous materializer."
+        )
 
     if has_sync and has_async:
         raise ValueError(

@@ -2,8 +2,7 @@ from typing import NamedTuple
 
 import pytest
 
-from synaflow.pipeline import pipeline
-from synaflow.step import step
+from synaflow import pipeline, step
 
 
 def test_given_output_compatible_but_executed_after_when_constructed_then_raises():

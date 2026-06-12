@@ -1,5 +1,5 @@
-from dataclasses import dataclass
-from typing import Any
+from dataclasses import dataclass, field
+from typing import Any, Callable
 
 from .step import Step
 
@@ -13,12 +13,17 @@ class PipelineDef:
     name: str
     params: Any
     steps: list[Step]
+    default_materializer_factory: Callable | None = None
+    _dag: dict[str, dict[str, Any]] = field(default_factory=dict)
+    _compiled: bool = False
     description: str = ""
 
     def __post_init__(self) -> None:
         from .validator import validate_and_build_dag
 
-        self._dag = validate_and_build_dag(self.name, self.steps, self.params)
+        self._dag = validate_and_build_dag(
+            self.name, self.steps, self.params, self.default_materializer_factory
+        )
         metadata = self._dag.pop("__metadata__", {})
         self.requires_sync_runner = metadata.get("requires_sync_runner", False)
         self.requires_async_runner = metadata.get("requires_async_runner", False)

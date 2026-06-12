@@ -5,10 +5,8 @@ from unittest.mock import call
 
 import pytest
 
-from synaflow import async_run
-from synaflow.pipeline import pipeline
-from synaflow.step import step
-from synaflow.types import OnError
+from synaflow import async_run, pipeline, step
+from synaflow.core.types import OnError
 
 
 def mock_step(**params: type) -> MagicMock:
@@ -96,9 +94,8 @@ async def test_given_sync_stream_pipeline_when_run_asynchronously_then_raises():
 
     import pytest
 
-    from synaflow.async_executor import async_run
-    from synaflow.pipeline import pipeline
-    from synaflow.step import step
+    from synaflow import pipeline, step
+    from synaflow.execution.async_engine.executor import async_run
 
     class P(NamedTuple):
         items: list[int] = [1, 2, 3]
