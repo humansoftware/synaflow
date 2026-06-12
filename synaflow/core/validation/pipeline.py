@@ -38,7 +38,7 @@ class PipelineValidator:
 
         from .macro_expansion import expand_macros
 
-        expanded_steps = expand_macros(steps)
+        expanded_steps = expand_macros(steps, current_pipeline_name=pipeline_name)
 
         produced = DependencyValidator.initialize_parameters(params)
 

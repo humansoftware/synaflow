@@ -48,7 +48,8 @@ class StepValidator:
             "fn": step.fn,
             "on_error": step.on_error,
             "needs_materialize": needs_materialize,
-            "sub_pipeline": step.sub_pipeline,
+            "pipeline": getattr(step, "pipeline", pipeline_name),
+            "parent_pipeline": getattr(step, "parent_pipeline", None),
         }
 
     @staticmethod

@@ -1,28 +1,33 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Callable
+from typing import TYPE_CHECKING, Any, Callable
+
+if TYPE_CHECKING:
+    from .pipeline import PipelineDef
 
 from .types import OnError, StepParams
 
 
 @dataclass
-class Step:
+class BaseStep:
     name: str
     fn: Callable
+
+
+@dataclass
+class Step(BaseStep):
     on_error: OnError = OnError.CONTINUE
     params: StepParams | None = None
     materializer: Callable | None = None
     description: str = ""
-    sub_pipeline: str | None = None
+    pipeline: str | None = None
+    parent_pipeline: str | None = None
 
 
 @dataclass
-class IncludeStep:
-    name: str
-    pipeline: Any  # Cannot import PipelineDef due to circular imports, typed as Any
-    fn: Callable
-    on_error: OnError = OnError.STOP
+class IncludeStep(BaseStep):
+    pipeline: PipelineDef = None  # type: ignore
     description: str = ""
 
 

@@ -5,20 +5,34 @@ from typing import Any
 from synaflow.core.step import IncludeStep, Step
 
 
-def expand_macros(steps: list[Any]) -> list[Step]:
+def expand_macros(
+    steps: list[Any],
+    current_pipeline_name: str | None = None,
+    parent_chain: str | None = None,
+) -> list[Step]:
     expanded = []
     for step in steps:
         if isinstance(step, IncludeStep):
-            expanded.extend(_expand_include(step))
+            expanded.extend(_expand_include(step, current_pipeline_name, parent_chain))
         else:
             expanded.append(step)
     return expanded
 
 
-def _expand_include(include_step: IncludeStep) -> list[Step]:
+def _expand_include(
+    include_step: IncludeStep,
+    current_pipeline_name: str | None = None,
+    parent_chain: str | None = None,
+) -> list[Step]:
     prefix = include_step.name
     sub_pipeline = include_step.pipeline
     adapter_name = f"{prefix}__adapter"
+
+    new_parent_chain = (
+        current_pipeline_name
+        if not parent_chain
+        else f"{parent_chain}.{current_pipeline_name}"
+    )
 
     if not sub_pipeline.exports:
         raise ValueError(
@@ -32,15 +46,16 @@ def _expand_include(include_step: IncludeStep) -> list[Step]:
             f"Include step '{prefix}' must have a return type hint matching '{sub_pipeline.params.__name__}' or an Iterable of it."
         )
 
-    # Check if the return annotation matches the sub_pipeline.params (ignoring Generic/Iterable wrappers for now, or just trusting it exists and isn't empty)
-    # For a truly strict validation we'd unwrap Iterable/Iterator, but ensuring it's not empty is a good start.
-
     # 1. The adapter step
+    from synaflow.core.types import OnError
+
     adapter_step = Step(
         name=adapter_name,
         fn=include_step.fn,
-        on_error=include_step.on_error,
+        on_error=OnError.STOP,
         description=include_step.description,
+        pipeline=current_pipeline_name,
+        parent_pipeline=parent_chain,
     )
 
     expanded = [adapter_step]
@@ -52,7 +67,11 @@ def _expand_include(include_step: IncludeStep) -> list[Step]:
         b_params_fields = []
 
     # 3. Expand the sub-pipeline's steps
-    sub_steps = expand_macros(sub_pipeline.steps)  # Recursive!
+    sub_steps = expand_macros(
+        sub_pipeline.steps,
+        current_pipeline_name=sub_pipeline.name,
+        parent_chain=new_parent_chain,
+    )
 
     for sub_step in sub_steps:
         wrapped_fn = _wrap_sub_step_fn(
@@ -72,7 +91,8 @@ def _expand_include(include_step: IncludeStep) -> list[Step]:
                 params=sub_step.params,
                 materializer=sub_step.materializer,
                 description=sub_step.description,
-                sub_pipeline=sub_pipeline.name,
+                pipeline=sub_pipeline.name,
+                parent_pipeline=new_parent_chain,
             )
         )
 
