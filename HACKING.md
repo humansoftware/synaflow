@@ -66,6 +66,13 @@ Example: `assert [v for k,v in call_order if k == "B"] == [1, 2, 3]`
 All structural compilation and DAG validation logic is tested against our `tests/corpus/`. 
 If you invent a new topological challenge (e.g., a complex fan-out/fan-in loop), add it to the `corpus` directory. The automated parameterized suite in `test_corpus_validation.py` will automatically pick it up and ensure the DAG compiler never breaks on your edge case.
 
+### Corpus vs. Unit Tests: What goes where?
+When contributing a new test, ask yourself: **"What exactly am I testing?"** and consider the trade-offs:
+- **Add to `tests/corpus/`** when you want to validate a **macroscopic DAG topology** (e.g., a new shape of nodes like "diamond within a diamond"). Adding to the corpus is highly leveraged because it automatically tests DAG compilation, cycle detection, and topological sorting across the entire framework.
+- **Write a specific Unit/Contract Test** when you want to validate a **microscopic behavioral rule** (e.g., "how does the runner behave if a consumer expects an `Iterator[int]` but the generator yields a `string`?"). Specific test files (like `test_runner_materialization.py`) should be used for testing execution semantics, error handling (`on_error`), and edge cases of type compatibility.
+
+Adding everything to the corpus would make execution tests slow and confusing, while adding pure topological shapes to unit tests creates unnecessary boilerplate. Separate the "shape of the graph" from the "rules of the engine".
+
 ## 5. Coding Style
 
 We use `pre-commit` to enforce styling automatically, but keep the following in mind:
