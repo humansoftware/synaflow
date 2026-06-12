@@ -2,6 +2,53 @@
 
 
 
+## v0.5.1 (2026-06-12)
+
+### Chore
+
+* chore: remove __pycache__ and add to gitignore ([`62810dc`](https://github.com/humansoftware/synaflow/commit/62810dce66e841ec59c2323571acb970d071c9a4))
+
+* chore: sync uv.lock version bump ([`1900d63`](https://github.com/humansoftware/synaflow/commit/1900d63efba19d4c4311963d2f14873399fd8877))
+
+* chore: remove throwaway automation scripts ([`27c1579`](https://github.com/humansoftware/synaflow/commit/27c1579594990caace19c010eed2d3bf0c1d4774))
+
+* chore: fix isort and black conflict and format files ([`ba72755`](https://github.com/humansoftware/synaflow/commit/ba7275597b91bd02cc87e9b770ad342ae35dcba2))
+
+### Documentation
+
+* docs: append sub-pipelines to roadmap ([`fbd8f09`](https://github.com/humansoftware/synaflow/commit/fbd8f095c3d97fb03a728bcb5012e13771f583d4))
+
+* docs: add project roadmap ([`6025b45`](https://github.com/humansoftware/synaflow/commit/6025b45cc92e56fad4478bd2c70a7a16a7132ece))
+
+### Fix
+
+* fix: change default OnError to CONTINUE ([`9c59894`](https://github.com/humansoftware/synaflow/commit/9c598942e0db0b834ca364607085b19d36920e61))
+
+* fix: force materialization for steps using OnError.STOP ([`5df1c4b`](https://github.com/humansoftware/synaflow/commit/5df1c4beedaf973d7017139982dac6c340303033))
+
+### Test
+
+* test: add param injection tests for intermediate steps ([`2637aac`](https://github.com/humansoftware/synaflow/commit/2637aac2f756c046624ed22155a53fdc8ac4796e))
+
+* test: improve OnError.STOP validation test ([`9ce3532`](https://github.com/humansoftware/synaflow/commit/9ce3532d0b1d8cef131e8e01009803c71bfcddf8))
+
+* test: add downstream verification for OnError.CONTINUE ([`c57dbb3`](https://github.com/humansoftware/synaflow/commit/c57dbb3759506aa07dad9c8c4c99381e7dda8c61))
+
+* test: set asyncio_mode auto and remove manual async markers ([`e44b6ca`](https://github.com/humansoftware/synaflow/commit/e44b6caa5ecf577ed7550cdf6fe8ecf32a112de0))
+
+* test: add parity test and gitignore ([`4291756`](https://github.com/humansoftware/synaflow/commit/4291756b6d3ef3b1b2aec64cc9126a06f97c11f6))
+
+### Unknown
+
+* Merge pull request #2 from humansoftware/feature/roadmap
+
+fix: Materialization bug on OnError.STOP ([`0b38bb7`](https://github.com/humansoftware/synaflow/commit/0b38bb775530145c544f7641730bfdb43ee31133))
+
+* Merge pull request #1 from humansoftware/feature/roadmap
+
+docs: add project roadmap ([`3d3f3a4`](https://github.com/humansoftware/synaflow/commit/3d3f3a4a38081cc8ecf017b18cbf71e710dd6259))
+
+
 ## v0.5.0 (2026-06-12)
 
 ### Feature
