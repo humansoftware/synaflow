@@ -2,6 +2,53 @@
 
 
 
+## v0.6.0 (2026-06-12)
+
+### Documentation
+
+* docs: add SOLID principles explanation to design philosophy ([`6051595`](https://github.com/humansoftware/synaflow/commit/60515958cd331546b4d0eeced37e791f77200cd7))
+
+* docs: update README with name explanation and philosophy link ([`faaebfe`](https://github.com/humansoftware/synaflow/commit/faaebfe35f62588e68ad3196eaa81972ad5bf876))
+
+* docs: update design philosophy with DAG orchestrator agnosticism ([`c8cc320`](https://github.com/humansoftware/synaflow/commit/c8cc320f9f7368d77bf5527d91fd0b9482c33245))
+
+* docs: update design philosophy with Core Mission and Event-Based rationale ([`98c1cc1`](https://github.com/humansoftware/synaflow/commit/98c1cc1ccbdd99481d6976b51a2ef5050cd5c9bd))
+
+* docs: add design philosophy document ([`a91986f`](https://github.com/humansoftware/synaflow/commit/a91986fc966580393ca8f36b96d93d1970d286cf))
+
+### Feature
+
+* feat: validate materializer compatibility and fix missing context import ([`7fe46ab`](https://github.com/humansoftware/synaflow/commit/7fe46ab43304d85bf2a33dd856ae21578c3f90f3))
+
+* feat: implement Materializer protocol and rewrite materialization tests ([`e40005c`](https://github.com/humansoftware/synaflow/commit/e40005c6c7b7fb98cf9d49a6e1ed3827fd4a7754))
+
+* feat: add MaterializeContext and MaterializerFactory to types ([`881bf10`](https://github.com/humansoftware/synaflow/commit/881bf1009b2448f8697152222a093cf9db9d284b))
+
+### Fix
+
+* fix: isolate framework exceptions from on_error swallowing using StepExecutionError ([`81d9341`](https://github.com/humansoftware/synaflow/commit/81d9341cbca9621d674b8001d422ab2389f8c585))
+
+### Refactor
+
+* refactor: restructure modules into core, sync_engine, and async_engine ([`159e479`](https://github.com/humansoftware/synaflow/commit/159e47958f3472e3a920f7d54dae2ba870786f91))
+
+### Test
+
+* test: add coverage for step-level overrides and factory context injection ([`81d1996`](https://github.com/humansoftware/synaflow/commit/81d19969057a9fb9373d7abfb67c5cc1e84d5499))
+
+### Unknown
+
+* Merge pull request #3 from humansoftware/feature/decorators_and_materializers
+
+feat: Support Custom Materializers and Update Design Philosophy ([`7d53762`](https://github.com/humansoftware/synaflow/commit/7d537629022266a811afb5de9db9cb5134c66c39))
+
+* types: move materializer types to sync and async engines and simplify unions ([`8f1d31c`](https://github.com/humansoftware/synaflow/commit/8f1d31c6a6881cde0abdc0780b1740574d89eb09))
+
+* types: extract materializer types into dedicated synaflow/core/materializer.py module ([`dbf924a`](https://github.com/humansoftware/synaflow/commit/dbf924a9a61e0efc8d8904892f97bc0376e553dc))
+
+* types: update Materializer type hint to support AsyncIterator and Awaitable ([`5d57ef4`](https://github.com/humansoftware/synaflow/commit/5d57ef45fcd686c7d625ece4400c0d2c5bd6a82c))
+
+
 ## v0.5.1 (2026-06-12)
 
 ### Chore
