@@ -57,9 +57,12 @@ class AsyncPipelineExecutor:
 
     def _initialize_context_with_params(self, params: Any) -> None:
         for field, value in params._asdict().items():
-            self._store_output(field, value)
+            needs_materialize = self.dag.get(field, {}).get("needs_materialize", False)
+            self._store_output(field, value, needs_materialize)
 
-    def _store_output(self, name: str, value: Any) -> None:
+    def _store_output(
+        self, name: str, value: Any, needs_materialize: bool = False
+    ) -> None:
         consumers = [
             c for c, cnode in self.dag.items() if name in cnode.get("deps", {})
         ]
@@ -68,7 +71,11 @@ class AsyncPipelineExecutor:
             if consumers:
                 queues = {c: asyncio.Queue(maxsize=100) for c in consumers}
                 self.context[name] = AsyncTeeWrapper(queues)
-                task = asyncio.create_task(self._pump_iterator(value, queues))
+                node = self.dag.get(name, {})
+                on_error = node.get("on_error")
+                task = asyncio.create_task(
+                    self._pump_iterator(value, queues, needs_materialize, on_error)
+                )
                 self.pump_tasks.append(task)
             else:
                 self.context[name] = value
@@ -76,18 +83,38 @@ class AsyncPipelineExecutor:
             self.context[name] = value
 
     async def _pump_iterator(
-        self, iterator: Any, queues: dict[str, asyncio.Queue]
+        self,
+        iterator: Any,
+        queues: dict[str, asyncio.Queue],
+        needs_materialize: bool = False,
+        on_error: Any = None,
     ) -> None:
         try:
-            if isinstance(iterator, (AsyncIterator, AsyncGenerator)):
-                async for item in iterator:
+            if needs_materialize:
+                items = []
+                if isinstance(iterator, (AsyncIterator, AsyncGenerator)):
+                    async for item in iterator:
+                        items.append(item)
+                else:
+                    for item in iterator:
+                        items.append(item)
+                for item in items:
                     for q in queues.values():
                         await q.put(item)
             else:
-                for item in iterator:
-                    for q in queues.values():
-                        await q.put(item)
+                if isinstance(iterator, (AsyncIterator, AsyncGenerator)):
+                    async for item in iterator:
+                        for q in queues.values():
+                            await q.put(item)
+                else:
+                    for item in iterator:
+                        for q in queues.values():
+                            await q.put(item)
         except Exception as e:
+            if on_error == OnError.STOP:
+                for q in queues.values():
+                    await q.put(PipelineStopException())
+                raise PipelineStopException() from e
             for q in queues.values():
                 await q.put(e)
         finally:
@@ -141,6 +168,8 @@ class AsyncPipelineExecutor:
         async def each_gen():
             while True:
                 item = await queue.get()
+                if isinstance(item, Exception):
+                    raise item
                 if item is EOF_MARKER:
                     break
                 item_kwargs = dict(kwargs)
@@ -164,7 +193,8 @@ class AsyncPipelineExecutor:
             async for _ in gen:
                 pass
         else:
-            self._store_output(name, gen)
+            needs_materialize = node.get("needs_materialize", False)
+            self._store_output(name, gen, needs_materialize)
 
     async def _execute_standard_node(self, name: str, fn: Callable, node: dict) -> None:
         kwargs = await self._resolve_node_arguments(name, node)
@@ -176,7 +206,8 @@ class AsyncPipelineExecutor:
                 output = fn(**kwargs)
 
             if name and not name.startswith("_"):
-                self._store_output(name, output)
+                needs_materialize = node.get("needs_materialize", False)
+                self._store_output(name, output, needs_materialize)
         except Exception:
             if node.get("on_error") == OnError.STOP:
                 raise PipelineStopException()

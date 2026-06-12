@@ -294,6 +294,9 @@ class PipelineExecutor:
 
             output = each_generator(items, kwargs, first_dep, fn, node.get("on_error"))
 
+            if node.get("needs_materialize"):
+                output = self.materialize_fn(output)
+
             if len(consumers) > 1:
                 tees = itertools.tee(output, len(consumers))
                 output = TeeWrapper(dict(zip(consumers, tees)))

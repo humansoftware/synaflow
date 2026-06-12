@@ -54,9 +54,9 @@ async def test_given_generator_output_and_two_each_consumers_when_run_then_mater
         name="test",
         params=P,
         steps=[
-            step("items", fn=gen),
-            step("a", fn=a),
-            step("b", fn=b),
+            step("items", fn=gen, on_error=OnError.CONTINUE),
+            step("a", fn=a, on_error=OnError.CONTINUE),
+            step("b", fn=b, on_error=OnError.CONTINUE),
         ],
     )
 
@@ -93,9 +93,9 @@ async def test_given_generator_and_scalar_and_iterator_consumers_when_run_then_n
         name="test",
         params=P,
         steps=[
-            step("items", fn=gen),
-            step("a", fn=a),
-            step("b", fn=b),
+            step("items", fn=gen, on_error=OnError.CONTINUE),
+            step("a", fn=a, on_error=OnError.CONTINUE),
+            step("b", fn=b, on_error=OnError.CONTINUE),
         ],
     )
 
@@ -133,9 +133,9 @@ async def test_given_generator_and_two_iterator_consumers_when_run_then_no_mater
         name="test",
         params=P,
         steps=[
-            step("items", fn=gen),
-            step("a", fn=a),
-            step("b", fn=b),
+            step("items", fn=gen, on_error=OnError.CONTINUE),
+            step("a", fn=a, on_error=OnError.CONTINUE),
+            step("b", fn=b, on_error=OnError.CONTINUE),
         ],
     )
 
@@ -172,9 +172,9 @@ async def test_given_generator_and_union_scalar_and_union_iterator_consumers_whe
         name="test",
         params=P,
         steps=[
-            step("items", fn=gen),
-            step("a", fn=a),
-            step("b", fn=b),
+            step("items", fn=gen, on_error=OnError.CONTINUE),
+            step("a", fn=a, on_error=OnError.CONTINUE),
+            step("b", fn=b, on_error=OnError.CONTINUE),
         ],
     )
 
@@ -210,9 +210,9 @@ async def test_given_generator_of_union_and_union_scalar_consumers_when_run_then
         name="test",
         params=P,
         steps=[
-            step("items", fn=gen),
-            step("a", fn=a),
-            step("b", fn=b),
+            step("items", fn=gen, on_error=OnError.CONTINUE),
+            step("a", fn=a, on_error=OnError.CONTINUE),
+            step("b", fn=b, on_error=OnError.CONTINUE),
         ],
     )
 
@@ -248,9 +248,9 @@ async def test_given_generator_and_list_consumer_when_run_then_materialized_once
         name="test",
         params=P,
         steps=[
-            step("items", fn=gen),
-            step("a", fn=a),
-            step("b", fn=b),
+            step("items", fn=gen, on_error=OnError.CONTINUE),
+            step("a", fn=a, on_error=OnError.CONTINUE),
+            step("b", fn=b, on_error=OnError.CONTINUE),
         ],
     )
 
@@ -288,9 +288,9 @@ async def test_given_generator_and_each_transformer_and_iterator_consumer_when_r
         name="test",
         params=P,
         steps=[
-            step("items", fn=gen),
-            step("a", fn=a),
-            step("b", fn=b),
+            step("items", fn=gen, on_error=OnError.CONTINUE),
+            step("a", fn=a, on_error=OnError.CONTINUE),
+            step("b", fn=b, on_error=OnError.CONTINUE),
         ],
     )
 
@@ -329,9 +329,9 @@ async def test_given_generator_and_eager_each_and_eager_iterator_consumers_when_
         name="test",
         params=P,
         steps=[
-            step("items", fn=gen),
-            step("a", fn=a),
-            step("b", fn=b),
+            step("items", fn=gen, on_error=OnError.CONTINUE),
+            step("a", fn=a, on_error=OnError.CONTINUE),
+            step("b", fn=b, on_error=OnError.CONTINUE),
         ],
     )
 
@@ -366,9 +366,9 @@ async def test_given_generator_and_set_consumer_when_run_then_materialized_once(
         name="test",
         params=P,
         steps=[
-            step("items", fn=gen),
-            step("a", fn=a),
-            step("b", fn=b),
+            step("items", fn=gen, on_error=OnError.CONTINUE),
+            step("a", fn=a, on_error=OnError.CONTINUE),
+            step("b", fn=b, on_error=OnError.CONTINUE),
         ],
     )
 
@@ -408,9 +408,9 @@ async def test_given_two_generators_when_consumed_by_single_step_then_no_materia
         name="test",
         params=P,
         steps=[
-            step("gen1", fn=gen1),
-            step("gen2", fn=gen2),
-            step("c", fn=c),
+            step("gen1", fn=gen1, on_error=OnError.CONTINUE),
+            step("gen2", fn=gen2, on_error=OnError.CONTINUE),
+            step("c", fn=c, on_error=OnError.CONTINUE),
         ],
     )
 
@@ -450,9 +450,9 @@ async def test_given_chain_and_bypass_dependencies_when_run_then_no_materializat
         name="test",
         params=P,
         steps=[
-            step("items", fn=gen),
-            step("a", fn=a),
-            step("b", fn=b),
+            step("items", fn=gen, on_error=OnError.CONTINUE),
+            step("a", fn=a, on_error=OnError.CONTINUE),
+            step("b", fn=b, on_error=OnError.CONTINUE),
         ],
     )
 
@@ -489,9 +489,9 @@ async def test_given_generator_and_tuple_consumer_when_run_then_materialized_onc
         name="test",
         params=P,
         steps=[
-            step("items", fn=gen),
-            step("a", fn=a),
-            step("b", fn=b),
+            step("items", fn=gen, on_error=OnError.CONTINUE),
+            step("a", fn=a, on_error=OnError.CONTINUE),
+            step("b", fn=b, on_error=OnError.CONTINUE),
         ],
     )
 
@@ -521,9 +521,9 @@ async def test_given_scalar_producer_and_list_and_iterator_consumers_when_run_th
         name="test",
         params=P,
         steps=[
-            step("s1", fn=s1),
-            step("s2", fn=s2),
-            step("s3", fn=s3),
+            step("s1", fn=s1, on_error=OnError.CONTINUE),
+            step("s2", fn=s2, on_error=OnError.CONTINUE),
+            step("s3", fn=s3, on_error=OnError.CONTINUE),
         ],
     )
 
@@ -561,9 +561,9 @@ async def test_given_collection_producer_and_scalar_transformer_and_iterator_con
         name="test",
         params=P,
         steps=[
-            step("items", fn=gen),
-            step("s2", fn=s2),
-            step("s3", fn=s3),
+            step("items", fn=gen, on_error=OnError.CONTINUE),
+            step("s2", fn=s2, on_error=OnError.CONTINUE),
+            step("s3", fn=s3, on_error=OnError.CONTINUE),
         ],
     )
 

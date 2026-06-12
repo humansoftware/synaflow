@@ -12,6 +12,7 @@ from .type_compatibility import (
     is_sync_stream_type,
     is_type_compatible,
 )
+from .types import OnError
 
 
 def validate_and_build_dag(
@@ -237,8 +238,11 @@ def _compute_needs_materialize(dag: dict) -> None:
             if name in other_node.get("deps", {})
         ]
 
-        node["needs_materialize"] = any(
-            is_materialized_consumer(dag[consumer_name]["deps"][name])
-            for consumer_name in consumers
-            if consumer_name in dag and name in dag[consumer_name].get("deps", {})
+        node["needs_materialize"] = (
+            any(
+                is_materialized_consumer(dag[consumer_name]["deps"][name])
+                for consumer_name in consumers
+                if consumer_name in dag and name in dag[consumer_name].get("deps", {})
+            )
+            or node.get("on_error") == OnError.STOP
         )

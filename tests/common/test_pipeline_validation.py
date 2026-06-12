@@ -4,6 +4,7 @@ import pytest
 
 from synaflow.pipeline import pipeline
 from synaflow.step import step
+from synaflow.types import OnError
 
 
 def test_given_scalar_params_when_constructed_then_passes():
@@ -90,6 +91,29 @@ def test_given_duplicate_step_name_when_constructed_then_raises():
             params=P,
             steps=[step("s1", fn=fn), step("s1", fn=fn)],
         )
+
+
+def test_given_on_error_stop_when_pipeline_created_then_forces_materialization():
+    class P(NamedTuple):
+        items: list[int] = [1, 2]
+
+    def gen(items: int) -> int:
+        return items
+
+    def consumer(gen: int) -> int:
+        return gen
+
+    p = pipeline(
+        name="test",
+        params=P,
+        steps=[
+            step("gen", fn=gen, on_error=OnError.STOP),
+            step("consumer", fn=consumer),
+        ],
+    )
+
+    # gen should have needs_materialize = True because of OnError.STOP
+    assert p._dag["gen"]["needs_materialize"] is True
 
 
 def test_given_non_namedtuple_params_when_constructed_then_raises():
