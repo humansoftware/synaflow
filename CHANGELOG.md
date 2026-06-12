@@ -2,6 +2,27 @@
 
 
 
+## v0.3.0 (2026-06-12)
+
+### Documentation
+
+* docs: clarify trade-offs between corpus and unit tests in HACKING.md ([`ea002d6`](https://github.com/humansoftware/synaflow/commit/ea002d608e0eefb8d36c3b98cd6001595031f82c))
+
+* docs: add HACKING.md with contribution guidelines and architectural principles ([`6b1fb0d`](https://github.com/humansoftware/synaflow/commit/6b1fb0d8af5d2e95b56344d1eb86bea1c67e4f4c))
+
+### Feature
+
+* feat: implement AsyncPipelineExecutor with async streaming via asyncio.Queue ([`8103255`](https://github.com/humansoftware/synaflow/commit/810325519a7c800dd4473618b2ccbe44e314f3b5))
+
+### Refactor
+
+* refactor: replace magic strings with Enums and classes in executor ([`70bfb5f`](https://github.com/humansoftware/synaflow/commit/70bfb5fe41c6a3fcc5ce51010bb23dede6579750))
+
+### Test
+
+* test: refactor all runner tests to use parameterized fixture and order-independent contract assertions ([`347da87`](https://github.com/humansoftware/synaflow/commit/347da87460f7f07dbf6eb83d85efc72d9e2fcfc2))
+
+
 ## v0.2.0 (2026-06-11)
 
 ### Chore
