@@ -1,6 +1,6 @@
 # Hacking on SynaFlow
 
-Thank you for your interest in contributing to **SynaFlow**! 
+Thank you for your interest in contributing to **SynaFlow**!
 This document serves as the compass for anyone looking to build, debug, or extend the framework. We take software engineering principles, clean code, and architectural boundaries very seriously.
 
 ## 1. How to Contribute
@@ -41,12 +41,12 @@ uv run pytest tests/
 SynaFlow is built under strict adherence to several core principles. If a Pull Request violates these, it will be rejected regardless of how useful the feature is.
 
 ### KISS (Keep It Simple, Stupid) & YAGNI (You Aren't Gonna Need It)
-- Do not introduce complex abstractions for theoretical future use cases. 
+- Do not introduce complex abstractions for theoretical future use cases.
 - Build exactly what is needed to solve the current problem.
 - Keep the public API surface (`pipeline`, `step`) as minimal as mathematically possible.
 
 ### DRY (Don't Repeat Yourself) & Clean Code
-- The code must read like English. 
+- The code must read like English.
 - Avoid magic strings at all costs (use Enums like `OnError` and distinct classes like `TeeWrapper`).
 - Methods should be short and do exactly one thing.
 
@@ -55,15 +55,15 @@ SynaFlow is built under strict adherence to several core principles. If a Pull R
 We treat tests as our **Universal Contract**, not just implementation checks.
 
 ### The Universal DAG Contract
-Our Runner tests (e.g., `tests/test_runner_materialization.py`) are **Contract Tests**. 
+Our Runner tests (e.g., `tests/test_runner_materialization.py`) are **Contract Tests**.
 They are parameterized using the `run_pipeline` fixture. This means the exact same test file validates the Synchronous Runner today, and will validate any future Asynchronous or Distributed Runners tomorrow.
 
 - **Do NOT assert strict micro-ordering:** Different runners (like async) execute parallel nodes non-deterministically. Do not write tests like `assert call_order == ["A", "B"]`.
-- **DO assert causality and completeness:** Verify that consumer "B" eventually received all items from producer "A", regardless of interleaving. 
+- **DO assert causality and completeness:** Verify that consumer "B" eventually received all items from producer "A", regardless of interleaving.
 Example: `assert [v for k,v in call_order if k == "B"] == [1, 2, 3]`
 
 ### Corpus-Driven Validation
-All structural compilation and DAG validation logic is tested against our `tests/corpus/`. 
+All structural compilation and DAG validation logic is tested against our `tests/corpus/`.
 If you invent a new topological challenge (e.g., a complex fan-out/fan-in loop), add it to the `corpus` directory. The automated parameterized suite in `test_corpus_validation.py` will automatically pick it up and ensure the DAG compiler never breaks on your edge case.
 
 ### Corpus vs. Unit Tests: What goes where?

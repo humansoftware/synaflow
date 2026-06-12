@@ -39,7 +39,9 @@ def test_given_scalar_param_and_list_in_context_when_run_then_iterates(run_pipel
     s1.assert_has_calls([call(items=1), call(items=2), call(items=3)])
 
 
-def test_given_iterable_param_and_list_in_context_when_run_then_passes_whole_list(run_pipeline):
+def test_given_iterable_param_and_list_in_context_when_run_then_passes_whole_list(
+    run_pipeline,
+):
     class P(NamedTuple):
         items: list[int] = [1, 2, 3]
 

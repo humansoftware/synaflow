@@ -2,10 +2,16 @@ import inspect
 from typing import Any, NamedTuple
 
 from .step import Step
-from .type_compatibility import (ListType, get_type_name, is_iterable_type,
-                                 is_materialized_consumer, is_scalar,
-                                 is_type_compatible, is_sync_stream_type,
-                                 is_async_stream_type)
+from .type_compatibility import (
+    ListType,
+    get_type_name,
+    is_async_stream_type,
+    is_iterable_type,
+    is_materialized_consumer,
+    is_scalar,
+    is_sync_stream_type,
+    is_type_compatible,
+)
 
 
 def validate_and_build_dag(
@@ -36,12 +42,14 @@ def validate_and_build_dag(
 
     return dag
 
+
 def _validate_sync_async_consistency(dag: dict, pipeline_name: str) -> None:
     has_sync = False
     has_async = False
 
     for name, node in dag.items():
-        if not node.get("fn"): continue
+        if not node.get("fn"):
+            continue
 
         if inspect.iscoroutinefunction(node["fn"]):
             has_async = True
@@ -69,7 +77,7 @@ def _validate_sync_async_consistency(dag: dict, pipeline_name: str) -> None:
     # We store these flags on the dag metadata so PipelineDef can read them
     dag["__metadata__"] = {
         "requires_sync_runner": has_sync,
-        "requires_async_runner": has_async
+        "requires_async_runner": has_async,
     }
 
 

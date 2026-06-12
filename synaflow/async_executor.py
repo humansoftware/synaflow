@@ -3,10 +3,10 @@ import inspect
 from collections.abc import AsyncGenerator, AsyncIterator, Generator, Iterator
 from typing import Any, Callable
 
+from .executor import PipelineStopException
 from .pipeline import PipelineDef
 from .type_compatibility import is_iterable_type, is_scalar
 from .types import OnError
-from .executor import PipelineStopException
 
 EOF_MARKER = object()
 
@@ -28,6 +28,7 @@ async def _queue_to_async_gen(queue: asyncio.Queue):
 
 async def async_list(gen):
     return [x async for x in gen]
+
 
 class AsyncPipelineExecutor:
     """Executes a compiled Directed Acyclic Graph (DAG) asynchronously."""
@@ -165,9 +166,7 @@ class AsyncPipelineExecutor:
         else:
             self._store_output(name, gen)
 
-    async def _execute_standard_node(
-        self, name: str, fn: Callable, node: dict
-    ) -> None:
+    async def _execute_standard_node(self, name: str, fn: Callable, node: dict) -> None:
         kwargs = await self._resolve_node_arguments(name, node)
 
         try:
@@ -228,7 +227,11 @@ class AsyncPipelineExecutor:
 
     def _adapt_scalar_to_type(self, value: Any, consumer_type: Any) -> Any:
         origin = getattr(consumer_type, "__origin__", consumer_type)
-        if origin in (list, set, tuple) or consumer_type in (list, set, tuple) or self._is_lazy_async_iterator_type(consumer_type):
+        if (
+            origin in (list, set, tuple)
+            or consumer_type in (list, set, tuple)
+            or self._is_lazy_async_iterator_type(consumer_type)
+        ):
             if not isinstance(value, (list, set, tuple)):
                 value = [value]
 
@@ -238,9 +241,11 @@ class AsyncPipelineExecutor:
                 value = tuple(value)
 
             if self._is_lazy_async_iterator_type(consumer_type):
+
                 async def as_gen():
                     for x in value:
                         yield x
+
                 return as_gen()
         return value
 
@@ -256,7 +261,9 @@ async def async_run(
 ) -> None:
     """Executes a pipeline definition asynchronously."""
     if getattr(pipeline, "requires_sync_runner", False):
-        raise RuntimeError("This pipeline contains synchronous streams (Iterator). It must be executed with run() or migrated to AsyncIterator.")
+        raise RuntimeError(
+            "This pipeline contains synchronous streams (Iterator). It must be executed with run() or migrated to AsyncIterator."
+        )
 
     executor = AsyncPipelineExecutor(pipeline, materialize)
     await executor.execute(params)

@@ -1,5 +1,6 @@
 import os
 
+
 def remove_decorator():
     for root, _, files in os.walk("tests"):
         for f in files:
@@ -11,6 +12,7 @@ def remove_decorator():
                     content = content.replace("@pytest.mark.asyncio\n", "")
                     with open(path, "w", encoding="utf-8") as file:
                         file.write(content)
+
 
 if __name__ == "__main__":
     remove_decorator()

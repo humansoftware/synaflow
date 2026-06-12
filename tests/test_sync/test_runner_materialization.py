@@ -26,7 +26,9 @@ def mock_step(**params: type) -> MagicMock:
     return mock
 
 
-def test_given_generator_output_and_two_each_consumers_when_run_then_materialized_once(run_pipeline):
+def test_given_generator_output_and_two_each_consumers_when_run_then_materialized_once(
+    run_pipeline,
+):
     class P(NamedTuple):
         count: int = 3
 
@@ -63,7 +65,9 @@ def test_given_generator_output_and_two_each_consumers_when_run_then_materialize
     assert [val for key, val in call_order if key == "b"] == [0, 1, 2]
 
 
-def test_given_generator_and_scalar_and_iterator_consumers_when_run_then_no_materialization(run_pipeline):
+def test_given_generator_and_scalar_and_iterator_consumers_when_run_then_no_materialization(
+    run_pipeline,
+):
     class P(NamedTuple):
         count: int = 3
 
@@ -101,7 +105,9 @@ def test_given_generator_and_scalar_and_iterator_consumers_when_run_then_no_mate
     assert [val for key, val in call_order if key == "b"] == [0, 1, 2]
 
 
-def test_given_generator_and_two_iterator_consumers_when_run_then_no_materialization(run_pipeline):
+def test_given_generator_and_two_iterator_consumers_when_run_then_no_materialization(
+    run_pipeline,
+):
     class P(NamedTuple):
         count: int = 3
 
@@ -140,7 +146,9 @@ def test_given_generator_and_two_iterator_consumers_when_run_then_no_materializa
     assert [val for key, val in call_order if key == "b"] == [0, 1, 2]
 
 
-def test_given_generator_and_union_scalar_and_union_iterator_consumers_when_run_then_no_materialization(run_pipeline):
+def test_given_generator_and_union_scalar_and_union_iterator_consumers_when_run_then_no_materialization(
+    run_pipeline,
+):
     class P(NamedTuple):
         count: int = 3
 
@@ -178,7 +186,9 @@ def test_given_generator_and_union_scalar_and_union_iterator_consumers_when_run_
     assert [val for key, val in call_order if key == "b"] == [0, 1, 2]
 
 
-def test_given_generator_of_union_and_union_scalar_consumers_when_run_then_no_materialization(run_pipeline):
+def test_given_generator_of_union_and_union_scalar_consumers_when_run_then_no_materialization(
+    run_pipeline,
+):
     class P(NamedTuple):
         count: int = 3
 
@@ -215,7 +225,9 @@ def test_given_generator_of_union_and_union_scalar_consumers_when_run_then_no_ma
     assert [val for key, val in call_order if key == "b"] == [0, 1, 2]
 
 
-def test_given_generator_and_list_consumer_when_run_then_materialized_once(run_pipeline):
+def test_given_generator_and_list_consumer_when_run_then_materialized_once(
+    run_pipeline,
+):
     class P(NamedTuple):
         count: int = 3
 
@@ -252,7 +264,9 @@ def test_given_generator_and_list_consumer_when_run_then_materialized_once(run_p
     assert [val for key, val in call_order if key == "b"] == [[0, 1, 2]]
 
 
-def test_given_generator_and_each_transformer_and_iterator_consumer_when_run_then_no_materialization(run_pipeline):
+def test_given_generator_and_each_transformer_and_iterator_consumer_when_run_then_no_materialization(
+    run_pipeline,
+):
     class P(NamedTuple):
         count: int = 3
 
@@ -288,11 +302,21 @@ def test_given_generator_and_each_transformer_and_iterator_consumer_when_run_the
 
     run_pipeline(my_pipeline, params=P(), materialize=spy_materialize)
     assert len(materialized) == 0
-    assert [val for key, val in call_order if key == "a"] == ['item_0', 'item_1', 'item_2']
-    assert [val for key, val in call_order if key == "b"] == ['ITEM_0', 'ITEM_1', 'ITEM_2']
+    assert [val for key, val in call_order if key == "a"] == [
+        "item_0",
+        "item_1",
+        "item_2",
+    ]
+    assert [val for key, val in call_order if key == "b"] == [
+        "ITEM_0",
+        "ITEM_1",
+        "ITEM_2",
+    ]
 
 
-def test_given_generator_and_eager_each_and_eager_iterator_consumers_when_run_then_lockstep_order(run_pipeline):
+def test_given_generator_and_eager_each_and_eager_iterator_consumers_when_run_then_lockstep_order(
+    run_pipeline,
+):
     class P(NamedTuple):
         count: int = 3
 
@@ -360,7 +384,9 @@ def test_given_generator_and_set_consumer_when_run_then_materialized_once(run_pi
     assert [val for key, val in call_order if key == "b"] == [{0, 1, 2}]
 
 
-def test_given_two_generators_when_consumed_by_single_step_then_no_materialization(run_pipeline):
+def test_given_two_generators_when_consumed_by_single_step_then_no_materialization(
+    run_pipeline,
+):
     class P(NamedTuple):
         count: int = 3
 
@@ -401,7 +427,9 @@ def test_given_two_generators_when_consumed_by_single_step_then_no_materializati
     assert [val for key, val in call_order if key == "c2"] == [10, 11, 12]
 
 
-def test_given_chain_and_bypass_dependencies_when_run_then_no_materialization(run_pipeline):
+def test_given_chain_and_bypass_dependencies_when_run_then_no_materialization(
+    run_pipeline,
+):
     class P(NamedTuple):
         count: int = 3
 
@@ -443,7 +471,9 @@ def test_given_chain_and_bypass_dependencies_when_run_then_no_materialization(ru
     assert [val for key, val in call_order if key == "b_items"] == [0, 1, 2]
 
 
-def test_given_generator_and_tuple_consumer_when_run_then_materialized_once(run_pipeline):
+def test_given_generator_and_tuple_consumer_when_run_then_materialized_once(
+    run_pipeline,
+):
     class P(NamedTuple):
         count: int = 3
 
@@ -480,7 +510,9 @@ def test_given_generator_and_tuple_consumer_when_run_then_materialized_once(run_
     assert [val for key, val in call_order if key == "b"] == [(0, 1, 2)]
 
 
-def test_given_scalar_producer_and_list_and_iterator_consumers_when_run_then_wrapped_as_single_element_collections(run_pipeline):
+def test_given_scalar_producer_and_list_and_iterator_consumers_when_run_then_wrapped_as_single_element_collections(
+    run_pipeline,
+):
     class P(NamedTuple):
         val: int = 42
 
@@ -512,7 +544,9 @@ def test_given_scalar_producer_and_list_and_iterator_consumers_when_run_then_wra
     assert [val for key, val in call_order if key == "s3"] == [[42]]
 
 
-def test_given_collection_producer_and_scalar_transformer_and_iterator_consumer_when_run_then_lazy_stream_no_materialization(run_pipeline):
+def test_given_collection_producer_and_scalar_transformer_and_iterator_consumer_when_run_then_lazy_stream_no_materialization(
+    run_pipeline,
+):
     class P(NamedTuple):
         count: int = 3
 

@@ -5,14 +5,14 @@ from typing import Any
 
 from .iterator_utils import InterleavedIterator
 from .pipeline import PipelineDef
-from .types import OnError
 from .type_compatibility import is_iterable_type, is_scalar
-
+from .types import OnError
 
 
 class TeeWrapper:
     def __init__(self, tees: dict[str, Iterator]):
         self.tees = tees
+
 
 class PipelineStopException(Exception):
     """Raised to stop the pipeline execution early."""
@@ -389,7 +389,9 @@ class PipelineExecutor:
 def run(pipeline: PipelineDef, params: Any, *, materialize: Callable = list) -> None:
     """Executes a pipeline definition synchronously."""
     if getattr(pipeline, "requires_async_runner", False):
-        raise RuntimeError("This pipeline contains async features (async def or AsyncIterator) and must be executed with async_run().")
+        raise RuntimeError(
+            "This pipeline contains async features (async def or AsyncIterator) and must be executed with async_run()."
+        )
 
     executor = PipelineExecutor(pipeline, materialize)
     executor.execute(params)

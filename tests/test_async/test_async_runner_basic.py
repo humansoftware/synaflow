@@ -1,11 +1,11 @@
-from synaflow import async_run
-from typing import AsyncGenerator, AsyncIterator
 import inspect
-from typing import Generator, Iterator, List, NamedTuple
-from unittest.mock import AsyncMock as MagicMock, call
+from typing import AsyncGenerator, AsyncIterator, Generator, Iterator, List, NamedTuple
+from unittest.mock import AsyncMock as MagicMock
+from unittest.mock import call
 
 import pytest
 
+from synaflow import async_run
 from synaflow.pipeline import pipeline
 from synaflow.step import step
 from synaflow.types import OnError
@@ -70,19 +70,22 @@ async def test_given_params_with_defaults_when_run_then_uses_defaults():
 
 
 async def test_given_sync_stream_pipeline_when_run_asynchronously_then_raises():
+    from typing import Iterator, NamedTuple
+
     import pytest
+
+    from synaflow.async_executor import async_run
     from synaflow.pipeline import pipeline
     from synaflow.step import step
-    from synaflow.async_executor import async_run
-    from typing import NamedTuple, Iterator
 
     class P(NamedTuple):
         items: list[int] = [1, 2, 3]
 
     def s1(items: list[int]) -> Iterator[int]:
-        for i in items: yield i
-        
+        for i in items:
+            yield i
+
     my_pipeline = pipeline(name="t", params=P, steps=[step("s1", fn=s1)])
-    
+
     with pytest.raises(RuntimeError, match="must be executed with run"):
         await async_run(my_pipeline, params=P())

@@ -13,9 +13,13 @@ def get_test_functions_in_dir(directory: Path) -> set[str]:
                     try:
                         tree = ast.parse(file.read())
                         for node in ast.walk(tree):
-                            if isinstance(node, ast.FunctionDef) and node.name.startswith("test_"):
+                            if isinstance(
+                                node, ast.FunctionDef
+                            ) and node.name.startswith("test_"):
                                 test_funcs.add(node.name)
-                            elif isinstance(node, ast.AsyncFunctionDef) and node.name.startswith("test_"):
+                            elif isinstance(
+                                node, ast.AsyncFunctionDef
+                            ) and node.name.startswith("test_"):
                                 test_funcs.add(node.name)
                     except SyntaxError:
                         continue
@@ -33,7 +37,7 @@ def test_sync_async_test_parity():
     expected_sync_only = {
         "test_given_async_pipeline_when_run_synchronously_then_raises"
     }
-    
+
     expected_async_only = {
         "test_given_sync_stream_pipeline_when_run_asynchronously_then_raises",
         "test_given_async_generator_and_each_consumer_when_run_then_processed_concurrently",
@@ -50,7 +54,9 @@ def test_sync_async_test_parity():
 
     error_msg = []
     if missing_in_async:
-        error_msg.append(f"Tests found in sync but missing in async: {missing_in_async}")
+        error_msg.append(
+            f"Tests found in sync but missing in async: {missing_in_async}"
+        )
     if missing_in_sync:
         error_msg.append(f"Tests found in async but missing in sync: {missing_in_sync}")
 

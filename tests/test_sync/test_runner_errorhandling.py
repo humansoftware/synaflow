@@ -68,10 +68,7 @@ def test_given_on_error_continue_when_item_fails_then_continues_next(run_pipelin
     my_pipeline = pipeline(
         name="test",
         params=P,
-        steps=[
-            step("s1", fn=s1, on_error=OnError.CONTINUE),
-            step("s2", fn=s2)
-        ],
+        steps=[step("s1", fn=s1, on_error=OnError.CONTINUE), step("s2", fn=s2)],
     )
 
     run_pipeline(my_pipeline, params=P())

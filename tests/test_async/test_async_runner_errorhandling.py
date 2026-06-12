@@ -1,11 +1,11 @@
-from synaflow import async_run
-from typing import AsyncGenerator, AsyncIterator
 import inspect
-from typing import Generator, Iterator, List, NamedTuple
-from unittest.mock import AsyncMock as MagicMock, call
+from typing import AsyncGenerator, AsyncIterator, Generator, Iterator, List, NamedTuple
+from unittest.mock import AsyncMock as MagicMock
+from unittest.mock import call
 
 import pytest
 
+from synaflow import async_run
 from synaflow.pipeline import pipeline
 from synaflow.step import step
 from synaflow.types import OnError
@@ -70,10 +70,7 @@ async def test_given_on_error_continue_when_item_fails_then_continues_next():
     my_pipeline = pipeline(
         name="test",
         params=P,
-        steps=[
-            step("s1", fn=s1, on_error=OnError.CONTINUE),
-            step("s2", fn=s2)
-        ],
+        steps=[step("s1", fn=s1, on_error=OnError.CONTINUE), step("s2", fn=s2)],
     )
 
     await async_run(my_pipeline, params=P())

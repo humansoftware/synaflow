@@ -1,10 +1,12 @@
-from typing import NamedTuple
 from collections.abc import Generator, Iterator
+from typing import NamedTuple
 
 from synaflow import pipeline, step
 
+
 class FibonacciParams(NamedTuple):
     count: int = 10
+
 
 def fibonacci_generator(count: int) -> Generator[int, None, None]:
     a, b = 0, 1
@@ -12,12 +14,15 @@ def fibonacci_generator(count: int) -> Generator[int, None, None]:
         yield a
         a, b = b, a + b
 
+
 def square_numbers(fibonacci_generator: Iterator[int]) -> Generator[int, None, None]:
     for x in fibonacci_generator:
         yield x * x
 
+
 def consumer(square_numbers: Iterator[int]) -> None:
     pass
+
 
 pipeline_def = pipeline(
     name="fibonacci",
@@ -25,6 +30,6 @@ pipeline_def = pipeline(
     steps=[
         step("fibonacci_generator", fn=fibonacci_generator),
         step("square_numbers", fn=square_numbers),
-        step("consumer", fn=consumer)
-    ]
+        step("consumer", fn=consumer),
+    ],
 )

@@ -1,10 +1,11 @@
 import pytest
 
 from synaflow.pipeline import PipelineDef
-from tests.test_sync.corpus import EXAMPLES as SYNC_EXAMPLES
 from tests.test_async.corpus import EXAMPLES as ASYNC_EXAMPLES
+from tests.test_sync.corpus import EXAMPLES as SYNC_EXAMPLES
 
 EXAMPLES = {**SYNC_EXAMPLES, **ASYNC_EXAMPLES}
+
 
 @pytest.mark.parametrize("pipeline_name, pipeline_def", EXAMPLES.items())
 def test_corpus_compiles_and_validates(pipeline_name: str, pipeline_def: PipelineDef):
@@ -13,7 +14,7 @@ def test_corpus_compiles_and_validates(pipeline_name: str, pipeline_def: Pipelin
     dag = pipeline_def.to_dict()
     assert isinstance(dag, dict)
     assert len(dag) > 0
-    
+
     # Check that all nodes have the required keys
     for node_name, node_info in dag.items():
         assert "deps" in node_info

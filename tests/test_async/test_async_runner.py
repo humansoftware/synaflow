@@ -63,7 +63,7 @@ async def test_given_async_generator_and_two_async_iterator_consumers_when_run_t
     )
 
     await async_run(my_pipeline, params=P())
-    
+
     assert [v for k, v in call_order if k == "a"] == [0, 1, 2]
     assert [v for k, v in call_order if k == "b"] == [0, 1, 2]
 

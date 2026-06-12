@@ -3,7 +3,16 @@ from collections.abc import AsyncGenerator, AsyncIterator, Generator, Iterable, 
 from typing import Any, get_args, get_origin
 
 SCALAR_TYPES = {int, float, str, bool, bytes, type(None)}
-COLLECTION_ORIGINS = {list, set, tuple, Generator, Iterator, Iterable, AsyncGenerator, AsyncIterator}
+COLLECTION_ORIGINS = {
+    list,
+    set,
+    tuple,
+    Generator,
+    Iterator,
+    Iterable,
+    AsyncGenerator,
+    AsyncIterator,
+}
 
 
 class ListType:
@@ -163,8 +172,9 @@ def get_inner_type(tp: Any) -> Any:
 def get_type_name(tp: Any) -> str:
     if tp is None:
         return "None"
-    
-    from collections.abc import Iterator, Generator, AsyncIterator, AsyncGenerator
+
+    from collections.abc import AsyncGenerator, AsyncIterator, Generator, Iterator
+
     if tp in (Iterator, Generator, AsyncIterator, AsyncGenerator):
         return "Stream"
 
@@ -200,7 +210,8 @@ def is_materialized_consumer(tp: Any) -> bool:
 
 
 def is_sync_stream_type(tp: Any) -> bool:
-    if tp is None: return False
+    if tp is None:
+        return False
     origin = get_origin(tp) or tp
     if origin in (Iterator, Generator):
         return True
@@ -210,7 +221,8 @@ def is_sync_stream_type(tp: Any) -> bool:
 
 
 def is_async_stream_type(tp: Any) -> bool:
-    if tp is None: return False
+    if tp is None:
+        return False
     origin = get_origin(tp) or tp
     if origin in (AsyncIterator, AsyncGenerator):
         return True

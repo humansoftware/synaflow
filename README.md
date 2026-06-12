@@ -122,7 +122,7 @@ The native `run()` function in SynaFlow is designed as an **In-Process Lockstep 
 3. **Lazy Materialization**: If a step explicitly requests a `list` or `set`, SynaFlow will consume the entire generator and hold it in memory, but *only* for that specific branch.
 
 ### Build Your Own Runner!
-The `pipeline(...)` definition is simply a static description of the DAG. It produces a `PipelineDef` object. **You are not locked into our native runner!** 
+The `pipeline(...)` definition is simply a static description of the DAG. It produces a `PipelineDef` object. **You are not locked into our native runner!**
 Because the DAG is fully decoupled from execution, you or the community can write custom runners to process the `PipelineDef` in different ways:
 - An **AsyncRunner** that executes independent branches using `asyncio.gather`.
 - A **DistributedRunner** that compiles the DAG into an Airflow or Ray graph.
