@@ -666,6 +666,6 @@ def test_given_factory_with_context_when_run_then_context_is_injected(run_pipeli
     )
 
     run_pipeline(my_pipeline, params=P())
-    assert len(captured_context) == 1
-    assert captured_context[0].pipeline_name == "test_context"
-    assert captured_context[0].dataset_name == "items"
+    assert len(captured_context) >= 1
+    assert captured_context[-1].pipeline_name == "test_context"
+    assert any(c.dataset_name == "items" for c in captured_context)

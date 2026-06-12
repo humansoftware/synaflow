@@ -21,7 +21,9 @@ class PipelineDef:
     def __post_init__(self) -> None:
         from .validator import validate_and_build_dag
 
-        self._dag = validate_and_build_dag(self.name, self.steps, self.params)
+        self._dag = validate_and_build_dag(
+            self.name, self.steps, self.params, self.default_materializer_factory
+        )
         metadata = self._dag.pop("__metadata__", {})
         self.requires_sync_runner = metadata.get("requires_sync_runner", False)
         self.requires_async_runner = metadata.get("requires_async_runner", False)
