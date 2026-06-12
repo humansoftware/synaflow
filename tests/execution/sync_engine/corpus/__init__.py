@@ -1,15 +1,15 @@
-from .linear import linear_pipeline
+from .complex_parallel import pack as complex_parallel_pack
+from .complex_parallel_mixed import pack as complex_parallel_mixed_pack
+from .diamond import pack as diamond_pack
+from .fibonacci import pack as fibonacci_pack
+from .linear import pack as linear_pack
+from .sub_pipelines import pack as sub_pipelines_pack
 
-EXAMPLES = {"sync_linear": linear_pipeline}
-from .diamond import diamond_pipeline
-
-EXAMPLES["sync_diamond"] = diamond_pipeline
-from .complex_parallel import pipeline_def as complex_parallel_pipeline
-
-EXAMPLES["sync_complex_parallel"] = complex_parallel_pipeline
-from .fibonacci import pipeline_def as fibonacci_pipeline
-
-EXAMPLES["sync_fibonacci"] = fibonacci_pipeline
-from .complex_parallel_mixed import pipeline_def as complex_parallel_mixed_pipeline
-
-EXAMPLES["sync_complex_parallel_mixed"] = complex_parallel_mixed_pipeline
+PACKS = {
+    "sync_linear": linear_pack,
+    "sync_diamond": diamond_pack,
+    "sync_complex_parallel": complex_parallel_pack,
+    "sync_fibonacci": fibonacci_pack,
+    "sync_complex_parallel_mixed": complex_parallel_mixed_pack,
+    "sync_sub_pipelines": sub_pipelines_pack,
+}

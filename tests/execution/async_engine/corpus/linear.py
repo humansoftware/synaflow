@@ -22,6 +22,8 @@ async def consumer(transformer: AsyncIterator[int]) -> None:
         pass
 
 
+from tests.pipeline_pack import PipelinePack
+
 linear_pipeline = pipeline(
     name="linear_example",
     params=LinearParams,
@@ -30,4 +32,14 @@ linear_pipeline = pipeline(
         step("transformer", fn=transformer),
         step("consumer", fn=consumer),
     ],
+)
+
+pack = PipelinePack(
+    pipeline=linear_pipeline,
+    input_params=LinearParams(count=3),
+    expected_results={
+        "gen": None,
+        "transformer": None,
+        "consumer": None,
+    },
 )

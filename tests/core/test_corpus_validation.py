@@ -1,17 +1,17 @@
 import pytest
 
-from synaflow.core.pipeline import PipelineDef
-from tests.execution.async_engine.corpus import EXAMPLES as ASYNC_EXAMPLES
-from tests.execution.sync_engine.corpus import EXAMPLES as SYNC_EXAMPLES
+from tests.execution.async_engine.corpus import PACKS as ASYNC_PACKS
+from tests.execution.sync_engine.corpus import PACKS as SYNC_PACKS
+from tests.pipeline_pack import PipelinePack
 
-EXAMPLES = {**SYNC_EXAMPLES, **ASYNC_EXAMPLES}
+PACKS = {**SYNC_PACKS, **ASYNC_PACKS}
 
 
-@pytest.mark.parametrize("pipeline_name, pipeline_def", EXAMPLES.items())
-def test_corpus_compiles_and_validates(pipeline_name: str, pipeline_def: PipelineDef):
+@pytest.mark.parametrize("pack_name, pack", PACKS.items())
+def test_corpus_compiles_and_validates(pack_name: str, pack: PipelinePack):
     # This simply tests that the pipeline successfully built its DAG dictionary
     # during initialization and that it is fully compatible.
-    dag = pipeline_def.to_dict()
+    dag = pack.pipeline.to_dict()
     assert isinstance(dag, dict)
     assert len(dag) > 0
 

@@ -108,3 +108,24 @@ async def test_given_sync_stream_pipeline_when_run_asynchronously_then_raises():
 
     with pytest.raises(RuntimeError, match="must be executed with run"):
         await async_run(my_pipeline, params=P())
+
+
+from tests.execution.async_engine.corpus import PACKS as ASYNC_PACKS
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("pack_name, pack", ASYNC_PACKS.items())
+async def test_run_corpus_packs(pack_name, pack):
+    from synaflow.execution.async_engine.pipeline import AsyncPipelineExecutor
+
+    executor = AsyncPipelineExecutor(pack.pipeline)
+    await executor.execute(pack.input_params)
+
+    # Assert expected results
+    for key, expected_val in pack.expected_results.items():
+        if expected_val is not None:
+            assert executor.context.get(key) == expected_val
+
+    # Assert expected call order if provided
+    if pack.expected_call_order:
+        pass

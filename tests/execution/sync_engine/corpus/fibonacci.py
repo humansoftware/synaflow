@@ -24,6 +24,8 @@ def consumer(square_numbers: Iterator[int]) -> None:
     pass
 
 
+from tests.pipeline_pack import PipelinePack
+
 pipeline_def = pipeline(
     name="fibonacci",
     params=FibonacciParams,
@@ -32,4 +34,14 @@ pipeline_def = pipeline(
         step("square_numbers", fn=square_numbers),
         step("consumer", fn=consumer),
     ],
+)
+
+pack = PipelinePack(
+    pipeline=pipeline_def,
+    input_params=FibonacciParams(count=10),
+    expected_results={
+        "fibonacci_generator": None,
+        "square_numbers": None,
+        "consumer": None,
+    },
 )

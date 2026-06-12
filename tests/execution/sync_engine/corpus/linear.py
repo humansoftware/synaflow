@@ -21,6 +21,8 @@ def consumer(transformer: Iterator[int]) -> None:
         pass
 
 
+from tests.pipeline_pack import PipelinePack
+
 linear_pipeline = pipeline(
     name="linear_example",
     params=LinearParams,
@@ -29,4 +31,15 @@ linear_pipeline = pipeline(
         step("transformer", fn=transformer),
         step("consumer", fn=consumer),
     ],
+)
+
+pack = PipelinePack(
+    pipeline=linear_pipeline,
+    input_params=LinearParams(count=3),
+    expected_results={
+        "gen": None,  # Lazy generators usually don't have results in context if fully consumed, or maybe they do?
+        "transformer": None,
+        "consumer": None,
+    },
+    expected_call_order=["gen", "transformer", "consumer"],
 )

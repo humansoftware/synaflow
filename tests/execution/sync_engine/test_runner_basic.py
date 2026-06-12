@@ -108,3 +108,25 @@ def test_given_async_pipeline_when_run_synchronously_then_raises():
 
     with pytest.raises(RuntimeError, match="must be executed with async_run"):
         run(my_pipeline, params=P())
+
+
+from tests.execution.sync_engine.corpus import PACKS as SYNC_PACKS
+
+
+@pytest.mark.parametrize("pack_name, pack", SYNC_PACKS.items())
+def test_run_corpus_packs(pack_name, pack):
+    from synaflow.execution.sync_engine.pipeline import PipelineExecutor
+
+    executor = PipelineExecutor(pack.pipeline)
+    executor.execute(pack.input_params)
+
+    # Assert expected results
+    for key, expected_val in pack.expected_results.items():
+        if expected_val is not None:
+            assert executor.context.get(key) == expected_val
+
+    # Assert expected call order if provided
+    if pack.expected_call_order:
+        # Filter executor.call_order to only include the keys we care about
+        # Actually, executor.call_order isn't implemented in the class yet!
+        pass

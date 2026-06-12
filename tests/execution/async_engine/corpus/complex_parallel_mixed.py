@@ -37,6 +37,8 @@ async def step5(step2: AsyncIterator[int], step4: AsyncIterator[int]) -> None:
 #       \       \
 #        \       -> step5
 #         -> step4 /
+from tests.pipeline_pack import PipelinePack
+
 pipeline_def = pipeline(
     name="complex_parallel_mixed",
     params=ComplexParallelMixedParams,
@@ -47,4 +49,16 @@ pipeline_def = pipeline(
         step("step4", fn=step4),
         step("step5", fn=step5),
     ],
+)
+
+pack = PipelinePack(
+    pipeline=pipeline_def,
+    input_params=ComplexParallelMixedParams(base=1),
+    expected_results={
+        "step1": None,
+        "step2": None,
+        "step3": None,
+        "step4": None,
+        "step5": None,
+    },
 )
