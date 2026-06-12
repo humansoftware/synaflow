@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any
+from typing import Any, Callable, Iterable, Iterator, Protocol
 
 
 class OnError(Enum):
@@ -22,3 +22,18 @@ class StepResult:
     output: Any = None
     error: Exception | None = None
     metrics: dict[str, int] = field(default_factory=dict)
+
+
+@dataclass
+class MaterializeContext:
+    pipeline_name: str
+    dataset_name: str
+    item_type: Any
+
+
+Materializer = Callable[[Iterator[Any]], Iterable[Any]]
+
+
+class MaterializerFactory(Protocol):
+    def __call__(self, ctx: MaterializeContext) -> Materializer:
+        ...
