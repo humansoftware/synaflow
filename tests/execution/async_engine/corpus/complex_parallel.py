@@ -50,6 +50,62 @@ pipeline_def = pipeline(
 )
 
 pack = PipelinePack(
+    json_dag={
+        "step1": {
+            "deps": {"base": "int"},
+            "output": "Stream[int, None, None]",
+            "fn": "step1",
+            "on_error": "continue",
+            "needs_materialize": False,
+            "pipeline": None,
+            "parent_pipeline": None,
+        },
+        "step2": {
+            "deps": {"step1": "Stream[int]"},
+            "output": "Stream[int, None, None]",
+            "fn": "step2",
+            "on_error": "continue",
+            "needs_materialize": False,
+            "pipeline": None,
+            "parent_pipeline": None,
+        },
+        "step3": {
+            "deps": {"step2": "Stream[int]"},
+            "output": "Stream[int, None, None]",
+            "fn": "step3",
+            "on_error": "continue",
+            "needs_materialize": False,
+            "pipeline": None,
+            "parent_pipeline": None,
+        },
+        "step4": {
+            "deps": {"step1": "Stream[int]"},
+            "output": "Stream[int, None, None]",
+            "fn": "step4",
+            "on_error": "continue",
+            "needs_materialize": False,
+            "pipeline": None,
+            "parent_pipeline": None,
+        },
+        "step5": {
+            "deps": {"step3": "Stream[int]", "step4": "Stream[int]"},
+            "output": "None",
+            "fn": "step5",
+            "on_error": "continue",
+            "needs_materialize": False,
+            "pipeline": None,
+            "parent_pipeline": None,
+        },
+        "base": {
+            "deps": {},
+            "output": "int",
+            "fn": None,
+            "on_error": None,
+            "needs_materialize": False,
+            "pipeline": None,
+            "parent_pipeline": None,
+        },
+    },
     pipeline=pipeline_def,
     input_params=ComplexParallelParams(base=1),
     step_results={

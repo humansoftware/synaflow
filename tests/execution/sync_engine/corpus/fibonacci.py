@@ -37,6 +37,44 @@ pipeline_def = pipeline(
 )
 
 pack = PipelinePack(
+    json_dag={
+        "fibonacci_generator": {
+            "deps": {"count": "int"},
+            "output": "Stream[int, None, None]",
+            "fn": "fibonacci_generator",
+            "on_error": "continue",
+            "needs_materialize": False,
+            "pipeline": None,
+            "parent_pipeline": None,
+        },
+        "square_numbers": {
+            "deps": {"fibonacci_generator": "Stream[int]"},
+            "output": "Stream[int, None, None]",
+            "fn": "square_numbers",
+            "on_error": "continue",
+            "needs_materialize": False,
+            "pipeline": None,
+            "parent_pipeline": None,
+        },
+        "consumer": {
+            "deps": {"square_numbers": "Stream[int]"},
+            "output": "None",
+            "fn": "consumer",
+            "on_error": "continue",
+            "needs_materialize": False,
+            "pipeline": None,
+            "parent_pipeline": None,
+        },
+        "count": {
+            "deps": {},
+            "output": "int",
+            "fn": None,
+            "on_error": None,
+            "needs_materialize": False,
+            "pipeline": None,
+            "parent_pipeline": None,
+        },
+    },
     pipeline=pipeline_def,
     input_params=FibonacciParams(count=10),
     step_results={

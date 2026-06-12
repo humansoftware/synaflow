@@ -37,6 +37,53 @@ diamond_pipeline = pipeline(
 )
 
 pack = PipelinePack(
+    json_dag={
+        "start": {
+            "deps": {"base_val": "int"},
+            "output": "int",
+            "fn": "start",
+            "on_error": "continue",
+            "needs_materialize": False,
+            "pipeline": None,
+            "parent_pipeline": None,
+        },
+        "branch_a": {
+            "deps": {"start": "int"},
+            "output": "int",
+            "fn": "branch_a",
+            "on_error": "continue",
+            "needs_materialize": False,
+            "pipeline": None,
+            "parent_pipeline": None,
+        },
+        "branch_b": {
+            "deps": {"start": "int"},
+            "output": "int",
+            "fn": "branch_b",
+            "on_error": "continue",
+            "needs_materialize": False,
+            "pipeline": None,
+            "parent_pipeline": None,
+        },
+        "merge": {
+            "deps": {"branch_a": "int", "branch_b": "int"},
+            "output": "int",
+            "fn": "merge",
+            "on_error": "continue",
+            "needs_materialize": False,
+            "pipeline": None,
+            "parent_pipeline": None,
+        },
+        "base_val": {
+            "deps": {},
+            "output": "int",
+            "fn": None,
+            "on_error": None,
+            "needs_materialize": False,
+            "pipeline": None,
+            "parent_pipeline": None,
+        },
+    },
     pipeline=diamond_pipeline,
     input_params=DiamondParams(base_val=10),
     step_results={

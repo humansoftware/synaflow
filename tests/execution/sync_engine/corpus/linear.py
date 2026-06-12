@@ -34,6 +34,44 @@ linear_pipeline = pipeline(
 )
 
 pack = PipelinePack(
+    json_dag={
+        "gen": {
+            "deps": {"count": "int"},
+            "output": "Stream[int, None, None]",
+            "fn": "gen",
+            "on_error": "continue",
+            "needs_materialize": False,
+            "pipeline": None,
+            "parent_pipeline": None,
+        },
+        "transformer": {
+            "deps": {"gen": "int"},
+            "output": "ListType(<class 'int'>)",
+            "fn": "transformer",
+            "on_error": "continue",
+            "needs_materialize": False,
+            "pipeline": None,
+            "parent_pipeline": None,
+        },
+        "consumer": {
+            "deps": {"transformer": "Stream[int]"},
+            "output": "None",
+            "fn": "consumer",
+            "on_error": "continue",
+            "needs_materialize": False,
+            "pipeline": None,
+            "parent_pipeline": None,
+        },
+        "count": {
+            "deps": {},
+            "output": "int",
+            "fn": None,
+            "on_error": None,
+            "needs_materialize": False,
+            "pipeline": None,
+            "parent_pipeline": None,
+        },
+    },
     pipeline=linear_pipeline,
     input_params=LinearParams(count=3),
     step_results={

@@ -85,3 +85,5 @@ PACKS = {**SYNC_PACKS, **ASYNC_PACKS}
 def test_corpus_execution_levels(pack_name, pack):
     if pack.expected_execution_levels is not None:
         assert pack.pipeline.get_execution_levels() == pack.expected_execution_levels
+    if pack.json_dag is not None:
+        assert pack.pipeline.to_dict() == pack.json_dag
