@@ -1,5 +1,6 @@
 from .complex_parallel import pack as complex_parallel_pack
 from .complex_parallel_mixed import pack as complex_parallel_mixed_pack
+from .deep_sub_pipelines import pack as deep_sub_pipelines_pack
 from .diamond import pack as diamond_pack
 from .fibonacci import pack as fibonacci_pack
 from .linear import pack as linear_pack
@@ -12,4 +13,5 @@ PACKS = {
     "async_fibonacci": fibonacci_pack,
     "async_complex_parallel_mixed": complex_parallel_mixed_pack,
     "async_sub_pipelines": sub_pipelines_pack,
+    "async_deep_sub_pipelines": deep_sub_pipelines_pack,
 }

@@ -97,7 +97,14 @@ class DependencyValidator:
         if is_scalar(return_type) and deps:
             first_dep_name = next(iter(deps))
             first_dep_output = produced[first_dep_name]["output"]
+
+            # We only infer a ListType if the output is scalar AND the first dependency is iterable
+            # AND the parameter type for that dependency in this function is a scalar (meaning it will be unrolled).
+            # If the parameter type is iterable, the function takes the whole iterable and returns a single scalar!
             if first_dep_output is not None and is_iterable_type(first_dep_output):
-                return ListType(return_type)
+                first_param_name = list(sig.parameters.keys())[0]
+                first_param_type = sig.parameters[first_param_name].annotation
+                if is_scalar(first_param_type):
+                    return ListType(return_type)
 
         return return_type
