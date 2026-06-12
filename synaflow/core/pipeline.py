@@ -1,7 +1,12 @@
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, Callable
 
-from synaflow.core.types import MaterializerFactory
+from synaflow.core.materializer import (
+    AsyncMaterializer,
+    AsyncMaterializerFactory,
+    SyncMaterializer,
+    SyncMaterializerFactory,
+)
 
 from .step import Step
 
@@ -15,7 +20,9 @@ class PipelineDef:
     name: str
     params: Any
     steps: list[Step]
-    default_materializer_factory: MaterializerFactory | None = None
+    default_materializer_factory: SyncMaterializerFactory | AsyncMaterializerFactory | Callable | None = (
+        None
+    )
     _dag: dict[str, dict[str, Any]] = field(default_factory=dict)
     _compiled: bool = False
     description: str = ""

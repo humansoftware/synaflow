@@ -23,24 +23,3 @@ class StepResult:
     output: Any = None
     error: Exception | None = None
     metrics: dict[str, int] = field(default_factory=dict)
-
-
-@dataclass
-class MaterializeContext:
-    pipeline_name: str
-    dataset_name: str
-    item_type: Any
-
-
-AnyIterator = Union[Iterator[Any], AsyncIterator[Any]]
-AnyIterable = Union[Iterable[Any], AsyncIterable[Any]]
-
-Materializer = Union[
-    Callable[[AnyIterator], AnyIterable],
-    Callable[[AnyIterator], Awaitable[AnyIterable]],
-]
-
-
-class MaterializerFactory(Protocol):
-    def __call__(self, ctx: MaterializeContext) -> Materializer:
-        ...
