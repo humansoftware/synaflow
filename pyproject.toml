@@ -37,3 +37,8 @@ version_toml = [
 ]
 commit_parser = "angular"
 major_on_zero = false
+
+[dependency-groups]
+dev = [
+    "pytest-asyncio>=1.4.0",
+]

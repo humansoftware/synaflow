@@ -6,6 +6,7 @@ This module defines the public interface for clients.
 """
 
 from .executor import run
+from .async_executor import async_run
 from .pipeline import PipelineDef, pipeline
 from .step import Step, step
 from .types import OnError, StepParams
@@ -18,4 +19,5 @@ __all__ = [
     "OnError",
     "StepParams",
     "run",
+    "async_run",
 ]

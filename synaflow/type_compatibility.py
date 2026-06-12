@@ -1,9 +1,9 @@
 import types
-from collections.abc import Generator, Iterable, Iterator
+from collections.abc import AsyncGenerator, AsyncIterator, Generator, Iterable, Iterator
 from typing import Any, get_args, get_origin
 
 SCALAR_TYPES = {int, float, str, bool, bytes, type(None)}
-COLLECTION_ORIGINS = {list, set, tuple, Generator, Iterator, Iterable}
+COLLECTION_ORIGINS = {list, set, tuple, Generator, Iterator, Iterable, AsyncGenerator, AsyncIterator}
 
 
 class ListType:
