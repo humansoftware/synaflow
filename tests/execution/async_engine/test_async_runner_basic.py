@@ -187,8 +187,7 @@ async def test_run_corpus_packs(pack_name, pack):
 
     # Assert expected results
     for key, expected_val in pack.step_results.items():
-        if expected_val is not None:
-            assert final_results.get(key) == expected_val
+        assert final_results.get(key) == expected_val
 
     # Assert expected call order if provided
     if pack.expected_call_order:

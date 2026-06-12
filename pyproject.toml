@@ -34,6 +34,8 @@ Repository = "https://github.com/humansoftware/synaflow.git"
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 asyncio_mode = "auto"
+addopts = "--import-mode=importlib"
+pythonpath = ["."]
 
 [tool.hatch.build.targets.wheel]
 packages = ["synaflow"]
