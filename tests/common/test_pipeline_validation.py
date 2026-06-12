@@ -150,3 +150,25 @@ def test_given_explicit_none_producer_and_strict_consumer_when_constructed_then_
             params=P,
             steps=[step("producer", fn=producer), step("consumer", fn=consumer)],
         )
+
+def test_given_mixed_sync_and_async_functions_when_constructed_then_raises():
+    from collections.abc import Iterator
+    class P(NamedTuple):
+        items: list[int] = [1, 2, 3]
+
+    def sync_generator(items: list[int]) -> Iterator[int]:
+        for i in items:
+            yield i
+
+    async def async_consumer(sync_generator: int):
+        pass
+
+    with pytest.raises(ValueError, match="UNRUNNABLE"):
+        pipeline(
+            name="test",
+            params=P,
+            steps=[
+                step("sync_generator", fn=sync_generator),
+                step("async_consumer", fn=async_consumer)
+            ]
+        )
