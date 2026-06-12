@@ -12,7 +12,8 @@ class PipelineDef:
 
     name: str
     params: Any
-    steps: list[Step]
+    steps: list[Step | Any]  # Allow IncludeStep
+    exports: str | None = None
     default_materializer_factory: Callable | None = None
     _dag: dict[str, dict[str, Any]] = field(default_factory=dict)
     _compiled: bool = False

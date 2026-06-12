@@ -30,15 +30,19 @@ class PipelineValidator:
         cls,
         pipeline_name: str,
         params: type[NamedTuple],
-        steps: list[Step],
+        steps: list[Any],
         default_materializer_factory: Any = None,
     ) -> dict:
         cls.validate_params_is_namedtuple(params, pipeline_name)
         dag: dict[str, dict] = {}
 
+        from .macro_expansion import MacroExpander
+
+        expanded_steps = MacroExpander.expand(steps)
+
         produced = DependencyValidator.initialize_parameters(params)
 
-        for step in steps:
+        for step in expanded_steps:
             StepValidator.validate_step_is_callable(step, pipeline_name)
             StepValidator.validate_unique_step_name(step.name, dag, pipeline_name)
 
