@@ -118,6 +118,14 @@ def test_run_corpus_packs(pack_name, pack):
     from synaflow.execution.sync_engine.pipeline import PipelineExecutor
 
     executor = PipelineExecutor(pack.pipeline)
+
+    if pack.exception_match:
+        import pytest
+
+        with pytest.raises(Exception, match=pack.exception_match):
+            executor.execute(pack.input_params)
+        return
+
     executor.execute(pack.input_params)
 
     # Assert expected results

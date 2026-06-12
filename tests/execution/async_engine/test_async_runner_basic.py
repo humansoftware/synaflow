@@ -119,6 +119,14 @@ async def test_run_corpus_packs(pack_name, pack):
     from synaflow.execution.async_engine.pipeline import AsyncPipelineExecutor
 
     executor = AsyncPipelineExecutor(pack.pipeline)
+
+    if pack.exception_match:
+        import pytest
+
+        with pytest.raises(Exception, match=pack.exception_match):
+            await executor.execute(pack.input_params)
+        return
+
     await executor.execute(pack.input_params)
 
     # Assert expected results

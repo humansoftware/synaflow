@@ -42,4 +42,11 @@ pack = PipelinePack(
         "transformer": None,
         "consumer": None,
     },
+    expected_call_order=["gen", "transformer", "consumer"],
+    expected_execution_levels=[
+        ["count"],
+        ["gen"],
+        ["transformer"],
+        ["consumer"],
+    ],
 )

@@ -45,4 +45,10 @@ pack = PipelinePack(
         "branch_b": 12,
         "merge": 23,
     },
+    expected_execution_levels=[
+        ["base_val"],
+        ["start"],
+        ["branch_a", "branch_b"],
+        ["merge"],
+    ],
 )
