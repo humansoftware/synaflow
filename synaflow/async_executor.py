@@ -6,7 +6,7 @@ from typing import Any, Callable
 from .executor import PipelineStopException
 from .pipeline import PipelineDef
 from .type_compatibility import is_iterable_type, is_scalar
-from .types import OnError
+from .types import MaterializeContext, MaterializerFactory, OnError
 
 EOF_MARKER = object()
 
@@ -33,12 +33,42 @@ async def async_list(gen):
 class AsyncPipelineExecutor:
     """Executes a compiled Directed Acyclic Graph (DAG) asynchronously."""
 
-    def __init__(self, pipeline: PipelineDef, materialize_fn: Callable = async_list):
+    def __init__(self, pipeline: PipelineDef):
         self.pipeline = pipeline
         self.dag = pipeline._dag
-        self.materialize_fn = materialize_fn
         self.context: dict[str, Any] = {}
         self.pump_tasks: list[asyncio.Task] = []
+
+    async def _apply_materializer(self, name: str, iterator: Any) -> Any:
+        node = self.dag.get(name)
+        step_def = None
+        if node and node.get("fn"):
+            step_def = next((s for s in self.pipeline.steps if s.name == name), None)
+
+        mat = getattr(step_def, "materializer", None) if step_def else None
+
+        if mat is None:
+            mat = self.pipeline.default_materializer_factory
+
+        if mat is None:
+            return await async_list(iterator)
+
+        sig = inspect.signature(mat)
+        if (
+            len(sig.parameters) > 1
+            or "ctx" in sig.parameters
+            or "context" in sig.parameters
+        ):
+            ctx = MaterializeContext(
+                pipeline_name=self.pipeline.name,
+                dataset_name=name,
+                item_type=node.get("output") if node else Any,
+            )
+            mat = mat(ctx)
+
+        if inspect.iscoroutinefunction(mat):
+            return await mat(iterator)
+        return mat(iterator)
 
     async def execute(self, params: Any) -> None:
         self._initialize_context_with_params(params)
@@ -74,7 +104,9 @@ class AsyncPipelineExecutor:
                 node = self.dag.get(name, {})
                 on_error = node.get("on_error")
                 task = asyncio.create_task(
-                    self._pump_iterator(value, queues, needs_materialize, on_error)
+                    self._pump_iterator(
+                        name, value, queues, needs_materialize, on_error
+                    )
                 )
                 self.pump_tasks.append(task)
             else:
@@ -84,6 +116,7 @@ class AsyncPipelineExecutor:
 
     async def _pump_iterator(
         self,
+        name: str,
         iterator: Any,
         queues: dict[str, asyncio.Queue],
         needs_materialize: bool = False,
@@ -91,16 +124,15 @@ class AsyncPipelineExecutor:
     ) -> None:
         try:
             if needs_materialize:
-                items = []
-                if isinstance(iterator, (AsyncIterator, AsyncGenerator)):
-                    async for item in iterator:
-                        items.append(item)
+                items = await self._apply_materializer(name, iterator)
+                if isinstance(items, (AsyncIterator, AsyncGenerator)):
+                    async for item in items:
+                        for q in queues.values():
+                            await q.put(item)
                 else:
-                    for item in iterator:
-                        items.append(item)
-                for item in items:
-                    for q in queues.values():
-                        await q.put(item)
+                    for item in items:
+                        for q in queues.values():
+                            await q.put(item)
             else:
                 if isinstance(iterator, (AsyncIterator, AsyncGenerator)):
                     async for item in iterator:
@@ -244,10 +276,7 @@ class AsyncPipelineExecutor:
 
         origin = getattr(consumer_type, "__origin__", consumer_type)
         if origin in (list, set, tuple) or consumer_type in (list, set, tuple):
-            if inspect.iscoroutinefunction(self.materialize_fn):
-                items = await self.materialize_fn(_queue_to_async_gen(queue))
-            else:
-                items = self.materialize_fn(_queue_to_async_gen(queue))
+            items = await async_list(_queue_to_async_gen(queue))
             if origin is set or consumer_type is set:
                 return set(items)
             elif origin is tuple or consumer_type is tuple:
@@ -287,14 +316,12 @@ class AsyncPipelineExecutor:
         return origin in (AsyncIterator, AsyncGenerator)
 
 
-async def async_run(
-    pipeline: PipelineDef, params: Any, *, materialize: Callable = async_list
-) -> None:
+async def async_run(pipeline: PipelineDef, params: Any) -> None:
     """Executes a pipeline definition asynchronously."""
     if getattr(pipeline, "requires_sync_runner", False):
         raise RuntimeError(
             "This pipeline contains synchronous streams (Iterator). It must be executed with run() or migrated to AsyncIterator."
         )
 
-    executor = AsyncPipelineExecutor(pipeline, materialize)
+    executor = AsyncPipelineExecutor(pipeline)
     await executor.execute(params)

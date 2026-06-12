@@ -52,6 +52,7 @@ def test_given_generator_output_and_two_each_consumers_when_run_then_materialize
     my_pipeline = pipeline(
         name="test",
         params=P,
+        default_materializer_factory=spy_materialize,
         steps=[
             step("items", fn=gen),
             step("a", fn=a),
@@ -59,7 +60,7 @@ def test_given_generator_output_and_two_each_consumers_when_run_then_materialize
         ],
     )
 
-    run_pipeline(my_pipeline, params=P(), materialize=spy_materialize)
+    run_pipeline(my_pipeline, params=P())
     assert len(materialized) == 0
     assert [val for key, val in call_order if key == "a"] == [0, 1, 2]
     assert [val for key, val in call_order if key == "b"] == [0, 1, 2]
@@ -92,6 +93,7 @@ def test_given_generator_and_scalar_and_iterator_consumers_when_run_then_no_mate
     my_pipeline = pipeline(
         name="test",
         params=P,
+        default_materializer_factory=spy_materialize,
         steps=[
             step("items", fn=gen),
             step("a", fn=a),
@@ -99,7 +101,7 @@ def test_given_generator_and_scalar_and_iterator_consumers_when_run_then_no_mate
         ],
     )
 
-    run_pipeline(my_pipeline, params=P(), materialize=spy_materialize)
+    run_pipeline(my_pipeline, params=P())
     assert len(materialized) == 0
     assert [val for key, val in call_order if key == "a"] == [0, 1, 2]
     assert [val for key, val in call_order if key == "b"] == [0, 1, 2]
@@ -133,6 +135,7 @@ def test_given_generator_and_two_iterator_consumers_when_run_then_no_materializa
     my_pipeline = pipeline(
         name="test",
         params=P,
+        default_materializer_factory=spy_materialize,
         steps=[
             step("items", fn=gen),
             step("a", fn=a),
@@ -140,7 +143,7 @@ def test_given_generator_and_two_iterator_consumers_when_run_then_no_materializa
         ],
     )
 
-    run_pipeline(my_pipeline, params=P(), materialize=spy_materialize)
+    run_pipeline(my_pipeline, params=P())
     assert len(materialized) == 0
     assert [val for key, val in call_order if key == "a"] == [0, 1, 2]
     assert [val for key, val in call_order if key == "b"] == [0, 1, 2]
@@ -173,6 +176,7 @@ def test_given_generator_and_union_scalar_and_union_iterator_consumers_when_run_
     my_pipeline = pipeline(
         name="test",
         params=P,
+        default_materializer_factory=spy_materialize,
         steps=[
             step("items", fn=gen),
             step("a", fn=a),
@@ -180,7 +184,7 @@ def test_given_generator_and_union_scalar_and_union_iterator_consumers_when_run_
         ],
     )
 
-    run_pipeline(my_pipeline, params=P(), materialize=spy_materialize)
+    run_pipeline(my_pipeline, params=P())
     assert len(materialized) == 0
     assert [val for key, val in call_order if key == "a"] == [0, 1, 2]
     assert [val for key, val in call_order if key == "b"] == [0, 1, 2]
@@ -212,6 +216,7 @@ def test_given_generator_of_union_and_union_scalar_consumers_when_run_then_no_ma
     my_pipeline = pipeline(
         name="test",
         params=P,
+        default_materializer_factory=spy_materialize,
         steps=[
             step("items", fn=gen),
             step("a", fn=a),
@@ -219,7 +224,7 @@ def test_given_generator_of_union_and_union_scalar_consumers_when_run_then_no_ma
         ],
     )
 
-    run_pipeline(my_pipeline, params=P(), materialize=spy_materialize)
+    run_pipeline(my_pipeline, params=P())
     assert len(materialized) == 0
     assert [val for key, val in call_order if key == "a"] == [0, 1, 2]
     assert [val for key, val in call_order if key == "b"] == [0, 1, 2]
@@ -251,6 +256,7 @@ def test_given_generator_and_list_consumer_when_run_then_materialized_once(
     my_pipeline = pipeline(
         name="test",
         params=P,
+        default_materializer_factory=spy_materialize,
         steps=[
             step("items", fn=gen),
             step("a", fn=a),
@@ -258,7 +264,7 @@ def test_given_generator_and_list_consumer_when_run_then_materialized_once(
         ],
     )
 
-    run_pipeline(my_pipeline, params=P(), materialize=spy_materialize)
+    run_pipeline(my_pipeline, params=P())
     assert len(materialized) == 1
     assert [val for key, val in call_order if key == "a"] == [0, 1, 2]
     assert [val for key, val in call_order if key == "b"] == [[0, 1, 2]]
@@ -293,6 +299,7 @@ def test_given_generator_and_each_transformer_and_iterator_consumer_when_run_the
     my_pipeline = pipeline(
         name="test",
         params=P,
+        default_materializer_factory=spy_materialize,
         steps=[
             step("items", fn=gen),
             step("a", fn=a),
@@ -300,7 +307,7 @@ def test_given_generator_and_each_transformer_and_iterator_consumer_when_run_the
         ],
     )
 
-    run_pipeline(my_pipeline, params=P(), materialize=spy_materialize)
+    run_pipeline(my_pipeline, params=P())
     assert len(materialized) == 0
     assert [val for key, val in call_order if key == "a"] == [
         "item_0",
@@ -371,6 +378,7 @@ def test_given_generator_and_set_consumer_when_run_then_materialized_once(run_pi
     my_pipeline = pipeline(
         name="test",
         params=P,
+        default_materializer_factory=spy_materialize,
         steps=[
             step("items", fn=gen),
             step("a", fn=a),
@@ -378,7 +386,7 @@ def test_given_generator_and_set_consumer_when_run_then_materialized_once(run_pi
         ],
     )
 
-    run_pipeline(my_pipeline, params=P(), materialize=spy_materialize)
+    run_pipeline(my_pipeline, params=P())
     assert len(materialized) == 1
     assert [val for key, val in call_order if key == "a"] == [0, 1, 2]
     assert [val for key, val in call_order if key == "b"] == [{0, 1, 2}]
@@ -414,6 +422,7 @@ def test_given_two_generators_when_consumed_by_single_step_then_no_materializati
     my_pipeline = pipeline(
         name="test",
         params=P,
+        default_materializer_factory=spy_materialize,
         steps=[
             step("gen1", fn=gen1),
             step("gen2", fn=gen2),
@@ -421,7 +430,7 @@ def test_given_two_generators_when_consumed_by_single_step_then_no_materializati
         ],
     )
 
-    run_pipeline(my_pipeline, params=P(), materialize=spy_materialize)
+    run_pipeline(my_pipeline, params=P())
     assert len(materialized) == 0
     assert [val for key, val in call_order if key == "c1"] == [0, 1, 2]
     assert [val for key, val in call_order if key == "c2"] == [10, 11, 12]
@@ -457,6 +466,7 @@ def test_given_chain_and_bypass_dependencies_when_run_then_no_materialization(
     my_pipeline = pipeline(
         name="test",
         params=P,
+        default_materializer_factory=spy_materialize,
         steps=[
             step("items", fn=gen),
             step("a", fn=a),
@@ -464,7 +474,7 @@ def test_given_chain_and_bypass_dependencies_when_run_then_no_materialization(
         ],
     )
 
-    run_pipeline(my_pipeline, params=P(), materialize=spy_materialize)
+    run_pipeline(my_pipeline, params=P())
     assert len(materialized) == 0
     assert [val for key, val in call_order if key == "a"] == [0, 1, 2]
     assert [val for key, val in call_order if key == "b_a"] == [0, 2, 4]
@@ -497,6 +507,7 @@ def test_given_generator_and_tuple_consumer_when_run_then_materialized_once(
     my_pipeline = pipeline(
         name="test",
         params=P,
+        default_materializer_factory=spy_materialize,
         steps=[
             step("items", fn=gen),
             step("a", fn=a),
@@ -504,7 +515,7 @@ def test_given_generator_and_tuple_consumer_when_run_then_materialized_once(
         ],
     )
 
-    run_pipeline(my_pipeline, params=P(), materialize=spy_materialize)
+    run_pipeline(my_pipeline, params=P())
     assert len(materialized) == 1
     assert [val for key, val in call_order if key == "a"] == [0, 1, 2]
     assert [val for key, val in call_order if key == "b"] == [(0, 1, 2)]
@@ -572,6 +583,7 @@ def test_given_collection_producer_and_scalar_transformer_and_iterator_consumer_
     my_pipeline = pipeline(
         name="test",
         params=P,
+        default_materializer_factory=spy_materialize,
         steps=[
             step("items", fn=gen),
             step("s2", fn=s2),
@@ -579,7 +591,7 @@ def test_given_collection_producer_and_scalar_transformer_and_iterator_consumer_
         ],
     )
 
-    run_pipeline(my_pipeline, params=P(), materialize=spy_materialize)
+    run_pipeline(my_pipeline, params=P())
     assert len(materialized) == 0
     assert [val for key, val in call_order if key == "s2"] == [0, 1, 2]
     assert [val for key, val in call_order if key == "s3"] == [10, 11, 12]

@@ -1,12 +1,12 @@
 import inspect
 import itertools
 from collections.abc import Callable, Generator, Iterator
-from typing import Any
+from typing import Any, Iterable
 
 from .iterator_utils import InterleavedIterator
 from .pipeline import PipelineDef
 from .type_compatibility import is_iterable_type, is_scalar
-from .types import OnError
+from .types import MaterializeContext, MaterializerFactory, OnError
 
 
 class TeeWrapper:
@@ -23,12 +23,47 @@ class PipelineStopException(Exception):
 class PipelineExecutor:
     """Executes a compiled Directed Acyclic Graph (DAG) for a pipeline."""
 
-    def __init__(self, pipeline: PipelineDef, materialize_fn: Callable = list):
+    def __init__(self, pipeline: PipelineDef):
         self.pipeline = pipeline
         self.dag = pipeline._dag
-        self.materialize_fn = materialize_fn
         self.context: dict[str, Any] = {}
         self.executed_steps: set[str] = set()
+
+    def _apply_materializer(self, name: str, iterator: Iterator) -> Iterable:
+        node = self.dag.get(name)
+        step_def = None
+        if node and node.get("fn"):
+            # find step definition to get its specific materializer
+            step_def = next((s for s in self.pipeline.steps if s.name == name), None)
+
+        mat = getattr(step_def, "materializer", None) if step_def else None
+
+        # fallback to pipeline default factory
+        if mat is None:
+            mat = self.pipeline.default_materializer_factory
+
+        if mat is None:
+            return list(iterator)
+
+        # check if it's a factory by inspecting if it takes context
+        # (a proper Protocol check or inspect)
+        # However, since list/set/dict don't take a Context, we can just check if it's a factory.
+        import inspect
+
+        sig = inspect.signature(mat)
+        if (
+            len(sig.parameters) > 1
+            or "ctx" in sig.parameters
+            or "context" in sig.parameters
+        ):
+            ctx = MaterializeContext(
+                pipeline_name=self.pipeline.name,
+                dataset_name=name,
+                item_type=node.get("output") if node else Any,
+            )
+            mat = mat(ctx)
+
+        return mat(iterator)
 
     def execute(self, params: Any) -> None:
         self._initialize_context_with_params(params)
@@ -46,7 +81,7 @@ class PipelineExecutor:
             needs_materialization = node.get("needs_materialize", False)
 
             if needs_materialization and isinstance(value, Iterator):
-                value = self.materialize_fn(value)
+                value = self._apply_materializer(field, value)
             elif isinstance(value, Iterator):
                 value = self._tee_iterator_for_consumers(field, value)
 
@@ -295,7 +330,7 @@ class PipelineExecutor:
             output = each_generator(items, kwargs, first_dep, fn, node.get("on_error"))
 
             if node.get("needs_materialize"):
-                output = self.materialize_fn(output)
+                output = self._apply_materializer(name, output)
 
             if len(consumers) > 1:
                 tees = itertools.tee(output, len(consumers))
@@ -311,7 +346,7 @@ class PipelineExecutor:
 
             if name and not name.startswith("_"):
                 if isinstance(output, Iterator) and node.get("needs_materialize"):
-                    output = self.materialize_fn(output)
+                    output = self._apply_materializer(name, output)
                 elif isinstance(output, Iterator):
                     output = self._tee_iterator_for_consumers(name, output)
 
@@ -389,12 +424,12 @@ class PipelineExecutor:
         return origin in (list, set, tuple)
 
 
-def run(pipeline: PipelineDef, params: Any, *, materialize: Callable = list) -> None:
+def run(pipeline: PipelineDef, params: Any) -> None:
     """Executes a pipeline definition synchronously."""
     if getattr(pipeline, "requires_async_runner", False):
         raise RuntimeError(
             "This pipeline contains async features (async def or AsyncIterator) and must be executed with async_run()."
         )
 
-    executor = PipelineExecutor(pipeline, materialize)
+    executor = PipelineExecutor(pipeline)
     executor.execute(params)

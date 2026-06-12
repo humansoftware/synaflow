@@ -1,5 +1,7 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any
+
+from synaflow.types import MaterializerFactory
 
 from .step import Step
 
@@ -13,6 +15,9 @@ class PipelineDef:
     name: str
     params: Any
     steps: list[Step]
+    default_materializer_factory: MaterializerFactory | None = None
+    _dag: dict[str, dict[str, Any]] = field(default_factory=dict)
+    _compiled: bool = False
     description: str = ""
 
     def __post_init__(self) -> None:
