@@ -77,5 +77,15 @@ pipe_l1 = pipeline(
 pack = PipelinePack(
     pipeline=pipe_l1,
     input_params=Level1Params(values=[10, 20]),
-    expected_results={"consolidate": {"each_res": 84, "single_res": 32}},
+    expected_results={
+        "l2_each__adapter": [Level2Params(y=10), Level2Params(y=20)],
+        "l2_single__adapter": Level2Params(y=10),
+        "l2_each__l3_res__adapter": [Level3Params(x=11), Level3Params(x=21)],
+        "l2_single__l3_res__adapter": Level3Params(x=11),
+        "l2_each__l3_res": [22, 42],
+        "l2_single__l3_res": 22,
+        "l2_each": [32, 52],
+        "l2_single": 32,
+        "consolidate": {"each_res": 84, "single_res": 32},
+    },
 )

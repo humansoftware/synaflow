@@ -120,32 +120,51 @@ def test_run_corpus_packs(pack_name, pack):
     from typing import Any
 
     from synaflow.execution.sync_engine.pipeline import PipelineExecutor
+    from synaflow.execution.sync_engine.topology import SyncStreamManager
 
-    class ContextRecorder(dict):
+    class TestSyncStreamManager(SyncStreamManager):
         def __init__(self, *args, **kwargs):
             super().__init__(*args, **kwargs)
             self.recorded = {}
 
+        def apply_materializer(self, name: str, iterator: Iterator) -> Any:
+            res1, res2 = itertools.tee(iterator)
+            self.recorded[name] = res1
+            return super().apply_materializer(name, res2)
+
+        def tee_iterator_for_consumers(self, name: str, iterator: Iterator) -> Any:
+            res1, res2 = itertools.tee(iterator)
+            self.recorded[name] = res1
+            return super().tee_iterator_for_consumers(name, res2)
+
+    class ContextRecorder(dict):
+        def __init__(self, stream_manager, *args, **kwargs):
+            super().__init__(*args, **kwargs)
+            self.stream_manager = stream_manager
+
         def __setitem__(self, key, value):
             if isinstance(value, (Iterator, Generator)):
                 res1, res2 = itertools.tee(value)
-                self.recorded[key] = res1
+                self.stream_manager.recorded[key] = res1
                 super().__setitem__(key, res2)
+            elif type(value).__name__ != "TeeWrapper":
+                self.stream_manager.recorded[key] = value
+                super().__setitem__(key, value)
             else:
-                self.recorded[key] = value
                 super().__setitem__(key, value)
 
     class TestPipelineExecutor(PipelineExecutor):
         def __init__(self, *args, **kwargs):
-            self.context = ContextRecorder()
-            # We must assign self.context BEFORE calling super().__init__!
-            # Wait, super().__init__ sets self.context = {}!
-            # So we call super().__init__ then replace self.context everywhere!
             super().__init__(*args, **kwargs)
-            self.context = ContextRecorder()
-            self.stream_manager.context = self.context
-            self.resolver.context = self.context
-            self.runner.context = self.context
+            self.stream_manager = TestSyncStreamManager(self.pipeline, self.context)
+            self.runner.stream_manager = self.stream_manager
+
+            # Replace context to capture scalars
+            new_ctx = ContextRecorder(self.stream_manager, self.context)
+            self.context = new_ctx
+            self.stream_manager.context = new_ctx
+            self.resolver.context = new_ctx
+            self.runner.context = new_ctx
 
     executor = TestPipelineExecutor(pack.pipeline)
 
@@ -160,7 +179,7 @@ def test_run_corpus_packs(pack_name, pack):
 
     # Convert recorded iterators to lists before assertion
     final_results = {}
-    for key, val in executor.context.recorded.items():
+    for key, val in executor.stream_manager.recorded.items():
         if isinstance(val, (Iterator, Generator)):
             final_results[key] = list(val)
         else:

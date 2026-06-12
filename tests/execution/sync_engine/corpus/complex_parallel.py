@@ -53,10 +53,10 @@ pack = PipelinePack(
     pipeline=pipeline_def,
     input_params=ComplexParallelParams(base=1),
     expected_results={
-        "step1": None,
-        "step2": None,
-        "step3": None,
-        "step4": None,
+        "step1": [1, 2, 3, 4, 5],
+        "step2": [10, 20, 30, 40, 50],
+        "step3": [11, 21, 31, 41, 51],
+        "step4": [100, 200, 300, 400, 500],
         "step5": None,
     },
 )

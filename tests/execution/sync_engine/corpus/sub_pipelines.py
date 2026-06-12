@@ -51,8 +51,12 @@ pack = PipelinePack(
     pipeline=pipe,
     input_params=AParams(raw_texts=["hi", "world", "synaflow"]),
     expected_results={
-        "my_text_processor__adapter": None,  # the adapter returns None technically from executor context since it's an iterator
-        "my_text_processor__func_b1": None,  # It is lazy so it remains a generator in context
+        "my_text_processor__adapter": [
+            BParams(text="hi"),
+            BParams(text="world"),
+            BParams(text="synaflow"),
+        ],
+        "my_text_processor__func_b1": ["HI", "WORLD", "SYNAFLOW"],
         "my_text_processor": [2, 5, 8],
         "consolidate": 15,
     },
