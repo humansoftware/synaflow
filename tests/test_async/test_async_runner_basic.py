@@ -28,7 +28,6 @@ def mock_step(**params: type) -> MagicMock:
     return mock
 
 
-@pytest.mark.asyncio
 async def test_given_single_step_when_run_then_step_called_with_params():
     class P(NamedTuple):
         x: int = 5
@@ -40,7 +39,6 @@ async def test_given_single_step_when_run_then_step_called_with_params():
     s1.assert_called_once_with(x=7)
 
 
-@pytest.mark.asyncio
 async def test_given_multiple_steps_when_run_then_second_receives_first_output():
     class P(NamedTuple):
         count: int = 3
@@ -60,7 +58,6 @@ async def test_given_multiple_steps_when_run_then_second_receives_first_output()
     s2.assert_called_once_with(numbers=[0, 1, 2])
 
 
-@pytest.mark.asyncio
 async def test_given_params_with_defaults_when_run_then_uses_defaults():
     class P(NamedTuple):
         count: int = 5
@@ -72,7 +69,6 @@ async def test_given_params_with_defaults_when_run_then_uses_defaults():
     s1.assert_called_once_with(count=5)
 
 
-@pytest.mark.asyncio
 async def test_given_sync_stream_pipeline_when_run_asynchronously_then_raises():
     import pytest
     from synaflow.pipeline import pipeline

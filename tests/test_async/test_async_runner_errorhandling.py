@@ -28,7 +28,6 @@ def mock_step(**params: type) -> MagicMock:
     return mock
 
 
-@pytest.mark.asyncio
 async def test_given_on_error_stop_when_item_fails_then_pipeline_stops():
     class P(NamedTuple):
         items: list[int] = [1, 2, 3]
@@ -55,7 +54,6 @@ async def test_given_on_error_stop_when_item_fails_then_pipeline_stops():
     s2.assert_not_called()
 
 
-@pytest.mark.asyncio
 async def test_given_on_error_continue_when_item_fails_then_continues_next():
     class P(NamedTuple):
         items: list[int] = [1, 2, 3]
@@ -77,7 +75,6 @@ async def test_given_on_error_continue_when_item_fails_then_continues_next():
     assert s1.call_count == 3
 
 
-@pytest.mark.asyncio
 async def test_given_on_error_stop_when_all_mode_fails_then_pipeline_stops():
     class P(NamedTuple):
         items: list[int] = [1, 2, 3]

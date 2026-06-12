@@ -28,7 +28,6 @@ def mock_step(**params: type) -> MagicMock:
     return mock
 
 
-@pytest.mark.asyncio
 async def test_given_generator_output_and_two_each_consumers_when_run_then_materialized_once():
     class P(NamedTuple):
         count: int = 3
@@ -67,7 +66,6 @@ async def test_given_generator_output_and_two_each_consumers_when_run_then_mater
     assert [val for key, val in call_order if key == "b"] == [0, 1, 2]
 
 
-@pytest.mark.asyncio
 async def test_given_generator_and_scalar_and_iterator_consumers_when_run_then_no_materialization():
     class P(NamedTuple):
         count: int = 3
@@ -107,7 +105,6 @@ async def test_given_generator_and_scalar_and_iterator_consumers_when_run_then_n
     assert [val for key, val in call_order if key == "b"] == [0, 1, 2]
 
 
-@pytest.mark.asyncio
 async def test_given_generator_and_two_iterator_consumers_when_run_then_no_materialization():
     class P(NamedTuple):
         count: int = 3
@@ -148,7 +145,6 @@ async def test_given_generator_and_two_iterator_consumers_when_run_then_no_mater
     assert [val for key, val in call_order if key == "b"] == [0, 1, 2]
 
 
-@pytest.mark.asyncio
 async def test_given_generator_and_union_scalar_and_union_iterator_consumers_when_run_then_no_materialization():
     class P(NamedTuple):
         count: int = 3
@@ -188,7 +184,6 @@ async def test_given_generator_and_union_scalar_and_union_iterator_consumers_whe
     assert [val for key, val in call_order if key == "b"] == [0, 1, 2]
 
 
-@pytest.mark.asyncio
 async def test_given_generator_of_union_and_union_scalar_consumers_when_run_then_no_materialization():
     class P(NamedTuple):
         count: int = 3
@@ -227,7 +222,6 @@ async def test_given_generator_of_union_and_union_scalar_consumers_when_run_then
     assert [val for key, val in call_order if key == "b"] == [0, 1, 2]
 
 
-@pytest.mark.asyncio
 async def test_given_generator_and_list_consumer_when_run_then_materialized_once():
     class P(NamedTuple):
         count: int = 3
@@ -266,7 +260,6 @@ async def test_given_generator_and_list_consumer_when_run_then_materialized_once
     assert [val for key, val in call_order if key == "b"] == [[0, 1, 2]]
 
 
-@pytest.mark.asyncio
 async def test_given_generator_and_each_transformer_and_iterator_consumer_when_run_then_no_materialization():
     class P(NamedTuple):
         count: int = 3
@@ -307,7 +300,6 @@ async def test_given_generator_and_each_transformer_and_iterator_consumer_when_r
     assert [val for key, val in call_order if key == "b"] == ['ITEM_0', 'ITEM_1', 'ITEM_2']
 
 
-@pytest.mark.asyncio
 async def test_given_generator_and_eager_each_and_eager_iterator_consumers_when_run_then_lockstep_order():
     class P(NamedTuple):
         count: int = 3
@@ -340,7 +332,6 @@ async def test_given_generator_and_eager_each_and_eager_iterator_consumers_when_
     assert [val for key, val in call_order if key == "b"] == [0, 1, 2]
 
 
-@pytest.mark.asyncio
 async def test_given_generator_and_set_consumer_when_run_then_materialized_once():
     class P(NamedTuple):
         count: int = 3
@@ -379,7 +370,6 @@ async def test_given_generator_and_set_consumer_when_run_then_materialized_once(
     assert [val for key, val in call_order if key == "b"] == [{0, 1, 2}]
 
 
-@pytest.mark.asyncio
 async def test_given_two_generators_when_consumed_by_single_step_then_no_materialization():
     class P(NamedTuple):
         count: int = 3
@@ -422,7 +412,6 @@ async def test_given_two_generators_when_consumed_by_single_step_then_no_materia
     assert [val for key, val in call_order if key == "c2"] == [10, 11, 12]
 
 
-@pytest.mark.asyncio
 async def test_given_chain_and_bypass_dependencies_when_run_then_no_materialization():
     class P(NamedTuple):
         count: int = 3
@@ -466,7 +455,6 @@ async def test_given_chain_and_bypass_dependencies_when_run_then_no_materializat
     assert [val for key, val in call_order if key == "b_items"] == [0, 1, 2]
 
 
-@pytest.mark.asyncio
 async def test_given_generator_and_tuple_consumer_when_run_then_materialized_once():
     class P(NamedTuple):
         count: int = 3
@@ -505,7 +493,6 @@ async def test_given_generator_and_tuple_consumer_when_run_then_materialized_onc
     assert [val for key, val in call_order if key == "b"] == [(0, 1, 2)]
 
 
-@pytest.mark.asyncio
 async def test_given_scalar_producer_and_list_and_iterator_consumers_when_run_then_wrapped_as_single_element_collections():
     class P(NamedTuple):
         val: int = 42
@@ -538,7 +525,6 @@ async def test_given_scalar_producer_and_list_and_iterator_consumers_when_run_th
     assert [val for key, val in call_order if key == "s3"] == [[42]]
 
 
-@pytest.mark.asyncio
 async def test_given_collection_producer_and_scalar_transformer_and_iterator_consumer_when_run_then_lazy_stream_no_materialization():
     class P(NamedTuple):
         count: int = 3

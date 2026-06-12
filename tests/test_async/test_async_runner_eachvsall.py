@@ -28,7 +28,6 @@ def mock_step(**params: type) -> MagicMock:
     return mock
 
 
-@pytest.mark.asyncio
 async def test_given_scalar_param_and_list_in_context_when_run_then_iterates():
     class P(NamedTuple):
         items: list[int] = [1, 2, 3]
@@ -42,7 +41,6 @@ async def test_given_scalar_param_and_list_in_context_when_run_then_iterates():
     s1.assert_has_calls([call(items=1), call(items=2), call(items=3)])
 
 
-@pytest.mark.asyncio
 async def test_given_iterable_param_and_list_in_context_when_run_then_passes_whole_list():
     class P(NamedTuple):
         items: list[int] = [1, 2, 3]

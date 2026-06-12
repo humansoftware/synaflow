@@ -8,7 +8,6 @@ from synaflow.pipeline import pipeline
 from synaflow.step import step
 
 
-@pytest.mark.asyncio
 async def test_given_async_generator_and_each_consumer_when_run_then_processed_concurrently():
     class P(NamedTuple):
         count: int = 3
@@ -35,7 +34,6 @@ async def test_given_async_generator_and_each_consumer_when_run_then_processed_c
     assert sorted(call_order) == [("a", 0), ("a", 1), ("a", 2)]
 
 
-@pytest.mark.asyncio
 async def test_given_async_generator_and_two_async_iterator_consumers_when_run_then_both_receive_items():
     class P(NamedTuple):
         count: int = 3
@@ -70,7 +68,6 @@ async def test_given_async_generator_and_two_async_iterator_consumers_when_run_t
     assert [v for k, v in call_order if k == "b"] == [0, 1, 2]
 
 
-@pytest.mark.asyncio
 async def test_given_async_generator_and_list_consumer_when_run_then_materialized():
     class P(NamedTuple):
         count: int = 3
