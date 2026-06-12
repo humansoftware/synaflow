@@ -2,6 +2,13 @@
 
 
 
+## v0.4.0 (2026-06-12)
+
+### Feature
+
+* feat: enforce strict sync/async pipeline color boundaries during validation ([`bd5ef62`](https://github.com/humansoftware/synaflow/commit/bd5ef62654d51f280ba17eec4757efb02fb9af3e))
+
+
 ## v0.3.0 (2026-06-12)
 
 ### Documentation
