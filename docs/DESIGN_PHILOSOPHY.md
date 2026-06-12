@@ -4,7 +4,10 @@ This document records the fundamental principles and architectural design decisi
 
 ## 1. Fundamental Principles
 
-### 1.1. Make Simple Things Easy, Complex Things Possible
+### 1.1. Core Mission: Clean, Decoupled Business Rules
+The primary problem Synaflow solves is isolating business logic from architectural complexity. The final code containing business rules must be impeccably clean, readable, and completely decoupled from how data is orchestrated, materialized, or distributed. The framework handles the heavy lifting of orchestration so developers can focus solely on the domain logic.
+
+### 1.2. Make Simple Things Easy, Complex Things Possible
 The learning curve of the framework should be friendly. Default configurations should be intuitive and seamlessly handle 90% of use cases (e.g., using `list` or `set` as native materializers). However, the framework must expose protocols and interfaces (such as context-rich *Factories*) to allow advanced engineering (e.g., partitioned disk persistence by data type).
 
 ### 1.2. Convention Over Configuration
@@ -12,9 +15,10 @@ User code should focus on business rules, not wiring things together.
 - The DAG discovers dependencies by reading signature types (Type Hints).
 - Global options (e.g., Materializers, Timeouts) are configured once at the `pipeline` root and propagated by convention, rather than requiring the user to configure every node. Exceptions to rules (overrides) are explicit per node.
 
-### 1.3. Lazy by Default (Stream Processing)
-The framework assumes *Stream* processing (Lazy Evaluation) as the default whenever possible, to protect memory (RAM) and optimize CPU time.
-- The default error handling is `OnError.CONTINUE`, allowing a failing item to be discarded without halting the continuous stream.
+### 1.4. Lazy by Default (Event-Based & Stream Processing)
+The framework assumes *Stream* processing (Lazy Evaluation) as the default. This is specifically designed so that pipelines can be idempotent and utilized for event-based processing.
+- When processing events, we often need to re-process past events individually, while at other times it makes more sense to aggregate them into a time window and materialize them all at once. The framework makes both scenarios possible through delayed evaluation.
+- The default error handling is `OnError.CONTINUE`, allowing a failing event to be discarded without halting the continuous stream, preserving the RAM and CPU optimization of lazy pipelines.
 
 ## 2. Architectural Decisions and Patterns (Decision Log)
 
