@@ -10,6 +10,10 @@ The primary problem Synaflow solves is isolating business logic from architectur
 ### 1.2. Make Simple Things Easy, Complex Things Possible
 The learning curve of the framework should be friendly. Default configurations should be intuitive and seamlessly handle 90% of use cases (e.g., using `list` or `set` as native materializers). However, the framework must expose protocols and interfaces (such as context-rich *Factories*) to allow advanced engineering (e.g., partitioned disk persistence by data type).
 
+This philosophy translates into a strict adherence to SOLID principles, specifically:
+- **Open/Closed Principle (OCP)**: The framework is open for extension (you can inject your own `MaterializerFactory` or custom execution runners) but closed for modification (you never need to hack the core engines to support new behaviors).
+- **Interface Segregation Principle (ISP)**: Users are never forced to implement massive classes or unused interface methods (like `setup()`, `teardown()`, etc.). Simple tasks only require a simple python `def`.
+
 ### 1.2. Convention Over Configuration
 User code should focus on business rules, not wiring things together.
 - The DAG discovers dependencies by reading signature types (Type Hints).
