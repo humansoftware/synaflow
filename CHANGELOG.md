@@ -2,6 +2,17 @@
 
 
 
+## v0.5.0 (2026-06-12)
+
+### Feature
+
+* feat: canonical stream json and runner guard tests ([`5f4828b`](https://github.com/humansoftware/synaflow/commit/5f4828b7cec7ad70142bd3ba56f29598d1b2b84b))
+
+### Test
+
+* test: add validation test for mixed sync/async pipelines ([`615c98b`](https://github.com/humansoftware/synaflow/commit/615c98bcbcc86202f78f5e8838f15d9d8782482f))
+
+
 ## v0.4.1 (2026-06-12)
 
 ### Fix
