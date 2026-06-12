@@ -48,6 +48,7 @@ class StepValidator:
             "fn": step.fn,
             "on_error": step.on_error,
             "needs_materialize": needs_materialize,
+            "sub_pipeline": step.sub_pipeline,
         }
 
     @staticmethod

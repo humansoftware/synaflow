@@ -14,6 +14,7 @@ class Step:
     params: StepParams | None = None
     materializer: Callable | None = None
     description: str = ""
+    sub_pipeline: str | None = None
 
 
 @dataclass

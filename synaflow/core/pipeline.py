@@ -41,6 +41,7 @@ class PipelineDef:
                 "fn": node["fn"].__name__ if node["fn"] else None,
                 "on_error": node["on_error"].value if node["on_error"] else None,
                 "needs_materialize": node["needs_materialize"],
+                "sub_pipeline": node.get("sub_pipeline"),
             }
         return serialized
 

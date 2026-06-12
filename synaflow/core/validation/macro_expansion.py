@@ -72,6 +72,7 @@ def _expand_include(include_step: IncludeStep) -> list[Step]:
                 params=sub_step.params,
                 materializer=sub_step.materializer,
                 description=sub_step.description,
+                sub_pipeline=sub_pipeline.name,
             )
         )
 
