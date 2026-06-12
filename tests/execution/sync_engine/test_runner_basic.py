@@ -1,11 +1,16 @@
 import inspect
-from typing import Generator, Iterator, List, NamedTuple
+import itertools
+from collections.abc import Generator, Iterator
+from typing import Any, List, NamedTuple
 from unittest.mock import MagicMock, call
 
 import pytest
 
 from synaflow import pipeline, step
 from synaflow.core.types import OnError
+from synaflow.execution.sync_engine.pipeline import PipelineExecutor
+from synaflow.execution.sync_engine.topology import SyncStreamManager
+from tests.execution.sync_engine.corpus import PACKS as SYNC_PACKS
 
 
 def mock_step(**params: type) -> MagicMock:
@@ -110,19 +115,10 @@ def test_given_async_pipeline_when_run_synchronously_then_raises():
         run(my_pipeline, params=P())
 
 
-from tests.execution.sync_engine.corpus import PACKS as SYNC_PACKS
-
-
-@pytest.mark.parametrize("pack_name", list(SYNC_PACKS.keys()))
-def test_run_corpus_packs(pack_name):
-    pack = SYNC_PACKS[pack_name]
-    import itertools
-    from collections.abc import Generator, Iterator
-    from typing import Any
-
-    from synaflow.execution.sync_engine.pipeline import PipelineExecutor
-    from synaflow.execution.sync_engine.topology import SyncStreamManager
-
+@pytest.mark.parametrize(
+    "pack_name, pack", list(SYNC_PACKS.items()), ids=list(SYNC_PACKS.keys())
+)
+def test_run_corpus_packs(pack_name, pack):
     class TestSyncStreamManager(SyncStreamManager):
         def __init__(self, *args, **kwargs):
             super().__init__(*args, **kwargs)

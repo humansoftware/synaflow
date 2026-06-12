@@ -1,5 +1,7 @@
+import asyncio
 import inspect
-from typing import AsyncGenerator, AsyncIterator, Generator, Iterator, List, NamedTuple
+from collections.abc import AsyncGenerator, AsyncIterator
+from typing import Any, Generator, Iterator, List, NamedTuple
 from unittest.mock import AsyncMock as MagicMock
 from unittest.mock import call
 
@@ -7,6 +9,9 @@ import pytest
 
 from synaflow import async_run, pipeline, step
 from synaflow.core.types import OnError
+from synaflow.execution.async_engine.pipeline import AsyncPipelineExecutor
+from synaflow.execution.async_engine.topology import AsyncStreamManager, AsyncTeeWrapper
+from tests.execution.async_engine.corpus import PACKS as ASYNC_PACKS
 
 
 def mock_step(**params: type) -> MagicMock:
@@ -110,23 +115,11 @@ async def test_given_sync_stream_pipeline_when_run_asynchronously_then_raises():
         await async_run(my_pipeline, params=P())
 
 
-from tests.execution.async_engine.corpus import PACKS as ASYNC_PACKS
-
-
 @pytest.mark.asyncio
-@pytest.mark.parametrize("pack_name", list(ASYNC_PACKS.keys()))
-async def test_run_corpus_packs(pack_name):
-    pack = ASYNC_PACKS[pack_name]
-    import asyncio
-    from collections.abc import AsyncGenerator, AsyncIterator
-    from typing import Any
-
-    from synaflow.execution.async_engine.pipeline import AsyncPipelineExecutor
-    from synaflow.execution.async_engine.topology import (
-        AsyncStreamManager,
-        AsyncTeeWrapper,
-    )
-
+@pytest.mark.parametrize(
+    "pack_name, pack", list(ASYNC_PACKS.items()), ids=list(ASYNC_PACKS.keys())
+)
+async def test_run_corpus_packs(pack_name, pack):
     class TestAsyncStreamManager(AsyncStreamManager):
         def __init__(self, *args, **kwargs):
             super().__init__(*args, **kwargs)
