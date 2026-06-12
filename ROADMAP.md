@@ -34,5 +34,11 @@ This roadmap outlines the planned features and architectural evolutions for the 
   - Write comprehensive user guides, architectural decision records (ADRs), and API references.
   - Automatically publish the documentation to GitHub Pages via CI/CD.
 
+## 6. Sub-Pipelines (Pipelines as Steps)
+- **Nested Execution**:
+  - Allow entire pipelines to be registered and executed as individual steps within a parent pipeline.
+- **Parameter Adapters**:
+  - Implement adapters to map inputs and parameters between the parent DAG and the nested child pipeline seamlessly.
+
 ---
 *Note: All new features will be developed following our rigorous Branch + Pull Request workflow, guaranteeing 100% test parity between Sync and Async implementations, and respecting the `pre-commit` code quality standards.*
