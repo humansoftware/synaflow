@@ -1,8 +1,10 @@
 import pytest
 
 from synaflow.pipeline import PipelineDef
-from tests.corpus.sync_topologies import EXAMPLES as SYNC_EXAMPLES
-from tests.corpus.async_topologies import EXAMPLES as ASYNC_EXAMPLES
+import importlib
+
+SYNC_EXAMPLES = importlib.import_module("tests.sync.corpus").EXAMPLES
+ASYNC_EXAMPLES = importlib.import_module("tests.async.corpus").EXAMPLES
 
 EXAMPLES = {**SYNC_EXAMPLES, **ASYNC_EXAMPLES}
 
