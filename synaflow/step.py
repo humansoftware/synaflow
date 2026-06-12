@@ -10,7 +10,7 @@ from .types import OnError, StepParams
 class Step:
     name: str
     fn: Callable
-    on_error: OnError = OnError.STOP
+    on_error: OnError = OnError.CONTINUE
     params: StepParams | None = None
     description: str = ""
 
