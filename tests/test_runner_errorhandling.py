@@ -4,7 +4,6 @@ from unittest.mock import MagicMock, call
 
 import pytest
 
-from synaflow import run
 from synaflow.pipeline import pipeline
 from synaflow.step import step
 from synaflow.types import OnError
@@ -27,7 +26,7 @@ def mock_step(**params: type) -> MagicMock:
     return mock
 
 
-def test_given_on_error_stop_when_item_fails_then_pipeline_stops():
+def test_given_on_error_stop_when_item_fails_then_pipeline_stops(run_pipeline):
     class P(NamedTuple):
         items: list[int] = [1, 2, 3]
 
@@ -48,12 +47,12 @@ def test_given_on_error_stop_when_item_fails_then_pipeline_stops():
         ],
     )
 
-    run(my_pipeline, params=P())
+    run_pipeline(my_pipeline, params=P())
     assert s1.call_count == 2
     s2.assert_not_called()
 
 
-def test_given_on_error_continue_when_item_fails_then_continues_next():
+def test_given_on_error_continue_when_item_fails_then_continues_next(run_pipeline):
     class P(NamedTuple):
         items: list[int] = [1, 2, 3]
 
@@ -70,11 +69,11 @@ def test_given_on_error_continue_when_item_fails_then_continues_next():
         steps=[step("s1", fn=s1, on_error=OnError.CONTINUE)],
     )
 
-    run(my_pipeline, params=P())
+    run_pipeline(my_pipeline, params=P())
     assert s1.call_count == 3
 
 
-def test_given_on_error_stop_when_all_mode_fails_then_pipeline_stops():
+def test_given_on_error_stop_when_all_mode_fails_then_pipeline_stops(run_pipeline):
     class P(NamedTuple):
         items: list[int] = [1, 2, 3]
 
@@ -91,5 +90,5 @@ def test_given_on_error_stop_when_all_mode_fails_then_pipeline_stops():
         ],
     )
 
-    run(my_pipeline, params=P())
+    run_pipeline(my_pipeline, params=P())
     s2.assert_not_called()

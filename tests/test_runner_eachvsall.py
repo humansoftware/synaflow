@@ -4,7 +4,6 @@ from unittest.mock import MagicMock, call
 
 import pytest
 
-from synaflow import run
 from synaflow.pipeline import pipeline
 from synaflow.step import step
 from synaflow.types import OnError
@@ -27,26 +26,26 @@ def mock_step(**params: type) -> MagicMock:
     return mock
 
 
-def test_given_scalar_param_and_list_in_context_when_run_then_iterates():
+def test_given_scalar_param_and_list_in_context_when_run_then_iterates(run_pipeline):
     class P(NamedTuple):
         items: list[int] = [1, 2, 3]
 
     s1 = mock_step(items=int)
 
     my_pipeline = pipeline(name="test", params=P, steps=[step("s1", fn=s1)])
-    run(my_pipeline, params=P())
+    run_pipeline(my_pipeline, params=P())
 
     assert s1.call_count == 3
     s1.assert_has_calls([call(items=1), call(items=2), call(items=3)])
 
 
-def test_given_iterable_param_and_list_in_context_when_run_then_passes_whole_list():
+def test_given_iterable_param_and_list_in_context_when_run_then_passes_whole_list(run_pipeline):
     class P(NamedTuple):
         items: list[int] = [1, 2, 3]
 
     s1 = mock_step(items=list)
 
     my_pipeline = pipeline(name="test", params=P, steps=[step("s1", fn=s1)])
-    run(my_pipeline, params=P())
+    run_pipeline(my_pipeline, params=P())
 
     s1.assert_called_once_with(items=[1, 2, 3])

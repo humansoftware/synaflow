@@ -4,7 +4,6 @@ from unittest.mock import MagicMock, call
 
 import pytest
 
-from synaflow import run
 from synaflow.pipeline import pipeline
 from synaflow.step import step
 from synaflow.types import OnError
@@ -27,18 +26,18 @@ def mock_step(**params: type) -> MagicMock:
     return mock
 
 
-def test_given_single_step_when_run_then_step_called_with_params():
+def test_given_single_step_when_run_then_step_called_with_params(run_pipeline):
     class P(NamedTuple):
         x: int = 5
 
     s1 = mock_step(x=int)
 
     my_pipeline = pipeline(name="test", params=P, steps=[step("s1", fn=s1)])
-    run(my_pipeline, params=P(x=7))
+    run_pipeline(my_pipeline, params=P(x=7))
     s1.assert_called_once_with(x=7)
 
 
-def test_given_multiple_steps_when_run_then_second_receives_first_output():
+def test_given_multiple_steps_when_run_then_second_receives_first_output(run_pipeline):
     class P(NamedTuple):
         count: int = 3
 
@@ -52,17 +51,17 @@ def test_given_multiple_steps_when_run_then_second_receives_first_output():
         steps=[step("numbers", fn=s1), step("total", fn=s2)],
     )
 
-    run(my_pipeline, params=P())
+    run_pipeline(my_pipeline, params=P())
     s1.assert_called_once_with(count=3)
     s2.assert_called_once_with(numbers=[0, 1, 2])
 
 
-def test_given_params_with_defaults_when_run_then_uses_defaults():
+def test_given_params_with_defaults_when_run_then_uses_defaults(run_pipeline):
     class P(NamedTuple):
         count: int = 5
 
     s1 = mock_step(count=int)
 
     my_pipeline = pipeline(name="test", params=P, steps=[step("s1", fn=s1)])
-    run(my_pipeline, params=P())
+    run_pipeline(my_pipeline, params=P())
     s1.assert_called_once_with(count=5)
