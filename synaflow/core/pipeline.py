@@ -19,10 +19,10 @@ class PipelineDef:
     description: str = ""
 
     def __post_init__(self) -> None:
-        from .validator import validate_and_build_dag
+        from synaflow.core.validation import PipelineValidator
 
-        self._dag = validate_and_build_dag(
-            self.name, self.steps, self.params, self.default_materializer_factory
+        self._dag = PipelineValidator.validate_pipeline(
+            self.name, self.params, self.steps, self.default_materializer_factory
         )
         metadata = self._dag.pop("__metadata__", {})
         self.requires_sync_runner = metadata.get("requires_sync_runner", False)
