@@ -112,8 +112,18 @@ def test_given_async_pipeline_when_run_synchronously_then_raises():
 
 from tests.execution.sync_engine.corpus import PACKS as SYNC_PACKS
 
+SYNC_PACK_NAMES = (
+    "sync_linear",
+    "sync_diamond",
+    "sync_complex_parallel",
+    "sync_fibonacci",
+    "sync_complex_parallel_mixed",
+    "sync_sub_pipelines",
+    "sync_deep_sub_pipelines",
+)
 
-@pytest.mark.parametrize("pack_name", list(SYNC_PACKS.keys()))
+
+@pytest.mark.parametrize("pack_name", SYNC_PACK_NAMES)
 def test_run_corpus_packs(pack_name):
     pack = SYNC_PACKS[pack_name]
     import itertools

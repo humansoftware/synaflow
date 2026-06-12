@@ -80,8 +80,25 @@ from tests.execution.sync_engine.corpus import PACKS as SYNC_PACKS
 
 PACKS = {**SYNC_PACKS, **ASYNC_PACKS}
 
+ALL_PACK_NAMES = (
+    "sync_linear",
+    "sync_diamond",
+    "sync_complex_parallel",
+    "sync_fibonacci",
+    "sync_complex_parallel_mixed",
+    "sync_sub_pipelines",
+    "sync_deep_sub_pipelines",
+    "async_linear",
+    "async_diamond",
+    "async_complex_parallel",
+    "async_fibonacci",
+    "async_complex_parallel_mixed",
+    "async_sub_pipelines",
+    "async_deep_sub_pipelines",
+)
 
-@pytest.mark.parametrize("pack_name", list(PACKS.keys()))
+
+@pytest.mark.parametrize("pack_name", ALL_PACK_NAMES)
 def test_corpus_execution_levels(pack_name):
     pack = PACKS[pack_name]
     if pack.expected_execution_levels is not None:

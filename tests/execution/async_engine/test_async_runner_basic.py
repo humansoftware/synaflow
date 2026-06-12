@@ -112,9 +112,19 @@ async def test_given_sync_stream_pipeline_when_run_asynchronously_then_raises():
 
 from tests.execution.async_engine.corpus import PACKS as ASYNC_PACKS
 
+ASYNC_PACK_NAMES = (
+    "async_linear",
+    "async_diamond",
+    "async_complex_parallel",
+    "async_fibonacci",
+    "async_complex_parallel_mixed",
+    "async_sub_pipelines",
+    "async_deep_sub_pipelines",
+)
+
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("pack_name", list(ASYNC_PACKS.keys()))
+@pytest.mark.parametrize("pack_name", ASYNC_PACK_NAMES)
 async def test_run_corpus_packs(pack_name):
     pack = ASYNC_PACKS[pack_name]
     import asyncio
