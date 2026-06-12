@@ -1,10 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Callable
-
-if TYPE_CHECKING:
-    from .pipeline import PipelineDef
+from typing import Callable
 
 from .types import OnError, StepParams
 
@@ -27,7 +24,7 @@ class Step(BaseStep):
 
 @dataclass
 class IncludeStep(BaseStep):
-    pipeline: PipelineDef = None  # type: ignore
+    pipeline: "PipelineDef" = None  # type: ignore
     description: str = ""
 
 
