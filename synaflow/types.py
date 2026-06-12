@@ -1,8 +1,9 @@
 from __future__ import annotations
 
+from collections.abc import AsyncIterable, AsyncIterator, Awaitable
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Callable, Iterable, Iterator, Protocol
+from typing import Any, Callable, Iterable, Iterator, Protocol, Union
 
 
 class OnError(Enum):
@@ -31,7 +32,13 @@ class MaterializeContext:
     item_type: Any
 
 
-Materializer = Callable[[Iterator[Any]], Iterable[Any]]
+AnyIterator = Union[Iterator[Any], AsyncIterator[Any]]
+AnyIterable = Union[Iterable[Any], AsyncIterable[Any]]
+
+Materializer = Union[
+    Callable[[AnyIterator], AnyIterable],
+    Callable[[AnyIterator], Awaitable[AnyIterable]],
+]
 
 
 class MaterializerFactory(Protocol):
