@@ -59,18 +59,24 @@ def test_given_on_error_continue_when_item_fails_then_continues_next(run_pipelin
     def skip_on_2(items: int):
         if items == 2:
             raise ValueError("skip")
+        return items * 10
 
     s1 = mock_step(items=int)
     s1.side_effect = skip_on_2
+    s2 = mock_step(s1=list)
 
     my_pipeline = pipeline(
         name="test",
         params=P,
-        steps=[step("s1", fn=s1, on_error=OnError.CONTINUE)],
+        steps=[
+            step("s1", fn=s1, on_error=OnError.CONTINUE),
+            step("s2", fn=s2)
+        ],
     )
 
     run_pipeline(my_pipeline, params=P())
     assert s1.call_count == 3
+    s2.assert_called_once_with(s1=[10, 30])
 
 
 def test_given_on_error_stop_when_all_mode_fails_then_pipeline_stops(run_pipeline):
