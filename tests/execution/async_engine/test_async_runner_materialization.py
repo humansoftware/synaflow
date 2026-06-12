@@ -581,3 +581,80 @@ async def test_given_collection_producer_and_scalar_transformer_and_iterator_con
     assert len(materialized) == 0
     assert [val for key, val in call_order if key == "s2"] == [0, 1, 2]
     assert [val for key, val in call_order if key == "s3"] == [10, 11, 12]
+
+
+async def test_given_step_materializer_when_run_then_overrides_pipeline_factory():
+    class P(NamedTuple):
+        count: int = 3
+
+    async def gen(count: int) -> AsyncGenerator[int, None]:
+        for i in range(count):
+            yield i
+
+    async def consumer(items: list[int]):
+        pass
+
+    pipeline_materialized = []
+
+    async def pipeline_mat(g):
+        pipeline_materialized.append("called")
+        return [x async for x in g]
+
+    step_materialized = []
+
+    async def step_mat(g):
+        step_materialized.append("called")
+        return [x async for x in g]
+
+    my_pipeline = pipeline(
+        name="test_override",
+        params=P,
+        default_materializer_factory=pipeline_mat,
+        steps=[
+            step("items", fn=gen, materializer=step_mat),
+            step("consumer", fn=consumer),
+        ],
+    )
+
+    await async_run(my_pipeline, params=P())
+    assert len(step_materialized) == 1
+    assert len(pipeline_materialized) == 0
+
+
+async def test_given_factory_with_context_when_run_then_context_is_injected():
+    from synaflow.core.types import MaterializeContext
+
+    class P(NamedTuple):
+        count: int = 3
+
+    async def gen(count: int) -> AsyncGenerator[int, None]:
+        for i in range(count):
+            yield i
+
+    async def consumer(items: list[int]):
+        pass
+
+    captured_context = []
+
+    def factory_with_ctx(ctx: MaterializeContext):
+        captured_context.append(ctx)
+
+        async def mat(g):
+            return [x async for x in g]
+
+        return mat
+
+    my_pipeline = pipeline(
+        name="test_context",
+        params=P,
+        default_materializer_factory=factory_with_ctx,
+        steps=[
+            step("items", fn=gen),
+            step("consumer", fn=consumer),
+        ],
+    )
+
+    await async_run(my_pipeline, params=P())
+    assert len(captured_context) == 1
+    assert captured_context[0].pipeline_name == "test_context"
+    assert captured_context[0].dataset_name == "items"

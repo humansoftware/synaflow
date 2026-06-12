@@ -594,3 +594,78 @@ def test_given_collection_producer_and_scalar_transformer_and_iterator_consumer_
     assert len(materialized) == 0
     assert [val for key, val in call_order if key == "s2"] == [0, 1, 2]
     assert [val for key, val in call_order if key == "s3"] == [10, 11, 12]
+
+
+def test_given_step_materializer_when_run_then_overrides_pipeline_factory(run_pipeline):
+    class P(NamedTuple):
+        count: int = 3
+
+    def gen(count: int) -> Generator[int, None, None]:
+        yield from range(count)
+
+    def consumer(items: list[int]):
+        pass
+
+    pipeline_materialized = []
+
+    def pipeline_mat(g):
+        pipeline_materialized.append("called")
+        return list(g)
+
+    step_materialized = []
+
+    def step_mat(g):
+        step_materialized.append("called")
+        return list(g)
+
+    my_pipeline = pipeline(
+        name="test_override",
+        params=P,
+        default_materializer_factory=pipeline_mat,
+        steps=[
+            step("items", fn=gen, materializer=step_mat),
+            step("consumer", fn=consumer),
+        ],
+    )
+
+    run_pipeline(my_pipeline, params=P())
+    assert len(step_materialized) == 1
+    assert len(pipeline_materialized) == 0
+
+
+def test_given_factory_with_context_when_run_then_context_is_injected(run_pipeline):
+    from synaflow.core.types import MaterializeContext
+
+    class P(NamedTuple):
+        count: int = 3
+
+    def gen(count: int) -> Generator[int, None, None]:
+        yield from range(count)
+
+    def consumer(items: list[int]):
+        pass
+
+    captured_context = []
+
+    def factory_with_ctx(ctx: MaterializeContext):
+        captured_context.append(ctx)
+
+        def mat(g):
+            return list(g)
+
+        return mat
+
+    my_pipeline = pipeline(
+        name="test_context",
+        params=P,
+        default_materializer_factory=factory_with_ctx,
+        steps=[
+            step("items", fn=gen),
+            step("consumer", fn=consumer),
+        ],
+    )
+
+    run_pipeline(my_pipeline, params=P())
+    assert len(captured_context) == 1
+    assert captured_context[0].pipeline_name == "test_context"
+    assert captured_context[0].dataset_name == "items"
