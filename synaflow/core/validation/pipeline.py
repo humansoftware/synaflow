@@ -36,9 +36,9 @@ class PipelineValidator:
         cls.validate_params_is_namedtuple(params, pipeline_name)
         dag: dict[str, dict] = {}
 
-        from .macro_expansion import MacroExpander
+        from .macro_expansion import expand_macros
 
-        expanded_steps = MacroExpander.expand(steps)
+        expanded_steps = expand_macros(steps)
 
         produced = DependencyValidator.initialize_parameters(params)
 
