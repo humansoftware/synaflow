@@ -43,5 +43,16 @@ By compiling the pipeline into a serializable JSON DAG (via `pipeline.to_dict()`
 - **Materializer Factory (Configuration Protocol):** A `Callable[[MaterializeContext], Materializer]`. It bridges the DAG intelligence and the executor, receiving a rich Context (dataset name, step, pipeline, type hints) and returning the configured `Materializer`.
 **Reason:** Follows the *Simple Things Easy* principle (users can override with `materializer=list` on a step) while maintaining *Complex Things Possible* (users define a Factory with self-discovered file naming via the `Context` in the root `pipeline` constructor).
 
+### 2.4. Architectural Parity (Compile-Time vs Run-Time)
+**Decision:** The internal architecture of Synaflow enforces a strict, symmetric separation of concerns across both Compilation (Validation) and Execution (Run-Time) engines.
+**Reason:** To ensure massive maintainability, single-responsibility principle (SRP), and to prevent the creation of "God Classes" in the executors. Whether the framework is validating the DAG, running synchronous callbacks, or orchestrating asynchronous `asyncio.Queue` streams, the exact same domain structure is respected:
+
+| Domain / Concern | Compile-Time (Validation) | Run-Time (Async Engine) | Run-Time (Sync Engine) |
+| :--- | :--- | :--- | :--- |
+| **Pipeline/Orchestration** | `PipelineValidator` | `AsyncPipelineExecutor` | `PipelineExecutor` |
+| **Dependencies/Type Resolution** | `DependencyValidator` | `AsyncDependencyResolver` | `SyncDependencyResolver` |
+| **Topology/Stream Routing** | `TopologyValidator` | `AsyncStreamManager` | `SyncStreamManager` |
+| **Node Runner/Step Eval** | `StepValidator` | `AsyncNodeRunner` | `SyncNodeRunner` |
+
 ---
 *(This document should be iteratively evolved whenever a new architectural contract is established in the Synaflow codebase).*
