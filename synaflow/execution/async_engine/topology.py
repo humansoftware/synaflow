@@ -3,10 +3,9 @@ import inspect
 from collections.abc import AsyncGenerator, AsyncIterator, Generator, Iterator
 from typing import Any
 
-from synaflow.core.exceptions import StepExecutionError
+from synaflow.core.exceptions import PipelineStopException, StepExecutionError
 from synaflow.core.pipeline import PipelineDef
 from synaflow.core.types import MaterializeContext, OnError
-from synaflow.execution.sync_engine.executor import PipelineStopException
 
 from .constants import EOF_MARKER
 from .iterator_utils import async_list

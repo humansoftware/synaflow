@@ -1,8 +1,8 @@
 import asyncio
 from typing import Any
 
+from synaflow.core.exceptions import PipelineStopException
 from synaflow.core.pipeline import PipelineDef
-from synaflow.execution.sync_engine.executor import PipelineStopException
 
 from .dependencies import AsyncDependencyResolver
 from .steps import AsyncNodeRunner

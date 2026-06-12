@@ -2,11 +2,10 @@ import asyncio
 import inspect
 from typing import Any, Callable
 
-from synaflow.core.exceptions import StepExecutionError
+from synaflow.core.exceptions import PipelineStopException, StepExecutionError
 from synaflow.core.pipeline import PipelineDef
 from synaflow.core.type_compatibility import is_iterable_type, is_scalar
 from synaflow.core.types import OnError
-from synaflow.execution.sync_engine.executor import PipelineStopException
 
 from .constants import EOF_MARKER
 from .dependencies import AsyncDependencyResolver

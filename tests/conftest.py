@@ -2,7 +2,7 @@ import asyncio
 
 import pytest
 
-from synaflow.execution.sync_engine.executor import run as sync_run
+from synaflow.execution.sync_engine.pipeline import run as sync_run
 
 
 @pytest.fixture(params=["sync"])
