@@ -114,8 +114,9 @@ from tests.execution.async_engine.corpus import PACKS as ASYNC_PACKS
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("pack_name, pack", ASYNC_PACKS.items(), ids=ASYNC_PACKS.keys())
-async def test_run_corpus_packs(pack_name, pack):
+@pytest.mark.parametrize("pack_name", list(ASYNC_PACKS.keys()))
+async def test_run_corpus_packs(pack_name):
+    pack = ASYNC_PACKS[pack_name]
     import asyncio
     from collections.abc import AsyncGenerator, AsyncIterator
     from typing import Any
