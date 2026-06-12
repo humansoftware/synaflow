@@ -20,6 +20,9 @@ The framework assumes *Stream* processing (Lazy Evaluation) as the default. This
 - When processing events, we often need to re-process past events individually, while at other times it makes more sense to aggregate them into a time window and materialize them all at once. The framework makes both scenarios possible through delayed evaluation.
 - The default error handling is `OnError.CONTINUE`, allowing a failing event to be discarded without halting the continuous stream, preserving the RAM and CPU optimization of lazy pipelines.
 
+### 1.5. Orchestrator Agnostic (The DAG JSON)
+By compiling the pipeline into a serializable JSON DAG (via `pipeline.to_dict()`), the framework intentionally decouples the pipeline definition from its execution engine (the Runner). This makes it possible for anyone to create a custom runner, or to convert a Synaflow DAG into native pipelines for enterprise orchestrators like **Airflow**, **Dagster**, or **Prefect**.
+
 ## 2. Architectural Decisions and Patterns (Decision Log)
 
 ### 2.1. Transparent Parameter Injection
