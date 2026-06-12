@@ -81,7 +81,7 @@ from tests.execution.sync_engine.corpus import PACKS as SYNC_PACKS
 PACKS = {**SYNC_PACKS, **ASYNC_PACKS}
 
 
-@pytest.mark.parametrize("pack_name, pack", PACKS.items())
+@pytest.mark.parametrize("pack_name, pack", PACKS.items(), ids=PACKS.keys())
 def test_corpus_execution_levels(pack_name, pack):
     if pack.expected_execution_levels is not None:
         assert pack.pipeline.get_execution_levels() == pack.expected_execution_levels

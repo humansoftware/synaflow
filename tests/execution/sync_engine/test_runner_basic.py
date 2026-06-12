@@ -113,7 +113,7 @@ def test_given_async_pipeline_when_run_synchronously_then_raises():
 from tests.execution.sync_engine.corpus import PACKS as SYNC_PACKS
 
 
-@pytest.mark.parametrize("pack_name, pack", SYNC_PACKS.items())
+@pytest.mark.parametrize("pack_name, pack", SYNC_PACKS.items(), ids=SYNC_PACKS.keys())
 def test_run_corpus_packs(pack_name, pack):
     import itertools
     from collections.abc import Generator, Iterator
