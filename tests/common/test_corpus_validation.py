@@ -1,7 +1,10 @@
 import pytest
 
 from synaflow.pipeline import PipelineDef
-from tests.corpus import EXAMPLES
+from tests.corpus.sync_topologies import EXAMPLES as SYNC_EXAMPLES
+from tests.corpus.async_topologies import EXAMPLES as ASYNC_EXAMPLES
+
+EXAMPLES = {**SYNC_EXAMPLES, **ASYNC_EXAMPLES}
 
 @pytest.mark.parametrize("pipeline_name, pipeline_def", EXAMPLES.items())
 def test_corpus_compiles_and_validates(pipeline_name: str, pipeline_def: PipelineDef):

@@ -1,3 +1,4 @@
+from synaflow import async_run
 from typing import AsyncGenerator, AsyncIterator
 import inspect
 from typing import Generator, Iterator, List, NamedTuple
@@ -32,7 +33,7 @@ async def test_given_generator_output_and_two_each_consumers_when_run_then_mater
     class P(NamedTuple):
         count: int = 3
 
-    async def gen(count: int) -> AsyncGenerator[int, None, None]:
+    async def gen(count: int) -> AsyncGenerator[int, None]:
         for _i in range(count):
             yield _i
 
@@ -71,7 +72,7 @@ async def test_given_generator_and_scalar_and_iterator_consumers_when_run_then_n
     class P(NamedTuple):
         count: int = 3
 
-    async def gen(count: int) -> AsyncGenerator[int, None, None]:
+    async def gen(count: int) -> AsyncGenerator[int, None]:
         for _i in range(count):
             yield _i
 
@@ -111,7 +112,7 @@ async def test_given_generator_and_two_iterator_consumers_when_run_then_no_mater
     class P(NamedTuple):
         count: int = 3
 
-    async def gen(count: int) -> AsyncGenerator[int, None, None]:
+    async def gen(count: int) -> AsyncGenerator[int, None]:
         for _i in range(count):
             yield _i
 
@@ -152,7 +153,7 @@ async def test_given_generator_and_union_scalar_and_union_iterator_consumers_whe
     class P(NamedTuple):
         count: int = 3
 
-    async def gen(count: int) -> AsyncGenerator[int, None, None]:
+    async def gen(count: int) -> AsyncGenerator[int, None]:
         for _i in range(count):
             yield _i
 
@@ -231,7 +232,7 @@ async def test_given_generator_and_list_consumer_when_run_then_materialized_once
     class P(NamedTuple):
         count: int = 3
 
-    async def gen(count: int) -> AsyncGenerator[int, None, None]:
+    async def gen(count: int) -> AsyncGenerator[int, None]:
         for _i in range(count):
             yield _i
 
@@ -270,7 +271,7 @@ async def test_given_generator_and_each_transformer_and_iterator_consumer_when_r
     class P(NamedTuple):
         count: int = 3
 
-    async def gen(count: int) -> AsyncGenerator[str, None, None]:
+    async def gen(count: int) -> AsyncGenerator[str, None]:
         for i in range(count):
             yield f"item_{i}"
 
@@ -311,7 +312,7 @@ async def test_given_generator_and_eager_each_and_eager_iterator_consumers_when_
     class P(NamedTuple):
         count: int = 3
 
-    async def gen(count: int) -> AsyncGenerator[int, None, None]:
+    async def gen(count: int) -> AsyncGenerator[int, None]:
         for _i in range(count):
             yield _i
 
@@ -344,7 +345,7 @@ async def test_given_generator_and_set_consumer_when_run_then_materialized_once(
     class P(NamedTuple):
         count: int = 3
 
-    async def gen(count: int) -> AsyncGenerator[int, None, None]:
+    async def gen(count: int) -> AsyncGenerator[int, None]:
         for _i in range(count):
             yield _i
 
@@ -383,11 +384,11 @@ async def test_given_two_generators_when_consumed_by_single_step_then_no_materia
     class P(NamedTuple):
         count: int = 3
 
-    async def gen1(count: int) -> AsyncGenerator[int, None, None]:
+    async def gen1(count: int) -> AsyncGenerator[int, None]:
         for _i in range(count):
             yield _i
 
-    async def gen2(count: int) -> AsyncGenerator[int, None, None]:
+    async def gen2(count: int) -> AsyncGenerator[int, None]:
         for i in range(count):
             yield i + 10
 
@@ -426,7 +427,7 @@ async def test_given_chain_and_bypass_dependencies_when_run_then_no_materializat
     class P(NamedTuple):
         count: int = 3
 
-    async def gen(count: int) -> AsyncGenerator[int, None, None]:
+    async def gen(count: int) -> AsyncGenerator[int, None]:
         for _i in range(count):
             yield _i
 
@@ -470,7 +471,7 @@ async def test_given_generator_and_tuple_consumer_when_run_then_materialized_onc
     class P(NamedTuple):
         count: int = 3
 
-    async def gen(count: int) -> AsyncGenerator[int, None, None]:
+    async def gen(count: int) -> AsyncGenerator[int, None]:
         for _i in range(count):
             yield _i
 
@@ -542,7 +543,7 @@ async def test_given_collection_producer_and_scalar_transformer_and_iterator_con
     class P(NamedTuple):
         count: int = 3
 
-    async def gen(count: int) -> AsyncGenerator[int, None, None]:
+    async def gen(count: int) -> AsyncGenerator[int, None]:
         for _i in range(count):
             yield _i
 

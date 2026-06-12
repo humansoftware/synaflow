@@ -1,3 +1,4 @@
+from synaflow import async_run
 from typing import AsyncGenerator, AsyncIterator
 import inspect
 from typing import Generator, Iterator, List, NamedTuple
