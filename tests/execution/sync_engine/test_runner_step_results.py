@@ -8,11 +8,21 @@ from synaflow.execution.sync_engine.pipeline import PipelineExecutor
 from synaflow.execution.sync_engine.topology import SyncStreamManager
 from tests.execution.sync_engine.corpus import PACKS as SYNC_PACKS
 
-
-@pytest.mark.parametrize(
-    "pack_name, pack", list(SYNC_PACKS.items()), ids=list(SYNC_PACKS.keys())
+SYNC_PACK_NAMES = (
+    "sync_linear",
+    "sync_diamond",
+    "sync_complex_parallel",
+    "sync_fibonacci",
+    "sync_complex_parallel_mixed",
+    "sync_sub_pipelines",
+    "sync_deep_sub_pipelines",
 )
-def test_step_results(pack_name, pack):
+
+
+@pytest.mark.parametrize("pack_name", SYNC_PACK_NAMES)
+def test_step_results(pack_name):
+    pack = SYNC_PACKS[pack_name]
+
     class TestSyncStreamManager(SyncStreamManager):
         def __init__(self, *args, **kwargs):
             super().__init__(*args, **kwargs)

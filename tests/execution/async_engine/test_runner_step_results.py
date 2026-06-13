@@ -8,12 +8,22 @@ from synaflow.execution.async_engine.pipeline import AsyncPipelineExecutor
 from synaflow.execution.async_engine.topology import AsyncStreamManager, AsyncTeeWrapper
 from tests.execution.async_engine.corpus import PACKS as ASYNC_PACKS
 
+ASYNC_PACK_NAMES = (
+    "async_linear",
+    "async_diamond",
+    "async_complex_parallel",
+    "async_fibonacci",
+    "async_complex_parallel_mixed",
+    "async_sub_pipelines",
+    "async_deep_sub_pipelines",
+)
+
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize(
-    "pack_name, pack", list(ASYNC_PACKS.items()), ids=list(ASYNC_PACKS.keys())
-)
-async def test_step_results(pack_name, pack):
+@pytest.mark.parametrize("pack_name", ASYNC_PACK_NAMES)
+async def test_step_results(pack_name):
+    pack = ASYNC_PACKS[pack_name]
+
     class TestAsyncStreamManager(AsyncStreamManager):
         def __init__(self, *args, **kwargs):
             super().__init__(*args, **kwargs)
