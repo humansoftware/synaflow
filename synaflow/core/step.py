@@ -25,7 +25,7 @@ class Step(BaseStep):
 
 @dataclass
 class IncludeStep(BaseStep):
-    pipeline: "PipelineDef" = None  # type: ignore
+    pipeline: "PipelineDef"
     description: str = ""
 
 
