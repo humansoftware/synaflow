@@ -1,5 +1,3 @@
-import glob
-
 f = "tests/async/test_async_runner_materialization.py"
 with open(f, "r") as file:
     content = file.read()

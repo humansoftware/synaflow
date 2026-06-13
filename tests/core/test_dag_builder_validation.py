@@ -4,8 +4,6 @@ import pytest
 
 from synaflow import pipeline, step
 
-from .conftest import build_minimal_dag
-
 
 def test_given_duplicate_step_names_when_dag_built_then_raises():
     class Empty(NamedTuple):

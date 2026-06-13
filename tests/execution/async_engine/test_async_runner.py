@@ -1,7 +1,5 @@
-import asyncio
 from typing import AsyncGenerator, AsyncIterator, NamedTuple
 
-import pytest
 
 from synaflow import pipeline, step
 from synaflow.execution.async_engine.executor import async_run

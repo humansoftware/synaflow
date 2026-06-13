@@ -1,9 +1,7 @@
 import inspect
 from typing import NamedTuple
 from unittest.mock import AsyncMock as MagicMock
-from unittest.mock import call
 
-import pytest
 
 from synaflow import async_run, pipeline, step
 

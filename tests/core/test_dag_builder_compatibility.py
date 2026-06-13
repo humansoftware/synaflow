@@ -1,11 +1,8 @@
-from typing import Iterator, NamedTuple
-
 import pytest
 
-from synaflow import pipeline, step
 
 from ._dag_builder_data import COMPATIBILITY_TABLE
-from .conftest import EmptyParams, build_minimal_dag
+from .conftest import build_minimal_dag
 
 
 @pytest.mark.parametrize("case", COMPATIBILITY_TABLE, ids=lambda c: c["label"])

@@ -1,6 +1,6 @@
 import inspect
-from typing import Generator, Iterator, List, NamedTuple
-from unittest.mock import MagicMock, call
+from typing import NamedTuple
+from unittest.mock import MagicMock
 
 import pytest
 

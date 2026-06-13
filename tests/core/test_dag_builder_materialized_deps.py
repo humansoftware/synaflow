@@ -4,7 +4,6 @@ from typing import NamedTuple
 from synaflow import pipeline, step
 from synaflow.core.types import OnError
 
-from ._dag_builder_data import COMPATIBILITY_TABLE_ON_ERROR_STOP
 from .conftest import EmptyParams, build_minimal_dag
 
 

@@ -1,7 +1,6 @@
 import inspect
-from typing import AsyncGenerator, AsyncIterator, Generator, Iterator, List, NamedTuple
+from typing import NamedTuple
 from unittest.mock import AsyncMock as MagicMock
-from unittest.mock import call
 
 import pytest
 

@@ -1,12 +1,10 @@
 from collections.abc import Iterator
 from typing import NamedTuple
 
-import pytest
 
-from synaflow import pipeline, step
 from synaflow.core.types import MaterializeContext
 
-from .conftest import EmptyParams, build_minimal_dag
+from .conftest import build_minimal_dag
 
 
 def test_given_step_level_materializer_when_dag_built_then_step_materializer_wins():

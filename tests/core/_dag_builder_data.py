@@ -1,8 +1,6 @@
 from collections.abc import Iterator
 from typing import NamedTuple
 
-from synaflow.core.types import OnError
-
 
 class IntParam(NamedTuple):
     x: int = 1

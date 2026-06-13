@@ -1,8 +1,7 @@
 from typing import Iterator, NamedTuple
 
-import pytest
 
-from synaflow import include, pipeline, run, step
+from synaflow import include, pipeline, step
 
 
 class BParams(NamedTuple):
