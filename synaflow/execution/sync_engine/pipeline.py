@@ -40,14 +40,6 @@ class PipelineExecutor:
 
     def _initialize_context_with_params(self, params: Any) -> None:
         for field, value in params._asdict().items():
-            node = self.dag.get(field, {})
-            needs_materialization = node.get("needs_materialize", False)
-
-            if needs_materialization and isinstance(value, Iterator):
-                value = self.stream_manager.apply_materializer(field, value)
-            elif isinstance(value, Iterator):
-                value = self.stream_manager.tee_iterator_for_consumers(field, value)
-
             self.context[field] = value
 
     def _execute_level(self, level: list[str]) -> None:

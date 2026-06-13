@@ -34,7 +34,6 @@ class DagNode:
             "output": get_type_name(self.output),
             "fn": self.fn.__name__ if self.fn else None,
             "on_error": self.on_error.value if self.on_error else None,
-            "needs_materialize": self.needs_materialize,
             "materializer": mat.__name__ if callable(mat) else None,
             "materialized_deps": self.materialized_deps,
             "pipeline": self.pipeline,
@@ -44,43 +43,55 @@ class DagNode:
 
 @dataclass
 class Dag:
-    nodes: dict[str, DagNode] = field(default_factory=dict)
+    params: dict[str, Any] = field(default_factory=dict)
+    steps: dict[str, DagNode] = field(default_factory=dict)
     requires_sync_runner: bool = False
     requires_async_runner: bool = False
 
     def __getitem__(self, key):
-        return self.nodes[key]
+        return self.steps[key]
 
     def __setitem__(self, key, value):
-        self.nodes[key] = value
+        self.steps[key] = value
 
     def __contains__(self, key):
-        return key in self.nodes
+        return key in self.steps
 
     def __len__(self):
-        return len(self.nodes)
+        return len(self.steps)
 
     def __iter__(self):
-        return iter(self.nodes)
+        return iter(self.steps)
 
     def items(self):
-        return self.nodes.items()
+        return self.steps.items()
 
     def values(self):
-        return self.nodes.values()
+        return self.steps.values()
 
     def get(self, key, default=None):
-        return self.nodes.get(key, default)
+        if key in self.steps:
+            return self.steps[key]
+        if key in self.params:
+            return DagNode(output=self.params[key])
+        return default
 
     def pop(self, key, *args):
-        return self.nodes.pop(key, *args)
+        return self.steps.pop(key, *args)
 
     def to_dict(self) -> dict:
-        return {name: node.to_serializable() for name, node in self.nodes.items()}
+        from synaflow.core.type_compatibility import get_type_name
+
+        return {
+            "params": {k: get_type_name(v) for k, v in self.params.items()},
+            "steps": {
+                name: node.to_serializable() for name, node in self.steps.items()
+            },
+        }
 
     def get_execution_levels(self) -> list[list[str]]:
-        in_degree: dict[str, int] = {name: 0 for name in self.nodes}
-        for name, node in self.nodes.items():
+        in_degree: dict[str, int] = {name: 0 for name in self.steps}
+        for name, node in self.steps.items():
             for dep in node.deps:
                 if dep in in_degree:
                     in_degree[name] += 1
@@ -100,7 +111,7 @@ class Dag:
             processed.update(level)
 
             for name in level:
-                for other_name, node in self.nodes.items():
+                for other_name, node in self.steps.items():
                     if name in node.deps:
                         in_degree[other_name] -= 1
 

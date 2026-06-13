@@ -98,6 +98,12 @@ COMPATIBILITY_TABLE = [
         consumer_fn=_consumer_kv_list,
         expected_materialized_deps=["producer"],
     ),
+    dict(
+        label="Iterator[tuple[K,V]] -> dict[K,V]",
+        producer_fn=_producer_kv,
+        consumer_fn=_consumer_dict,
+        expected_materialized_deps=["producer"],
+    ),
 ]
 
 

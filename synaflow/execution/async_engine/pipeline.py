@@ -43,8 +43,7 @@ class AsyncPipelineExecutor:
 
     def _initialize_context_with_params(self, params: Any) -> None:
         for field, value in params._asdict().items():
-            needs_materialize = self.dag.get(field, {}).get("needs_materialize", False)
-            self.stream_manager.store_output(field, value, needs_materialize)
+            self.stream_manager.store_output(field, value)
 
 
 async def async_run(pipeline: PipelineDef, params: Any) -> None:

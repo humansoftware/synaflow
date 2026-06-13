@@ -21,9 +21,6 @@ class KVParam(NamedTuple):
     pass
 
 
-@pytest.mark.xfail(
-    reason="type system does not yet accept Iterator[tuple[K,V]] -> dict[K,V]"
-)
 def test_given_iterator_of_pairs_when_consumer_wants_dict_then_dag_builds():
     def producer() -> Iterator[tuple[str, int]]:
         yield ("a", 1)
@@ -32,7 +29,7 @@ def test_given_iterator_of_pairs_when_consumer_wants_dict_then_dag_builds():
         return len(producer)
 
     p = build_minimal_dag(producer_fn=producer, consumer_fn=consumer, params=KVParam)
-    assert p._dag.nodes["consumer"].materialized_deps == ["producer"]
+    assert p._dag.steps["consumer"].materialized_deps == ["producer"]
 
 
 # ---------------------------------------------------------------------------
@@ -40,9 +37,6 @@ def test_given_iterator_of_pairs_when_consumer_wants_dict_then_dag_builds():
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.xfail(
-    reason="dict get_inner_type returns keys, not items. Needs special handling for .items() semantics"
-)
 def test_given_dict_producer_when_consumer_wants_iterator_of_items_then_no_materialized_deps():
     class DictParam(NamedTuple):
         data: dict[str, int] = {"a": 1}
@@ -54,7 +48,7 @@ def test_given_dict_producer_when_consumer_wants_iterator_of_items_then_no_mater
         return list(producer)
 
     p = build_minimal_dag(producer_fn=producer, consumer_fn=consumer, params=DictParam)
-    assert p._dag.nodes["consumer"].materialized_deps == []
+    assert p._dag.steps["consumer"].materialized_deps == []
 
 
 # ---------------------------------------------------------------------------
@@ -62,7 +56,6 @@ def test_given_dict_producer_when_consumer_wants_iterator_of_items_then_no_mater
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.xfail(reason="custom type materializer validation not yet implemented")
 def test_given_custom_output_type_without_materializer_when_dag_built_then_raises():
     class CustomType:
         pass

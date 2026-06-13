@@ -2,7 +2,7 @@ from dataclasses import dataclass, field
 from typing import Any, Callable
 
 from synaflow.core.dag import Dag
-from synaflow.core.dag_builder import DagBuilder
+from synaflow.core.dag_builder import build_dag
 from synaflow.core.dag_builder import default_materializer_factory as _default_factory
 
 from .step import Step
@@ -26,7 +26,7 @@ class PipelineDef:
     description: str = ""
 
     def __post_init__(self) -> None:
-        self._dag = DagBuilder.build(
+        self._dag = build_dag(
             self.name,
             self.params,
             self.steps,

@@ -24,7 +24,7 @@ def test_given_step_level_materializer_when_dag_built_then_step_materializer_win
         consumer_fn=consumer,
         producer_materializer=my_mat,
     )
-    assert p._dag.nodes["producer"].materializer is my_mat
+    assert p._dag.steps["producer"].materializer is my_mat
 
 
 def test_given_pipeline_level_factory_when_dag_built_then_factory_stored():
@@ -42,7 +42,7 @@ def test_given_pipeline_level_factory_when_dag_built_then_factory_stored():
         consumer_fn=consumer,
         pipeline_materializer=my_factory,
     )
-    assert p._dag.nodes["producer"].materializer is my_factory
+    assert p._dag.steps["producer"].materializer is my_factory
 
 
 def test_given_no_custom_materializer_when_dag_built_then_default_factory_used():
@@ -55,10 +55,10 @@ def test_given_no_custom_materializer_when_dag_built_then_default_factory_used()
     p = build_minimal_dag(producer_fn=gen, consumer_fn=consumer)
     from synaflow.core.dag_builder import default_materializer_factory as _def
 
-    assert p._dag.nodes["producer"].materializer is _def
+    assert p._dag.steps["producer"].materializer is _def
 
 
-def test_given_scalar_producer_when_dag_built_then_materializer_is_none():
+def test_given_scalar_producer_when_dag_built_then_materializer_is_default_factory():
     class P(NamedTuple):
         x: int = 1
 
@@ -73,4 +73,6 @@ def test_given_scalar_producer_when_dag_built_then_materializer_is_none():
         consumer_fn=consumer,
         params=P,
     )
-    assert p._dag.nodes["producer"].materializer is None
+    from synaflow.core.dag_builder import default_materializer_factory as _def
+
+    assert p._dag.steps["producer"].materializer is _def

@@ -108,10 +108,10 @@ The materializer can persist the shuffle phase to disk when datasets are too lar
 
 | Domain / Concern | Compile-Time (DAG Build) | Run-Time (Async Engine) | Run-Time (Sync Engine) |
 | :--- | :--- | :--- | :--- |
-| **Pipeline/Orchestration** | `DagBuilder` | `AsyncPipelineExecutor` | `PipelineExecutor` |
-| **Dependencies/Type Resolution** | `DependencyValidator` | `AsyncDependencyResolver` | `SyncDependencyResolver` |
-| **Topology/Stream Routing** | `TopologyValidator` | `AsyncStreamManager` | `SyncStreamManager` |
-| **Node Runner/Step Eval** | `StepValidator` | `AsyncNodeRunner` | `SyncNodeRunner` |
+| **Pipeline/Orchestration** | `build_dag()` | `AsyncPipelineExecutor` | `PipelineExecutor` |
+| **Dependencies/Type Resolution** | `validate_and_resolve_dependencies()` | `AsyncDependencyResolver` | `SyncDependencyResolver` |
+| **Topology/Stream Routing** | `check_circular_dependencies()` | `AsyncStreamManager` | `SyncStreamManager` |
+| **Node Runner/Step Eval** | `validate_and_compile_step()` | `AsyncNodeRunner` | `SyncNodeRunner` |
 
 ### 3.9. Materializer Compatibility Table (Default Factory)
 
