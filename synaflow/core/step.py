@@ -17,6 +17,7 @@ class Step(BaseStep):
     on_error: OnError = OnError.CONTINUE
     params: StepParams | None = None
     materializer: Callable | None = None
+    force_materialize: bool = False
     description: str = ""
     pipeline: str | None = None
     parent_pipeline: str | None = None

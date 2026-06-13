@@ -5,7 +5,7 @@ from synaflow import pipeline, step
 from synaflow.core.types import OnError
 
 from ._dag_builder_data import COMPATIBILITY_TABLE_ON_ERROR_STOP
-from .conftest import build_minimal_dag
+from .conftest import EmptyParams, build_minimal_dag
 
 
 def test_given_consumer_wants_list_when_dag_built_then_materialized_deps_set():
@@ -91,3 +91,21 @@ def test_given_consumer_wants_iterator_with_two_consumers_when_dag_built_then_on
     )
     assert p._dag.steps["a"].materialized_deps == []
     assert p._dag.steps["b"].materialized_deps == ["gen"]
+
+
+def test_given_force_materialize_when_dag_built_then_all_deps_materialized():
+    def gen() -> Iterator[int]:
+        yield 1
+
+    def consumer(gen: Iterator[int]) -> list[int]:
+        return list(gen)
+
+    p = pipeline(
+        name="test",
+        params=EmptyParams,
+        steps=[
+            step("gen", fn=gen),
+            step("consumer", fn=consumer, force_materialize=True),
+        ],
+    )
+    assert p._dag.steps["consumer"].materialized_deps == ["gen"]

@@ -113,6 +113,10 @@ def _compute_materialized_deps(dag: dict[str, DagNode]) -> None:
                 materialized_deps.append(dep_name)
             elif dep_name in dag and dag[dep_name].on_error == OnError.STOP:
                 materialized_deps.append(dep_name)
+        if node.force_materialize:
+            for dep_name in node.deps:
+                if dep_name not in materialized_deps:
+                    materialized_deps.append(dep_name)
         node.materialized_deps = materialized_deps
 
     for name, node in dag.items():

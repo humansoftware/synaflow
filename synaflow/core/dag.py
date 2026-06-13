@@ -13,6 +13,7 @@ class DagNode:
     materializer: Callable | None = None
     materialized_deps: list[str] = field(default_factory=list)
     needs_materialize: bool = False
+    force_materialize: bool = False
     pipeline: str | None = None
     parent_pipeline: str | None = None
 

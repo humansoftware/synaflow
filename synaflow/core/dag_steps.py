@@ -51,6 +51,7 @@ def validate_and_compile_step(
         output=output_type,
         on_error=step.on_error,
         materializer=step.materializer,
+        force_materialize=step.force_materialize,
         needs_materialize=needs_materialize,
         pipeline=step.pipeline or pipeline_name,
         parent_pipeline=getattr(step, "parent_pipeline", None),
