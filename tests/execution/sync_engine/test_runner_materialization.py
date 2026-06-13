@@ -4,6 +4,7 @@ from unittest.mock import MagicMock
 
 
 from synaflow import pipeline, step
+from synaflow.core.types import OnError
 
 
 def mock_step(**params: type) -> MagicMock:
@@ -517,6 +518,124 @@ def test_given_step_materializer_when_run_then_overrides_pipeline_factory(run_pi
     run_pipeline(my_pipeline, params=P())
     assert len(step_materialized) == 1
     assert len(pipeline_materialized) == 0
+
+
+def test_given_generator_and_iterator_and_list_consumers_when_run_then_iterator_consumer_receives_stream_and_list_consumer_receives_materialized_collection(
+    run_pipeline,
+):
+    class P(NamedTuple):
+        count: int = 3
+
+    def gen(count: int) -> Generator[int, None, None]:
+        yield from range(count)
+
+    observations = {}
+    materialized = []
+
+    def spy_materialize(g):
+        materialized.append("called")
+        return list(g)
+
+    def lazy(items: Iterator[int]):
+        observations["lazy_is_list"] = isinstance(items, list)
+        observations["lazy_values"] = list(items)
+
+    def eager(items: list[int]):
+        observations["eager_is_list"] = isinstance(items, list)
+        observations["eager_values"] = items
+
+    my_pipeline = pipeline(
+        name="test_mixed_fanout",
+        params=P,
+        default_materializer_factory=spy_materialize,
+        steps=[
+            step("items", fn=gen),
+            step("lazy", fn=lazy),
+            step("eager", fn=eager),
+        ],
+    )
+
+    run_pipeline(my_pipeline, params=P())
+
+    assert materialized == ["called"]
+    assert observations["lazy_is_list"] is False
+    assert observations["lazy_values"] == [0, 1, 2]
+    assert observations["eager_is_list"] is True
+    assert observations["eager_values"] == [0, 1, 2]
+
+
+def test_given_scalar_output_with_on_error_stop_when_run_then_scalar_materializer_is_invoked(
+    run_pipeline,
+):
+    class P(NamedTuple):
+        x: int = 3
+
+    materialized = []
+
+    def scalar_materializer(value):
+        materialized.append(value)
+        return value
+
+    def produce(x: int) -> int:
+        return x * 2
+
+    def consume(produce: int):
+        pass
+
+    my_pipeline = pipeline(
+        name="test_scalar_stop",
+        params=P,
+        steps=[
+            step(
+                "produce",
+                fn=produce,
+                on_error=OnError.STOP,
+                materializer=scalar_materializer,
+            ),
+            step("consume", fn=consume),
+        ],
+    )
+
+    run_pipeline(my_pipeline, params=P())
+
+    assert materialized == [6]
+
+
+def test_given_scalar_output_with_force_materialize_when_run_then_scalar_materializer_is_invoked(
+    run_pipeline,
+):
+    class P(NamedTuple):
+        x: int = 3
+
+    materialized = []
+
+    def scalar_materializer(value):
+        materialized.append(value)
+        return value
+
+    def produce(x: int) -> int:
+        return x * 2
+
+    def consume(produce: int):
+        pass
+
+    my_pipeline = pipeline(
+        name="test_scalar_force",
+        params=P,
+        steps=[
+            step(
+                "produce",
+                fn=produce,
+                materializer=scalar_materializer,
+                force_materialize=True,
+            ),
+            step("consume", fn=consume),
+        ],
+    )
+
+    run_pipeline(my_pipeline, params=P())
+
+    assert materialized == [6]
 
 
 def test_given_factory_with_context_when_run_then_context_is_injected(run_pipeline):

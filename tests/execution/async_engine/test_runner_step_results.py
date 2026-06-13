@@ -11,6 +11,7 @@ ASYNC_PACK_NAMES = (
     "async_complex_parallel",
     "async_fibonacci",
     "async_complex_parallel_mixed",
+    "async_mixed_fanout",
     "async_sub_pipelines",
     "async_deep_sub_pipelines",
 )

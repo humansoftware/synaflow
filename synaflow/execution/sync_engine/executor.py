@@ -6,7 +6,7 @@ from typing import Any
 from synaflow.core.dag import Dag
 from synaflow.core.definition import PipelineDef
 from synaflow.core.exceptions import PipelineStopException
-from synaflow.core.types import MaterializeContext, OnError
+from synaflow.core.types import ErrorMaterializeContext, MaterializeContext, OnError
 
 
 def _output_key(dag: Dag, producer: str, consumer: str) -> str:
@@ -20,11 +20,13 @@ def _output_key(dag: Dag, producer: str, consumer: str) -> str:
 # ---------------------------------------------------------------------------
 
 
-def _apply_materializer(dag: Dag, step_name: str, iterator: Iterator) -> Any:
+def _apply_materializer(
+    dag: Dag, step_name: str, value: Any, consumer_type: Any = None
+) -> Any:
     node = dag[step_name]
     mat = node.get("materializer")
     if mat is None:
-        return list(iterator)
+        return list(value) if isinstance(value, Iterator) else value
     sig = inspect.signature(mat)
     if (
         len(sig.parameters) > 1
@@ -36,9 +38,28 @@ def _apply_materializer(dag: Dag, step_name: str, iterator: Iterator) -> Any:
                 pipeline_name=dag.name,
                 dataset_name=step_name,
                 item_type=node.get("output"),
+                consumer_type=consumer_type,
             )
         )
-    return mat(iterator)
+    if isinstance(value, Iterator) and getattr(mat, "__name__", "") == "_identity":
+        return list(value)
+    return mat(value)
+
+
+def _handle_error(dag: Dag, step_name: str, exc: BaseException) -> None:
+    factory = getattr(dag, "error_materializer_factory", None)
+    if factory is None:
+        return
+
+    handler = factory(
+        ErrorMaterializeContext(
+            pipeline_name=dag.name,
+            dataset_name=step_name,
+            exception_type=type(exc),
+        )
+    )
+    if callable(handler):
+        handler(exc)
 
 
 # ---------------------------------------------------------------------------
@@ -79,6 +100,7 @@ class PipelineExecutor:
         except PipelineStopException:
             raise
         except Exception as exc:
+            _handle_error(self.dag, step_name, exc)
             if node.on_error == OnError.STOP:
                 raise PipelineStopException(step_name=step_name, cause=exc) from exc
 
@@ -108,6 +130,7 @@ class PipelineExecutor:
                 try:
                     yield node.fn(**item_args)
                 except Exception as exc:
+                    _handle_error(self.dag, step_name, exc)
                     if on_err == OnError.STOP:
                         raise PipelineStopException(
                             step_name=step_name, cause=exc
@@ -142,15 +165,32 @@ class PipelineExecutor:
 
     def _publish_output(self, step_name, output, node):
         output = self._notify_observers(step_name, output)
-        if isinstance(output, Iterator) and node.needs_materialize:
-            output = _apply_materializer(self.dag, step_name, output)
-        elif isinstance(output, Iterator):
+        if isinstance(output, Iterator):
             consumers = self.dag.consumers_of(step_name)
             if len(consumers) > 1:
                 branches = itertools.tee(output, len(consumers))
                 for consumer, branch in zip(consumers, branches):
+                    consumer_node = self.dag[consumer]
+                    if step_name in consumer_node.materialized_deps:
+                        branch = _apply_materializer(
+                            self.dag,
+                            step_name,
+                            branch,
+                            consumer_type=consumer_node.deps.get(step_name),
+                        )
                     self.outputs[_output_key(self.dag, step_name, consumer)] = branch
                 return
+            if self.dag.needs_materialize(step_name):
+                consumer_type = None
+                if consumers:
+                    consumer_type = self.dag[consumers[0]].deps.get(step_name)
+                output = _apply_materializer(
+                    self.dag, step_name, output, consumer_type=consumer_type
+                )
+        elif self.dag.needs_materialize(step_name):
+            output = _apply_materializer(
+                self.dag, step_name, output, consumer_type=node.get("output")
+            )
         self.outputs[step_name] = output
 
 

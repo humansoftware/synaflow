@@ -11,6 +11,7 @@ SYNC_PACK_NAMES = (
     "sync_complex_parallel",
     "sync_fibonacci",
     "sync_complex_parallel_mixed",
+    "sync_mixed_fanout",
     "sync_sub_pipelines",
     "sync_deep_sub_pipelines",
 )
