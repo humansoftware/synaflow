@@ -94,14 +94,11 @@ def resolve_step_output_type(
     if return_type is inspect.Parameter.empty:
         return_type = None
 
-    if is_scalar(return_type) and deps:
-        first_dep_name = next(iter(deps))
-        first_dep_output = produced[first_dep_name].output
-
-        if first_dep_output is not None and is_iterable_type(first_dep_output):
-            first_param_name = list(sig.parameters.keys())[0]
-            first_param_type = sig.parameters[first_param_name].annotation
-            if is_scalar(first_param_type):
-                return ListType(return_type)
+    if is_scalar(return_type):
+        for dep_name, dep_type in deps.items():
+            producer_output = produced[dep_name].output
+            if producer_output is not None and is_iterable_type(producer_output):
+                if is_scalar(dep_type):
+                    return ListType(return_type)
 
     return return_type

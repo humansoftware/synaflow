@@ -10,7 +10,6 @@ from synaflow.core.dag_dependencies import (
 from synaflow.core.definition import Step
 from synaflow.core.type_compatibility import (
     is_async_stream_type,
-    is_materialized_consumer,
     is_sync_stream_type,
 )
 from synaflow.core.types import MaterializeContext
@@ -46,8 +45,6 @@ def validate_and_compile_step(
     deps = validate_and_resolve_dependencies(step, sig, hints, produced, pipeline_name)
     output_type = resolve_step_output_type(sig, hints, deps, produced)
 
-    needs_materialize = any(is_materialized_consumer(t) for t in deps.values())
-
     return DagNode(
         fn=step.fn,
         deps=deps,
@@ -55,7 +52,6 @@ def validate_and_compile_step(
         on_error=step.on_error,
         materializer=step.materializer,
         force_materialize=step.force_materialize,
-        needs_materialize=needs_materialize,
         pipeline=step.pipeline or pipeline_name,
         parent_pipeline=getattr(step, "parent_pipeline", None),
     )

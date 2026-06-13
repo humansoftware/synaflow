@@ -6,7 +6,11 @@ from typing import Any
 from synaflow.core.dag import Dag
 from synaflow.core.definition import PipelineDef
 from synaflow.core.exceptions import PipelineStopException, StepExecutionError
-from synaflow.core.types import MaterializeContext, OnError
+from synaflow.core.types import (
+    ErrorMaterializeContext,
+    MaterializeContext,
+    OnError,
+)
 
 
 def _output_key(dag: Dag, producer: str, consumer: str) -> str:
@@ -23,11 +27,15 @@ from .iterator_utils import async_list, queue_to_async_gen
 # ---------------------------------------------------------------------------
 
 
-async def _apply_materializer(dag: Dag, step_name: str, iterator: Any) -> Any:
+async def _apply_materializer(
+    dag: Dag, step_name: str, value: Any, consumer_type: Any = None
+) -> Any:
     node = dag[step_name]
     mat = node.get("materializer")
     if mat is None:
-        return await async_list(iterator)
+        if isinstance(value, (AsyncIterator, AsyncGenerator)):
+            return await async_list(value)
+        return value
     sig = inspect.signature(mat)
     if (
         len(sig.parameters) > 1
@@ -39,13 +47,30 @@ async def _apply_materializer(dag: Dag, step_name: str, iterator: Any) -> Any:
                 pipeline_name=dag.name,
                 dataset_name=step_name,
                 item_type=node.get("output"),
+                consumer_type=consumer_type,
             )
         )
     if inspect.iscoroutinefunction(mat):
-        return await mat(iterator)
-    if isinstance(iterator, (AsyncIterator, AsyncGenerator)):
-        return await async_list(iterator)
-    return mat(iterator)
+        return await mat(value)
+    if isinstance(value, (AsyncIterator, AsyncGenerator)):
+        return await async_list(value)
+    return mat(value)
+
+
+def _handle_error(dag: Dag, step_name: str, exc: BaseException) -> None:
+    factory = getattr(dag, "error_materializer_factory", None)
+    if factory is None:
+        return
+
+    handler = factory(
+        ErrorMaterializeContext(
+            pipeline_name=dag.name,
+            dataset_name=step_name,
+            exception_type=type(exc),
+        )
+    )
+    if callable(handler):
+        handler(exc)
 
 
 async def _pump_iterator(
@@ -168,10 +193,11 @@ class AsyncPipelineExecutor:
                 output = await self._call_fn(node.fn, arguments)
 
             if not step_name.startswith("_"):
-                self._publish_output(step_name, output, node)
+                await self._publish_output(step_name, output, node)
         except PipelineStopException:
             raise
         except Exception as exc:
+            _handle_error(self.dag, step_name, exc)
             if node.on_error == OnError.STOP:
                 raise PipelineStopException(step_name=step_name, cause=exc) from exc
 
@@ -216,6 +242,7 @@ class AsyncPipelineExecutor:
                 try:
                     yield await self._call_fn(node.fn, item_args)
                 except Exception as exc:
+                    _handle_error(self.dag, step_name, exc)
                     if node.on_error == OnError.STOP:
                         raise PipelineStopException(
                             step_name=step_name, cause=exc
@@ -245,7 +272,7 @@ class AsyncPipelineExecutor:
         for observer in self._step_output_observers:
             observer(step_name, output)
 
-    def _publish_output(self, step_name, output, node):
+    async def _publish_output(self, step_name, output, node):
         if isinstance(output, (Iterator, Generator, AsyncIterator, AsyncGenerator)):
             consumers = self.dag.consumers_of(step_name)
             if consumers:
@@ -266,7 +293,7 @@ class AsyncPipelineExecutor:
                         step_name,
                         output,
                         queues,
-                        node.needs_materialize,
+                        self.dag.needs_materialize(step_name),
                         node.on_error,
                         dag=self.dag,
                     )
@@ -275,6 +302,10 @@ class AsyncPipelineExecutor:
                 return
             else:
                 self._notify_observers(step_name, output)
+        elif self.dag.needs_materialize(step_name):
+            output = await _apply_materializer(
+                self.dag, step_name, output, consumer_type=node.get("output")
+            )
         self.outputs[step_name] = output
         self._notify_observers(step_name, output)
 

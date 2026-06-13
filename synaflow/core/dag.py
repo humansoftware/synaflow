@@ -30,7 +30,6 @@ class DagNode:
     on_error: OnError | None = None
     materializer: Callable | None = None
     materialized_deps: list[str] = field(default_factory=list)
-    needs_materialize: bool = False
     force_materialize: bool = False
     pipeline: str | None = None
     parent_pipeline: str | None = None
@@ -135,6 +134,18 @@ class Dag:
             if is_iterable_type(producer_output) and is_scalar(dep_type):
                 result.append(dep_name)
         return result
+
+    def needs_materialize(self, step_name: str) -> bool:
+        node = self.steps.get(step_name)
+        if node is None:
+            return False
+
+        if node.on_error == OnError.STOP or node.force_materialize:
+            return True
+
+        return any(
+            step_name in consumer.materialized_deps for consumer in self.steps.values()
+        )
 
     def get_execution_levels(self) -> list[list[str]]:
         in_degree: dict[str, int] = {name: 0 for name in self.steps}

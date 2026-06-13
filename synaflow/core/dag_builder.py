@@ -51,13 +51,14 @@ def default_materializer_factory(ctx: MaterializeContext):
             (list, MutableSequence),
             (set, MutableSet),
             (dict, MutableMapping),
-            (tuple,),
         ):
             try:
                 if issubclass(tp, candidate):
                     return candidate[0]
             except TypeError:
                 continue
+        if tp is tuple:
+            return tuple
     if tp is not None and is_scalar(tp):
         return _identity
     return list
@@ -153,15 +154,6 @@ def _compute_materialized_deps(dag: dict[str, DagNode]) -> None:
                 if dep_name not in materialized_deps:
                     materialized_deps.append(dep_name)
         node.materialized_deps = materialized_deps
-
-    for name, node in dag.items():
-        consumers = [
-            other_name
-            for other_name, other_node in dag.items()
-            if name in other_node.materialized_deps
-        ]
-        needs_mat = len(consumers) > 0 or node.on_error == OnError.STOP
-        node.needs_materialize = needs_mat
 
 
 def build_dag(
