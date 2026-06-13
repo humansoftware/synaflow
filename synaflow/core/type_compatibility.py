@@ -1,6 +1,6 @@
 import types
 from collections.abc import AsyncGenerator, AsyncIterator, Generator, Iterable, Iterator
-from typing import Any, get_args, get_origin
+from typing import Any, Tuple, Union, get_args, get_origin
 
 SCALAR_TYPES = {int, float, str, bool, bytes, type(None)}
 COLLECTION_ORIGINS = {
@@ -91,11 +91,9 @@ def _is_dict_type(tp: Any) -> bool:
 
 
 def _get_dict_pair_type(tp: Any) -> Any:
-    import typing
-
     args = get_args(tp)
     if len(args) == 2:
-        return typing.Tuple[args[0], args[1]]
+        return Tuple[args[0], args[1]]
     return None
 
 
@@ -180,9 +178,6 @@ def is_scalar(tp: Any) -> bool:
         return True
     origin = get_origin(tp)
     if origin is not None:
-        import types
-        from typing import Union
-
         if origin is types.UnionType or origin is Union:
             return all(is_scalar(a) for a in get_args(tp))
         return False
@@ -201,8 +196,6 @@ def get_inner_type(tp: Any) -> Any:
 def get_type_name(tp: Any) -> str:
     if tp is None:
         return "None"
-
-    from collections.abc import AsyncGenerator, AsyncIterator, Generator, Iterator
 
     if tp in (Iterator, Generator, AsyncIterator, AsyncGenerator):
         return "Stream"

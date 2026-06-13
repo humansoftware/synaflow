@@ -48,10 +48,10 @@ def test_runner_executes_flattened_pipeline_each_mode():
         ],
     )
 
-    from synaflow.execution.sync_engine.pipeline import PipelineExecutor
+    from synaflow.execution.sync_engine.executor import PipelineExecutor
 
-    executor = PipelineExecutor(pipe_a)
+    executor = PipelineExecutor(pipe_a.dag)
     executor.execute(params=AParams(raw_texts=["hi", "world", "synaflow"]))
     # len("hi") = 2, len("world") = 5, len("synaflow") = 8
     # sum = 15
-    assert executor.context["consolidate"] == 15
+    assert executor.outputs["consolidate"] == 15

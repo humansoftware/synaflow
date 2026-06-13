@@ -37,7 +37,7 @@ def step5(step2: Iterator[int], step4: Iterator[int]) -> None:
 #       \       \
 #        \       -> step5
 #         -> step4 /
-from tests.pipeline_pack import PipelinePack
+from tests.common.pipeline_pack import PipelinePack
 
 pipeline_def = pipeline(
     name="complex_parallel_mixed",

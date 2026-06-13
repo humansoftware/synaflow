@@ -106,12 +106,12 @@ The materializer can persist the shuffle phase to disk when datasets are too lar
 **Decision:** The internal architecture of Synaflow enforces a strict, symmetric separation of concerns across both Compilation (DAG Building) and Execution (Run-Time) engines.
 **Reason:** To ensure massive maintainability, single-responsibility principle (SRP), and to prevent the creation of "God Classes" in the executors. Whether the framework is building the DAG, running synchronous callbacks, or orchestrating asynchronous `asyncio.Queue` streams, the exact same domain structure is respected:
 
-| Domain / Concern | Compile-Time (DAG Build) | Run-Time (Async Engine) | Run-Time (Sync Engine) |
-| :--- | :--- | :--- | :--- |
-| **Pipeline/Orchestration** | `build_dag()` | `AsyncPipelineExecutor` | `PipelineExecutor` |
-| **Dependencies/Type Resolution** | `validate_and_resolve_dependencies()` | `AsyncDependencyResolver` | `SyncDependencyResolver` |
-| **Topology/Stream Routing** | `check_circular_dependencies()` | `AsyncStreamManager` | `SyncStreamManager` |
-| **Node Runner/Step Eval** | `validate_and_compile_step()` | `AsyncNodeRunner` | `SyncNodeRunner` |
+| Domain / Concern | Compile-Time (DAG Build) | Run-Time |
+| :--- | :--- | :--- |
+| **Pipeline/Orchestration** | `build_dag()` | `PipelineExecutor` / `AsyncPipelineExecutor` |
+| **Dependencies/Type Resolution** | `validate_and_resolve_dependencies()` | inlined in executor |
+| **Topology/Stream Routing** | `check_circular_dependencies()` | inlined in executor |
+| **Node Execution** | `validate_and_compile_step()` | inlined in executor |
 
 ### 3.9. Materializer Compatibility Table (Default Factory)
 

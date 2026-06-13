@@ -1,11 +1,8 @@
-import asyncio
-from collections.abc import AsyncGenerator, AsyncIterator
-from typing import Any
+from collections.abc import AsyncIterator, Iterator
 
 import pytest
 
-from synaflow.execution.async_engine.pipeline import AsyncPipelineExecutor
-from synaflow.execution.async_engine.topology import AsyncStreamManager, AsyncTeeWrapper
+from synaflow.execution.async_engine.executor import AsyncPipelineExecutor
 from tests.execution.async_engine.corpus import PACKS as ASYNC_PACKS
 
 ASYNC_PACK_NAMES = (
@@ -19,51 +16,29 @@ ASYNC_PACK_NAMES = (
 )
 
 
+async def _concrete(value):
+    if value is None:
+        return None
+    if isinstance(value, AsyncIterator):
+        return [x async for x in value]
+    if isinstance(value, Iterator):
+        return list(value)
+    return value
+
+
 @pytest.mark.asyncio
 @pytest.mark.parametrize("pack_name", ASYNC_PACK_NAMES)
 async def test_step_results(pack_name):
     pack = ASYNC_PACKS[pack_name]
 
-    class TestAsyncStreamManager(AsyncStreamManager):
-        def __init__(self, *args, **kwargs):
-            super().__init__(*args, **kwargs)
-            self.recorded_queues = {}
-            self.recorded_scalars = {}
+    recorded = {}
 
-        def store_output(
-            self, name: str, value: Any, needs_materialize: bool = False
-        ) -> None:
-            consumers = [
-                c for c, cnode in self.dag.items() if name in cnode.get("deps", {})
-            ]
+    def record_step_output(step_name, output):
+        recorded[step_name] = output
 
-            if isinstance(value, (AsyncIterator, AsyncGenerator)):
-                queues = {c: asyncio.Queue(maxsize=100) for c in consumers}
-
-                rec_queue = asyncio.Queue(maxsize=100)
-                queues["__test_recorder"] = rec_queue
-                self.recorded_queues[name] = rec_queue
-
-                self.context[name] = AsyncTeeWrapper(queues)
-                node = self.dag.get(name, {})
-                on_error = node.get("on_error")
-                task = asyncio.create_task(
-                    self.pump_iterator(name, value, queues, needs_materialize, on_error)
-                )
-                self.pump_tasks.append(task)
-            else:
-                self.recorded_scalars[name] = value
-                self.context[name] = value
-
-    class TestAsyncPipelineExecutor(AsyncPipelineExecutor):
-        def __init__(self, *args, **kwargs):
-            super().__init__(*args, **kwargs)
-            self.stream_manager = TestAsyncStreamManager(
-                self.pipeline, self.context, self.pump_tasks
-            )
-            self.runner.stream_manager = self.stream_manager
-
-    executor = TestAsyncPipelineExecutor(pack.pipeline)
+    executor = AsyncPipelineExecutor(
+        pack.pipeline.dag, step_output_observers=[record_step_output]
+    )
 
     if pack.exception_match:
         with pytest.raises(Exception, match=pack.exception_match):
@@ -72,17 +47,6 @@ async def test_step_results(pack_name):
 
     await executor.execute(pack.input_params)
 
-    from synaflow.execution.async_engine.constants import EOF_MARKER
-
-    final_results = dict(executor.stream_manager.recorded_scalars)
-    for key, q in executor.stream_manager.recorded_queues.items():
-        items = []
-        while True:
-            item = await q.get()
-            if item is EOF_MARKER:
-                break
-            items.append(item)
-        final_results[key] = items
-
-    for key, expected_val in pack.step_results.items():
-        assert final_results.get(key) == expected_val
+    for step_name, expected in pack.step_results.items():
+        actual = await _concrete(recorded.get(step_name))
+        assert actual == expected

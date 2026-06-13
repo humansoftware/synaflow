@@ -1,6 +1,24 @@
+"""
+The Directed Acyclic Graph: the compiled, immutable model of a pipeline.
+
+Dag     — the top-level container: name, params (input types), steps (nodes),
+          and computed metadata (runner requirements, error materializer).
+DagNode — one step in the graph: function, input types (deps), output type,
+          error policy, materializer, and which deps must be materialized
+          before this node can execute.
+
+Methods on Dag (all stateless queries over the graph):
+  - consumers_of(step_name) → list of step names that depend on it
+  - get_execution_levels()   → topological levels for parallel execution
+  - to_dict()                → JSON-serializable representation
+
+Both are @dataclass — plain data with behaviour, no hidden state.
+"""
+
 from dataclasses import dataclass, field
 from typing import Any, Callable
 
+from synaflow.core.type_compatibility import get_type_name, is_iterable_type, is_scalar
 from synaflow.core.types import OnError
 
 
@@ -27,8 +45,6 @@ class DagNode:
         return getattr(self, key, default)
 
     def to_serializable(self) -> dict:
-        from synaflow.core.type_compatibility import get_type_name
-
         mat = self.materializer
         return {
             "deps": {k: get_type_name(v) for k, v in self.deps.items()},
@@ -83,8 +99,6 @@ class Dag:
         return self.steps.pop(key, *args)
 
     def to_dict(self) -> dict:
-        from synaflow.core.type_compatibility import get_type_name
-
         result = {
             "name": self.name,
             "params": {k: get_type_name(v) for k, v in self.params.items()},
@@ -100,6 +114,27 @@ class Dag:
 
     def consumers_of(self, step_name: str) -> list[str]:
         return [name for name, node in self.steps.items() if step_name in node.deps]
+
+    def each_inputs(self, step_name: str) -> list[str]:
+        """Which deps should be unrolled item-by-item (each mode)."""
+        node = self.steps.get(step_name)
+        if not node:
+            return []
+
+        result = []
+        for dep_name, dep_type in node.deps.items():
+            producer = self.steps.get(dep_name)
+            if producer is None and dep_name in self.params:
+                producer_output = self.params[dep_name]
+            elif producer is not None:
+                producer_output = producer.output
+            else:
+                continue
+            if producer_output is None:
+                continue
+            if is_iterable_type(producer_output) and is_scalar(dep_type):
+                result.append(dep_name)
+        return result
 
     def get_execution_levels(self) -> list[list[str]]:
         in_degree: dict[str, int] = {name: 0 for name in self.steps}

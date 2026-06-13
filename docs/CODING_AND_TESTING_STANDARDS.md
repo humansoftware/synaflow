@@ -64,6 +64,17 @@ The core business logic must be isolated from infrastructure.
 - **Internal errors propagate**: the framework raises clear, descriptive exceptions. It never catches and hides internal bugs.
 - **User-facing errors**: use `ValueError` for invalid configuration, `RuntimeError` for engine mismatches.
 
+### 1.9. Imports at Module Top
+All imports go at the top of the module. Lazy imports inside functions are only acceptable to break verified circular dependencies. Inter-module dependency cycles should be resolved through design, not hidden by deferred imports. Module-level imports make dependencies explicit and enable static analysis.
+
+### 1.10. Module Docstrings
+Every module starts with a `"""` docstring that explains:
+- **What** the module is responsible for (its single purpose)
+- **How** it achieves it (key functions, classes, or patterns)
+- **Why** it exists separately (what makes it a distinct concern)
+
+Keep it concise — a paragraph is usually enough. The docstring is the first thing in the file, before imports.
+
 ## 2. Tests
 
 ### 2.1. Test Naming: Given-When-Then

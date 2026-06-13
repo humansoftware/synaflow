@@ -1,8 +1,8 @@
 import pytest
 
+from tests.common.pipeline_pack import PipelinePack
 from tests.execution.async_engine.corpus import PACKS as ASYNC_PACKS
 from tests.execution.sync_engine.corpus import PACKS as SYNC_PACKS
-from tests.pipeline_pack import PipelinePack
 
 PACKS = {**SYNC_PACKS, **ASYNC_PACKS}
 

@@ -4,7 +4,7 @@ from typing import AsyncGenerator, AsyncIterator, NamedTuple
 import pytest
 
 from synaflow import pipeline, step
-from synaflow.execution.async_engine.pipeline import async_run
+from synaflow.execution.async_engine.executor import async_run
 
 
 async def test_given_async_generator_and_each_consumer_when_run_then_processed_concurrently():

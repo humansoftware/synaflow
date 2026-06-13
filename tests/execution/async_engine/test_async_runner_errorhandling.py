@@ -6,13 +6,12 @@ from unittest.mock import call
 import pytest
 
 from synaflow import async_run, pipeline, step
+from synaflow.core.exceptions import PipelineStopException
 from synaflow.core.types import OnError
 
 
 def mock_step(return_annotation=inspect.Parameter.empty, **params: type) -> MagicMock:
-    from unittest.mock import AsyncMock
-
-    mock = AsyncMock()
+    mock = MagicMock()
     if params:
         annotations = {name: tp for name, tp in params.items()}
         if return_annotation is not inspect.Parameter.empty:
@@ -53,7 +52,8 @@ async def test_given_on_error_stop_when_item_fails_then_pipeline_stops():
         ],
     )
 
-    await async_run(my_pipeline, params=P())
+    with pytest.raises(PipelineStopException, match="s1"):
+        await async_run(my_pipeline, params=P())
     assert s1.call_count == 2
     s2.assert_not_called()
 
@@ -99,7 +99,8 @@ async def test_given_on_error_stop_when_all_mode_fails_then_pipeline_stops():
         ],
     )
 
-    await async_run(my_pipeline, params=P())
+    with pytest.raises(PipelineStopException, match="s1"):
+        await async_run(my_pipeline, params=P())
     s2.assert_not_called()
 
 
@@ -127,6 +128,6 @@ async def test_given_on_error_stop_with_downstream_when_item_fails_then_downstre
         ],
     )
 
-    await async_run(my_pipeline, params=P())
-    # The pipeline should fail before feeding ANYTHING to s2, because s1 must fully succeed.
+    with pytest.raises(PipelineStopException, match="s1"):
+        await async_run(my_pipeline, params=P())
     s2.assert_not_called()

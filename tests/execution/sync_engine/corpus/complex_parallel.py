@@ -35,7 +35,7 @@ def step5(step3: Iterator[int], step4: Iterator[int]) -> None:
 # Topology:
 # step1 -> step2 -> step3 \
 #       -> step4 --------> step5
-from tests.pipeline_pack import PipelinePack
+from tests.common.pipeline_pack import PipelinePack
 
 pipeline_def = pipeline(
     name="complex_parallel",

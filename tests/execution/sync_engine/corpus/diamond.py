@@ -23,7 +23,7 @@ def merge(branch_a: int, branch_b: int) -> int:
     return branch_a + branch_b
 
 
-from tests.pipeline_pack import PipelinePack
+from tests.common.pipeline_pack import PipelinePack
 
 diamond_pipeline = pipeline(
     name="diamond_example",

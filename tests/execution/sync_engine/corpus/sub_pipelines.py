@@ -45,7 +45,7 @@ pipe = pipeline(
     ],
 )
 
-from tests.pipeline_pack import PipelinePack
+from tests.common.pipeline_pack import PipelinePack
 
 pack = PipelinePack(
     json_dag={
