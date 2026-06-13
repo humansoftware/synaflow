@@ -107,9 +107,9 @@ class Dag:
             },
         }
         if self.error_materializer_factory is not None:
-            result[
-                "error_materializer_factory"
-            ] = self.error_materializer_factory.__name__
+            result["error_materializer_factory"] = (
+                self.error_materializer_factory.__name__
+            )
         return result
 
     def consumers_of(self, step_name: str) -> list[str]:

@@ -2,15 +2,14 @@
 Tests for expected DagBuilder behavior not yet implemented.
 xfail = expected to fail until implemented.
 """
+
 from collections.abc import Iterator
 from typing import NamedTuple
 
 import pytest
 
-from synaflow import pipeline, step
-from synaflow.core.types import OnError
 
-from .conftest import EmptyParams, IntParam, build_minimal_dag
+from .conftest import build_minimal_dag
 
 # ---------------------------------------------------------------------------
 # Iterator[tuple[K,V]] -> dict[K,V]
