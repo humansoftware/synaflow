@@ -18,7 +18,7 @@ class PipelineExecutor:
         self.context: dict[str, Any] = {}
         self.executed_steps: set[str] = set()
 
-        self.stream_manager = SyncStreamManager(self.pipeline, self.context)
+        self.stream_manager = SyncStreamManager(self.pipeline)
         self.resolver = SyncDependencyResolver(self.pipeline, self.context)
         self.runner = SyncNodeRunner(
             self.pipeline,

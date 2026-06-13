@@ -1,9 +1,10 @@
 import inspect
 from typing import Any
 
+from synaflow.core.dag import Dag, DagNode
+from synaflow.core.dag_dependencies import DependencyValidator
 from synaflow.core.step import Step
 from synaflow.core.type_compatibility import is_async_stream_type, is_sync_stream_type
-from synaflow.core.validation.dependencies import DependencyValidator
 
 
 class StepValidator:
@@ -25,8 +26,8 @@ class StepValidator:
 
     @classmethod
     def validate_and_compile_step(
-        cls, step: Step, produced: dict[str, dict], pipeline_name: str
-    ) -> dict[str, Any]:
+        cls, step: Step, produced: dict[str, DagNode], pipeline_name: str
+    ) -> DagNode:
         sig = inspect.signature(step.fn)
         hints = DependencyValidator.get_safe_type_hints(step.fn)
 
@@ -38,44 +39,44 @@ class StepValidator:
         )
 
         from synaflow.core.type_compatibility import is_materialized_consumer
-        from synaflow.core.validation.topology import TopologyValidator
 
         needs_materialize = any(is_materialized_consumer(t) for t in deps.values())
 
-        return {
-            "deps": deps,
-            "output": output_type,
-            "fn": step.fn,
-            "on_error": step.on_error,
-            "needs_materialize": needs_materialize,
-            "pipeline": getattr(step, "pipeline", pipeline_name),
-            "parent_pipeline": getattr(step, "parent_pipeline", None),
-        }
+        return DagNode(
+            fn=step.fn,
+            deps=deps,
+            output=output_type,
+            on_error=step.on_error,
+            materializer=step.materializer,
+            needs_materialize=needs_materialize,
+            pipeline=getattr(step, "pipeline", pipeline_name),
+            parent_pipeline=getattr(step, "parent_pipeline", None),
+        )
 
     @staticmethod
     def validate_sync_async_consistency(
-        dag: dict,
+        dag: Dag,
         pipeline_name: str,
         steps: list[Step],
         default_materializer_factory: Any,
+        is_default_factory: bool = False,
     ) -> None:
         has_sync = False
         has_async = False
 
-        for node in dag.values():
-            if not node.get("fn"):
+        for node in dag.nodes.values():
+            if not node.fn:
                 continue
 
-            if inspect.iscoroutinefunction(node["fn"]):
+            if inspect.iscoroutinefunction(node.fn):
                 has_async = True
 
-            output = node.get("output")
-            if is_sync_stream_type(output):
+            if is_sync_stream_type(node.output):
                 has_sync = True
-            if is_async_stream_type(output):
+            if is_async_stream_type(node.output):
                 has_async = True
 
-            for dep_type in node.get("deps", {}).values():
+            for dep_type in node.deps.values():
                 if is_sync_stream_type(dep_type):
                     has_sync = True
                 if is_async_stream_type(dep_type):
@@ -99,7 +100,7 @@ class StepValidator:
                 m = m(ctx)
             return inspect.iscoroutinefunction(m)
 
-        if default_materializer_factory:
+        if default_materializer_factory and not is_default_factory:
             if _is_async_mat(default_materializer_factory):
                 has_async_materializer = True
             else:
@@ -132,7 +133,5 @@ class StepValidator:
                 "or remove async functions to run it synchronously."
             )
 
-        dag["__metadata__"] = {
-            "requires_sync_runner": has_sync,
-            "requires_async_runner": has_async,
-        }
+        dag.requires_sync_runner = has_sync
+        dag.requires_async_runner = has_async

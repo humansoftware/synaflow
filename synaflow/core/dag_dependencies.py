@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import inspect
 import types
 from typing import Any, NamedTuple, Union
@@ -14,11 +16,13 @@ from synaflow.core.type_compatibility import (
 
 class DependencyValidator:
     @staticmethod
-    def initialize_parameters(params: type[NamedTuple]) -> dict[str, dict]:
-        produced: dict[str, dict] = {}
+    def initialize_parameters(params: type[NamedTuple]) -> dict[str, "DagNode"]:
+        from synaflow.core.dag import DagNode
+
+        produced: dict[str, DagNode] = {}
         for field in getattr(params, "_fields", []):
             tp = getattr(params, "__annotations__", {}).get(field)
-            produced[field] = {"output": tp}
+            produced[field] = DagNode(output=tp)
         return produced
 
     @staticmethod
@@ -43,7 +47,7 @@ class DependencyValidator:
         step: Step,
         sig: inspect.Signature,
         hints: dict[str, Any],
-        produced: dict[str, dict],
+        produced: dict[str, "DagNode"],
         pipeline_name: str,
     ) -> dict[str, Any]:
         deps: dict[str, Any] = {}
@@ -59,7 +63,7 @@ class DependencyValidator:
                     "but no prior step or param produces it"
                 )
 
-            producer_type = produced[param_name]["output"]
+            producer_type = produced[param_name].output
 
             if (
                 producer_type is type(None)
@@ -88,7 +92,7 @@ class DependencyValidator:
         sig: inspect.Signature,
         hints: dict[str, Any],
         deps: dict[str, Any],
-        produced: dict[str, dict],
+        produced: dict[str, "DagNode"],
     ) -> Any:
         return_type = hints.get("return", sig.return_annotation)
         if return_type is inspect.Parameter.empty:
@@ -96,7 +100,7 @@ class DependencyValidator:
 
         if is_scalar(return_type) and deps:
             first_dep_name = next(iter(deps))
-            first_dep_output = produced[first_dep_name]["output"]
+            first_dep_output = produced[first_dep_name].output
 
             # We only infer a ListType if the output is scalar AND the first dependency is iterable
             # AND the parameter type for that dependency in this function is a scalar (meaning it will be unrolled).

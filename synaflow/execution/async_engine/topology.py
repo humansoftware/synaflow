@@ -29,15 +29,8 @@ class AsyncStreamManager:
         self.pump_tasks = pump_tasks
 
     async def apply_materializer(self, name: str, iterator: Any) -> Any:
-        node = self.dag.get(name)
-        step_def = None
-        if node and node.get("fn"):
-            step_def = next((s for s in self.pipeline.steps if s.name == name), None)
-
-        mat = getattr(step_def, "materializer", None) if step_def else None
-
-        if mat is None:
-            mat = self.pipeline.default_materializer_factory
+        node = self.dag.get(name, {})
+        mat = node.get("materializer")
 
         if mat is None:
             return await async_list(iterator)
@@ -57,6 +50,10 @@ class AsyncStreamManager:
 
         if inspect.iscoroutinefunction(mat):
             return await mat(iterator)
+
+        if isinstance(iterator, (AsyncIterator, AsyncGenerator)):
+            return await async_list(iterator)
+
         return mat(iterator)
 
     async def pump_iterator(

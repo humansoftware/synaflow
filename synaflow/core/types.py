@@ -30,3 +30,4 @@ class MaterializeContext:
     pipeline_name: str
     dataset_name: str
     item_type: Any
+    consumer_type: Any = None

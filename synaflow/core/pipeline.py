@@ -1,6 +1,10 @@
 from dataclasses import dataclass, field
 from typing import Any, Callable
 
+from synaflow.core.dag import Dag
+from synaflow.core.dag_builder import DagBuilder
+from synaflow.core.dag_builder import default_materializer_factory as _default_factory
+
 from .step import Step
 
 
@@ -14,69 +18,35 @@ class PipelineDef:
     params: Any
     steps: list[Step | Any]  # Allow IncludeStep
     exports: str | None = None
-    default_materializer_factory: Callable | None = None
-    _dag: dict[str, dict[str, Any]] = field(default_factory=dict)
+    default_materializer_factory: Callable | None = field(
+        default_factory=lambda: _default_factory
+    )
+    _dag: Dag = field(default_factory=Dag)
     _compiled: bool = False
     description: str = ""
 
     def __post_init__(self) -> None:
-        from synaflow.core.validation import PipelineValidator
-
-        self._dag = PipelineValidator.validate_pipeline(
-            self.name, self.params, self.steps, self.default_materializer_factory
+        self._dag = DagBuilder.build(
+            self.name,
+            self.params,
+            self.steps,
+            self.default_materializer_factory,
+            is_default_factory=(self.default_materializer_factory is _default_factory),
         )
-        metadata = self._dag.pop("__metadata__", {})
-        self.requires_sync_runner = metadata.get("requires_sync_runner", False)
-        self.requires_async_runner = metadata.get("requires_async_runner", False)
+        self.requires_sync_runner = self._dag.requires_sync_runner
+        self.requires_async_runner = self._dag.requires_async_runner
 
     def to_dict(self) -> dict:
         """Exports the compiled DAG structure to a JSON-serializable dictionary."""
-        from .type_compatibility import get_type_name
-
-        serialized = {}
-        for name, node in self._dag.items():
-            serialized[name] = {
-                "deps": {k: get_type_name(v) for k, v in node["deps"].items()},
-                "output": get_type_name(node["output"]),
-                "fn": node["fn"].__name__ if node["fn"] else None,
-                "on_error": node["on_error"].value if node["on_error"] else None,
-                "needs_materialize": node["needs_materialize"],
-                "pipeline": node.get("pipeline"),
-                "parent_pipeline": node.get("parent_pipeline"),
-            }
-        return serialized
+        return self._dag.to_dict()
 
     def get_execution_levels(self) -> list[list[str]]:
         """
         Returns the steps grouped into topological levels.
-        Steps in the same level have no dependencies on each other and could theoretically be executed in parallel.
+        Steps in the same level have no dependencies on each other and
+        could theoretically be executed in parallel.
         """
-        in_degree: dict[str, int] = {name: 0 for name in self._dag}
-        for name, node in self._dag.items():
-            for dep in node.get("deps", {}):
-                if dep in in_degree:
-                    in_degree[name] += 1
-
-        levels: list[list[str]] = []
-        processed: set[str] = set()
-
-        while len(processed) < len(self._dag):
-            level = [
-                name
-                for name, degree in in_degree.items()
-                if degree == 0 and name not in processed
-            ]
-            if not level:
-                break
-            levels.append(level)
-            processed.update(level)
-
-            for name in level:
-                for other_name, node in self._dag.items():
-                    if name in node.get("deps", {}):
-                        in_degree[other_name] -= 1
-
-        return levels
+        return self._dag.get_execution_levels()
 
 
 pipeline = PipelineDef

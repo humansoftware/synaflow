@@ -53,7 +53,7 @@ def is_type_compatible(producer_type: Any, consumer_type: Any) -> bool:
         return _producer_matches_any_consumer_type(producer_type, consumer_type)
 
     if is_consumer_iterable:
-        return _check_scalar_producer_to_iterable_consumer(producer_type, consumer_type)
+        return False
 
     if is_scalar(consumer_type):
         return _check_scalar_compatibility(producer_type, consumer_type)

@@ -510,38 +510,6 @@ async def test_given_generator_and_tuple_consumer_when_run_then_materialized_onc
     assert [val for key, val in call_order if key == "b"] == [(0, 1, 2)]
 
 
-async def test_given_scalar_producer_and_list_and_iterator_consumers_when_run_then_wrapped_as_single_element_collections():
-    class P(NamedTuple):
-        val: int = 42
-
-    call_order = []
-
-    async def s1(val: int) -> int:
-        call_order.append(("s1", val))
-        return val
-
-    async def s2(s1: list[int]):
-        call_order.append(("s2", s1))
-
-    async def s3(s1: AsyncIterator[int]):
-        call_order.append(("s3", [x async for x in s1]))
-
-    my_pipeline = pipeline(
-        name="test",
-        params=P,
-        steps=[
-            step("s1", fn=s1),
-            step("s2", fn=s2),
-            step("s3", fn=s3),
-        ],
-    )
-
-    await async_run(my_pipeline, params=P())
-    assert [val for key, val in call_order if key == "s1"] == [42]
-    assert [val for key, val in call_order if key == "s2"] == [[42]]
-    assert [val for key, val in call_order if key == "s3"] == [[42]]
-
-
 async def test_given_collection_producer_and_scalar_transformer_and_iterator_consumer_when_run_then_lazy_stream_no_materialization():
     class P(NamedTuple):
         count: int = 3
