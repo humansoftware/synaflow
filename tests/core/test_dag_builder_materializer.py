@@ -104,3 +104,32 @@ def test_given_scalar_producer_when_dag_built_then_materializer_is_default_facto
     from synaflow.core.dag_builder import default_materializer_factory as _def
 
     assert p._dag.steps["producer"].materializer is _def
+
+
+def test_given_default_error_factory_when_called_then_returns_callable():
+    from synaflow.core.dag_builder import default_error_materializer_factory as _def
+    from synaflow.core.types import ErrorMaterializeContext
+
+    ctx = ErrorMaterializeContext(
+        pipeline_name="test",
+        dataset_name="step1",
+        exception_type=ValueError,
+    )
+    handler = _def(ctx)
+    assert callable(handler)
+
+
+def test_given_pipeline_created_without_error_factory_then_uses_default():
+    from synaflow.core.dag_builder import default_error_materializer_factory as _def
+
+    class P(NamedTuple):
+        x: int = 1
+
+    def producer(x: int) -> int:
+        return x
+
+    def consumer(producer: int) -> None:
+        pass
+
+    p = build_minimal_dag(producer_fn=producer, consumer_fn=consumer, params=P)
+    assert p.default_error_materializer_factory is _def

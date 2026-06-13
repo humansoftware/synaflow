@@ -3,6 +3,9 @@ from typing import Any, Callable
 
 from synaflow.core.dag import Dag
 from synaflow.core.dag_builder import build_dag
+from synaflow.core.dag_builder import (
+    default_error_materializer_factory as _default_error_factory,
+)
 from synaflow.core.dag_builder import default_materializer_factory as _default_factory
 
 from .step import Step
@@ -20,6 +23,9 @@ class PipelineDef:
     exports: str | None = None
     default_materializer_factory: Callable | None = field(
         default_factory=lambda: _default_factory
+    )
+    default_error_materializer_factory: Callable | None = field(
+        default_factory=lambda: _default_error_factory
     )
     _dag: Dag = field(default_factory=Dag)
     _compiled: bool = False

@@ -11,7 +11,7 @@ from synaflow.core.dag_steps import (
 )
 from synaflow.core.dag_topology import check_circular_dependencies
 from synaflow.core.type_compatibility import get_inner_type, is_iterable_type
-from synaflow.core.types import MaterializeContext
+from synaflow.core.types import ErrorMaterializeContext, MaterializeContext
 
 
 def _identity(x):
@@ -37,6 +37,19 @@ def default_materializer_factory(ctx: MaterializeContext):
     if tp is not None and is_scalar(tp):
         return _identity
     return list
+
+
+def default_error_materializer_factory(ctx: ErrorMaterializeContext):
+    import traceback
+
+    def handle_error(exc: BaseException) -> None:
+        print(
+            f"[synaflow] [{ctx.pipeline_name}] [{ctx.dataset_name}]"
+            f" {type(exc).__name__}: {exc}"
+        )
+        traceback.print_exc()
+
+    return handle_error
 
 
 _BUILTIN_TYPES = {int, float, str, bool, bytes, type(None), list, set, tuple, dict}
