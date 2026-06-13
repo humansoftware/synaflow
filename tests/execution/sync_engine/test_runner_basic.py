@@ -1,8 +1,7 @@
 import inspect
 from typing import NamedTuple
-from unittest.mock import MagicMock, call
+from unittest.mock import MagicMock
 
-import pytest
 
 from synaflow import pipeline, step
 
@@ -95,7 +94,7 @@ def test_given_async_pipeline_when_run_synchronously_then_raises():
     import pytest
 
     from synaflow import pipeline, step
-    from synaflow.execution.sync_engine.pipeline import run
+    from synaflow.execution.sync_engine.executor import run
 
     class P(NamedTuple):
         items: list[int] = [1, 2, 3]

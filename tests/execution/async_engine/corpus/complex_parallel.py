@@ -35,7 +35,7 @@ async def step5(step3: AsyncIterator[int], step4: AsyncIterator[int]) -> None:
 # Topology:
 # step1 -> step2 -> step3 \
 #       -> step4 --------> step5
-from tests.pipeline_pack import PipelinePack
+from tests.common.pipeline_pack import PipelinePack
 
 pipeline_def = pipeline(
     name="complex_parallel",
@@ -51,6 +51,7 @@ pipeline_def = pipeline(
 
 pack = PipelinePack(
     json_dag={
+        "name": "complex_parallel",
         "params": {"base": "int"},
         "steps": {
             "step1": {

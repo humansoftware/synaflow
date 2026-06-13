@@ -48,7 +48,7 @@ def test_pipeline_compiles_flattened_dag():
         ],
     )
 
-    dag = pipe_a._dag
+    dag = pipe_a.dag
     assert "my_text_processor__adapter" in dag
     assert "my_text_processor__func_b1" in dag
     assert "my_text_processor" in dag  # This is func_b2

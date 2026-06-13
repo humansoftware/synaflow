@@ -21,7 +21,7 @@ def consumer(transformer: Iterator[int]) -> None:
         pass
 
 
-from tests.pipeline_pack import PipelinePack
+from tests.common.pipeline_pack import PipelinePack
 
 linear_pipeline = pipeline(
     name="linear_example",
@@ -35,6 +35,7 @@ linear_pipeline = pipeline(
 
 pack = PipelinePack(
     json_dag={
+        "name": "linear_example",
         "params": {"count": "int"},
         "steps": {
             "gen": {

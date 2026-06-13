@@ -1,7 +1,7 @@
 from typing import AsyncIterator, NamedTuple
 
 from synaflow import include, pipeline, step
-from tests.pipeline_pack import PipelinePack
+from tests.common.pipeline_pack import PipelinePack
 
 
 # Level 3 (Deepest)
@@ -76,6 +76,7 @@ pipe_l1 = pipeline(
 
 pack = PipelinePack(
     json_dag={
+        "name": "DeepSubPipelines",
         "params": {"values": "list[int]"},
         "steps": {
             "l2_each__adapter": {

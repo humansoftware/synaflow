@@ -49,10 +49,10 @@ async def test_runner_executes_flattened_pipeline_each_mode():
         ],
     )
 
-    from synaflow.execution.async_engine.pipeline import AsyncPipelineExecutor
+    from synaflow.execution.async_engine.executor import AsyncPipelineExecutor
 
-    executor = AsyncPipelineExecutor(pipe_a)
+    executor = AsyncPipelineExecutor(pipe_a.dag)
     await executor.execute(params=AParams(textos_brutos=["oi", "mundo", "synaflow"]))
     # len("oi") = 2, len("mundo") = 5, len("synaflow") = 8
     # sum = 15
-    assert executor.context["consolidar"] == 15
+    assert executor.outputs["consolidar"] == 15

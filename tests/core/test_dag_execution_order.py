@@ -87,3 +87,107 @@ def test_corpus_execution_levels(pack_name, pack):
         assert pack.pipeline.get_execution_levels() == pack.expected_execution_levels
     if pack.json_dag is not None:
         assert pack.pipeline.to_dict() == pack.json_dag
+
+
+def test_given_diamond_dag_when_consumers_of_branch_then_returns_merge():
+    from synaflow.core.dag import Dag, DagNode
+
+    dag = Dag(name="test")
+    dag.steps = {
+        "start": DagNode(deps={}),
+        "branch_a": DagNode(deps={"start": "int"}),
+        "branch_b": DagNode(deps={"start": "int"}),
+        "merge": DagNode(deps={"branch_a": "int", "branch_b": "int"}),
+    }
+    assert set(dag.consumers_of("start")) == {"branch_a", "branch_b"}
+    assert dag.consumers_of("branch_a") == ["merge"]
+    assert dag.consumers_of("merge") == []
+
+
+def test_given_each_mode_when_each_inputs_then_returns_correct_deps():
+    from collections.abc import Iterator
+
+    from synaflow.core.dag import Dag, DagNode
+
+    dag = Dag(name="test")
+    dag.steps = {
+        "gen": DagNode(output=Iterator[int], deps={}),
+        "a": DagNode(deps={"gen": int}),
+    }
+    assert dag.each_inputs("a") == ["gen"]
+
+
+def test_given_standard_mode_when_each_inputs_then_returns_empty():
+    from collections.abc import Iterator
+
+    from synaflow.core.dag import Dag, DagNode
+
+    dag = Dag(name="test")
+    dag.steps = {
+        "gen": DagNode(output=Iterator[int], deps={}),
+        "a": DagNode(deps={"gen": Iterator[int]}),
+    }
+    assert dag.each_inputs("a") == []
+
+
+def test_given_linear_dag_when_get_execution_levels_then_returns_sequential_levels():
+    from synaflow.core.dag import Dag, DagNode
+
+    dag = Dag(name="test")
+    dag.steps = {
+        "a": DagNode(deps={}),
+        "b": DagNode(deps={"a": "int"}),
+        "c": DagNode(deps={"b": "int"}),
+    }
+    assert dag.get_execution_levels() == [["a"], ["b"], ["c"]]
+
+
+def test_given_diamond_dag_when_get_execution_levels_then_parallel_in_same_level():
+    from synaflow.core.dag import Dag, DagNode
+
+    dag = Dag(name="test")
+    dag.steps = {
+        "a": DagNode(deps={}),
+        "b": DagNode(deps={"a": "int"}),
+        "c": DagNode(deps={"a": "int"}),
+        "d": DagNode(deps={"b": "int", "c": "int"}),
+    }
+    levels = dag.get_execution_levels()
+    assert levels[0] == ["a"]
+    assert set(levels[1]) == {"b", "c"}
+    assert levels[2] == ["d"]
+
+
+def test_given_independent_steps_when_get_execution_levels_then_all_in_same_level():
+    from synaflow.core.dag import Dag, DagNode
+
+    dag = Dag(name="test")
+    dag.steps = {
+        "a": DagNode(deps={}),
+        "b": DagNode(deps={}),
+    }
+    assert dag.get_execution_levels() == [["a", "b"]]
+
+
+def test_given_dag_when_to_dict_then_returns_correct_structure():
+    from synaflow.core.dag import Dag, DagNode
+    from synaflow.core.types import OnError
+
+    dag = Dag(name="unit_test")
+    dag.params = {"count": int}
+    dag.steps = {
+        "gen": DagNode(
+            fn=lambda: None,
+            deps={"count": int},
+            output="Stream[int, None, None]",
+            on_error=OnError.CONTINUE,
+        ),
+    }
+
+    result = dag.to_dict()
+    assert result["name"] == "unit_test"
+    assert result["params"] == {"count": "int"}
+    assert "gen" in result["steps"]
+    assert result["steps"]["gen"]["fn"] == "<lambda>"
+    assert result["steps"]["gen"]["on_error"] == "continue"
+    assert result["steps"]["gen"]["deps"] == {"count": "int"}

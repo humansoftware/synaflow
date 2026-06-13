@@ -8,7 +8,12 @@ from synaflow.core.dag_dependencies import (
     validate_and_resolve_dependencies,
 )
 from synaflow.core.definition import Step
-from synaflow.core.type_compatibility import is_async_stream_type, is_sync_stream_type
+from synaflow.core.type_compatibility import (
+    is_async_stream_type,
+    is_materialized_consumer,
+    is_sync_stream_type,
+)
+from synaflow.core.types import MaterializeContext
 
 
 def validate_step_is_callable(step: Step, pipeline_name: str) -> None:
@@ -40,8 +45,6 @@ def validate_and_compile_step(
 
     deps = validate_and_resolve_dependencies(step, sig, hints, produced, pipeline_name)
     output_type = resolve_step_output_type(sig, hints, deps, produced)
-
-    from synaflow.core.type_compatibility import is_materialized_consumer
 
     needs_materialize = any(is_materialized_consumer(t) for t in deps.values())
 
@@ -96,8 +99,6 @@ def validate_sync_async_consistency(
             or "ctx" in sig.parameters
             or "context" in sig.parameters
         ):
-            from synaflow.core.types import MaterializeContext
-
             ctx = MaterializeContext(
                 pipeline_name=pipeline_name, dataset_name="validator", item_type=Any
             )

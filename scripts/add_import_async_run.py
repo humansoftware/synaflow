@@ -1,5 +1,4 @@
 import glob
-import os
 
 files = glob.glob("tests/async/test_async_runner_*.py")
 for f in files:

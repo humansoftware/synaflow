@@ -1,3 +1,24 @@
+"""
+DAG Builder: compiles a pipeline definition into a validated Dag.
+
+build_dag() orchestrates the full compilation pipeline:
+  1. Expand macros (flatten IncludeSteps into plain Steps)
+  2. Initialize params from the NamedTuple
+  3. Compile each step (validate types, resolve deps, infer output type)
+  4. Resolve materializers (step → pipeline → global default)
+  5. Compute materialized_deps (which inputs need eager materialization)
+  6. Validate: circular deps, sync/async consistency
+
+Also exports the global default factories:
+  - default_materializer_factory       (stream → collection)
+  - default_error_materializer_factory (exception → log)
+
+All functions are stateless — no classes, no self.
+"""
+
+import logging
+import traceback
+import types as _types
 from collections.abc import MutableMapping, MutableSequence, MutableSet
 from typing import Any, NamedTuple, get_args
 
@@ -10,8 +31,13 @@ from synaflow.core.dag_steps import (
     validate_unique_step_name,
 )
 from synaflow.core.dag_topology import check_circular_dependencies
-from synaflow.core.type_compatibility import get_inner_type, is_iterable_type
-from synaflow.core.types import ErrorMaterializeContext, MaterializeContext
+from synaflow.core.type_compatibility import (
+    get_inner_type,
+    is_iterable_type,
+    is_materialized_consumer,
+    is_scalar,
+)
+from synaflow.core.types import ErrorMaterializeContext, MaterializeContext, OnError
 
 
 def _identity(x):
@@ -32,17 +58,12 @@ def default_materializer_factory(ctx: MaterializeContext):
                     return candidate[0]
             except TypeError:
                 continue
-    from synaflow.core.type_compatibility import is_scalar
-
     if tp is not None and is_scalar(tp):
         return _identity
     return list
 
 
 def default_error_materializer_factory(ctx: ErrorMaterializeContext):
-    import logging
-    import traceback
-
     log = logging.getLogger("synaflow")
 
     def handle_error(exc: BaseException) -> None:
@@ -62,8 +83,6 @@ _BUILTIN_TYPES = {int, float, str, bool, bytes, type(None), list, set, tuple, di
 
 
 def _is_builtin_type(tp: Any) -> bool:
-    import types as _types
-
     if type(tp) is _types.UnionType:
         return all(_is_builtin_type(a) for a in get_args(tp))
 
@@ -118,9 +137,6 @@ def _resolve_materializers(dag: dict[str, DagNode], pipeline_factory: Any) -> No
 
 
 def _compute_materialized_deps(dag: dict[str, DagNode]) -> None:
-    from synaflow.core.type_compatibility import is_materialized_consumer
-    from synaflow.core.types import OnError
-
     for node in dag.values():
         if node.fn is None:
             node.materialized_deps = []
@@ -161,7 +177,7 @@ def build_dag(
     factory = default_materializer_factory
 
     dag: dict[str, DagNode] = {}
-    dag_obj = Dag()
+    dag_obj = Dag(name=pipeline_name)
 
     from synaflow.core.dag_expansion import expand_macros
 

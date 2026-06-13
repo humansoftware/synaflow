@@ -1,10 +1,11 @@
 import inspect
-from typing import Generator, Iterator, List, NamedTuple
-from unittest.mock import MagicMock, call
+from typing import NamedTuple
+from unittest.mock import MagicMock
 
 import pytest
 
 from synaflow import pipeline, step
+from synaflow.core.exceptions import PipelineStopException
 from synaflow.core.types import OnError
 
 
@@ -46,7 +47,8 @@ def test_given_on_error_stop_when_item_fails_then_pipeline_stops(run_pipeline):
         ],
     )
 
-    run_pipeline(my_pipeline, params=P())
+    with pytest.raises(PipelineStopException, match="s1"):
+        run_pipeline(my_pipeline, params=P())
     assert s1.call_count == 2
     s2.assert_not_called()
 
@@ -92,7 +94,8 @@ def test_given_on_error_stop_when_all_mode_fails_then_pipeline_stops(run_pipelin
         ],
     )
 
-    run_pipeline(my_pipeline, params=P())
+    with pytest.raises(PipelineStopException, match="s1"):
+        run_pipeline(my_pipeline, params=P())
     s2.assert_not_called()
 
 
@@ -122,6 +125,6 @@ def test_given_on_error_stop_with_downstream_when_item_fails_then_downstream_nev
         ],
     )
 
-    run_pipeline(my_pipeline, params=P())
-    # The pipeline should fail before feeding ANYTHING to s2, because s1 must fully succeed.
+    with pytest.raises(PipelineStopException, match="s1"):
+        run_pipeline(my_pipeline, params=P())
     s2.assert_not_called()

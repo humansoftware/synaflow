@@ -3,6 +3,7 @@ import inspect
 from typing import Any
 
 from synaflow.core.definition import IncludeStep, Step
+from synaflow.core.types import OnError
 
 
 def expand_macros(
@@ -60,8 +61,6 @@ def _expand_include(
         )
 
     # 1. The adapter step
-    from synaflow.core.types import OnError
-
     adapter_step = Step(
         name=adapter_name,
         fn=include_step.fn,

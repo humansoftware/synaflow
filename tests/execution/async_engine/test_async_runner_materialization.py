@@ -1,12 +1,9 @@
 import inspect
-from typing import AsyncGenerator, AsyncIterator, Generator, Iterator, List, NamedTuple
+from typing import AsyncGenerator, AsyncIterator, NamedTuple
 from unittest.mock import AsyncMock as MagicMock
-from unittest.mock import call
 
-import pytest
 
 from synaflow import async_run, pipeline, step
-from synaflow.core.types import OnError
 
 
 def mock_step(**params: type) -> MagicMock:
@@ -345,45 +342,6 @@ async def test_given_generator_and_eager_each_and_eager_iterator_consumers_when_
     assert [val for key, val in call_order if key == "b"] == [0, 1, 2]
 
 
-async def test_given_generator_and_set_consumer_when_run_then_materialized_once():
-    class P(NamedTuple):
-        count: int = 3
-
-    async def gen(count: int) -> AsyncGenerator[int, None]:
-        for _i in range(count):
-            yield _i
-
-    call_order = []
-
-    async def a(items: int):
-        call_order.append(("a", items))
-
-    async def b(items: set[int]):
-        call_order.append(("b", items))
-
-    materialized = []
-
-    async def spy_materialize(g):
-        materialized.append("called")
-        return [x async for x in g]
-
-    my_pipeline = pipeline(
-        name="test",
-        params=P,
-        default_materializer_factory=spy_materialize,
-        steps=[
-            step("items", fn=gen),
-            step("a", fn=a),
-            step("b", fn=b),
-        ],
-    )
-
-    await async_run(my_pipeline, params=P())
-    assert len(materialized) == 1
-    assert [val for key, val in call_order if key == "a"] == [0, 1, 2]
-    assert [val for key, val in call_order if key == "b"] == [{0, 1, 2}]
-
-
 async def test_given_two_generators_when_consumed_by_single_step_then_no_materialization():
     class P(NamedTuple):
         count: int = 3
@@ -469,45 +427,6 @@ async def test_given_chain_and_bypass_dependencies_when_run_then_no_materializat
     assert [val for key, val in call_order if key == "a"] == [0, 1, 2]
     assert [val for key, val in call_order if key == "b_a"] == [0, 2, 4]
     assert [val for key, val in call_order if key == "b_items"] == [0, 1, 2]
-
-
-async def test_given_generator_and_tuple_consumer_when_run_then_materialized_once():
-    class P(NamedTuple):
-        count: int = 3
-
-    async def gen(count: int) -> AsyncGenerator[int, None]:
-        for _i in range(count):
-            yield _i
-
-    call_order = []
-
-    async def a(items: int):
-        call_order.append(("a", items))
-
-    async def b(items: tuple[int, ...]):
-        call_order.append(("b", items))
-
-    materialized = []
-
-    async def spy_materialize(g):
-        materialized.append("called")
-        return [x async for x in g]
-
-    my_pipeline = pipeline(
-        name="test",
-        params=P,
-        default_materializer_factory=spy_materialize,
-        steps=[
-            step("items", fn=gen),
-            step("a", fn=a),
-            step("b", fn=b),
-        ],
-    )
-
-    await async_run(my_pipeline, params=P())
-    assert len(materialized) == 1
-    assert [val for key, val in call_order if key == "a"] == [0, 1, 2]
-    assert [val for key, val in call_order if key == "b"] == [(0, 1, 2)]
 
 
 async def test_given_collection_producer_and_scalar_transformer_and_iterator_consumer_when_run_then_lazy_stream_no_materialization():

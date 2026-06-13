@@ -56,7 +56,7 @@ class PipelineDef:
     default_error_materializer_factory: Callable | None = field(
         default_factory=lambda: _get_default_error_factory()
     )
-    _dag: Dag = field(default_factory=Dag)
+    dag: Dag = field(default_factory=Dag)
     _compiled: bool = False
     description: str = ""
 
@@ -66,7 +66,7 @@ class PipelineDef:
             default_materializer_factory as _default_factory,
         )
 
-        self._dag = build_dag(
+        self.dag = build_dag(
             self.name,
             self.params,
             self.steps,
@@ -74,12 +74,12 @@ class PipelineDef:
             is_default_factory=(self.default_materializer_factory is _default_factory),
             error_materializer_factory=self.default_error_materializer_factory,
         )
-        self.requires_sync_runner = self._dag.requires_sync_runner
-        self.requires_async_runner = self._dag.requires_async_runner
+        self.requires_sync_runner = self.dag.requires_sync_runner
+        self.requires_async_runner = self.dag.requires_async_runner
 
     def to_dict(self) -> dict:
         """Exports the compiled DAG structure to a JSON-serializable dictionary."""
-        return self._dag.to_dict()
+        return self.dag.to_dict()
 
     def get_execution_levels(self) -> list[list[str]]:
         """
@@ -87,7 +87,7 @@ class PipelineDef:
         Steps in the same level have no dependencies on each other and
         could theoretically be executed in parallel.
         """
-        return self._dag.get_execution_levels()
+        return self.dag.get_execution_levels()
 
 
 pipeline = PipelineDef
