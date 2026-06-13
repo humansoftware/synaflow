@@ -87,20 +87,20 @@ The materializer can persist the shuffle phase to disk when datasets are too lar
 **Reason:** Follows the *Simple Things Easy* principle (users can override with `materializer=list` on a step) while maintaining *Complex Things Possible* (users define a Factory with self-discovered file naming via the `Context` in the root `pipeline` constructor).
 
 ### 3.4. Materializer Resolution at Build Time
-**Decision:** The materializer for every DAG node is pre-computed during DAG construction (build time). Resolution order: step-level `materializer` → pipeline-level `default_materializer_factory` → global default factory. A materializer is **never None** in the final DAG. The DAG builder raises a `ValidationError` if no compatible materializer can be resolved (e.g., for custom types without an explicit factory).
-**Reason:** Simplifies the runtime executors to a single call: `node["materializer"](iterator)`. Runtime should not be responsible for fallback resolution or type checking — that is a build-time concern.
+**Decision:** The materializer for every DAG node is pre-computed during DAG construction (build time). Resolution order: step-level `materializer` → pipeline-level `default_materializer_factory` → global default factory. A materializer is **never None** in the serialized DAG. The DAG builder raises a `ValidationError` if no compatible materializer can be resolved (e.g., for custom types without an explicit factory).
+**Reason:** Runtime should not be responsible for fallback resolution or type checking — that is a build-time concern. The builder stores the resolved factory; the runtime only handles the factory-with-context call pattern when needed.
 
-### 3.5. `needs_materialize` Belongs to the Consumer
-**Decision:** `needs_materialize` is a property of the **consumer**, not the producer. It signals: "Before I can execute, the producer's output must be materialized." The DAG builder computes this from consumer type annotations (`list`, `set`, `tuple`, `dict`), `on_error=STOP` propagation, and an explicit `force_materialize` flag on the step.
-**Reason:** The consumer knows what it needs. The producer doesn't know (or care) who will consume its output. This aligns with the dependency injection and single-responsibility principles.
+### 3.5. `materialized_deps` Belongs to the Consumer
+**Decision:** `materialized_deps` is a property of the **consumer**, listing which of its inputs must be fully materialized before the node can execute. The DAG builder computes this from consumer type annotations (`list`, `set`, `tuple`, `dict`), `on_error=STOP` propagation, and an explicit `force_materialize` flag on the step.
+**Reason:** The consumer knows what it needs. The producer doesn't know (or care) who will consume its output. The legacy `needs_materialize` flag on the producer is a cached convenience for runtime and is not part of the JSON serialization.
 
 ### 3.6. Type Protocols (Not Concrete Types)
 **Decision:** Consumer type annotations describe **protocols** (interfaces), not concrete classes. `list[T]` means "I need random access, indexing, and iteration" — not necessarily a Python `list` instance. The materializer factory returns an object satisfying the protocol. The framework detects protocols via `collections.abc`: `Sequence`/`MutableSequence` for list-like, `MutableSet` for set-like, `MutableMapping` for dict-like.
 **Reason:** Enables transparent persistence backends. A `DiskBackedList` implementing `MutableSequence` satisfies a `list[T]` consumer without loading the entire dataset into memory. The consumer is unaware of where data lives.
 
-### 3.7. `adapt_argument_to_consumer_type` is Validation, Not Conversion
-**Decision:** The dependency resolver validates that the materialized value is compatible with the consumer's declared type protocol. It does **not** silently convert types (e.g., `list → set`). If the materializer returned a `list` but the consumer expects a `set`, the builder should have assigned a `set`-producing materializer, not relied on runtime conversion.
-**Reason:** Type safety and predictability. Silent conversions hide design errors and prevent custom materializer backends from working correctly.
+### 3.7. Runtime Type Coercion Removed
+**Decision:** The runtime dependency resolver no longer converts types (e.g., `list → set`, scalar → `[scalar]`). Values pass through as-is from context to consumer.
+**Reason:** Type safety and predictability. If the materializer produced the wrong type for a consumer, silently fixing it at runtime hides the bug. The build-time materializer should produce the correct type directly. (The legacy `coerce_value_for_consumer` and `adapt_argument_to_consumer_type` functions were removed.)
 
 ### 3.8. Architectural Parity (Compile-Time vs Run-Time)
 **Decision:** The internal architecture of Synaflow enforces a strict, symmetric separation of concerns across both Compilation (DAG Building) and Execution (Run-Time) engines.
@@ -144,6 +144,18 @@ The default materializer factory maps producer-consumer type pairs to appropriat
 ### 3.11. No Silent Type Wrapping
 **Decision:** The framework never silently coerces scalar values into iterables. If a producer outputs `str` and a consumer expects `Iterator[str]`, a `ValidationError` is raised at build time. Users must explicitly declare `Iterator[str]` as the output type and `yield` the single item.
 **Reason:** Implicit wrapping hides design errors and breaks the type contract. Explicit yield makes the data flow visible and predictable.
+
+### 3.12. Inline Executors (Single-File Runtime)
+**Decision:** The sync and async execution engines each live in a single file (`executor.py`). The previous sub-components (`SyncStreamManager`, `SyncNodeRunner`, `SyncDependencyResolver`, and their async counterparts) were stateless classes that existed only as namespaces. They were replaced by plain functions and inlined into the executor.
+**Reason:** Simpler dependency graph, no fake "classes" without state, easier to understand the full execution flow in one file.
+
+### 3.13. Observable Execution (`step_output_observers`)
+**Decision:** The executor accepts an optional list of observer callbacks via `step_output_observers`. Each observer is called with `(step_name, output)` every time a step produces an output. For stream outputs, the sync executor tees the stream so the observer receives an independent copy; the async executor creates a dedicated pump task.
+**Reason:** Enables test infrastructure (capturing step outputs for spec compliance tests) without modifying production logic. Follows the Observer pattern — the executor doesn't know what observers do, only that they exist.
+
+### 3.14. PipelineStopException with Context
+**Decision:** `PipelineStopException` carries `step_name` and `cause` (the original exception). It uses `raise ... from` to preserve the full stack trace.
+**Reason:** When a pipeline stops, callers need to know which step caused the stop and why. An empty exception is useless for debugging.
 
 ---
 
