@@ -14,6 +14,10 @@ from synaflow.core.type_compatibility import get_inner_type, is_iterable_type
 from synaflow.core.types import MaterializeContext
 
 
+def _identity(x):
+    return x
+
+
 def default_materializer_factory(ctx: MaterializeContext):
     tp = getattr(ctx.consumer_type, "__origin__", None) or ctx.consumer_type
     if tp is not None:
@@ -28,6 +32,10 @@ def default_materializer_factory(ctx: MaterializeContext):
                 return tuple
         except TypeError:
             pass
+    from synaflow.core.type_compatibility import is_scalar
+
+    if tp is not None and is_scalar(tp):
+        return _identity
     return list
 
 

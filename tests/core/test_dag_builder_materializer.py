@@ -58,6 +58,34 @@ def test_given_no_custom_materializer_when_dag_built_then_default_factory_used()
     assert p._dag.steps["producer"].materializer is _def
 
 
+def test_given_default_factory_when_consumer_type_is_scalar_then_returns_identity():
+    from synaflow.core.dag_builder import default_materializer_factory as _def
+    from synaflow.core.types import MaterializeContext
+
+    ctx = MaterializeContext(
+        pipeline_name="test",
+        dataset_name="step1",
+        item_type=str,
+        consumer_type=str,
+    )
+    mat = _def(ctx)
+    assert mat(42) == 42
+
+
+def test_given_default_factory_when_consumer_type_is_none_then_returns_list():
+    from synaflow.core.dag_builder import default_materializer_factory as _def
+    from synaflow.core.types import MaterializeContext
+
+    ctx = MaterializeContext(
+        pipeline_name="test",
+        dataset_name="step1",
+        item_type=int,
+        consumer_type=None,
+    )
+    mat = _def(ctx)
+    assert mat is list
+
+
 def test_given_scalar_producer_when_dag_built_then_materializer_is_default_factory():
     class P(NamedTuple):
         x: int = 1
