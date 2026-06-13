@@ -38,6 +38,7 @@ diamond_pipeline = pipeline(
 
 pack = PipelinePack(
     json_dag={
+        "name": "diamond_example",
         "params": {"base_val": "int"},
         "steps": {
             "start": {

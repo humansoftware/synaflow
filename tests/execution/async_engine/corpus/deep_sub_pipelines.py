@@ -76,6 +76,7 @@ pipe_l1 = pipeline(
 
 pack = PipelinePack(
     json_dag={
+        "name": "DeepSubPipelines",
         "params": {"values": "list[int]"},
         "steps": {
             "l2_each__adapter": {

@@ -16,7 +16,7 @@ def test_given_consumer_wants_list_when_dag_built_then_materialized_deps_set():
         return len(producer)
 
     p = build_minimal_dag(producer_fn=gen, consumer_fn=consumer)
-    assert p._dag.steps["consumer"].materialized_deps == ["producer"]
+    assert p.dag.steps["consumer"].materialized_deps == ["producer"]
 
 
 def test_given_consumer_wants_set_when_dag_built_then_materialized_deps_set():
@@ -27,7 +27,7 @@ def test_given_consumer_wants_set_when_dag_built_then_materialized_deps_set():
         return len(producer)
 
     p = build_minimal_dag(producer_fn=gen, consumer_fn=consumer)
-    assert p._dag.steps["consumer"].materialized_deps == ["producer"]
+    assert p.dag.steps["consumer"].materialized_deps == ["producer"]
 
 
 def test_given_consumer_wants_tuple_when_dag_built_then_materialized_deps_set():
@@ -38,7 +38,7 @@ def test_given_consumer_wants_tuple_when_dag_built_then_materialized_deps_set():
         return len(producer)
 
     p = build_minimal_dag(producer_fn=gen, consumer_fn=consumer)
-    assert p._dag.steps["consumer"].materialized_deps == ["producer"]
+    assert p.dag.steps["consumer"].materialized_deps == ["producer"]
 
 
 def test_given_consumer_wants_iterator_when_dag_built_then_no_materialized_deps():
@@ -49,7 +49,7 @@ def test_given_consumer_wants_iterator_when_dag_built_then_no_materialized_deps(
         return list(producer)
 
     p = build_minimal_dag(producer_fn=gen, consumer_fn=consumer)
-    assert p._dag.steps["consumer"].materialized_deps == []
+    assert p.dag.steps["consumer"].materialized_deps == []
 
 
 def test_given_producer_on_error_stop_when_dag_built_then_consumer_materialized_deps_set():
@@ -64,7 +64,7 @@ def test_given_producer_on_error_stop_when_dag_built_then_consumer_materialized_
         consumer_fn=consumer,
         producer_on_error=OnError.STOP,
     )
-    assert p._dag.steps["consumer"].materialized_deps == ["producer"]
+    assert p.dag.steps["consumer"].materialized_deps == ["producer"]
 
 
 def test_given_consumer_wants_iterator_with_two_consumers_when_dag_built_then_only_materialized_consumer_has_deps():
@@ -89,8 +89,8 @@ def test_given_consumer_wants_iterator_with_two_consumers_when_dag_built_then_on
             step("b", fn=consumer_b),
         ],
     )
-    assert p._dag.steps["a"].materialized_deps == []
-    assert p._dag.steps["b"].materialized_deps == ["gen"]
+    assert p.dag.steps["a"].materialized_deps == []
+    assert p.dag.steps["b"].materialized_deps == ["gen"]
 
 
 def test_given_force_materialize_when_dag_built_then_all_deps_materialized():
@@ -108,4 +108,4 @@ def test_given_force_materialize_when_dag_built_then_all_deps_materialized():
             step("consumer", fn=consumer, force_materialize=True),
         ],
     )
-    assert p._dag.steps["consumer"].materialized_deps == ["gen"]
+    assert p.dag.steps["consumer"].materialized_deps == ["gen"]

@@ -44,6 +44,7 @@ class DagNode:
 
 @dataclass
 class Dag:
+    name: str = ""
     params: dict[str, Any] = field(default_factory=dict)
     steps: dict[str, DagNode] = field(default_factory=dict)
     requires_sync_runner: bool = False
@@ -85,6 +86,7 @@ class Dag:
         from synaflow.core.type_compatibility import get_type_name
 
         result = {
+            "name": self.name,
             "params": {k: get_type_name(v) for k, v in self.params.items()},
             "steps": {
                 name: node.to_serializable() for name, node in self.steps.items()

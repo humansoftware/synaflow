@@ -21,7 +21,7 @@ class AsyncNodeRunner:
         stream_manager: AsyncStreamManager,
     ):
         self.pipeline = pipeline
-        self.dag = pipeline._dag
+        self.dag = pipeline.dag
         self.context = context
         self.resolver = resolver
         self.stream_manager = stream_manager

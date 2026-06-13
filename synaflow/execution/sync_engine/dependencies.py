@@ -9,7 +9,7 @@ from .topology import TeeWrapper
 
 class SyncDependencyResolver:
     def __init__(self, pipeline: Any, context: dict[str, Any]):
-        self.dag = pipeline._dag
+        self.dag = pipeline.dag
         self.context = context
 
     def resolve_node_arguments(self, consumer_name: str, node: dict) -> dict[str, Any]:

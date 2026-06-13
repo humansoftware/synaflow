@@ -49,6 +49,7 @@ from tests.pipeline_pack import PipelinePack
 
 pack = PipelinePack(
     json_dag={
+        "name": "MainPipeline",
         "params": {"raw_texts": "list[str]"},
         "steps": {
             "my_text_processor__adapter": {

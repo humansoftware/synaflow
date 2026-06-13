@@ -15,7 +15,7 @@ class TeeWrapper:
 class SyncStreamManager:
     def __init__(self, pipeline: PipelineDef):
         self.pipeline = pipeline
-        self.dag = pipeline._dag
+        self.dag = pipeline.dag
 
     def apply_materializer(self, name: str, iterator: Iterator) -> Iterable:
         node = self.dag.get(name, {})
@@ -31,7 +31,7 @@ class SyncStreamManager:
             or "context" in sig.parameters
         ):
             ctx = MaterializeContext(
-                pipeline_name=self.pipeline.name,
+                pipeline_name=self.dag.name,
                 dataset_name=name,
                 item_type=node.get("output") if node else Any,
             )

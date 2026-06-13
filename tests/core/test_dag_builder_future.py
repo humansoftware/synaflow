@@ -29,7 +29,7 @@ def test_given_iterator_of_pairs_when_consumer_wants_dict_then_dag_builds():
         return len(producer)
 
     p = build_minimal_dag(producer_fn=producer, consumer_fn=consumer, params=KVParam)
-    assert p._dag.steps["consumer"].materialized_deps == ["producer"]
+    assert p.dag.steps["consumer"].materialized_deps == ["producer"]
 
 
 # ---------------------------------------------------------------------------
@@ -48,7 +48,7 @@ def test_given_dict_producer_when_consumer_wants_iterator_of_items_then_no_mater
         return list(producer)
 
     p = build_minimal_dag(producer_fn=producer, consumer_fn=consumer, params=DictParam)
-    assert p._dag.steps["consumer"].materialized_deps == []
+    assert p.dag.steps["consumer"].materialized_deps == []
 
 
 # ---------------------------------------------------------------------------

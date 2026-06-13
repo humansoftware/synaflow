@@ -38,6 +38,7 @@ pipeline_def = pipeline(
 
 pack = PipelinePack(
     json_dag={
+        "name": "fibonacci",
         "params": {"count": "int"},
         "steps": {
             "fibonacci_generator": {

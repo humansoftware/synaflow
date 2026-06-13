@@ -21,7 +21,7 @@ class SyncNodeRunner:
         stream_manager: SyncStreamManager,
     ):
         self.pipeline = pipeline
-        self.dag = pipeline._dag
+        self.dag = pipeline.dag
         self.context = context
         self.executed_steps = executed_steps
         self.resolver = resolver

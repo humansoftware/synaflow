@@ -53,6 +53,7 @@ pipeline_def = pipeline(
 
 pack = PipelinePack(
     json_dag={
+        "name": "complex_parallel_mixed",
         "params": {"base": "int"},
         "steps": {
             "step1": {

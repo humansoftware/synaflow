@@ -36,6 +36,7 @@ linear_pipeline = pipeline(
 
 pack = PipelinePack(
     json_dag={
+        "name": "linear_example",
         "params": {"count": "int"},
         "steps": {
             "gen": {

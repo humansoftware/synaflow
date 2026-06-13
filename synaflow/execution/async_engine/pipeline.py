@@ -14,7 +14,7 @@ class AsyncPipelineExecutor:
 
     def __init__(self, pipeline: PipelineDef):
         self.pipeline = pipeline
-        self.dag = pipeline._dag
+        self.dag = pipeline.dag
         self.context: dict[str, Any] = {}
         self.pump_tasks: list[asyncio.Task] = []
 

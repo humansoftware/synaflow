@@ -24,7 +24,7 @@ class AsyncStreamManager:
         pump_tasks: list[asyncio.Task],
     ):
         self.pipeline = pipeline
-        self.dag = pipeline._dag
+        self.dag = pipeline.dag
         self.context = context
         self.pump_tasks = pump_tasks
 
@@ -42,7 +42,7 @@ class AsyncStreamManager:
             or "context" in sig.parameters
         ):
             ctx = MaterializeContext(
-                pipeline_name=self.pipeline.name,
+                pipeline_name=self.dag.name,
                 dataset_name=name,
                 item_type=node.get("output") if node else Any,
             )

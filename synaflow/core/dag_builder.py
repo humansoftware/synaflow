@@ -161,7 +161,7 @@ def build_dag(
     factory = default_materializer_factory
 
     dag: dict[str, DagNode] = {}
-    dag_obj = Dag()
+    dag_obj = Dag(name=pipeline_name)
 
     from synaflow.core.dag_expansion import expand_macros
 

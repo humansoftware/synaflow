@@ -116,10 +116,10 @@ def test_given_on_error_stop_when_pipeline_created_then_forces_materialization()
     )
 
     # consumer should have needs_materialize = True because of OnError.STOP
-    assert p._dag["consumer"]["needs_materialize"] is True
+    assert p.dag["consumer"]["needs_materialize"] is True
 
     # gen should remain lazy (needs_materialize = False) because consumer processes it one-by-one
-    assert p._dag["gen"]["needs_materialize"] is False
+    assert p.dag["gen"]["needs_materialize"] is False
 
 
 def test_given_non_namedtuple_params_when_constructed_then_raises():
