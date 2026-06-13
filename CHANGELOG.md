@@ -2,6 +2,118 @@
 
 
 
+## v0.8.0 (2026-06-13)
+
+### Documentation
+
+* docs: update design philosophy with stream processing analogies, materializer architecture, and type protocol design decisions ([`a7a3cd6`](https://github.com/humansoftware/synaflow/commit/a7a3cd6e93c1f850b1e020e0bdee12296d2c1b4f))
+
+### Feature
+
+* feat: add error_materializer_factory to DAG JSON, use logging, tighten TypeError handling
+
+- Add error_materializer_factory to Dag dataclass and to_dict()
+- Wire error_materializer_factory from PipelineDef through build_dag to Dag
+- Use logging.warning instead of print in default error materializer
+- Tighten except TypeError in default_materializer_factory (per-candidate) ([`37bc707`](https://github.com/humansoftware/synaflow/commit/37bc707475c0b3404b2b05d4e471c09b384c4e15))
+
+* feat: add ErrorMaterializeContext and default error materializer factory
+
+- Add ErrorMaterializeContext dataclass (pipeline_name, dataset_name, exception_type)
+- Add default_error_materializer_factory (prints class, message, stack trace)
+- Add default_error_materializer_factory to PipelineDef
+- Add tests for factory and pipeline default ([`cc182d5`](https://github.com/humansoftware/synaflow/commit/cc182d5b133e09d75d44a7180515a808ad330f31))
+
+* feat: add force_materialize flag to Step and DagNode
+
+- Add force_materialize: bool = False to Step dataclass
+- Add force_materialize to DagNode, wired from Step during compilation
+- _compute_materialized_deps honors force_materialize for all deps
+- Add test for force_materialize behavior ([`f4e54d1`](https://github.com/humansoftware/synaflow/commit/f4e54d148cfe0e714f6b95f75822cccd62a97503))
+
+* feat: default materializer factory returns identity for scalar consumer types
+
+- Add _identity pass-through function
+- default_materializer_factory returns _identity when consumer_type is scalar
+- Fallback remains list for None/unknown consumer types
+- Add tests for scalar identity and None fallback ([`0b63c0e`](https://github.com/humansoftware/synaflow/commit/0b63c0ecc1f6e6888f51c535784ceee120352d91))
+
+* feat: add cycle detection, strict typing to macro expansion, and deep nested sub-pipeline examples ([`96a770c`](https://github.com/humansoftware/synaflow/commit/96a770c95ad611ff0fef841ca6b9eb4814e835e0))
+
+* feat: introduce PipelinePack for unified corpus testing ([`4f9983e`](https://github.com/humansoftware/synaflow/commit/4f9983e43cbae9b51d1b7205fa94fa37462b7770))
+
+### Fix
+
+* fix: make IncludeStep.pipeline required (no None default) ([`f9e36cc`](https://github.com/humansoftware/synaflow/commit/f9e36cc4c280d657f4ae922a04672711f801cb85))
+
+### Refactor
+
+* refactor: merge pipeline.py and step.py into definition.py
+
+- Move PipelineDef, Step, IncludeStep, BaseStep into core/definition.py
+- Add lazy import helpers for default factory to avoid circular imports
+- Remove core/pipeline.py and core/step.py
+- Update all imports across codebase ([`ca9d86e`](https://github.com/humansoftware/synaflow/commit/ca9d86e9f78b5667040f1dc5affbb2b9be4f18c5))
+
+* refactor: convert validators to plain functions, separate params from steps in Dag, materializer never None
+
+- Convert DagBuilder, StepValidator, DependencyValidator, TopologyValidator to module functions
+- Add params dict to Dag, separate from steps dict (params no longer in DAG nodes)
+- Remove needs_materialize from JSON serialization (runtime detail)
+- materializer never None in JSON - all steps have default_materializer_factory
+- pipeline field always set to pipeline name (never None)
+- Validate __ is forbidden in user step names (reserved for sub-pipeline names)
+- Update to_dict() format: {params, steps} instead of flat dict
+- Update all 14 corpus json_dag + expected_execution_levels
+- Add coding and testing standards document (CODING_AND_TESTING_STANDARDS.md) ([`4a6e364`](https://github.com/humansoftware/synaflow/commit/4a6e364fd1913c6e3d53613d499d4532634480ec))
+
+* refactor: extract Dag/DagNode dataclasses, rename validation to dag_builder, add materializer/materialized_deps to DAG
+
+- Add Dag/DagNode dataclasses with dict-like access (core/dag.py)
+- Rename PipelineValidator to DagBuilder, move validation modules to dag_*.py
+- Pre-compute materializer per node in DagBuilder
+- Add materialized_deps to consumer nodes (replacing needs_materialize on producer)
+- Add default_materializer_factory (never None on pipeline)
+- Simplify SyncStreamManager/AsyncStreamManager.apply_materializer
+- Enforce no-silent-wrapping: scalar producer cannot feed iterable consumer
+- Add MaterializeContext.consumer_type
+- Remove context dependency from SyncStreamManager
+- Rename test files to match new module names
+- Add unit tests for DagBuilder (compatibility table, materializer resolution, materialized_deps)
+- Add xfail tests for future features
+- Update all corpus json_dag with materializer and materialized_deps ([`874401a`](https://github.com/humansoftware/synaflow/commit/874401af2043741775ddb80887da5ea4922fd8a8))
+
+### Test
+
+* test: add untracked test init files and json dump script ([`daa272f`](https://github.com/humansoftware/synaflow/commit/daa272f2762206230ddd3476bf3f9690cd6bce6b))
+
+* test: dynamically generate corpus pack dict keys based on module names ([`9416db9`](https://github.com/humansoftware/synaflow/commit/9416db972e11c99dd1157b688647fa233d84a81a))
+
+* test: statically define test pack names as tuples for PyCharm IDE test runner parsing ([`f3d46d3`](https://github.com/humansoftware/synaflow/commit/f3d46d3059259d8629bedb9817ce0e4e5d1cface))
+
+* test: change parametrize to only use pack_name to fix PyCharm IDE test runner parsing ([`99f7377`](https://github.com/humansoftware/synaflow/commit/99f7377f12a6cb93cb8f6d79a310b07fc2a90d5a))
+
+* test: provide explicit ids to pytest.mark.parametrize to fix IDE test runner resolving ([`2ac3665`](https://github.com/humansoftware/synaflow/commit/2ac3665111b950b6200173fc436de175e95b0af9))
+
+* test: inject json_dag in pipeline packs and assert against pipeline.to_dict() ([`218dc72`](https://github.com/humansoftware/synaflow/commit/218dc721bc7d887e264c66348f739d612a0ec517))
+
+* test: rename expected_results to step_results in PipelinePack and all dependent corpus files ([`a529f14`](https://github.com/humansoftware/synaflow/commit/a529f14208e6d0a525174f408a36699a7ba56d4e))
+
+* test: populate expected_results with actual expected sequence values instead of None across all pipeline packs ([`82839fd`](https://github.com/humansoftware/synaflow/commit/82839fdc7dbd49740946322bca2dce6e57967c84))
+
+* test: implement test recorders to capture and assert lazy generator output correctly ([`d54ee1a`](https://github.com/humansoftware/synaflow/commit/d54ee1a6771b3698306c39289120fbc1a76ecb62))
+
+* test: add expected_execution_levels and exception_match handling to PipelinePack iterations ([`3e0b8f9`](https://github.com/humansoftware/synaflow/commit/3e0b8f9bc9babd3757a19eefe0c83e4f1ead25a4))
+
+### Unknown
+
+* Merge pull request #6 from humansoftware/feature/pipeline_pack
+
+feat: introduce PipelinePack for unified corpus testing ([`50a422c`](https://github.com/humansoftware/synaflow/commit/50a422c483bcb4e1ebd23d8befd64a433debe27a))
+
+* merge: resolve conflicts with remote, port PyCharm IDE fix to test_runner_step_results ([`5627ae2`](https://github.com/humansoftware/synaflow/commit/5627ae208faed9ee11b1f163c866e8d0f748dc5d))
+
+
 ## v0.7.0 (2026-06-12)
 
 ### Documentation
