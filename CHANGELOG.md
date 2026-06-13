@@ -2,6 +2,75 @@
 
 
 
+## v0.9.0 (2026-06-13)
+
+### Ci
+
+* ci: add ruff F401 check for unused imports in pre-commit and CI
+
+- Add ruff to pre-commit with --fix --select F401 (auto-remove)
+- Add ruff check to CI workflow (verify only)
+- Remove unused imports found by ruff across codebase ([`c2ea5d2`](https://github.com/humansoftware/synaflow/commit/c2ea5d2679378639ca794590ed477d7fd5442c14))
+
+### Feature
+
+* feat: add name to Dag, make _dag public, use dag.name in runtime
+
+- Add name field to Dag dataclass, set during build_dag
+- Make _dag public (dag) on PipelineDef
+- Include name in DAG JSON output
+- Runtime components use dag.name instead of pipeline.name
+- Update all corpus json_dag with name field ([`7d782c0`](https://github.com/humansoftware/synaflow/commit/7d782c096721606357312fff9f0a5b9b6da6f2b6))
+
+### Fix
+
+* fix: ruff fixes (format + unused imports) ([`26b5e30`](https://github.com/humansoftware/synaflow/commit/26b5e30fa281fb592c82debd8d6c1c1278fbaff5))
+
+* fix: use ruff-check hook id instead of legacy alias ([`5230d36`](https://github.com/humansoftware/synaflow/commit/5230d3681740bd88f0310adcc6a5dc65bb641a40))
+
+* fix: align ruff version to 0.15.17 in pre-commit and dev deps ([`6d86afc`](https://github.com/humansoftware/synaflow/commit/6d86afc9405b6bfa605fac716eccbd246b802006))
+
+* fix: ruff format test_parity.py ([`39888f4`](https://github.com/humansoftware/synaflow/commit/39888f4fa0c73da30c438f164bedfc46622b948a))
+
+* fix: remove redundant ruff-format (black already covers formatting) ([`e67a6a3`](https://github.com/humansoftware/synaflow/commit/e67a6a365a37e8a6ebfe0ebd1dabe0494b4db1a2))
+
+### Refactor
+
+* refactor: replace black+isort with ruff format+ruff check
+
+- Replace black and isort hooks with ruff-format and ruff
+- Update CI to use ruff format --check and ruff check
+- Add ruff to dev dependencies ([`b840f56`](https://github.com/humansoftware/synaflow/commit/b840f56ddba75b3d18d3ffda3d867d49c6675ba6))
+
+* refactor: rewrite executors, add dag methods, update docs
+
+- Merge all sync/async engine modules into single executor.py each
+- Remove Sync/AsyncStreamManager, NodeRunner, DependencyResolver classes
+- Remove TeeWrapper/AsyncTeeWrapper, InterleavedIterator, materializer stubs
+- Add step_output_observers for test injection
+- PipelineStopException with step_name + cause + raise from
+- Composite key fan-out, zip multi-stream unroll with None padding
+- each_inputs method on Dag
+- Move pipeline_pack.py to tests/common/
+- Delete dump_packs.py, stale files
+- Update DESIGN_PHILOSOPHY.md, ROADMAP.md, AGENTS.md ([`5a202d1`](https://github.com/humansoftware/synaflow/commit/5a202d1bc33f2f030019659e82899afd960d3381))
+
+* refactor: replace SyncStreamManager with pure functions in stream_routing.py
+
+- Move topology.py to stream_routing.py with clean functions: handle_step_output, apply_materializer, resolve_dependency
+- Remove SyncStreamManager class - no state needed
+- Remove coerce_value_for_consumer - materializer should produce right type directly
+- Move consumers_of to Dag with unit test
+- Simplify SyncNodeRunner and PipelineExecutor - no stream_manager dependency
+- Remove set/tuple coercion tests (tested wrong contract) ([`69c45c6`](https://github.com/humansoftware/synaflow/commit/69c45c622c2c17747d6ad0cb21b7cd70e2e1764a))
+
+### Unknown
+
+* Merge pull request #7 from humansoftware/refactor/executor_di
+
+refactor: executor rewrites, dag model improvements, materializer architecture ([`cbd5c8b`](https://github.com/humansoftware/synaflow/commit/cbd5c8b7693509cac6c684794e8a595c92b6dc82))
+
+
 ## v0.8.0 (2026-06-13)
 
 ### Documentation
