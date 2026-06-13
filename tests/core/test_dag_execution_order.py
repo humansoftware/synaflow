@@ -87,3 +87,18 @@ def test_corpus_execution_levels(pack_name, pack):
         assert pack.pipeline.get_execution_levels() == pack.expected_execution_levels
     if pack.json_dag is not None:
         assert pack.pipeline.to_dict() == pack.json_dag
+
+
+def test_given_diamond_dag_when_consumers_of_branch_then_returns_merge():
+    from synaflow.core.dag import Dag, DagNode
+
+    dag = Dag(name="test")
+    dag.steps = {
+        "start": DagNode(deps={}),
+        "branch_a": DagNode(deps={"start": "int"}),
+        "branch_b": DagNode(deps={"start": "int"}),
+        "merge": DagNode(deps={"branch_a": "int", "branch_b": "int"}),
+    }
+    assert set(dag.consumers_of("start")) == {"branch_a", "branch_b"}
+    assert dag.consumers_of("branch_a") == ["merge"]
+    assert dag.consumers_of("merge") == []

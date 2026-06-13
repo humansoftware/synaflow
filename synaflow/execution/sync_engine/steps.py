@@ -1,4 +1,3 @@
-import itertools
 from collections.abc import Callable, Iterator
 from typing import Any
 
@@ -8,7 +7,7 @@ from synaflow.core.types import OnError
 
 from .dependencies import SyncDependencyResolver
 from .iterator_utils import InterleavedIterator
-from .topology import SyncStreamManager, TeeWrapper
+from .stream_routing import TeeWrapper, handle_step_output
 
 
 class SyncNodeRunner:
@@ -18,14 +17,12 @@ class SyncNodeRunner:
         context: dict[str, Any],
         executed_steps: set[str],
         resolver: SyncDependencyResolver,
-        stream_manager: SyncStreamManager,
     ):
         self.pipeline = pipeline
         self.dag = pipeline.dag
         self.context = context
         self.executed_steps = executed_steps
         self.resolver = resolver
-        self.stream_manager = stream_manager
 
     def group_nodes_by_execution_mode(
         self, level: list[str]
@@ -235,12 +232,7 @@ class SyncNodeRunner:
 
             output = each_generator(items, kwargs, first_dep, fn, node.get("on_error"))
 
-            if node.get("needs_materialize"):
-                output = self.stream_manager.apply_materializer(name, output)
-
-            if len(consumers) > 1:
-                tees = itertools.tee(output, len(consumers))
-                output = TeeWrapper(dict(zip(consumers, tees)))
+            output = handle_step_output(self.dag, name, output)
 
             self.context[name] = output
 
@@ -251,12 +243,8 @@ class SyncNodeRunner:
             output = fn(**kwargs)
 
             if name and not name.startswith("_"):
-                if isinstance(output, Iterator) and node.get("needs_materialize"):
-                    output = self.stream_manager.apply_materializer(name, output)
-                elif isinstance(output, Iterator):
-                    output = self.stream_manager.tee_iterator_for_consumers(
-                        name, output
-                    )
+                if isinstance(output, Iterator):
+                    output = handle_step_output(self.dag, name, output)
 
                 self.context[name] = output
 

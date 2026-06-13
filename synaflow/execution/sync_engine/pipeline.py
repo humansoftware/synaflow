@@ -1,4 +1,3 @@
-from collections.abc import Iterator
 from typing import Any
 
 from synaflow.core.definition import PipelineDef
@@ -6,7 +5,6 @@ from synaflow.core.exceptions import PipelineStopException
 
 from .dependencies import SyncDependencyResolver
 from .steps import SyncNodeRunner
-from .topology import SyncStreamManager
 
 
 class PipelineExecutor:
@@ -18,14 +16,12 @@ class PipelineExecutor:
         self.context: dict[str, Any] = {}
         self.executed_steps: set[str] = set()
 
-        self.stream_manager = SyncStreamManager(self.pipeline)
         self.resolver = SyncDependencyResolver(self.pipeline, self.context)
         self.runner = SyncNodeRunner(
             self.pipeline,
             self.context,
             self.executed_steps,
             self.resolver,
-            self.stream_manager,
         )
 
     def execute(self, params: Any) -> None:

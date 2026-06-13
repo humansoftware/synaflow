@@ -98,6 +98,9 @@ class Dag:
             ] = self.error_materializer_factory.__name__
         return result
 
+    def consumers_of(self, step_name: str) -> list[str]:
+        return [name for name, node in self.steps.items() if step_name in node.deps]
+
     def get_execution_levels(self) -> list[list[str]]:
         in_degree: dict[str, int] = {name: 0 for name in self.steps}
         for name, node in self.steps.items():
