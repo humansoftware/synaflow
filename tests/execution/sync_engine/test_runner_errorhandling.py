@@ -128,3 +128,72 @@ def test_given_on_error_stop_with_downstream_when_item_fails_then_downstream_nev
     with pytest.raises(PipelineStopException, match="s1"):
         run_pipeline(my_pipeline, params=P())
     s2.assert_not_called()
+
+
+def test_given_on_error_continue_when_step_fails_then_error_materializer_is_called_for_each_error(
+    run_pipeline,
+):
+    class P(NamedTuple):
+        items: list[int] = [1, 2, 3]
+
+    handled = []
+
+    def error_factory(ctx):
+        def handle(exc):
+            handled.append((ctx.dataset_name, type(exc).__name__, str(exc)))
+
+        return handle
+
+    def fail_on_2(items: int):
+        if items == 2:
+            raise ValueError("skip")
+        return items * 10
+
+    s2 = mock_step(s1=list)
+
+    my_pipeline = pipeline(
+        name="test",
+        params=P,
+        default_error_materializer_factory=error_factory,
+        steps=[
+            step("s1", fn=fail_on_2, on_error=OnError.CONTINUE),
+            step("s2", fn=s2),
+        ],
+    )
+
+    run_pipeline(my_pipeline, params=P())
+
+    assert handled == [("s1", "ValueError", "skip")]
+    s2.assert_called_once_with(s1=[10, 30])
+
+
+def test_given_on_error_stop_when_step_fails_then_error_materializer_is_called_before_pipeline_stops(
+    run_pipeline,
+):
+    class P(NamedTuple):
+        items: list[int] = [1, 2, 3]
+
+    handled = []
+
+    def error_factory(ctx):
+        def handle(exc):
+            handled.append((ctx.dataset_name, type(exc).__name__, str(exc)))
+
+        return handle
+
+    def fail_on_2(items: int):
+        if items == 2:
+            raise ValueError("boom")
+        return items
+
+    my_pipeline = pipeline(
+        name="test",
+        params=P,
+        default_error_materializer_factory=error_factory,
+        steps=[step("s1", fn=fail_on_2, on_error=OnError.STOP)],
+    )
+
+    with pytest.raises(PipelineStopException, match="s1"):
+        run_pipeline(my_pipeline, params=P())
+
+    assert handled == [("s1", "ValueError", "boom")]

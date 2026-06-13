@@ -5,6 +5,7 @@ from . import (
     diamond,
     fibonacci,
     linear,
+    mixed_fanout,
     sub_pipelines,
 )
 
@@ -14,6 +15,7 @@ _MODULES = [
     complex_parallel,
     fibonacci,
     complex_parallel_mixed,
+    mixed_fanout,
     sub_pipelines,
     deep_sub_pipelines,
 ]

@@ -204,3 +204,34 @@ def test_given_mixed_sync_and_async_functions_when_constructed_then_raises():
                 step("async_consumer", fn=async_consumer),
             ],
         )
+
+
+def test_given_each_mode_step_with_iterable_dependency_not_in_first_parameter_when_dag_built_then_output_is_compiled_as_list_type():
+    class P(NamedTuple):
+        multiplier: int = 2
+        items: list[int] = [1, 2, 3]
+
+    def transform(multiplier: int, items: int) -> int:
+        return multiplier * items
+
+    p = pipeline(name="test", params=P, steps=[step("transform", fn=transform)])
+
+    assert repr(p.dag.steps["transform"].output) == "ListType(<class 'int'>)"
+
+
+def test_given_each_mode_step_with_iterable_dependency_not_in_first_parameter_and_list_downstream_when_constructed_then_passes():
+    class P(NamedTuple):
+        multiplier: int = 2
+        items: list[int] = [1, 2, 3]
+
+    def transform(multiplier: int, items: int) -> int:
+        return multiplier * items
+
+    def consume(transform: list[int]) -> int:
+        return sum(transform)
+
+    pipeline(
+        name="test",
+        params=P,
+        steps=[step("transform", fn=transform), step("consume", fn=consume)],
+    )
