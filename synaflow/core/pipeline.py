@@ -38,6 +38,7 @@ class PipelineDef:
             self.steps,
             self.default_materializer_factory,
             is_default_factory=(self.default_materializer_factory is _default_factory),
+            error_materializer_factory=self.default_error_materializer_factory,
         )
         self.requires_sync_runner = self._dag.requires_sync_runner
         self.requires_async_runner = self._dag.requires_async_runner

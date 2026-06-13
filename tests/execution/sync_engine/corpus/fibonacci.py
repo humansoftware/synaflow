@@ -71,6 +71,7 @@ pack = PipelinePack(
                 "parent_pipeline": None,
             },
         },
+        "error_materializer_factory": "default_error_materializer_factory",
     },
     pipeline=pipeline_def,
     input_params=FibonacciParams(count=10),

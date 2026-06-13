@@ -48,6 +48,7 @@ class Dag:
     steps: dict[str, DagNode] = field(default_factory=dict)
     requires_sync_runner: bool = False
     requires_async_runner: bool = False
+    error_materializer_factory: Any = None
 
     def __getitem__(self, key):
         return self.steps[key]
@@ -83,12 +84,17 @@ class Dag:
     def to_dict(self) -> dict:
         from synaflow.core.type_compatibility import get_type_name
 
-        return {
+        result = {
             "params": {k: get_type_name(v) for k, v in self.params.items()},
             "steps": {
                 name: node.to_serializable() for name, node in self.steps.items()
             },
         }
+        if self.error_materializer_factory is not None:
+            result[
+                "error_materializer_factory"
+            ] = self.error_materializer_factory.__name__
+        return result
 
     def get_execution_levels(self) -> list[list[str]]:
         in_degree: dict[str, int] = {name: 0 for name in self.steps}

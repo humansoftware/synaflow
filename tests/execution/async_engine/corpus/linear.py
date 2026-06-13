@@ -69,6 +69,7 @@ pack = PipelinePack(
                 "parent_pipeline": None,
             },
         },
+        "error_materializer_factory": "default_error_materializer_factory",
     },
     pipeline=linear_pipeline,
     input_params=LinearParams(count=3),

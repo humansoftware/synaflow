@@ -92,6 +92,7 @@ pack = PipelinePack(
                 "parent_pipeline": None,
             },
         },
+        "error_materializer_factory": "default_error_materializer_factory",
     },
     pipeline=pipe,
     input_params=AParams(raw_texts=["hi", "world", "synaflow"]),

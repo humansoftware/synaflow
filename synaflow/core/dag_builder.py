@@ -21,17 +21,17 @@ def _identity(x):
 def default_materializer_factory(ctx: MaterializeContext):
     tp = getattr(ctx.consumer_type, "__origin__", None) or ctx.consumer_type
     if tp is not None:
-        try:
-            if issubclass(tp, (list, MutableSequence)):
-                return list
-            if issubclass(tp, (set, MutableSet)):
-                return set
-            if issubclass(tp, (dict, MutableMapping)):
-                return dict
-            if issubclass(tp, tuple):
-                return tuple
-        except TypeError:
-            pass
+        for candidate in (
+            (list, MutableSequence),
+            (set, MutableSet),
+            (dict, MutableMapping),
+            (tuple,),
+        ):
+            try:
+                if issubclass(tp, candidate):
+                    return candidate[0]
+            except TypeError:
+                continue
     from synaflow.core.type_compatibility import is_scalar
 
     if tp is not None and is_scalar(tp):
@@ -40,14 +40,20 @@ def default_materializer_factory(ctx: MaterializeContext):
 
 
 def default_error_materializer_factory(ctx: ErrorMaterializeContext):
+    import logging
     import traceback
 
+    log = logging.getLogger("synaflow")
+
     def handle_error(exc: BaseException) -> None:
-        print(
-            f"[synaflow] [{ctx.pipeline_name}] [{ctx.dataset_name}]"
-            f" {type(exc).__name__}: {exc}"
+        log.warning(
+            "[%s] [%s] %s: %s",
+            ctx.pipeline_name,
+            ctx.dataset_name,
+            type(exc).__name__,
+            exc,
         )
-        traceback.print_exc()
+        log.debug(traceback.format_exc())
 
     return handle_error
 
@@ -148,6 +154,7 @@ def build_dag(
     steps: list[Any],
     default_materializer_factory: Any = None,
     is_default_factory: bool = False,
+    error_materializer_factory: Any = None,
 ) -> Dag:
     _validate_params_is_namedtuple(params, pipeline_name)
 
@@ -181,6 +188,7 @@ def build_dag(
         name: info.output for name, info in produced.items() if name not in dag
     }
     dag_obj.steps = dag
+    dag_obj.error_materializer_factory = error_materializer_factory
 
     check_circular_dependencies(dag_obj, pipeline_name)
 
