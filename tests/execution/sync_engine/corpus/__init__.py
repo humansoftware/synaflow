@@ -1,15 +1,21 @@
-from .linear import linear_pipeline
+from . import (
+    complex_parallel,
+    complex_parallel_mixed,
+    deep_sub_pipelines,
+    diamond,
+    fibonacci,
+    linear,
+    sub_pipelines,
+)
 
-EXAMPLES = {"sync_linear": linear_pipeline}
-from .diamond import diamond_pipeline
+_MODULES = [
+    linear,
+    diamond,
+    complex_parallel,
+    fibonacci,
+    complex_parallel_mixed,
+    sub_pipelines,
+    deep_sub_pipelines,
+]
 
-EXAMPLES["sync_diamond"] = diamond_pipeline
-from .complex_parallel import pipeline_def as complex_parallel_pipeline
-
-EXAMPLES["sync_complex_parallel"] = complex_parallel_pipeline
-from .fibonacci import pipeline_def as fibonacci_pipeline
-
-EXAMPLES["sync_fibonacci"] = fibonacci_pipeline
-from .complex_parallel_mixed import pipeline_def as complex_parallel_mixed_pipeline
-
-EXAMPLES["sync_complex_parallel_mixed"] = complex_parallel_mixed_pipeline
+PACKS = {f"sync_{mod.__name__.split('.')[-1]}": mod.pack for mod in _MODULES}

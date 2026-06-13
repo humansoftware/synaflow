@@ -7,6 +7,7 @@ COLLECTION_ORIGINS = {
     list,
     set,
     tuple,
+    dict,
     Generator,
     Iterator,
     Iterable,
@@ -53,7 +54,7 @@ def is_type_compatible(producer_type: Any, consumer_type: Any) -> bool:
         return _producer_matches_any_consumer_type(producer_type, consumer_type)
 
     if is_consumer_iterable:
-        return _check_scalar_producer_to_iterable_consumer(producer_type, consumer_type)
+        return False
 
     if is_scalar(consumer_type):
         return _check_scalar_compatibility(producer_type, consumer_type)
@@ -78,6 +79,26 @@ def _producer_matches_any_consumer_type(producer_type: Any, consumer_type: Any) 
     return any(is_type_compatible(producer_type, c) for c in get_args(consumer_type))
 
 
+def _get_consumer_build_type(tp: Any) -> Any:
+    origin = get_origin(tp) or tp
+    if origin is dict:
+        return _get_dict_pair_type(tp)
+    return get_inner_type(tp)
+
+
+def _is_dict_type(tp: Any) -> bool:
+    return get_origin(tp) is dict
+
+
+def _get_dict_pair_type(tp: Any) -> Any:
+    import typing
+
+    args = get_args(tp)
+    if len(args) == 2:
+        return typing.Tuple[args[0], args[1]]
+    return None
+
+
 def _check_iterable_producer_compatibility(
     producer_type: Any, consumer_type: Any, is_consumer_iterable: bool
 ) -> bool:
@@ -91,9 +112,17 @@ def _check_iterable_producer_compatibility(
         return is_type_compatible(producer_inner, consumer_type)
 
     if is_consumer_iterable:
-        consumer_inner = get_inner_type(consumer_type)
+        consumer_inner = _get_consumer_build_type(consumer_type)
         if consumer_inner is not None:
-            return is_type_compatible(producer_inner, consumer_inner)
+            if is_type_compatible(producer_inner, consumer_inner):
+                return True
+            if _is_dict_type(producer_type):
+                pair_inner = _get_dict_pair_type(producer_type)
+                if pair_inner is not None and is_type_compatible(
+                    pair_inner, consumer_inner
+                ):
+                    return True
+            return False
         return True
 
     if is_scalar(consumer_type):
@@ -193,11 +222,11 @@ def is_materialized_consumer(tp: Any) -> bool:
     """Checks if a consumer type requires an eagerly materialized collection."""
     if tp is None:
         return False
-    if tp in (list, set, tuple):
+    if tp in (list, set, tuple, dict):
         return True
 
     origin = get_origin(tp)
-    if origin in (list, set, tuple):
+    if origin in (list, set, tuple, dict):
         return True
     if origin in (Iterator, Generator, Iterable):
         return False

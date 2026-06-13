@@ -30,3 +30,11 @@ class MaterializeContext:
     pipeline_name: str
     dataset_name: str
     item_type: Any
+    consumer_type: Any = None
+
+
+@dataclass
+class ErrorMaterializeContext:
+    pipeline_name: str
+    dataset_name: str
+    exception_type: type[BaseException]

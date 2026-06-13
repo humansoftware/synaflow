@@ -3,7 +3,7 @@ import itertools
 from collections.abc import Iterator
 from typing import Any, Iterable
 
-from synaflow.core.pipeline import PipelineDef
+from synaflow.core.definition import PipelineDef
 from synaflow.core.types import MaterializeContext
 
 
@@ -13,21 +13,13 @@ class TeeWrapper:
 
 
 class SyncStreamManager:
-    def __init__(self, pipeline: PipelineDef, context: dict[str, Any]):
+    def __init__(self, pipeline: PipelineDef):
         self.pipeline = pipeline
         self.dag = pipeline._dag
-        self.context = context
 
     def apply_materializer(self, name: str, iterator: Iterator) -> Iterable:
-        node = self.dag.get(name)
-        step_def = None
-        if node and node.get("fn"):
-            step_def = next((s for s in self.pipeline.steps if s.name == name), None)
-
-        mat = getattr(step_def, "materializer", None) if step_def else None
-
-        if mat is None:
-            mat = self.pipeline.default_materializer_factory
+        node = self.dag.get(name, {})
+        mat = node.get("materializer")
 
         if mat is None:
             return list(iterator)

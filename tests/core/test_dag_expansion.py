@@ -82,3 +82,50 @@ def test_include_step_requires_pipeline_exports():
             params=AParams,
             steps=[include("bad_sub", pipeline=pipe_no_exports, fn=prepare_b_each)],
         )
+
+
+def test_include_step_requires_strict_type_hint():
+    def bad_type_adapter(raw_texts: list[str]) -> int:
+        return 5
+
+    with pytest.raises(ValueError, match="must return 'BParams'"):
+        pipeline(
+            name="MainPipeline",
+            params=AParams,
+            steps=[include("bad_sub", pipeline=pipe_b, fn=bad_type_adapter)],
+        )
+
+
+def test_infinite_cycle_detection():
+    class Empty(NamedTuple):
+        pass
+
+    def dummy() -> Empty:
+        return Empty()
+
+    pipe_cycle_a = pipeline(
+        name="PipeA",
+        params=Empty,
+        exports="dummy",
+        steps=[step("dummy", fn=dummy)],
+    )
+
+    pipe_cycle_b = pipeline(
+        name="PipeB",
+        params=Empty,
+        exports="dummy",
+        steps=[
+            include("inc_a", pipeline=pipe_cycle_a, fn=dummy),
+            step("dummy", fn=dummy),
+        ],
+    )
+
+    # Now make A include B
+    pipe_cycle_a.steps.append(include("inc_b", pipeline=pipe_cycle_b, fn=dummy))
+
+    with pytest.raises(ValueError, match="Infinite cycle detected"):
+        pipeline(
+            name="TriggerCycle",
+            params=Empty,
+            steps=[include("start", pipeline=pipe_cycle_a, fn=dummy)],
+        )

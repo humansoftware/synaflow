@@ -1,8 +1,8 @@
 from collections.abc import Iterator
 from typing import Any
 
+from synaflow.core.definition import PipelineDef
 from synaflow.core.exceptions import PipelineStopException
-from synaflow.core.pipeline import PipelineDef
 
 from .dependencies import SyncDependencyResolver
 from .steps import SyncNodeRunner
@@ -18,7 +18,7 @@ class PipelineExecutor:
         self.context: dict[str, Any] = {}
         self.executed_steps: set[str] = set()
 
-        self.stream_manager = SyncStreamManager(self.pipeline, self.context)
+        self.stream_manager = SyncStreamManager(self.pipeline)
         self.resolver = SyncDependencyResolver(self.pipeline, self.context)
         self.runner = SyncNodeRunner(
             self.pipeline,
@@ -40,14 +40,6 @@ class PipelineExecutor:
 
     def _initialize_context_with_params(self, params: Any) -> None:
         for field, value in params._asdict().items():
-            node = self.dag.get(field, {})
-            needs_materialization = node.get("needs_materialize", False)
-
-            if needs_materialization and isinstance(value, Iterator):
-                value = self.stream_manager.apply_materializer(field, value)
-            elif isinstance(value, Iterator):
-                value = self.stream_manager.tee_iterator_for_consumers(field, value)
-
             self.context[field] = value
 
     def _execute_level(self, level: list[str]) -> None:

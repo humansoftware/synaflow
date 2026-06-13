@@ -2,7 +2,7 @@ import functools
 import inspect
 from typing import Any
 
-from synaflow.core.step import IncludeStep, Step
+from synaflow.core.definition import IncludeStep, Step
 
 
 def expand_macros(
@@ -34,16 +34,29 @@ def _expand_include(
         else f"{parent_chain}.{current_pipeline_name}"
     )
 
+    # Check for infinite cycles
+    current_chain_parts = new_parent_chain.split(".") if new_parent_chain else []
+    if sub_pipeline.name in current_chain_parts:
+        raise ValueError(
+            f"Infinite cycle detected: Pipeline '{sub_pipeline.name}' is already in the inclusion chain '{new_parent_chain}'"
+        )
+
     if not sub_pipeline.exports:
         raise ValueError(
             f"Pipeline '{sub_pipeline.name}' does not define 'exports', so it cannot be included."
         )
 
-    # Validate adapter typing
+    # Validate adapter typing strictly
     sig = inspect.signature(include_step.fn)
     if sig.return_annotation is inspect.Parameter.empty:
         raise ValueError(
             f"Include step '{prefix}' must have a return type hint matching '{sub_pipeline.params.__name__}' or an Iterable of it."
+        )
+
+    annotation_str = str(sig.return_annotation)
+    if sub_pipeline.params.__name__ not in annotation_str:
+        raise ValueError(
+            f"Include step '{prefix}' must return '{sub_pipeline.params.__name__}' or an Iterable of it. Got '{annotation_str}'"
         )
 
     # 1. The adapter step

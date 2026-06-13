@@ -12,14 +12,14 @@ from synaflow import pipeline, step
         ("list[int] -> list[int]", list[int], list[int], True),
         ("Generator[int] -> int", Generator[int, None, None], int, True),
         ("int -> int | str", int, int | str, True),
-        ("int -> list[int]", int, list[int], True),
-        ("int -> Iterator[int]", int, Iterator[int], True),
+        ("int -> list[int]", int, list[int], False),
+        ("int -> Iterator[int]", int, Iterator[int], False),
         ("str -> int", str, int, False),
         ("int | str -> int", int | str, int, False),
         ("int | str -> int | str", int | str, int | str, True),
         ("str -> int | str", str, int | str, True),
         ("int -> int | str | None", int, int | str | None, True),
-        ("int | str -> list[int | str]", int | str, list[int | str], True),
+        ("int | str -> list[int | str]", int | str, list[int | str], False),
     ],
 )
 def test_given_compatibility_cases_when_constructed_then_validates_correctly(

@@ -1,8 +1,8 @@
 import asyncio
 from typing import Any
 
+from synaflow.core.definition import PipelineDef
 from synaflow.core.exceptions import PipelineStopException
-from synaflow.core.pipeline import PipelineDef
 
 from .dependencies import AsyncDependencyResolver
 from .steps import AsyncNodeRunner
@@ -43,8 +43,7 @@ class AsyncPipelineExecutor:
 
     def _initialize_context_with_params(self, params: Any) -> None:
         for field, value in params._asdict().items():
-            needs_materialize = self.dag.get(field, {}).get("needs_materialize", False)
-            self.stream_manager.store_output(field, value, needs_materialize)
+            self.stream_manager.store_output(field, value)
 
 
 async def async_run(pipeline: PipelineDef, params: Any) -> None:

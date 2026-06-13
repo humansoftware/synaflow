@@ -35,6 +35,8 @@ async def step5(step3: AsyncIterator[int], step4: AsyncIterator[int]) -> None:
 # Topology:
 # step1 -> step2 -> step3 \
 #       -> step4 --------> step5
+from tests.pipeline_pack import PipelinePack
+
 pipeline_def = pipeline(
     name="complex_parallel",
     params=ComplexParallelParams,
@@ -45,4 +47,72 @@ pipeline_def = pipeline(
         step("step4", fn=step4),
         step("step5", fn=step5),
     ],
+)
+
+pack = PipelinePack(
+    json_dag={
+        "params": {"base": "int"},
+        "steps": {
+            "step1": {
+                "deps": {"base": "int"},
+                "output": "Stream[int, None, None]",
+                "fn": "step1",
+                "on_error": "continue",
+                "materializer": "default_materializer_factory",
+                "materialized_deps": [],
+                "pipeline": "complex_parallel",
+                "parent_pipeline": None,
+            },
+            "step2": {
+                "deps": {"step1": "Stream[int]"},
+                "output": "Stream[int, None, None]",
+                "fn": "step2",
+                "on_error": "continue",
+                "materializer": "default_materializer_factory",
+                "materialized_deps": [],
+                "pipeline": "complex_parallel",
+                "parent_pipeline": None,
+            },
+            "step3": {
+                "deps": {"step2": "Stream[int]"},
+                "output": "Stream[int, None, None]",
+                "fn": "step3",
+                "on_error": "continue",
+                "materializer": "default_materializer_factory",
+                "materialized_deps": [],
+                "pipeline": "complex_parallel",
+                "parent_pipeline": None,
+            },
+            "step4": {
+                "deps": {"step1": "Stream[int]"},
+                "output": "Stream[int, None, None]",
+                "fn": "step4",
+                "on_error": "continue",
+                "materializer": "default_materializer_factory",
+                "materialized_deps": [],
+                "pipeline": "complex_parallel",
+                "parent_pipeline": None,
+            },
+            "step5": {
+                "deps": {"step3": "Stream[int]", "step4": "Stream[int]"},
+                "output": "None",
+                "fn": "step5",
+                "on_error": "continue",
+                "materializer": "default_materializer_factory",
+                "materialized_deps": [],
+                "pipeline": "complex_parallel",
+                "parent_pipeline": None,
+            },
+        },
+        "error_materializer_factory": "default_error_materializer_factory",
+    },
+    pipeline=pipeline_def,
+    input_params=ComplexParallelParams(base=1),
+    step_results={
+        "step1": [1, 2, 3, 4, 5],
+        "step2": [10, 20, 30, 40, 50],
+        "step3": [11, 21, 31, 41, 51],
+        "step4": [100, 200, 300, 400, 500],
+        "step5": None,
+    },
 )

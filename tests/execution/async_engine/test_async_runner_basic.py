@@ -1,12 +1,11 @@
 import inspect
-from typing import AsyncGenerator, AsyncIterator, Generator, Iterator, List, NamedTuple
+from typing import NamedTuple
 from unittest.mock import AsyncMock as MagicMock
 from unittest.mock import call
 
 import pytest
 
 from synaflow import async_run, pipeline, step
-from synaflow.core.types import OnError
 
 
 def mock_step(**params: type) -> MagicMock:
