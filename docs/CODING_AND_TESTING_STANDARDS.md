@@ -109,7 +109,7 @@ Tests are separated by concern:
 
 Pipelines with identical topology but different execution modes (sync vs async) share a corpus pattern. Each engine directory has its own corpus files, but the topology and expected DAG structure are identical. Tests iterate over these corpus packs to validate both engines.
 
-These are **specification compliance tests**. Each pack is a specification: "given this topology and these inputs, the framework MUST produce this DAG structure and these outputs." The tests verify that the entire stack — from `build_dag` through `PipelineExecutor` to `SyncStreamManager` — honors that specification.
+These are **specification compliance tests**. Each pack is a specification: "given this topology and these inputs, the framework MUST produce this DAG structure and these outputs." The tests verify that the entire stack — from `build_dag` through `PipelineExecutor` — honors that specification.
 
 They are not unit tests (they cross the entire stack), nor are they strictly integration tests (they don't verify that two specific modules work together — they verify that the implementation as a whole satisfies a predefined contract). A pack change is a spec change; a test failure means the implementation no longer meets the spec.
 
