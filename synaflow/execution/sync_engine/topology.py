@@ -3,7 +3,7 @@ import itertools
 from collections.abc import Iterator
 from typing import Any, Iterable
 
-from synaflow.core.pipeline import PipelineDef
+from synaflow.core.definition import PipelineDef
 from synaflow.core.types import MaterializeContext
 
 

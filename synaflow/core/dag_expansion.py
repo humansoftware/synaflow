@@ -2,7 +2,7 @@ import functools
 import inspect
 from typing import Any
 
-from synaflow.core.step import IncludeStep, Step
+from synaflow.core.definition import IncludeStep, Step
 
 
 def expand_macros(

@@ -7,7 +7,7 @@ from synaflow.core.dag_dependencies import (
     resolve_step_output_type,
     validate_and_resolve_dependencies,
 )
-from synaflow.core.step import Step
+from synaflow.core.definition import Step
 from synaflow.core.type_compatibility import is_async_stream_type, is_sync_stream_type
 
 

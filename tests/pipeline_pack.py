@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from typing import Any
 
-from synaflow.core.pipeline import PipelineDef
+from synaflow.core.definition import PipelineDef
 
 
 @dataclass(kw_only=True)

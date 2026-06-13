@@ -1,5 +1,4 @@
-from .core.pipeline import pipeline
-from .core.step import include, step
+from .core.definition import include, pipeline, step
 from .core.types import OnError, StepParams, StepResult
 from .execution.async_engine.pipeline import async_run
 from .execution.sync_engine.pipeline import run

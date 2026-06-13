@@ -5,7 +5,7 @@ import types
 from typing import Any, NamedTuple, Union
 
 from synaflow.core.dag import DagNode
-from synaflow.core.step import Step
+from synaflow.core.definition import Step
 from synaflow.core.type_compatibility import (
     ListType,
     get_type_name,

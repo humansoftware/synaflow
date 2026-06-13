@@ -2,8 +2,8 @@ import itertools
 from collections.abc import Callable, Iterator
 from typing import Any
 
+from synaflow.core.definition import PipelineDef
 from synaflow.core.exceptions import PipelineStopException, StepExecutionError
-from synaflow.core.pipeline import PipelineDef
 from synaflow.core.types import OnError
 
 from .dependencies import SyncDependencyResolver

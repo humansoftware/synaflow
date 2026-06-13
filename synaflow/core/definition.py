@@ -2,13 +2,42 @@ from dataclasses import dataclass, field
 from typing import Any, Callable
 
 from synaflow.core.dag import Dag
-from synaflow.core.dag_builder import build_dag
-from synaflow.core.dag_builder import (
-    default_error_materializer_factory as _default_error_factory,
-)
-from synaflow.core.dag_builder import default_materializer_factory as _default_factory
+from synaflow.core.types import OnError, StepParams
 
-from .step import Step
+
+def _get_default_factory():
+    from synaflow.core.dag_builder import default_materializer_factory
+
+    return default_materializer_factory
+
+
+def _get_default_error_factory():
+    from synaflow.core.dag_builder import default_error_materializer_factory
+
+    return default_error_materializer_factory
+
+
+@dataclass
+class BaseStep:
+    name: str
+    fn: Callable
+
+
+@dataclass
+class Step(BaseStep):
+    on_error: OnError = OnError.CONTINUE
+    params: StepParams | None = None
+    materializer: Callable | None = None
+    force_materialize: bool = False
+    description: str = ""
+    pipeline: str | None = None
+    parent_pipeline: str | None = None
+
+
+@dataclass
+class IncludeStep(BaseStep):
+    pipeline: "PipelineDef"
+    description: str = ""
 
 
 @dataclass
@@ -19,19 +48,24 @@ class PipelineDef:
 
     name: str
     params: Any
-    steps: list[Step | Any]  # Allow IncludeStep
+    steps: list[Step | IncludeStep]
     exports: str | None = None
     default_materializer_factory: Callable | None = field(
-        default_factory=lambda: _default_factory
+        default_factory=lambda: _get_default_factory()
     )
     default_error_materializer_factory: Callable | None = field(
-        default_factory=lambda: _default_error_factory
+        default_factory=lambda: _get_default_error_factory()
     )
     _dag: Dag = field(default_factory=Dag)
     _compiled: bool = False
     description: str = ""
 
     def __post_init__(self) -> None:
+        from synaflow.core.dag_builder import build_dag
+        from synaflow.core.dag_builder import (
+            default_materializer_factory as _default_factory,
+        )
+
         self._dag = build_dag(
             self.name,
             self.params,
@@ -57,3 +91,5 @@ class PipelineDef:
 
 
 pipeline = PipelineDef
+step = Step
+include = IncludeStep
