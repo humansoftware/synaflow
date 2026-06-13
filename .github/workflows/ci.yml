@@ -29,6 +29,7 @@ jobs:
     - name: Check Code Formatting
       run: |
         pre-commit run --all-files
+        uvx ruff check --select F401
 
     - name: Validate Packing and Installation
       run: |
