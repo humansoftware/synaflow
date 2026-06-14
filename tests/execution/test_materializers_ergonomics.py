@@ -850,3 +850,72 @@ async def test_given_async_composite_materializer_with_async_sub_materializers_w
     )
     await async_run(my_pipeline, P())
     assert calls == ["one", "two"]
+
+
+def test_given_sync_stream_and_lazy_consumer_with_step_materializer_then_materializer_not_called():
+    class P(NamedTuple):
+        pass
+
+    calls = []
+
+    def spy_materializer(ctx):
+        def concrete(g):
+            calls.append("called")
+            return g
+
+        return concrete
+
+    def gen() -> Iterator[int]:
+        yield 1
+
+    def consumer(gen: Iterator[int]) -> list[int]:
+        assert not isinstance(gen, list)
+        return list(gen)
+
+    my_pipeline = pipeline(
+        name="test_sync_lazy_step_mat",
+        params=P,
+        steps=[
+            step("gen", fn=gen, materializer=spy_materializer),
+            step("consumer", fn=consumer),
+        ],
+    )
+
+    run(my_pipeline, P())
+    assert calls == []
+
+
+@pytest.mark.asyncio
+async def test_given_async_stream_and_lazy_consumer_with_step_materializer_then_materializer_not_called():
+    from collections.abc import AsyncIterator
+
+    class P(NamedTuple):
+        pass
+
+    calls = []
+
+    def spy_materializer(ctx):
+        async def concrete(g):
+            calls.append("called")
+            return g
+
+        return concrete
+
+    async def gen() -> AsyncIterator[int]:
+        yield 1
+
+    async def consumer(gen: AsyncIterator[int]):
+        async for x in gen:
+            pass
+
+    my_pipeline = pipeline(
+        name="test_async_lazy_step_mat",
+        params=P,
+        steps=[
+            step("gen", fn=gen, materializer=spy_materializer),
+            step("consumer", fn=consumer),
+        ],
+    )
+
+    await async_run(my_pipeline, P())
+    assert calls == []
