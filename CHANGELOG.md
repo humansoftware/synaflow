@@ -2,6 +2,33 @@
 
 
 
+## v0.14.0 (2026-06-14)
+
+### Feature
+
+* feat: documentation portal with MkDocs Material
+
+- Add mkdocs-material&gt;=9.5 to dev dependencies
+- Configure mkdocs.yml with Material theme, code tabs, Mermaid support
+- Create .github/workflows/docs.yml to deploy to GitHub Pages on merge
+- Create scripts/visualize_dag.py (JSON to Mermaid flowchart)
+- Write comprehensive documentation under docs/user_docs/:
+  - Introduction &amp; Getting Started (installation, lockstep flow)
+  - Step-by-step tutorial (4 levels: hello world, multi-step, observers, materializers)
+  - Core Concepts (semantic naming, DAG construction, sync/async parity)
+  - Advanced Guides (custom materializers, observers, export guidance)
+- All code snippets use sync/async tabs via pymdownx.tabbed
+- Update README.md with link to documentation portal
+- Delete docs/specs/documentation_portal.md (spec implemented)
+- Update docs/ROADMAP.md — moved to Completed ([`c05e533`](https://github.com/humansoftware/synaflow/commit/c05e5331d6e368cfbd9563995374edefd8a68000))
+
+### Unknown
+
+* Merge pull request #21 from humansoftware/feat/documentation-portal
+
+feat: documentation portal with MkDocs Material ([`2ef6da0`](https://github.com/humansoftware/synaflow/commit/2ef6da0d8bc42bf6660154f61a48fa057d47c306))
+
+
 ## v0.13.0 (2026-06-14)
 
 ### Feature
