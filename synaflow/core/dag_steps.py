@@ -10,9 +10,11 @@ from synaflow.core.dag_dependencies import (
 from synaflow.core.definition import Step
 from synaflow.core.type_compatibility import (
     is_async_stream_type,
+    is_iterable_type,
     is_sync_stream_type,
+    is_scalar,
 )
-from synaflow.core.types import MaterializeContext
+from synaflow.core.types import MaterializeContext, StepMode
 
 
 def validate_step_is_callable(step: Step, pipeline_name: str) -> None:
@@ -43,17 +45,62 @@ def validate_and_compile_step(
     hints = get_safe_type_hints(step.fn)
 
     deps = validate_and_resolve_dependencies(step, sig, hints, produced, pipeline_name)
-    output_type = resolve_step_output_type(sig, hints, deps, produced)
+    mode, each_mode_deps = resolve_step_mode(step, deps, produced, pipeline_name)
+    output_type = resolve_step_output_type(sig, hints, deps, produced, mode)
 
     return DagNode(
         fn=step.fn,
         deps=deps,
         output=output_type,
         on_error=step.on_error,
+        mode=mode,
         materializer=step.materializer,
+        each_mode_deps=each_mode_deps,
         force_materialize=step.force_materialize,
         pipeline=step.pipeline or pipeline_name,
         parent_pipeline=getattr(step, "parent_pipeline", None),
+    )
+
+
+def resolve_step_mode(
+    step: Step,
+    deps: dict[str, Any],
+    produced: dict[str, DagNode],
+    pipeline_name: str,
+) -> tuple[StepMode, list[str]]:
+    each_mode_deps = [
+        dep_name
+        for dep_name, dep_type in deps.items()
+        if produced[dep_name].output is not None
+        and is_iterable_type(produced[dep_name].output)
+        and is_scalar(dep_type)
+    ]
+
+    requested_mode = step.mode
+    if requested_mode == StepMode.AUTO:
+        if each_mode_deps:
+            return StepMode.EACH, each_mode_deps
+        return StepMode.ALL, []
+
+    if requested_mode == StepMode.EACH:
+        if not each_mode_deps:
+            raise ValueError(
+                f"Pipeline '{pipeline_name}': step '{step.name}' is forced to EACH mode "
+                "but none of its dependencies can be consumed item-by-item."
+            )
+        return StepMode.EACH, each_mode_deps
+
+    if requested_mode == StepMode.ALL:
+        if each_mode_deps:
+            deps_list = ", ".join(each_mode_deps)
+            raise ValueError(
+                f"Pipeline '{pipeline_name}': step '{step.name}' is forced to ALL mode "
+                f"but dependencies [{deps_list}] require EACH-mode consumption."
+            )
+        return StepMode.ALL, []
+
+    raise ValueError(
+        f"Pipeline '{pipeline_name}': step '{step.name}' has unsupported mode '{requested_mode}'"
     )
 
 

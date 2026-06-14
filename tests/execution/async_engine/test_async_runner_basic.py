@@ -2,6 +2,8 @@ import inspect
 from typing import NamedTuple
 from unittest.mock import AsyncMock as MagicMock
 
+from synaflow.core.dag import Dag, DagNode
+from synaflow.core.types import OnError, StepMode
 
 from synaflow import async_run, pipeline, step
 
@@ -105,3 +107,35 @@ async def test_given_sync_stream_pipeline_when_run_asynchronously_then_raises():
 
     with pytest.raises(RuntimeError, match="must be executed with run"):
         await async_run(my_pipeline, params=P())
+
+
+async def test_given_runtime_dag_with_all_mode_when_types_look_like_each_then_executor_obeys_dag_mode():
+
+    from synaflow.execution.async_engine.executor import AsyncPipelineExecutor
+
+    class P(NamedTuple):
+        items: list[int] = [1, 2, 3]
+
+    calls = []
+
+    async def consumer(items: int):
+        calls.append(items)
+
+    dag = Dag(
+        name="manual",
+        params={"items": list[int]},
+        steps={
+            "consumer": DagNode(
+                fn=consumer,
+                deps={"items": int},
+                output=None,
+                on_error=OnError.CONTINUE,
+                mode=StepMode.EACH,
+                each_mode_deps=["items"],
+            ),
+        },
+    )
+
+    await AsyncPipelineExecutor(dag).execute(P())
+
+    assert calls == [1, 2, 3]

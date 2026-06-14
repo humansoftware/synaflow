@@ -6,11 +6,12 @@ from typing import Any, NamedTuple, Union
 
 from synaflow.core.dag import DagNode
 from synaflow.core.definition import Step
+from synaflow.core.types import StepMode
 from synaflow.core.type_compatibility import (
     ListType,
     get_type_name,
-    is_iterable_type,
-    is_scalar,
+    is_async_stream_type,
+    is_sync_stream_type,
     is_type_compatible,
 )
 
@@ -89,16 +90,18 @@ def resolve_step_output_type(
     hints: dict[str, Any],
     deps: dict[str, Any],
     produced: dict[str, DagNode],
+    mode: StepMode,
 ) -> Any:
     return_type = hints.get("return", sig.return_annotation)
     if return_type is inspect.Parameter.empty:
         return_type = None
 
-    if is_scalar(return_type):
-        for dep_name, dep_type in deps.items():
-            producer_output = produced[dep_name].output
-            if producer_output is not None and is_iterable_type(producer_output):
-                if is_scalar(dep_type):
-                    return ListType(return_type)
+    if mode == StepMode.EACH and return_type not in (None, type(None)):
+        if is_sync_stream_type(return_type) or is_async_stream_type(return_type):
+            raise ValueError(
+                "Each-mode steps cannot return stream-like outputs because Synaflow "
+                "does not support nested streams in user-facing contracts."
+            )
+        return ListType(return_type)
 
     return return_type

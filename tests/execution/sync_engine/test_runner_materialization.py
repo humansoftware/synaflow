@@ -674,3 +674,120 @@ def test_given_factory_with_context_when_run_then_context_is_injected(run_pipeli
     assert len(captured_context) >= 1
     assert captured_context[-1].pipeline_name == "test_context"
     assert any(c.dataset_name == "items" for c in captured_context)
+    assert any(c.consumer_type == list[int] for c in captured_context)
+
+
+def test_given_mixed_fanout_when_materializer_factory_receives_context_then_consumer_type_is_materialized_consumer_type(
+    run_pipeline,
+):
+    from synaflow.core.types import MaterializeContext
+
+    class P(NamedTuple):
+        count: int = 3
+
+    def gen(count: int) -> Generator[int, None, None]:
+        yield from range(count)
+
+    captured_context = []
+
+    def factory_with_ctx(ctx: MaterializeContext):
+        captured_context.append(ctx)
+        return list
+
+    def lazy(items: Iterator[int]):
+        return list(items)
+
+    def eager(items: list[int]):
+        return items
+
+    my_pipeline = pipeline(
+        name="test_mixed_context",
+        params=P,
+        default_materializer_factory=factory_with_ctx,
+        steps=[
+            step("items", fn=gen),
+            step("lazy", fn=lazy),
+            step("eager", fn=eager),
+        ],
+    )
+
+    run_pipeline(my_pipeline, params=P())
+
+    runtime_contexts = [c for c in captured_context if c.dataset_name == "items"]
+    assert runtime_contexts
+    assert all(c.consumer_type == list[int] for c in runtime_contexts)
+
+
+def test_given_two_unrolled_streams_with_different_lengths_when_run_then_missing_side_is_padded_with_none(
+    run_pipeline,
+):
+    class P(NamedTuple):
+        pass
+
+    def left() -> Generator[int, None, None]:
+        yield 1
+        yield 2
+
+    def right() -> Generator[int, None, None]:
+        yield 10
+
+    def pair(left: int, right: int) -> tuple[int | None, int | None]:
+        return (left, right)
+
+    seen = []
+
+    def sink(pair: list[tuple[int | None, int | None]]):
+        seen.extend(pair)
+
+    my_pipeline = pipeline(
+        name="test_unroll_padding",
+        params=P,
+        steps=[
+            step("left", fn=left),
+            step("right", fn=right),
+            step("pair", fn=pair),
+            step("sink", fn=sink),
+        ],
+    )
+
+    run_pipeline(my_pipeline, params=P())
+
+    assert seen == [(1, 10), (2, None)]
+
+
+def test_given_two_unrolled_streams_with_one_empty_when_run_then_non_empty_side_still_emits_with_none_padding(
+    run_pipeline,
+):
+    class P(NamedTuple):
+        pass
+
+    def left() -> Generator[int, None, None]:
+        if False:
+            yield 1
+
+    def right() -> Generator[int, None, None]:
+        yield 10
+        yield 20
+
+    def pair(left: int, right: int) -> tuple[int | None, int | None]:
+        return (left, right)
+
+    seen = []
+
+    def sink(pair: list[tuple[int | None, int | None]]):
+        seen.extend(pair)
+
+    my_pipeline = pipeline(
+        name="test_unroll_empty",
+        params=P,
+        steps=[
+            step("left", fn=left),
+            step("right", fn=right),
+            step("pair", fn=pair),
+            step("sink", fn=sink),
+        ],
+    )
+
+    run_pipeline(my_pipeline, params=P())
+
+    assert seen == [(None, 10), (None, 20)]

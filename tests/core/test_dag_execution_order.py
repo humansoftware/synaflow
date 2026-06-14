@@ -2,7 +2,7 @@ from typing import NamedTuple
 
 import pytest
 
-from synaflow import pipeline, step
+from synaflow import StepMode, pipeline, step
 
 
 def test_given_output_compatible_but_executed_after_when_constructed_then_raises():
@@ -112,7 +112,7 @@ def test_given_each_mode_when_each_inputs_then_returns_correct_deps():
     dag = Dag(name="test")
     dag.steps = {
         "gen": DagNode(output=Iterator[int], deps={}),
-        "a": DagNode(deps={"gen": int}),
+        "a": DagNode(deps={"gen": int}, mode=StepMode.EACH, each_mode_deps=["gen"]),
     }
     assert dag.each_inputs("a") == ["gen"]
 
@@ -125,9 +125,25 @@ def test_given_standard_mode_when_each_inputs_then_returns_empty():
     dag = Dag(name="test")
     dag.steps = {
         "gen": DagNode(output=Iterator[int], deps={}),
-        "a": DagNode(deps={"gen": Iterator[int]}),
+        "a": DagNode(deps={"gen": Iterator[int]}, mode=StepMode.ALL),
     }
     assert dag.each_inputs("a") == []
+
+
+def test_given_dag_node_with_resolved_each_mode_when_each_inputs_then_reads_from_dag():
+    from synaflow.core.dag import Dag, DagNode
+
+    dag = Dag(name="test")
+    dag.steps = {
+        "items": DagNode(output=list[int], deps={}),
+        "transform": DagNode(
+            deps={"items": int},
+            mode=StepMode.EACH,
+            each_mode_deps=["items"],
+        ),
+    }
+
+    assert dag.each_inputs("transform") == ["items"]
 
 
 def test_given_linear_dag_when_get_execution_levels_then_returns_sequential_levels():
