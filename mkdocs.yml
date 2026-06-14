@@ -1,0 +1,58 @@
+site_name: SynaFlow
+site_description: A lightweight, type-hint driven pipeline engine for streaming DAGs
+site_url: https://humansoftware.github.io/synaflow/
+repo_url: https://github.com/humansoftware/synaflow
+edit_uri: edit/main/docs/user_docs/
+
+theme:
+  name: material
+  palette:
+    primary: indigo
+    accent: indigo
+  features:
+    - content.code.copy
+    - content.code.annotate
+    - content.tabs.link
+    - navigation.sections
+    - navigation.expand
+
+markdown_extensions:
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+  - pymdownx.tabbed:
+      alternate_style: true
+  - admonition
+  - footnotes
+  - toc:
+      permalink: true
+
+plugins:
+  - search
+
+nav:
+  - Home: index.md
+  - Getting Started:
+      - Installation: getting-started/installation.md
+      - Lockstep Data Flow: getting-started/lockstep-flow.md
+  - Tutorial:
+      - Level 1 — Hello World: tutorial/hello-world.md
+      - Level 2 — Multiple Steps: tutorial/multiple-steps.md
+      - Level 3 — Observers: tutorial/observers.md
+      - Level 4 — Materializers: tutorial/materializers.md
+  - Core Concepts:
+      - Semantic Naming: core-concepts/semantic-naming.md
+      - DAG Construction: core-concepts/dag-construction.md
+      - Sync & Async Parity: core-concepts/sync-async.md
+      - Examples: core-concepts/examples.md
+  - Advanced:
+      - Custom Materializers: advanced/custom-materializers.md
+      - Custom Observers: advanced/custom-observers.md
+      - Export Guidance: advanced/export-guidance.md
+
+docs_dir: docs/user_docs
