@@ -89,7 +89,7 @@ The materializer can persist the shuffle phase to disk when datasets are too lar
 **Reason:** Follows the *Simple Things Easy* principle (users can override with `materializer=list` on a step) while maintaining *Complex Things Possible* (users define a Factory with self-discovered file naming via the `Context` in the root `pipeline` constructor).
 
 ### 3.4. Materializer Resolution at Build Time
-**Decision:** The materializer for every DAG node is pre-computed during DAG construction (build time). Resolution order: step-level `materializer` → pipeline-level `default_materializer_factory` → global default factory. A materializer is **never None** in the serialized DAG. The DAG builder raises a `ValidationError` if no compatible materializer can be resolved (e.g., for custom types without an explicit factory).
+**Decision:** The materializer for every DAG node is pre-computed during DAG construction (build time). Resolution order: step-level `materializer` → pipeline-level `memory_materializer_factory` → global default factory. A materializer is **never None** in the serialized DAG. The DAG builder raises a `ValidationError` if no compatible materializer can be resolved (e.g., for custom types without an explicit factory).
 **Reason:** Runtime should not be responsible for fallback resolution or type checking — that is a build-time concern. The builder stores the resolved factory; the runtime only handles the factory-with-context call pattern when needed.
 
 ### 3.5. `materialized_deps` Belongs to the Consumer

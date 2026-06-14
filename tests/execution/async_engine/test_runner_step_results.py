@@ -3,7 +3,7 @@ from typing import NamedTuple
 
 import pytest
 
-from synaflow import pipeline, step
+from synaflow import pipeline, step, async_run
 from synaflow.core.types import OnError
 from synaflow.execution.async_engine.executor import AsyncPipelineExecutor
 from tests.execution.async_engine.corpus import PACKS as ASYNC_PACKS
@@ -18,6 +18,7 @@ ASYNC_PACK_NAMES = (
     "async_mixed_fanout",
     "async_sub_pipelines",
     "async_deep_sub_pipelines",
+    "async_error_handling",
 )
 
 
@@ -55,6 +56,19 @@ async def test_step_results(pack_name):
     for step_name, expected in pack.step_results.items():
         actual = await _concrete(recorded.get(step_name))
         assert actual == expected
+
+
+@pytest.mark.asyncio
+async def test_error_handling_corpus_registers_error():
+    from tests.execution.async_engine.corpus.error_handling import (
+        error_pipeline,
+        ErrorHandlingParams,
+        errors_list,
+    )
+
+    errors_list.clear()
+    await async_run(error_pipeline, ErrorHandlingParams())
+    assert errors_list == ["gen failed"]
 
 
 @pytest.mark.asyncio

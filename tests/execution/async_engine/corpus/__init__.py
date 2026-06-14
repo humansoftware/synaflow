@@ -3,6 +3,7 @@ from . import (
     complex_parallel_mixed,
     deep_sub_pipelines,
     diamond,
+    error_handling,
     explicit_modes,
     fibonacci,
     linear,
@@ -20,6 +21,7 @@ _MODULES = [
     mixed_fanout,
     sub_pipelines,
     deep_sub_pipelines,
+    error_handling,
 ]
 
 PACKS = {f"async_{mod.__name__.split('.')[-1]}": mod.pack for mod in _MODULES}

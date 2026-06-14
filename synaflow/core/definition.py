@@ -6,15 +6,15 @@ from synaflow.core.types import OnError, StepMode, StepParams
 
 
 def _get_default_factory():
-    from synaflow.core.dag_builder import default_materializer_factory
+    from synaflow.core.dag_builder import memory_materializer_factory
 
-    return default_materializer_factory
+    return memory_materializer_factory
 
 
 def _get_default_error_factory():
-    from synaflow.core.dag_builder import default_error_materializer_factory
+    from synaflow.core.dag_builder import log_error_materializer_factory
 
-    return default_error_materializer_factory
+    return log_error_materializer_factory
 
 
 @dataclass
@@ -29,6 +29,7 @@ class Step(BaseStep):
     mode: StepMode = StepMode.AUTO
     params: StepParams | None = None
     materializer: Callable | None = None
+    error_materializer: Callable | None = None
     force_materialize: bool = False
     description: str = ""
     pipeline: str | None = None
@@ -51,29 +52,22 @@ class PipelineDef:
     params: Any
     steps: list[Step | IncludeStep]
     exports: str | None = None
-    default_materializer_factory: Callable | None = field(
-        default_factory=lambda: _get_default_factory()
-    )
-    default_error_materializer_factory: Callable | None = field(
-        default_factory=lambda: _get_default_error_factory()
-    )
+    materializer: Callable | None = None
+    error_materializer: Callable | None = None
     dag: Dag = field(default_factory=Dag)
     _compiled: bool = False
     description: str = ""
 
     def __post_init__(self) -> None:
         from synaflow.core.dag_builder import build_dag
-        from synaflow.core.dag_builder import (
-            default_materializer_factory as _default_factory,
-        )
 
         self.dag = build_dag(
             self.name,
             self.params,
             self.steps,
-            self.default_materializer_factory,
-            is_default_factory=(self.default_materializer_factory is _default_factory),
-            error_materializer_factory=self.default_error_materializer_factory,
+            self.materializer,
+            is_default_factory=(self.materializer is None),
+            error_materializer_factory=self.error_materializer,
         )
         self.requires_sync_runner = self.dag.requires_sync_runner
         self.requires_async_runner = self.dag.requires_async_runner

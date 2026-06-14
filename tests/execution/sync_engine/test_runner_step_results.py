@@ -3,7 +3,7 @@ from typing import NamedTuple
 
 import pytest
 
-from synaflow import pipeline, step
+from synaflow import pipeline, step, run
 from synaflow.core.types import OnError
 from synaflow.execution.sync_engine.executor import PipelineExecutor
 from tests.execution.sync_engine.corpus import PACKS as SYNC_PACKS
@@ -18,6 +18,7 @@ SYNC_PACK_NAMES = (
     "sync_mixed_fanout",
     "sync_sub_pipelines",
     "sync_deep_sub_pipelines",
+    "sync_error_handling",
 )
 
 
@@ -63,6 +64,18 @@ def test_step_results(pack_name):
     for step_name, expected in pack.step_results.items():
         actual = _read_step_output(recorded, pack.pipeline.dag, step_name)
         assert actual == expected
+
+
+def test_error_handling_corpus_registers_error():
+    from tests.execution.sync_engine.corpus.error_handling import (
+        error_pipeline,
+        ErrorHandlingParams,
+        errors_list,
+    )
+
+    errors_list.clear()
+    run(error_pipeline, ErrorHandlingParams())
+    assert errors_list == ["gen failed"]
 
 
 def test_given_mixed_fanout_when_observed_then_producer_observer_sees_stream_values_once():

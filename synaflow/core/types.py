@@ -43,3 +43,12 @@ class ErrorMaterializeContext:
     pipeline_name: str
     dataset_name: str
     exception_type: type[BaseException]
+
+
+@dataclass
+class ErrorRecord:
+    pipeline_name: str
+    dataset_name: str
+    exception_type: str
+    exception_message: str
+    traceback: str

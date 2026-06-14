@@ -20,11 +20,36 @@ def _output_key(dag: Dag, producer: str, consumer: str) -> str:
 
 
 from .constants import EOF_MARKER
-from .iterator_utils import async_list, queue_to_async_gen
+from .iterator_utils import queue_to_async_gen
 
 # ---------------------------------------------------------------------------
 # Runtime helpers
 # ---------------------------------------------------------------------------
+
+
+async def _collect_async_iterator(dag: Dag, step_name: str, value: Any) -> list[Any]:
+    items = []
+    try:
+        if isinstance(value, (AsyncIterator, AsyncGenerator)):
+            while True:
+                try:
+                    item = await anext(value)
+                    items.append(item)
+                except StopAsyncIteration:
+                    break
+        else:
+            iterator = iter(value)
+            while True:
+                try:
+                    item = next(iterator)
+                    items.append(item)
+                except StopIteration:
+                    break
+    except Exception as exc:
+        await _handle_error(dag, step_name, exc)
+        if dag[step_name].on_error == OnError.STOP:
+            raise PipelineStopException(step_name=step_name, cause=exc) from exc
+    return items
 
 
 async def _apply_materializer(
@@ -33,44 +58,74 @@ async def _apply_materializer(
     node = dag[step_name]
     mat = node.get("materializer")
     if mat is None:
-        if isinstance(value, (AsyncIterator, AsyncGenerator)):
-            return await async_list(value)
+        if isinstance(value, (AsyncIterator, AsyncGenerator, Iterator, Generator)):
+            return await _collect_async_iterator(dag, step_name, value)
         return value
-    sig = inspect.signature(mat)
-    if (
-        len(sig.parameters) > 1
-        or "ctx" in sig.parameters
-        or "context" in sig.parameters
-    ):
-        mat = mat(
-            MaterializeContext(
-                pipeline_name=dag.name,
-                dataset_name=step_name,
-                item_type=node.get("output"),
-                consumer_type=consumer_type,
-            )
-        )
-    if inspect.iscoroutinefunction(mat):
-        return await mat(value)
-    if isinstance(value, (AsyncIterator, AsyncGenerator)):
-        return await async_list(value)
-    return mat(value)
-
-
-def _handle_error(dag: Dag, step_name: str, exc: BaseException) -> None:
-    factory = getattr(dag, "error_materializer_factory", None)
-    if factory is None:
-        return
-
-    handler = factory(
-        ErrorMaterializeContext(
+    concrete_mat = mat(
+        MaterializeContext(
             pipeline_name=dag.name,
             dataset_name=step_name,
-            exception_type=type(exc),
+            item_type=node.get("output"),
+            consumer_type=consumer_type,
         )
     )
-    if callable(handler):
-        handler(exc)
+    if inspect.iscoroutinefunction(concrete_mat):
+        return await concrete_mat(value)
+    if isinstance(value, (AsyncIterator, AsyncGenerator, Iterator, Generator)):
+        # If it's a standard collection, collect first
+        if (
+            concrete_mat in (list, tuple, set, dict)
+            or getattr(concrete_mat, "__name__", "") == "_identity"
+        ):
+            items = await _collect_async_iterator(dag, step_name, value)
+            res = items if concrete_mat is list else concrete_mat(items)
+            if inspect.iscoroutine(res):
+                return await res
+            return res
+        items = await _collect_async_iterator(dag, step_name, value)
+        res = concrete_mat(items)
+        if inspect.iscoroutine(res):
+            return await res
+        return res
+    res = concrete_mat(value)
+    if inspect.iscoroutine(res):
+        return await res
+    return res
+
+
+async def _handle_error(dag: Dag, step_name: str, exc: BaseException) -> None:
+    node = dag.steps.get(step_name)
+    if not node:
+        return
+
+    err_mat = getattr(node, "error_materializer", None)
+    if err_mat is None:
+        return
+
+    if inspect.iscoroutinefunction(err_mat):
+        handler = await err_mat(
+            ErrorMaterializeContext(
+                pipeline_name=dag.name,
+                dataset_name=step_name,
+                exception_type=type(exc),
+            )
+        )
+    else:
+        handler = err_mat(
+            ErrorMaterializeContext(
+                pipeline_name=dag.name,
+                dataset_name=step_name,
+                exception_type=type(exc),
+            )
+        )
+
+    if handler is not None:
+        if inspect.iscoroutinefunction(handler):
+            await handler(exc)
+        else:
+            res = handler(exc)
+            if inspect.iscoroutine(res):
+                await res
 
 
 async def _pump_iterator(
@@ -96,7 +151,7 @@ async def _pump_iterator(
                 for q in queues.values():
                     await q.put(item)
     except StepExecutionError as e:
-        _handle_error(dag, name, e.__cause__ or e)
+        await _handle_error(dag, name, e.__cause__ or e)
         if on_error == OnError.STOP:
             for q in queues.values():
                 await q.put(PipelineStopException(step_name=name))
@@ -203,7 +258,7 @@ class AsyncPipelineExecutor:
         except PipelineStopException:
             raise
         except Exception as exc:
-            _handle_error(self.dag, step_name, exc)
+            await _handle_error(self.dag, step_name, exc)
             if node.on_error == OnError.STOP:
                 raise PipelineStopException(step_name=step_name, cause=exc) from exc
 
@@ -251,7 +306,7 @@ class AsyncPipelineExecutor:
                 try:
                     yield await self._call_fn(node.fn, item_args)
                 except Exception as exc:
-                    _handle_error(self.dag, step_name, exc)
+                    await _handle_error(self.dag, step_name, exc)
                     if node.on_error == OnError.STOP:
                         raise PipelineStopException(
                             step_name=step_name, cause=exc
@@ -284,6 +339,49 @@ class AsyncPipelineExecutor:
     async def _publish_output(self, step_name, output, node):
         if isinstance(output, (Iterator, Generator, AsyncIterator, AsyncGenerator)):
             consumers = self.dag.consumers_of(step_name)
+
+            # 1. Step-level materialization required?
+            if node.on_error == OnError.STOP or node.force_materialize:
+                consumer_type = None
+                if consumers:
+                    consumer_type = self.dag[consumers[0]].deps.get(step_name)
+                try:
+                    items = await _apply_materializer(
+                        self.dag, step_name, output, consumer_type=consumer_type
+                    )
+                    for c in consumers:
+                        self.outputs[_output_key(self.dag, step_name, c)] = items
+                    self._notify_observers(step_name, items)
+                except PipelineStopException:
+                    raise
+                except Exception as exc:
+                    await _handle_error(self.dag, step_name, exc)
+                    if node.on_error == OnError.STOP:
+                        raise PipelineStopException(
+                            step_name=step_name, cause=exc
+                        ) from exc
+                return
+
+            # 2. Single consumer requires materialized input?
+            if len(consumers) == 1 and self.dag.needs_materialize(step_name):
+                consumer_type = self.dag[consumers[0]].deps.get(step_name)
+                try:
+                    items = await _apply_materializer(
+                        self.dag, step_name, output, consumer_type=consumer_type
+                    )
+                    self.outputs[_output_key(self.dag, step_name, consumers[0])] = items
+                    self._notify_observers(step_name, items)
+                except PipelineStopException:
+                    raise
+                except Exception as exc:
+                    await _handle_error(self.dag, step_name, exc)
+                    if node.on_error == OnError.STOP:
+                        raise PipelineStopException(
+                            step_name=step_name, cause=exc
+                        ) from exc
+                return
+
+            # 3. Otherwise, keep it lazy / stream-based
             if consumers:
                 queues = {c: asyncio.Queue(maxsize=100) for c in consumers}
                 for c, q in queues.items():
@@ -297,12 +395,6 @@ class AsyncPipelineExecutor:
                                 _pump_observer(step_name, obs_queue, observer)
                             )
                         )
-                materialize_before_enqueue = len(consumers) == 1 and (
-                    node.on_error == OnError.STOP or node.force_materialize
-                )
-                consumer_type = None
-                if materialize_before_enqueue:
-                    consumer_type = self.dag[consumers[0]].deps.get(step_name)
                 task = asyncio.create_task(
                     _pump_iterator(
                         step_name,
@@ -310,14 +402,18 @@ class AsyncPipelineExecutor:
                         queues,
                         node.on_error,
                         dag=self.dag,
-                        materialize_before_enqueue=materialize_before_enqueue,
-                        consumer_type=consumer_type,
+                        materialize_before_enqueue=False,
                     )
                 )
                 self._pump_tasks.append(task)
                 return
             else:
-                self._notify_observers(step_name, output)
+                if self.dag.needs_materialize(step_name):
+                    output = await _apply_materializer(
+                        self.dag, step_name, output, consumer_type=node.get("output")
+                    )
+                else:
+                    self._notify_observers(step_name, output)
         elif self.dag.needs_materialize(step_name):
             output = await _apply_materializer(
                 self.dag, step_name, output, consumer_type=node.get("output")

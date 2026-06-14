@@ -84,13 +84,13 @@ refactor: executor rewrites, dag model improvements, materializer architecture (
 - Add error_materializer_factory to Dag dataclass and to_dict()
 - Wire error_materializer_factory from PipelineDef through build_dag to Dag
 - Use logging.warning instead of print in default error materializer
-- Tighten except TypeError in default_materializer_factory (per-candidate) ([`37bc707`](https://github.com/humansoftware/synaflow/commit/37bc707475c0b3404b2b05d4e471c09b384c4e15))
+- Tighten except TypeError in memory_materializer_factory (per-candidate) ([`37bc707`](https://github.com/humansoftware/synaflow/commit/37bc707475c0b3404b2b05d4e471c09b384c4e15))
 
 * feat: add ErrorMaterializeContext and default error materializer factory
 
 - Add ErrorMaterializeContext dataclass (pipeline_name, dataset_name, exception_type)
-- Add default_error_materializer_factory (prints class, message, stack trace)
-- Add default_error_materializer_factory to PipelineDef
+- Add log_error_materializer_factory (prints class, message, stack trace)
+- Add log_error_materializer_factory to PipelineDef
 - Add tests for factory and pipeline default ([`cc182d5`](https://github.com/humansoftware/synaflow/commit/cc182d5b133e09d75d44a7180515a808ad330f31))
 
 * feat: add force_materialize flag to Step and DagNode
@@ -103,7 +103,7 @@ refactor: executor rewrites, dag model improvements, materializer architecture (
 * feat: default materializer factory returns identity for scalar consumer types
 
 - Add _identity pass-through function
-- default_materializer_factory returns _identity when consumer_type is scalar
+- memory_materializer_factory returns _identity when consumer_type is scalar
 - Fallback remains list for None/unknown consumer types
 - Add tests for scalar identity and None fallback ([`0b63c0e`](https://github.com/humansoftware/synaflow/commit/0b63c0ecc1f6e6888f51c535784ceee120352d91))
 
@@ -129,7 +129,7 @@ refactor: executor rewrites, dag model improvements, materializer architecture (
 - Convert DagBuilder, StepValidator, DependencyValidator, TopologyValidator to module functions
 - Add params dict to Dag, separate from steps dict (params no longer in DAG nodes)
 - Remove needs_materialize from JSON serialization (runtime detail)
-- materializer never None in JSON - all steps have default_materializer_factory
+- materializer never None in JSON - all steps have memory_materializer_factory
 - pipeline field always set to pipeline name (never None)
 - Validate __ is forbidden in user step names (reserved for sub-pipeline names)
 - Update to_dict() format: {params, steps} instead of flat dict
@@ -142,7 +142,7 @@ refactor: executor rewrites, dag model improvements, materializer architecture (
 - Rename PipelineValidator to DagBuilder, move validation modules to dag_*.py
 - Pre-compute materializer per node in DagBuilder
 - Add materialized_deps to consumer nodes (replacing needs_materialize on producer)
-- Add default_materializer_factory (never None on pipeline)
+- Add memory_materializer_factory (never None on pipeline)
 - Simplify SyncStreamManager/AsyncStreamManager.apply_materializer
 - Enforce no-silent-wrapping: scalar producer cannot feed iterable consumer
 - Add MaterializeContext.consumer_type

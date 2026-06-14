@@ -35,6 +35,7 @@ class DagNode:
     force_materialize: bool = False
     pipeline: str | None = None
     parent_pipeline: str | None = None
+    error_materializer: Callable | None = None
 
     def __getitem__(self, key):
         return getattr(self, key)
@@ -47,18 +48,21 @@ class DagNode:
 
     def to_serializable(self) -> dict:
         mat = self.materializer
-        return {
+        err_mat = self.error_materializer
+        ret = {
             "deps": {k: get_type_name(v) for k, v in self.deps.items()},
             "output": get_type_name(self.output),
             "fn": self.fn.__name__ if self.fn else None,
             "on_error": self.on_error.value if self.on_error else None,
             "mode": self.mode.value,
             "materializer": mat.__name__ if callable(mat) else None,
+            "error_materializer": err_mat.__name__ if callable(err_mat) else None,
             "materialized_deps": self.materialized_deps,
             "each_mode_deps": self.each_mode_deps,
             "pipeline": self.pipeline,
             "parent_pipeline": self.parent_pipeline,
         }
+        return ret
 
 
 @dataclass
@@ -110,9 +114,7 @@ class Dag:
             },
         }
         if self.error_materializer_factory is not None:
-            result["error_materializer_factory"] = (
-                self.error_materializer_factory.__name__
-            )
+            result["error_materializer"] = self.error_materializer_factory.__name__
         return result
 
     def consumers_of(self, step_name: str) -> list[str]:

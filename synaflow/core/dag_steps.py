@@ -55,6 +55,7 @@ def validate_and_compile_step(
         on_error=step.on_error,
         mode=mode,
         materializer=step.materializer,
+        error_materializer=getattr(step, "error_materializer", None),
         each_mode_deps=each_mode_deps,
         force_materialize=step.force_materialize,
         pipeline=step.pipeline or pipeline_name,
@@ -108,7 +109,7 @@ def validate_sync_async_consistency(
     dag: Dag,
     pipeline_name: str,
     steps: list[Step],
-    default_materializer_factory: Any,
+    memory_materializer_factory: Any,
     is_default_factory: bool = False,
 ) -> None:
     has_sync = False
@@ -148,8 +149,8 @@ def validate_sync_async_consistency(
             m = m(ctx)
         return inspect.iscoroutinefunction(m)
 
-    if default_materializer_factory and not is_default_factory:
-        if _is_async_mat(default_materializer_factory):
+    if memory_materializer_factory and not is_default_factory:
+        if _is_async_mat(memory_materializer_factory):
             has_async_materializer = True
         else:
             has_sync_materializer = True

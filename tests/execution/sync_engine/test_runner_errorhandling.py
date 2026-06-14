@@ -154,7 +154,7 @@ def test_given_on_error_continue_when_step_fails_then_error_materializer_is_call
     my_pipeline = pipeline(
         name="test",
         params=P,
-        default_error_materializer_factory=error_factory,
+        error_materializer=error_factory,
         steps=[
             step("s1", fn=fail_on_2, on_error=OnError.CONTINUE),
             step("s2", fn=s2),
@@ -189,7 +189,7 @@ def test_given_on_error_stop_when_step_fails_then_error_materializer_is_called_b
     my_pipeline = pipeline(
         name="test",
         params=P,
-        default_error_materializer_factory=error_factory,
+        error_materializer=error_factory,
         steps=[step("s1", fn=fail_on_2, on_error=OnError.STOP)],
     )
 
@@ -222,7 +222,7 @@ def test_given_on_error_continue_when_stream_iteration_fails_then_previous_items
     my_pipeline = pipeline(
         name="test_iter_continue",
         params=P,
-        default_error_materializer_factory=error_factory,
+        error_materializer=error_factory,
         steps=[
             step("source", fn=source, on_error=OnError.CONTINUE),
             step("sink", fn=sink),
@@ -258,7 +258,7 @@ def test_given_on_error_stop_when_stream_iteration_fails_then_pipeline_stops_and
     my_pipeline = pipeline(
         name="test_iter_stop",
         params=P,
-        default_error_materializer_factory=error_factory,
+        error_materializer=error_factory,
         steps=[
             step("source", fn=source, on_error=OnError.STOP),
             step("sink", fn=sink),
