@@ -2,7 +2,85 @@
 
 
 
+## v0.9.1 (2026-06-14)
+
+### Documentation
+
+* docs: remove stale SyncStreamManager reference from coding standards ([`ee522cf`](https://github.com/humansoftware/synaflow/commit/ee522cf63c38bc5f2a86fd2a783521f18737b3e6))
+
+* docs: fix inconsistencies in design philosophy
+
+- Clarify materializer resolution (runtime still handles factory-with-context)
+- Rename needs_materialize→materialized_deps section (matches code)
+- Replace adapt_argument_to_consumer_type section (removed from code)
+- Add sections: inline executors, step_output_observers, PipelineStopException context ([`efa3698`](https://github.com/humansoftware/synaflow/commit/efa36984baf1c54fd72e134636afa92c529b2b53))
+
+### Fix
+
+* fix: make materializer signature validation strict and prevent swallowing signature exceptions ([`c400779`](https://github.com/humansoftware/synaflow/commit/c400779622fd429b8fafa69615e8595b054a618d))
+
+* fix: support async sub-materializers and handlers in composite materializers ([`1b618bb`](https://github.com/humansoftware/synaflow/commit/1b618bbda4857cc72d9aeb360bd44d28a9b47932))
+
+* fix: resolve sub-pipeline laziness regression and align DAG serialization contract ([`cff719b`](https://github.com/humansoftware/synaflow/commit/cff719b3d2a453e1fc2ebb92c448999e68fdc7b6))
+
+### Refactor
+
+* refactor: simplify laziness design by removing has_step_materializer and relying on force_materialize ([`50b09f4`](https://github.com/humansoftware/synaflow/commit/50b09f4dfd56f54109bd60d72dc6cdc59a08cd2b))
+
+### Test
+
+* test: refactor error_handling corpus verification to dedicated parity tests ([`66f0c94`](https://github.com/humansoftware/synaflow/commit/66f0c94c0e443fed6aa27212f322c8e98b6cca11))
+
+* test: add explicit regression tests for lazy steps with step-level materializers ([`756192f`](https://github.com/humansoftware/synaflow/commit/756192f09b0ed8b69b48e06cee33a01c19b97b54))
+
+* test: add async error presets, include() precedence, and serializer/helper unit tests ([`b5e1088`](https://github.com/humansoftware/synaflow/commit/b5e108878869f86d82e65a35e39f905fd4bc893a))
+
+### Unknown
+
+* Merge pull request #14 from humansoftware/feature/materializers-ergonomics
+
+Materializer Ergonomics and Standard Library ([`abdf950`](https://github.com/humansoftware/synaflow/commit/abdf9504c9b333c82815263e556d5ddb8e78e4da))
+
+* Implement materializer ergonomics improvements and standard library ([`396a702`](https://github.com/humansoftware/synaflow/commit/396a702f9b3b9d7121b16c9e3977f91081228c2d))
+
+* Merge pull request #12 from humansoftware/review/dag-snapshots-observer-contracts
+
+[codex] strengthen DAG snapshots and observer contracts ([`f4884de`](https://github.com/humansoftware/synaflow/commit/f4884de0bb626e42b7adf50c23693420da0d12d0))
+
+* update docs for step mode and runtime contracts ([`f3f9f17`](https://github.com/humansoftware/synaflow/commit/f3f9f17b6a7ec0fbb238d4fc5c6ff285757ba1d5))
+
+* strengthen dag snapshots and observer contracts ([`710d729`](https://github.com/humansoftware/synaflow/commit/710d729734e92cf986b01dfd0ebaeb24fbc05bd0))
+
+* Merge pull request #11 from humansoftware/review/more-robustness-tests
+
+[codex] strengthen mode resolution and runtime robustness ([`52f3571`](https://github.com/humansoftware/synaflow/commit/52f3571bc04747374edf53fcf522db5d24738b1d))
+
+* align runtime error handling and output inference contracts ([`1011364`](https://github.com/humansoftware/synaflow/commit/1011364c67caf4b2e2d6780356a976d7519ef99a))
+
+* add step mode coverage and robustness tests ([`03a70a1`](https://github.com/humansoftware/synaflow/commit/03a70a1505d0260a4db44c8e114d24d315fa7f46))
+
+* Merge pull request #10 from humansoftware/review/test-contract-gaps
+
+[codex] add failing contract tests for materialization semantics ([`209ef93`](https://github.com/humansoftware/synaflow/commit/209ef93ee65e6edaec97710f12309edb00ab80be))
+
+* fix materialization and error handling semantics ([`3b66eaf`](https://github.com/humansoftware/synaflow/commit/3b66eaf5a826f15598359e20576af3f19cf0003f))
+
+* add failing contract tests for materialization semantics ([`f8fcc33`](https://github.com/humansoftware/synaflow/commit/f8fcc33fec5499dce9129ed8894ac2aff9bd1721))
+
+* Merge pull request #9 from humansoftware/docs/update-design-philosophy
+
+docs: fix design philosophy inconsistencies ([`26a782f`](https://github.com/humansoftware/synaflow/commit/26a782f2b90d21b2dcf5f2ae1fcab39b5c88481b))
+
+* Merge pull request #8 from humansoftware/chore/cleanup-dump-script
+
+chore: remove debug dump script ([`c4919e2`](https://github.com/humansoftware/synaflow/commit/c4919e2cf57d21f52112f9822cd12c4ef857fc8f))
+
+
 ## v0.9.0 (2026-06-13)
+
+### Chore
+
+* chore: remove dump_json_dags.py debug script ([`4fc56c9`](https://github.com/humansoftware/synaflow/commit/4fc56c92f883b51652077b93c7a0e3ab607f06af))
 
 ### Ci
 
@@ -84,13 +162,13 @@ refactor: executor rewrites, dag model improvements, materializer architecture (
 - Add error_materializer_factory to Dag dataclass and to_dict()
 - Wire error_materializer_factory from PipelineDef through build_dag to Dag
 - Use logging.warning instead of print in default error materializer
-- Tighten except TypeError in memory_materializer_factory (per-candidate) ([`37bc707`](https://github.com/humansoftware/synaflow/commit/37bc707475c0b3404b2b05d4e471c09b384c4e15))
+- Tighten except TypeError in default_materializer_factory (per-candidate) ([`37bc707`](https://github.com/humansoftware/synaflow/commit/37bc707475c0b3404b2b05d4e471c09b384c4e15))
 
 * feat: add ErrorMaterializeContext and default error materializer factory
 
 - Add ErrorMaterializeContext dataclass (pipeline_name, dataset_name, exception_type)
-- Add log_error_materializer_factory (prints class, message, stack trace)
-- Add log_error_materializer_factory to PipelineDef
+- Add default_error_materializer_factory (prints class, message, stack trace)
+- Add default_error_materializer_factory to PipelineDef
 - Add tests for factory and pipeline default ([`cc182d5`](https://github.com/humansoftware/synaflow/commit/cc182d5b133e09d75d44a7180515a808ad330f31))
 
 * feat: add force_materialize flag to Step and DagNode
@@ -103,7 +181,7 @@ refactor: executor rewrites, dag model improvements, materializer architecture (
 * feat: default materializer factory returns identity for scalar consumer types
 
 - Add _identity pass-through function
-- memory_materializer_factory returns _identity when consumer_type is scalar
+- default_materializer_factory returns _identity when consumer_type is scalar
 - Fallback remains list for None/unknown consumer types
 - Add tests for scalar identity and None fallback ([`0b63c0e`](https://github.com/humansoftware/synaflow/commit/0b63c0ecc1f6e6888f51c535784ceee120352d91))
 
@@ -129,7 +207,7 @@ refactor: executor rewrites, dag model improvements, materializer architecture (
 - Convert DagBuilder, StepValidator, DependencyValidator, TopologyValidator to module functions
 - Add params dict to Dag, separate from steps dict (params no longer in DAG nodes)
 - Remove needs_materialize from JSON serialization (runtime detail)
-- materializer never None in JSON - all steps have memory_materializer_factory
+- materializer never None in JSON - all steps have default_materializer_factory
 - pipeline field always set to pipeline name (never None)
 - Validate __ is forbidden in user step names (reserved for sub-pipeline names)
 - Update to_dict() format: {params, steps} instead of flat dict
@@ -142,7 +220,7 @@ refactor: executor rewrites, dag model improvements, materializer architecture (
 - Rename PipelineValidator to DagBuilder, move validation modules to dag_*.py
 - Pre-compute materializer per node in DagBuilder
 - Add materialized_deps to consumer nodes (replacing needs_materialize on producer)
-- Add memory_materializer_factory (never None on pipeline)
+- Add default_materializer_factory (never None on pipeline)
 - Simplify SyncStreamManager/AsyncStreamManager.apply_materializer
 - Enforce no-silent-wrapping: scalar producer cannot feed iterable consumer
 - Add MaterializeContext.consumer_type
