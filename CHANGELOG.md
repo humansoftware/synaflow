@@ -2,6 +2,25 @@
 
 
 
+## v0.12.0 (2026-06-14)
+
+### Feature
+
+* feat: add patch coverage check (80%) to pre-commit hook
+
+- Refactor coverage_report.py to support --precommit mode
+- Pre-commit shell script calls coverage_report.py --precommit
+- Single source of truth for coverage computation ([`05efffb`](https://github.com/humansoftware/synaflow/commit/05efffb00edaa6fabec04271b5137b59039ceab0))
+
+* feat: add coverage to pre-commit pytest hook ([`0bba7dc`](https://github.com/humansoftware/synaflow/commit/0bba7dcf4a3dd755535e855ccfb3e03da3d6dea6))
+
+### Unknown
+
+* Merge pull request #19 from humansoftware/feat/precommit-coverage
+
+feat: add patch coverage check (80%) to pre-commit hook ([`2f8302a`](https://github.com/humansoftware/synaflow/commit/2f8302a19e18e3f2abc1c389052e6620f286f8c3))
+
+
 ## v0.11.0 (2026-06-14)
 
 ### Chore
