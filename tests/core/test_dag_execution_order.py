@@ -197,6 +197,8 @@ def test_given_dag_when_to_dict_then_returns_correct_structure():
             deps={"count": int},
             output="Stream[int, None, None]",
             on_error=OnError.CONTINUE,
+            mode=StepMode.EACH,
+            each_mode_deps=["count"],
         ),
     }
 
@@ -206,4 +208,6 @@ def test_given_dag_when_to_dict_then_returns_correct_structure():
     assert "gen" in result["steps"]
     assert result["steps"]["gen"]["fn"] == "<lambda>"
     assert result["steps"]["gen"]["on_error"] == "continue"
+    assert result["steps"]["gen"]["mode"] == "each"
     assert result["steps"]["gen"]["deps"] == {"count": "int"}
+    assert result["steps"]["gen"]["each_mode_deps"] == ["count"]
