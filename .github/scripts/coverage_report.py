@@ -1,12 +1,17 @@
 """
-Compute total and patch test coverage from pytest-cov JSON output
-and post two GitHub Check Runs on the pull request.
+Compute total and patch test coverage from pytest-cov JSON output.
+
+CI mode (default): compares against origin/main, posts two GitHub Check Runs.
+Pre-commit mode (--precommit): compares against HEAD (staged changes),
+exits non-zero if patch coverage < 80%.
 """
 
 import json
 import os
 import subprocess
 import sys
+
+PATCH_THRESHOLD = 80
 
 
 def get_total_coverage(coverage_json_path="coverage.json"):
@@ -20,7 +25,7 @@ def get_total_coverage(coverage_json_path="coverage.json"):
     return (totals["covered_lines"] / num_statements) * 100
 
 
-def get_changed_lines():
+def get_changed_lines_pr():
     """Return dict of {filepath: set(line_numbers)} changed in this PR.
 
     Only tracks changes inside the `synaflow/` package directory.
@@ -44,8 +49,20 @@ def get_changed_lines():
         capture_output=True,
         text=True,
     )
-    diff_output = result.stdout
+    return _parse_diff(result.stdout)
 
+
+def get_changed_lines_precommit():
+    """Return dict of {filepath: set(line_numbers)} for staged changes."""
+    result = subprocess.run(
+        ["git", "diff", "--cached", "HEAD", "--unified=0", "--", "synaflow/"],
+        capture_output=True,
+        text=True,
+    )
+    return _parse_diff(result.stdout)
+
+
+def _parse_diff(diff_output):
     changed = {}
     current_file = None
 
@@ -106,7 +123,6 @@ def get_head_sha():
     sha = os.environ.get("PR_HEAD_SHA", "")
     if sha:
         return sha
-    # Fallback: GITHUB_SHA for push events or manual runs
     return os.environ.get("GITHUB_SHA", "")
 
 
@@ -141,7 +157,8 @@ def create_check_run(name, conclusion, title, summary):
     print(f"Created check run: {name} — {title}")
 
 
-def main():
+def run_ci():
+    """CI mode: report total and patch coverage as GitHub Check Runs."""
     coverage_path = "coverage.json"
     if not os.path.exists(coverage_path):
         print("Error: coverage.json not found. Tests may have failed.")
@@ -150,7 +167,7 @@ def main():
     total_pct = get_total_coverage(coverage_path)
     print(f"Total coverage: {total_pct:.1f}%")
 
-    changed_lines = get_changed_lines()
+    changed_lines = get_changed_lines_pr()
     patch_pct, trackable_count = get_patch_coverage(coverage_path, changed_lines)
     print(
         f"Patch coverage: {patch_pct:.1f}% ({trackable_count} trackable lines changed)"
@@ -163,10 +180,10 @@ def main():
         summary=f"Overall project test coverage is **{total_pct:.1f}%**.",
     )
 
-    patch_conclusion = "success" if patch_pct >= 80 else "failure"
+    patch_conclusion = "success" if patch_pct >= PATCH_THRESHOLD else "failure"
     patch_summary = (
         f"Coverage of new/modified lines: **{patch_pct:.1f}%** "
-        f"(threshold: 80%, {trackable_count} trackable lines changed)."
+        f"(threshold: {PATCH_THRESHOLD}%, {trackable_count} trackable lines changed)."
     )
     create_check_run(
         name="Patch Coverage",
@@ -174,6 +191,40 @@ def main():
         title=f"Patch Coverage: {patch_pct:.1f}%",
         summary=patch_summary,
     )
+
+
+def run_precommit():
+    """Pre-commit mode: check patch coverage of staged changes, exit non-zero if < threshold."""
+    coverage_path = "coverage.json"
+    if not os.path.exists(coverage_path):
+        print("Error: coverage.json not found. Tests may have failed.")
+        sys.exit(1)
+
+    changed_lines = get_changed_lines_precommit()
+    if not changed_lines:
+        print("No changes in synaflow/ package, skipping patch coverage check.")
+        sys.exit(0)
+
+    pct, trackable = get_patch_coverage(coverage_path, changed_lines)
+    if trackable == 0:
+        print("Patch coverage: N/A (no trackable lines changed)")
+        sys.exit(0)
+
+    print(f"Patch coverage: {pct:.1f}% ({trackable} trackable lines)")
+
+    if pct < PATCH_THRESHOLD:
+        print(f"FAIL: patch coverage {pct:.1f}% is below {PATCH_THRESHOLD}% threshold")
+        sys.exit(1)
+
+    print(f"PASS: patch coverage {pct:.1f}% meets {PATCH_THRESHOLD}% threshold")
+    sys.exit(0)
+
+
+def main():
+    if "--precommit" in sys.argv:
+        run_precommit()
+    else:
+        run_ci()
 
 
 if __name__ == "__main__":
