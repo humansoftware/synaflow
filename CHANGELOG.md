@@ -2,6 +2,34 @@
 
 
 
+## v0.13.0 (2026-06-14)
+
+### Feature
+
+* feat: implement Smart Binding &amp; Semantic Step Naming
+
+- Add inflect&gt;=7.0 dependency for plural/singular resolution
+- New module synaflow/core/naming.py with get_base_dataset_name()
+- Smart binding at build time: deps keys are base names (producer names),
+  DagNode.dataset_param_names maps base name → original param name
+- Executors use dataset_param_names for function calling; no runtime resolution
+- Build-time validations:
+  - Duplicate Base Datasets (e.g., &#39;user&#39; and &#39;users&#39; steps)
+  - Duplicate Parameters within a single function
+- dag.py: consumers_of and get_execution_levels simplified (deps are base names)
+- materialized_deps use dep keys directly (already base names)
+- Corpus pipelines updated (producer &#39;numbers&#39;, transformer param &#39;number&#39;)
+- 16 naming tests + 3 validation tests
+- Delete docs/specs/step_naming_rules.md (spec implemented)
+- Update docs/ROADMAP.md and docs/DESIGN_PHILOSOPHY.md ([`c5c4ba5`](https://github.com/humansoftware/synaflow/commit/c5c4ba555b9b8b0bdf9cab91085318b9a61df848))
+
+### Unknown
+
+* Merge pull request #20 from humansoftware/feat/semantic-naming
+
+feat: Smart Binding &amp; Semantic Step Naming ([`ff2d1b3`](https://github.com/humansoftware/synaflow/commit/ff2d1b3995dee13df8924da799f5bf006c5e436a))
+
+
 ## v0.12.0 (2026-06-14)
 
 ### Feature
