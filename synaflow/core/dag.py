@@ -52,8 +52,10 @@ class DagNode:
             "output": get_type_name(self.output),
             "fn": self.fn.__name__ if self.fn else None,
             "on_error": self.on_error.value if self.on_error else None,
+            "mode": self.mode.value,
             "materializer": mat.__name__ if callable(mat) else None,
             "materialized_deps": self.materialized_deps,
+            "each_mode_deps": self.each_mode_deps,
             "pipeline": self.pipeline,
             "parent_pipeline": self.parent_pipeline,
         }
