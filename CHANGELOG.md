@@ -2,6 +2,117 @@
 
 
 
+## v0.10.0 (2026-06-14)
+
+### Chore
+
+* chore: update uv.lock with ruff dependency ([`088fd05`](https://github.com/humansoftware/synaflow/commit/088fd05f7cfabea7e263660f3c9b4feebf2a8500))
+
+### Documentation
+
+* docs: clarify observer scope model; restore pipeline_observers to DAG JSON
+
+Documentation:
+- Step-level observers never receive PipelineEvent.*
+- Pipeline-level observers receive PipelineEvent.* + inherited by all steps
+- DAG JSON: pipeline_observers at root, observers per step
+
+DAG JSON now includes compiled pipeline observer metadata alongside
+per-step effective observer lists. Both carry handler_name + source. ([`20eb757`](https://github.com/humansoftware/synaflow/commit/20eb757962eb13c28e2a24f38bce57de4d36198c))
+
+### Feature
+
+* feat: unified lifecycle observer system
+
+Introduces a generic observer infrastructure for pipeline, step, and
+materialization lifecycle events with sync/async parity.
+
+- Public API: Observer, PipelineEvent, StepEvent, MaterializationEvent
+- Step-level observers compile into the same model as pipeline-level
+- Effective observers resolved at build time, stored in DagNode
+- DAG JSON includes observer metadata (event + source), never callables
+- Fire-and-forget dispatch: observer failures are logged and swallowed
+- Async handler detection via awaitable protocol (not iscoroutinefunction)
+- 54 new tests: 15 build-time, 18 sync runtime, 21 async runtime
+- Corpus pack updated for integration coverage
+- Docs updated: DESIGN_PHILOSOPHY (3.15) and ROADMAP ([`385fedc`](https://github.com/humansoftware/synaflow/commit/385fedc2015e15b78a60c78e6bcb4aa6831accc2))
+
+### Fix
+
+* fix: propagate observers through include() / sub-pipeline expansion ([`35d2505`](https://github.com/humansoftware/synaflow/commit/35d250595db21b397e3605761f185cfe3f68eb41))
+
+* fix: three remaining codex issues
+
+1. Async _run_step isinstance check covers AsyncIterator/AsyncGenerator/Generator
+2. ResolvedObserver internal type replaces _source mutation
+3. dispatch_observers_async uses inspect.isawaitable
+
+Both sync and async repros now emit single terminal FAILED with real exception. ([`3e493c1`](https://github.com/humansoftware/synaflow/commit/3e493c1c6ae44ebe302a429d8c1aecef6a512d95))
+
+* fix: thread real exception through StepFailedContext; remove pipeline_observers from DAG JSON
+
+1. _collect_iterator returns (items, had_error, exception)
+   _apply_materializer and _materialize_with_events propagate it
+   _emit_step_result passes it to StepFailedContext.exception
+   Applied to both sync and async executors.
+
+2. DAG JSON: removed redundant top-level pipeline_observers field.
+   Effective per-step observer lists already preserve source metadata.
+   Pipeline observers are inherited into each step node with source=&#34;pipeline&#34;.
+
+Verified codex repro now emits:
+(&#39;gen&#39;, &#39;step_failed&#39;, 1, 1, False, &#39;ValueError&#39;) ([`bc575a9`](https://github.com/humansoftware/synaflow/commit/bc575a9b77defd985405adca5fc1397541f63b02))
+
+* fix: defer ALL-mode Iterator step COMPLETED until consumption
+
+For ALL-mode steps that return an Iterator, COMPLETED was emitted
+prematurely in _run_step before the iterator was consumed. If the
+iterator later failed during downstream materialization, the step
+remained marked as COMPLETED instead of FAILED.
+
+Now: ALL-mode Iterator steps have their COMPLETED deferred to
+_publish_output, same as EACH-mode steps. The _emit_step_result
+helper checks had_error and emits StepFailedContext when the
+iterator fails during consumption.
+
+Confirmed with codex repro: gen yields 1 item then raises; downstream
+list consumer triggers materialization. Now correctly emits:
+(&#39;gen&#39;, &#39;step_failed&#39;, 1, 1, False, None) ([`be65d6a`](https://github.com/humansoftware/synaflow/commit/be65d6a9b9654570026d06ae3ad38a0c2118fcab))
+
+* fix: DAG JSON source preservation and lazy iterator step lifecycle
+
+1. DAG JSON: pipeline observers inherited into steps now preserve
+   source=&#34;pipeline&#34; on the step node instead of source=&#34;step&#34;.
+   Uses _source attribute tagged during build_dag normalization.
+
+2. Lazy iterator step lifecycle: when an EACH-mode step&#34;s iterator
+   fails during consumption (OnError.CONTINUE), StepFailedContext is
+   now emitted instead of StepCompletedContext.
+   _collect_iterator and _apply_materializer return (result, had_error).
+   _emit_each_step_result dispatches COMPLETED or FAILED accordingly.
+   Applied to both sync and async executors.
+
+3. Added tests for source preservation on step-level and mixed observers. ([`000e00a`](https://github.com/humansoftware/synaflow/commit/000e00a356b4942b87b3b5ef159d926a6f970455))
+
+### Refactor
+
+* refactor: align Observer API with updated spec
+
+- Observer now carries only handler (no event field)
+- dispatch_observers(registrations, context) — no event param, calls all handlers
+- Event filtering done via wrapper helpers inspecting ctx.event
+- Pipeline observers inherited by all steps (receive pipeline + step + mat events)
+- DAG JSON metadata uses handler_name instead of event
+- Tests updated: on_event() wrapper pattern matching spec recommendations
+- 340 tests passing ([`2bf6ee6`](https://github.com/humansoftware/synaflow/commit/2bf6ee6f39289003ce6039434958aba4dc9d0f59))
+
+### Unknown
+
+* Merge pull request #15 from humansoftware/feature/observer-system
+
+feat: unified lifecycle observer system ([`5fdeeb1`](https://github.com/humansoftware/synaflow/commit/5fdeeb140accc888d709e264f7b60eaf6160a2a4))
+
+
 ## v0.9.1 (2026-06-14)
 
 ### Documentation
