@@ -1,25 +1,29 @@
-# Spec: Test Coverage CI Threshold
+# Spec: Dual Test Coverage Checks (Total and Patch)
 
 > **NOTE:** Once this specification is fully implemented and the official documentation is updated, this file MUST be deleted.
 
 ## Objective
-Enforce a minimum test coverage threshold of 80% using `pytest-cov`, fail the build if the threshold is not met, and automatically post a coverage report comment on GitHub Pull Requests.
+Enforce test coverage visibility on Pull Requests, specifically differentiating between **Total Project Coverage** and **Patch Coverage** (coverage of new or modified lines). The primary goal is to ensure AI agents and developers are prompted to write tests for any new code they introduce, while keeping the rule "skippable" (non-blocking) so it doesn't prevent emergency merges.
 
-## Configuration & Architecture
-1. **Tooling:** We will use `pytest-cov` to calculate coverage.
-2. **Threshold:** The 80% fail-under threshold MUST be configured directly inside `pyproject.toml` (under `[tool.pytest.ini_options]` or `[tool.coverage.report]`). This ensures that running `pytest` locally also validates the coverage, keeping developers aware before they even push to CI.
-3. **Exclusions:** The coverage report should strictly exclude:
-   * The `tests/` directory.
-   * The `scripts/` directory.
-   * (Other files like pure type-definition files or setup configurations might be added to this list if discovered during implementation).
-4. **CI GitHub Action:** The GitHub Actions workflow must be updated to not only run the tests and fail if below 80%, but also to use an Action (e.g., `pytest-coverage-comment` or a similar bot) to post a table of the coverage on the PR.
+## Architecture & Rules
+1. **Dual Metrics:** The CI must calculate and report two separate metrics:
+   - **Total Coverage:** The overall coverage of the entire repository.
+   - **Patch Coverage:** The coverage of lines added or modified in the Pull Request.
+2. **Thresholds:** The Patch Coverage threshold must be set to **80%**.
+3. **Non-Blocking (Soft Fail / Warning):**
+   - The coverage checks should act as warnings. They must NOT hard-block the user from merging the PR.
+   - Even if Patch Coverage is 0%, the status should indicate the failure (e.g., a red X or a yellow warning), but the GitHub repository rules should permit the user to merge anyway.
+4. **Two GitHub Statuses:** The CI must create **two distinct Status Checks** (Check Runs) on the GitHub PR UI:
+   - One specifically for **Total Coverage** (showing the percentage).
+   - One specifically for **New Code / Patch Coverage** (showing the percentage and indicating failure if below 80%).
 
 ## Implementation Plan
-1. Update `pyproject.toml` to include:
-   * `pytest-cov` as a dependency (if not already present).
-   * Configuration blocks to `omit = ["tests/*", "scripts/*"]`.
-   * Configuration block `fail_under = 80`.
-2. Update the `.github/workflows/` YAML file for tests:
-   * Ensure it runs `pytest --cov=synaflow`.
-   * Add a step to post the coverage comment to the Pull Request. (Note: Ensure the action has `pull-requests: write` permissions).
-3. Test the setup by deliberately lowering a file's coverage and ensuring the PR action reports it and fails.
+1. **Tooling & Action Selection:**
+   - Use a GitHub Action capable of separating total vs patch coverage and generating custom PR check runs.
+   - *Developer Note:* While `Codecov` natively does this (posting `codecov/project` and `codecov/patch` statuses without blocking merges unless configured), if avoiding external services, use an action like `pytest-coverage-comment` or a custom script that reads `coverage json` and uses the GitHub REST API (`gh api`) to create two Check Runs.
+2. **Workflow Configuration:**
+   - Run `pytest --cov=synaflow` without a hard `--cov-fail-under` that returns an exit code 1 (which would abruptly fail the whole GitHub Actions job).
+   - Pass the coverage artifact to the reporting action.
+   - Configure the reporting action to require 80% on the patch.
+3. **Testing the CI:**
+   - Create a dummy PR that adds untested code to verify that the two statuses appear, the Patch status shows failure, but the Merge button remains green/clickable.
