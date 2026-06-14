@@ -36,6 +36,9 @@ Repository = "https://github.com/humansoftware/synaflow.git"
 
 
 
+[tool.coverage.run]
+omit = ["tests/*", "scripts/*"]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 asyncio_mode = "auto"
