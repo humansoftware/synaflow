@@ -75,6 +75,9 @@ class PipelineDef:
         self.requires_sync_runner = self.dag.requires_sync_runner
         self.requires_async_runner = self.dag.requires_async_runner
 
+        if self.requires_sync_runner or not self.requires_async_runner:
+            _validate_no_async_observers(self)
+
     def to_dict(self) -> dict:
         """Exports the compiled DAG structure to a JSON-serializable dictionary."""
         return self.dag.to_dict()
@@ -91,3 +94,42 @@ class PipelineDef:
 pipeline = PipelineDef
 step = Step
 include = IncludeStep
+
+
+def _validate_no_async_observers(pipeline_def: PipelineDef) -> None:
+    import inspect
+    import functools
+
+    def _is_async_callable(func: Any) -> bool:
+        if func is None:
+            return False
+        if inspect.iscoroutinefunction(func):
+            return True
+        if isinstance(func, functools.partial):
+            return _is_async_callable(func.func)
+        if hasattr(func, "__call__"):
+            if inspect.iscoroutinefunction(func.__call__):
+                return True
+        return False
+
+    all_observers = list(pipeline_def.dag.observers)
+    for node in pipeline_def.dag.steps.values():
+        all_observers.extend(node.observers)
+
+    for obs in all_observers:
+        handler = obs.handler
+        if _is_async_callable(handler):
+            handler_name = getattr(handler, "__name__", None)
+            if handler_name is None:
+                func = getattr(handler, "func", None)
+                if func is not None:
+                    handler_name = (
+                        f"partial of '{getattr(func, '__name__', str(func))}'"
+                    )
+                else:
+                    handler_name = str(handler)
+            raise ValueError(
+                f"Pipeline '{pipeline_def.name}': observer handler "
+                f"'{handler_name}' is async but the pipeline runs "
+                f"synchronously. Use sync handlers or switch to async_run()."
+            )

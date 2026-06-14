@@ -133,3 +133,42 @@ def test_given_invalid_observer_when_compiled_then_raises_validation_error():
             observers=[lambda x: x],
             steps=[step("s1", fn=dummy_step)],
         )
+
+
+def test_given_async_handler_in_sync_pipeline_when_build_then_validation_error():
+    async def async_h(ctx):
+        pass
+
+    with pytest.raises(ValueError, match="async"):
+        pipeline(
+            name="p",
+            params=SimpleParams,
+            steps=[step("s1", fn=dummy_step)],
+            observers=[Observer(async_h)],
+        )
+
+
+def test_given_async_partial_handler_in_sync_pipeline_when_build_then_validation_error():
+    import functools
+
+    async def async_h(ctx):
+        pass
+
+    partial_h = functools.partial(async_h)
+    with pytest.raises(ValueError, match="async"):
+        pipeline(
+            name="p",
+            params=SimpleParams,
+            steps=[step("s1", fn=dummy_step)],
+            observers=[Observer(partial_h)],
+        )
+
+
+def test_given_sync_handler_in_sync_pipeline_when_build_then_ok():
+    p = pipeline(
+        name="p",
+        params=SimpleParams,
+        steps=[step("s1", fn=dummy_step)],
+        observers=[Observer(dummy_handler)],
+    )
+    assert p.dag is not None

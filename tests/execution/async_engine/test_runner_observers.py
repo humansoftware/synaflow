@@ -20,6 +20,22 @@ class ObserversParams(NamedTuple):
     count: int = 3
 
 
+async def async_dummy_step(count: int) -> int:
+    return count * 2
+
+
+async def async_dummy_step_add(count: int) -> int:
+    return count + 10
+
+
+async def async_dummy_step_mul(count: int) -> int:
+    return count * 3
+
+
+async def async_dummy_step_list(count: int) -> list[int]:
+    return list(range(count))
+
+
 def test_given_pipeline_when_runs_then_emits_pipeline_started_completed():
     events = []
 
@@ -33,7 +49,7 @@ def test_given_pipeline_when_runs_then_emits_pipeline_started_completed():
         name="p1",
         params=ObserversParams,
         observers=[Observer(on_event)],
-        steps=[step("s1", fn=lambda count: count * 2)],
+        steps=[step("s1", fn=async_dummy_step)],
     )
 
     async def main():
@@ -106,7 +122,7 @@ def test_given_all_mode_step_when_runs_then_emits_step_started_completed():
         name="p_step",
         params=ObserversParams,
         observers=[Observer(on_event)],
-        steps=[step("s1", fn=lambda count: count + 10)],
+        steps=[step("s1", fn=async_dummy_step_add)],
     )
 
     async def main():
@@ -227,7 +243,7 @@ def test_given_materializer_when_runs_then_emits_materialization_events():
         steps=[
             step(
                 "s1",
-                fn=lambda count: list(range(count)),
+                fn=async_dummy_step_list,
                 force_materialize=True,
             )
         ],
@@ -255,7 +271,7 @@ def test_given_failing_observer_when_runs_then_swallows_exception_and_logs(
         name="p_bad_obs",
         params=ObserversParams,
         observers=[Observer(bad_handler)],
-        steps=[step("s1", fn=lambda count: count * 3)],
+        steps=[step("s1", fn=async_dummy_step_mul)],
     )
 
     async def main():
@@ -281,7 +297,7 @@ def test_given_async_observer_handler_when_runs_then_awaited():
         name="async_p1",
         params=ObserversParams,
         observers=[Observer(async_on_event)],
-        steps=[step("s1", fn=lambda count: count * 2)],
+        steps=[step("s1", fn=async_dummy_step)],
     )
 
     async def main():
