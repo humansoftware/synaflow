@@ -1,5 +1,7 @@
 # SynaFlow 🌊🧠
 
+> 📖 **Full documentation:** [humansoftware.github.io/synaflow](https://humansoftware.github.io/synaflow/)
+
 **SynaFlow** is a lightweight, pure-Python pipeline engine that uses **Type Hints** to magically wire and execute Directed Acyclic Graphs (DAGs).
 
 **Why the name?** It's a combination of **Synapse** + **Flow**. Just like synapses automatically wire neurons together to form a neural network, SynaFlow automatically wires your functions together based on their types. And "Flow" represents the lazy, streaming nature of how data moves through those connections.
