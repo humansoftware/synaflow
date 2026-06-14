@@ -16,7 +16,7 @@ repos:
     hooks:
     -   id: pytest
         name: pytest
-        entry: uv run pytest --cov=synaflow tests/
+        entry: .github/scripts/precommit_coverage.sh
         language: system
         pass_filenames: false
         always_run: true
