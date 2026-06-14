@@ -105,6 +105,8 @@ Tests are separated by concern:
 - **Design-time (build)**: test DAG compilation, validation, type compatibility. Lives under `tests/core/`.
 - **Run-time**: test pipeline execution, materialization, error handling. Lives under `tests/execution/`.
 
+Whenever a semantic decision is compiled into the DAG (`mode`, `each_mode_deps`, `materialized_deps`, serialized JSON shape), prefer asserting the compiled DAG directly in core tests instead of letting execution tests rediscover the same rule indirectly.
+
 ### 2.5. Shared Corpus (Specification Compliance Tests)
 
 Pipelines with identical topology but different execution modes (sync vs async) share a corpus pattern. Each engine directory has its own corpus files, but the topology and expected DAG structure are identical. Tests iterate over these corpus packs to validate both engines.
@@ -130,6 +132,8 @@ Tests consume these packs at different levels, each verifying a different part o
 - `test_corpus_execution_levels` — every pack's DAG structure matches `json_dag` and produces the correct execution levels (spec: DAG shape is deterministic)
 - `test_step_results` — every pack's pipeline executes and produces the expected step outputs (spec: runtime produces correct results)
 
+The serialized DAG spec is expected to include resolved execution decisions, not just topology. If the framework resolves `mode`, `each_mode_deps`, or similar semantics at build time, corpus JSON should freeze them as part of the public contract.
+
 When a module changes, its unit tests verify the module in isolation. These tests verify that the change didn't violate the spec — that the contract between the framework and its users is still intact.
 
 ### 2.6. Future Features (xfail)
@@ -140,3 +144,11 @@ Features not yet implemented are documented as `@pytest.mark.xfail` tests in `te
 - **Stubs**: provide canned answers to calls made during the test.
 - **Fakes**: lightweight implementations that work but are unsuitable for production (e.g., in-memory repository).
 - Prefer fakes over mocks when the interface is stable and the fake is simple to write.
+
+### 2.8. Observer Contract Tests
+`step_output_observers` are not incidental debug hooks. They are part of the runtime contract and should be tested explicitly when behavior depends on:
+- stream laziness vs materialization
+- mixed fan-out
+- partial stream failure under `OnError.CONTINUE`
+
+If a regression would change what an observer sees, add or update a dedicated runtime test instead of relying only on step-result assertions.

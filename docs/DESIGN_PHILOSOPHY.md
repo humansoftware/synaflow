@@ -27,6 +27,8 @@ The framework assumes *Stream* processing (Lazy Evaluation) as the default. This
 ### 1.5. Orchestrator Agnostic (The DAG JSON)
 By compiling the pipeline into a serializable JSON DAG (via `pipeline.to_dict()`), the framework intentionally decouples the pipeline definition from its execution engine (the Runner). This makes it possible for anyone to create a custom runner, or to convert a Synaflow DAG into native pipelines for enterprise orchestrators like **Airflow**, **Dagster**, or **Prefect**.
 
+The serialized DAG is not a lossy debug artifact. It is the externalized execution contract. Decisions resolved at build time — such as step mode and which dependencies run in each-mode — belong in the DAG JSON so alternative runners do not need to re-infer semantics.
+
 ### 1.6. Type Safety at Build Time
 The DAG builder validates all type compatibility at compile time. Silent type coercion (e.g., wrapping a `str` into a `list[str]`) is forbidden — the user must explicitly declare correct types. If a consumer expects `Iterator[str]` but the producer outputs `str`, a validation error is raised.
 
@@ -77,7 +79,7 @@ The materializer can persist the shuffle phase to disk when datasets are too lar
 **Reason:** Reduces "boilerplate" when passing parameters through the flow. The executor merges the `NamedTuple` keys with upstream node outputs, allowing intermediate steps to directly request these parameters in their signature.
 
 ### 3.2. The `OnError.STOP` Rule and Forced Materialization
-**Decision:** When a node is configured with `OnError.STOP`, all downstream consumers have their `needs_materialize` forced to `True`. The producer's output is fully materialized before any consumer begins execution.
+**Decision:** When a node is configured with `OnError.STOP`, all downstream consumers have their `materialized_deps` updated so the producer's output is fully materialized before any consumer begins execution.
 **Reason:** Pipeline transactional integrity. If processing stops midway due to an error and propagation is lazy, the downstream node would receive garbage or a fraction of the collection. Additionally, if the materializer persists to disk/database, the processed data must be saved before the error halts the pipeline so it can be inspected.
 
 ### 3.3. Protocol Separation: Materializers vs. Materializer Factories
@@ -92,7 +94,11 @@ The materializer can persist the shuffle phase to disk when datasets are too lar
 
 ### 3.5. `materialized_deps` Belongs to the Consumer
 **Decision:** `materialized_deps` is a property of the **consumer**, listing which of its inputs must be fully materialized before the node can execute. The DAG builder computes this from consumer type annotations (`list`, `set`, `tuple`, `dict`), `on_error=STOP` propagation, and an explicit `force_materialize` flag on the step.
-**Reason:** The consumer knows what it needs. The producer doesn't know (or care) who will consume its output. The legacy `needs_materialize` flag on the producer is a cached convenience for runtime and is not part of the JSON serialization.
+**Reason:** The consumer knows what it needs. The producer doesn't know (or care) who will consume its output. The runtime may still ask `dag.needs_materialize(step_name)`, but that answer is derived from the DAG graph plus node-local flags; it is not stored as independent node state and is not serialized.
+
+### 3.5.1. Step Mode Is a DAG Decision
+**Decision:** A step's execution mode is resolved at build time and stored in the DAG as `mode` plus `each_mode_deps`. The user-facing API exposes `StepMode.AUTO`, `StepMode.EACH`, and `StepMode.ALL`.
+**Reason:** "Is this step each-mode or all-mode?" is a semantic decision, not a runtime heuristic. The builder validates explicit mode requests and records the resolved answer once. Sync and async executors must then consult the DAG rather than re-infer from annotations or runtime values.
 
 ### 3.6. Type Protocols (Not Concrete Types)
 **Decision:** Consumer type annotations describe **protocols** (interfaces), not concrete classes. `list[T]` means "I need random access, indexing, and iteration" — not necessarily a Python `list` instance. The materializer factory returns an object satisfying the protocol. The framework detects protocols via `collections.abc`: `Sequence`/`MutableSequence` for list-like, `MutableSet` for set-like, `MutableMapping` for dict-like.
@@ -112,6 +118,12 @@ The materializer can persist the shuffle phase to disk when datasets are too lar
 | **Dependencies/Type Resolution** | `validate_and_resolve_dependencies()` | inlined in executor |
 | **Topology/Stream Routing** | `check_circular_dependencies()` | inlined in executor |
 | **Node Execution** | `validate_and_compile_step()` | inlined in executor |
+
+The practical consequence is strict DAG primacy at runtime:
+- the builder resolves `mode` and `each_mode_deps`
+- the executors consult the DAG and do not re-infer step mode
+- materialization context is carried all the way to the branch consumer that demanded it
+- sync and async error handling must preserve the same user-visible contract
 
 ### 3.9. Materializer Compatibility Table (Default Factory)
 
@@ -137,6 +149,8 @@ The default materializer factory maps producer-consumer type pairs to appropriat
 
 **Invocation rules:** The materializer is invoked when (a) the consumer demands a materialized protocol (`list`/`set`/`tuple`/`dict`), OR (b) the producer has `on_error=STOP`, OR (c) the step has `force_materialize=True`. For fan-out scenarios, `tee` splits the stream before materialization, so lazy consumers receive the original stream while materialized consumers receive the materialized copy.
 
+For uneven multi-stream each-mode, exhaustion is modeled with `None` padding rather than silent truncation. This is part of the execution contract and must behave identically in sync and async runners.
+
 ### 3.10. `force_materialize` Flag
 **Decision:** Steps can explicitly declare `force_materialize=True` to trigger materialization of their output regardless of consumer types or error handling configuration.
 **Reason:** Some use cases require materialization as a side effect (e.g., persisting intermediate results for debugging, caching expensive computations, or ensuring data is written to an audit log at a specific pipeline stage). This is orthogonal to `on_error=STOP`.
@@ -152,6 +166,11 @@ The default materializer factory maps producer-consumer type pairs to appropriat
 ### 3.13. Observable Execution (`step_output_observers`)
 **Decision:** The executor accepts an optional list of observer callbacks via `step_output_observers`. Each observer is called with `(step_name, output)` every time a step produces an output. For stream outputs, the sync executor tees the stream so the observer receives an independent copy; the async executor creates a dedicated pump task.
 **Reason:** Enables test infrastructure (capturing step outputs for spec compliance tests) without modifying production logic. Follows the Observer pattern — the executor doesn't know what observers do, only that they exist.
+
+**Observer contract:** observers see the producer's output exactly once in producer semantics:
+- in mixed lazy/eager fan-out, observing the producer must not force all consumers eager
+- when a stream fails under `OnError.CONTINUE`, observers see the valid prefix that was already produced
+- observer behavior is a public contract and is covered by corpus/spec tests, not only unit tests
 
 ### 3.14. PipelineStopException with Context
 **Decision:** `PipelineStopException` carries `step_name` and `cause` (the original exception). It uses `raise ... from` to preserve the full stack trace.
