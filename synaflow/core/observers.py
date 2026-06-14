@@ -55,11 +55,15 @@ class MaterializationEvent(Enum):
 class Observer:
     """Minimal public registration shape.
 
+    Carries only the final handler callable.  Event filtering, step
+    scoping, and other selection rules belong in wrapper helpers above
+    the core framework — the handler inspects ``ctx.event`` to decide
+    whether to act.
+
     ``step_name`` does not belong here — scope is defined by where the
     observer is registered (pipeline vs step).
     """
 
-    event: Enum
     handler: Callable
 
 
@@ -150,26 +154,23 @@ class MaterializationFailedContext(BaseObserverContext):
 
 def dispatch_observers(
     registrations: list[Observer],
-    event: Enum,
     context: BaseObserverContext,
 ) -> None:
     """Fire-and-forget synchronous dispatch.
 
-    Calls every matching handler.  Observer failures are logged and
-    swallowed — they never affect step or pipeline execution.
+    Calls every registered handler unconditionally.  Handlers inspect
+    ``ctx.event`` to decide whether to act.  Observer failures are
+    logged and swallowed — they never affect step or pipeline execution.
     """
     for reg in registrations:
-        if reg.event is not event:
-            continue
         try:
             reg.handler(context)
         except Exception:
-            _log.exception("Observer handler for event %r failed", event.value)
+            _log.exception("Observer handler failed for event %r", context.event.value)
 
 
 async def dispatch_observers_async(
     registrations: list[Observer],
-    event: Enum,
     context: BaseObserverContext,
 ) -> None:
     """Fire-and-forget asynchronous dispatch.
@@ -179,11 +180,9 @@ async def dispatch_observers_async(
     and callable objects with ``async __call__``).
     """
     for reg in registrations:
-        if reg.event is not event:
-            continue
         try:
             result = reg.handler(context)
             if hasattr(result, "__await__"):
                 await result
         except Exception:
-            _log.exception("Observer handler for event %r failed", event.value)
+            _log.exception("Observer handler failed for event %r", context.event.value)

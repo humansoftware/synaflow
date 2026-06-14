@@ -32,10 +32,7 @@ from synaflow.core.dag_steps import (
 )
 from synaflow.core.dag_topology import check_circular_dependencies
 from synaflow.core.observers import (
-    MaterializationEvent,
     Observer,
-    PipelineEvent,
-    StepEvent,
 )
 from synaflow.core.type_compatibility import (
     get_inner_type,
@@ -243,14 +240,7 @@ def build_dag(
 
     expanded_steps = expand_macros(steps, current_pipeline_name=pipeline_name)
 
-    pipeline_step_observers: list[Observer] = []
-    pipeline_pipeline_observers: list[Observer] = []
-    if pipeline_observers:
-        for obs in pipeline_observers:
-            if isinstance(obs.event, PipelineEvent):
-                pipeline_pipeline_observers.append(obs)
-            elif isinstance(obs.event, (StepEvent, MaterializationEvent)):
-                pipeline_step_observers.append(obs)
+    pipeline_obs = list(pipeline_observers) if pipeline_observers else []
 
     produced = initialize_parameters(params)
 
@@ -258,7 +248,7 @@ def build_dag(
         validate_step_is_callable(step, pipeline_name)
         validate_unique_step_name(step.name, dag, pipeline_name, is_expanded=True)
 
-        effective = list(pipeline_step_observers)
+        effective = list(pipeline_obs)
         step_own = getattr(step, "observers", None)
         if step_own:
             effective.extend(step_own)
@@ -277,7 +267,7 @@ def build_dag(
     }
     dag_obj.steps = dag
     dag_obj.error_materializer_factory = error_materializer_factory
-    dag_obj.pipeline_observers = pipeline_pipeline_observers
+    dag_obj.pipeline_observers = list(pipeline_obs)
 
     check_circular_dependencies(dag_obj, pipeline_name)
 

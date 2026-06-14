@@ -27,16 +27,32 @@ class Params(NamedTuple):
 
 
 # ---------------------------------------------------------------------------
-# Helper: observer that records all events
+# Wrapper-level event filter (per spec: filtering lives above the core)
+# ---------------------------------------------------------------------------
+
+
+def on_event(event_type, handler):
+    def wrapper(ctx):
+        if ctx.event is event_type:
+            return handler(ctx)
+
+    wrapper.__name__ = getattr(handler, "__name__", "on_event")
+    return wrapper
+
+
+# ---------------------------------------------------------------------------
+# Helper: observer that records all events for a specific event type
 # ---------------------------------------------------------------------------
 
 
 class EventRecorder:
-    def __init__(self):
+    def __init__(self, event_type=None):
         self.events: list[tuple] = []
+        self.event_type = event_type
 
     def record(self, ctx):
-        self.events.append((type(ctx).__name__, ctx))
+        if self.event_type is None or ctx.event is self.event_type:
+            self.events.append((type(ctx).__name__, ctx))
 
 
 # ---------------------------------------------------------------------------
@@ -60,10 +76,7 @@ def test_given_pipeline_observer_when_run_completes_then_started_and_completed_e
             step("gen", fn=gen),
             step("consumer", fn=consumer),
         ],
-        observers=[
-            Observer(PipelineEvent.STARTED, rec.record),
-            Observer(PipelineEvent.COMPLETED, rec.record),
-        ],
+        observers=[Observer(rec.record)],
     )
     run(p, Params(values=[1, 2]))
 
@@ -77,7 +90,7 @@ def test_given_pipeline_observer_when_run_completes_then_started_and_completed_e
 
 
 def test_given_pipeline_observer_when_step_fails_stop_then_failed_emitted():
-    rec = EventRecorder()
+    rec = EventRecorder(PipelineEvent.FAILED)
 
     def failing(values: list[int]) -> int:
         raise ValueError("boom")
@@ -86,7 +99,7 @@ def test_given_pipeline_observer_when_step_fails_stop_then_failed_emitted():
         name="p",
         params=Params,
         steps=[step("failing", fn=failing, on_error=OnError.STOP)],
-        observers=[Observer(PipelineEvent.FAILED, rec.record)],
+        observers=[Observer(on_event(PipelineEvent.FAILED, rec.record))],
     )
     with pytest.raises(Exception):
         run(p, Params(values=[1]))
@@ -100,7 +113,7 @@ def test_given_pipeline_observer_when_step_fails_stop_then_failed_emitted():
 
 
 def test_given_pipeline_failed_context_then_has_fields():
-    rec = EventRecorder()
+    rec = EventRecorder(PipelineEvent.FAILED)
 
     def failing(values: list[int]) -> int:
         raise ValueError("boom")
@@ -109,7 +122,7 @@ def test_given_pipeline_failed_context_then_has_fields():
         name="my_pipe",
         params=Params,
         steps=[step("s", fn=failing, on_error=OnError.STOP)],
-        observers=[Observer(PipelineEvent.FAILED, rec.record)],
+        observers=[Observer(on_event(PipelineEvent.FAILED, rec.record))],
     )
     with pytest.raises(Exception):
         run(p, Params(values=[1]))
@@ -133,16 +146,7 @@ def test_given_all_mode_step_when_succeeds_then_started_and_completed_emitted():
     p = pipeline(
         name="p",
         params=Params,
-        steps=[
-            step(
-                "s",
-                fn=identity,
-                observers=[
-                    Observer(StepEvent.STARTED, rec.record),
-                    Observer(StepEvent.COMPLETED, rec.record),
-                ],
-            )
-        ],
+        steps=[step("s", fn=identity, observers=[Observer(rec.record)])],
     )
     run(p, Params(values=[42]))
 
@@ -153,7 +157,7 @@ def test_given_all_mode_step_when_succeeds_then_started_and_completed_emitted():
 
 
 def test_given_all_mode_step_completed_then_counts_correct():
-    rec = EventRecorder()
+    rec = EventRecorder(StepEvent.COMPLETED)
 
     def identity(values: list[int]) -> int:
         return values[0]
@@ -163,7 +167,9 @@ def test_given_all_mode_step_completed_then_counts_correct():
         params=Params,
         steps=[
             step(
-                "s", fn=identity, observers=[Observer(StepEvent.COMPLETED, rec.record)]
+                "s",
+                fn=identity,
+                observers=[Observer(on_event(StepEvent.COMPLETED, rec.record))],
             )
         ],
     )
@@ -177,7 +183,7 @@ def test_given_all_mode_step_completed_then_counts_correct():
 
 
 def test_given_all_mode_step_when_fails_stop_then_failed_emitted():
-    rec = EventRecorder()
+    rec = EventRecorder(StepEvent.FAILED)
 
     def failing(values: list[int]) -> int:
         raise ValueError("boom")
@@ -190,7 +196,7 @@ def test_given_all_mode_step_when_fails_stop_then_failed_emitted():
                 "s",
                 fn=failing,
                 on_error=OnError.STOP,
-                observers=[Observer(StepEvent.FAILED, rec.record)],
+                observers=[Observer(on_event(StepEvent.FAILED, rec.record))],
             )
         ],
     )
@@ -209,7 +215,7 @@ def test_given_all_mode_step_when_fails_stop_then_failed_emitted():
 
 
 def test_given_each_mode_step_when_all_items_succeed_then_completed_with_counts():
-    rec = EventRecorder()
+    rec = EventRecorder(StepEvent.COMPLETED)
 
     def gen(values: list[int]) -> Iterator[int]:
         yield from values
@@ -228,7 +234,7 @@ def test_given_each_mode_step_when_all_items_succeed_then_completed_with_counts(
             step(
                 "double",
                 fn=double,
-                observers=[Observer(StepEvent.COMPLETED, rec.record)],
+                observers=[Observer(on_event(StepEvent.COMPLETED, rec.record))],
             ),
             step("collect", fn=collect),
         ],
@@ -244,7 +250,8 @@ def test_given_each_mode_step_when_all_items_succeed_then_completed_with_counts(
 
 
 def test_given_each_mode_step_when_some_fail_continue_then_completed_not_failed():
-    rec = EventRecorder()
+    rec_comp = EventRecorder(StepEvent.COMPLETED)
+    rec_fail = EventRecorder(StepEvent.FAILED)
 
     def gen(values: list[int]) -> Iterator[int]:
         yield from values
@@ -267,8 +274,8 @@ def test_given_each_mode_step_when_some_fail_continue_then_completed_not_failed(
                 fn=maybe_fail,
                 on_error=OnError.CONTINUE,
                 observers=[
-                    Observer(StepEvent.COMPLETED, rec.record),
-                    Observer(StepEvent.FAILED, rec.record),
+                    Observer(on_event(StepEvent.COMPLETED, rec_comp.record)),
+                    Observer(on_event(StepEvent.FAILED, rec_fail.record)),
                 ],
             ),
             step("collect", fn=collect),
@@ -276,14 +283,15 @@ def test_given_each_mode_step_when_some_fail_continue_then_completed_not_failed(
     )
     run(p, Params(values=[1, 2, 3]))
 
-    assert len(rec.events) == 1
-    ctx = rec.events[0][1]
+    assert len(rec_comp.events) == 1
+    ctx = rec_comp.events[0][1]
     assert isinstance(ctx, StepCompletedContext)
     assert ctx.completed_all_inputs is True
+    assert len(rec_fail.events) == 0
 
 
 def test_given_each_mode_step_when_item_fails_stop_then_failed_with_partial_counts():
-    rec = EventRecorder()
+    rec = EventRecorder(StepEvent.FAILED)
 
     def gen(values: list[int]) -> Iterator[int]:
         yield from values
@@ -305,7 +313,7 @@ def test_given_each_mode_step_when_item_fails_stop_then_failed_with_partial_coun
                 "fail_on_second",
                 fn=fail_on_second,
                 on_error=OnError.STOP,
-                observers=[Observer(StepEvent.FAILED, rec.record)],
+                observers=[Observer(on_event(StepEvent.FAILED, rec.record))],
             ),
             step("collect", fn=collect),
         ],
@@ -368,14 +376,7 @@ def test_given_step_with_list_consumer_when_materialized_then_events_emitted():
         name="p",
         params=Params,
         steps=[
-            step(
-                "gen",
-                fn=gen,
-                observers=[
-                    Observer(MaterializationEvent.STARTED, rec.record),
-                    Observer(MaterializationEvent.COMPLETED, rec.record),
-                ],
-            ),
+            step("gen", fn=gen, observers=[Observer(rec.record)]),
             step("collect", fn=collect),
         ],
     )
@@ -384,13 +385,13 @@ def test_given_step_with_list_consumer_when_materialized_then_events_emitted():
     names = [e[0] for e in rec.events]
     assert "MaterializationStartedContext" in names
     assert "MaterializationCompletedContext" in names
-    assert names.index("MaterializationStartedContext") < names.index(
-        "MaterializationCompletedContext"
-    )
+    mat_start = names.index("MaterializationStartedContext")
+    mat_complete = names.index("MaterializationCompletedContext")
+    assert mat_start < mat_complete
 
 
 def test_given_materialization_context_then_has_fields():
-    rec = EventRecorder()
+    rec = EventRecorder(MaterializationEvent.STARTED)
 
     def gen(values: list[int]) -> Iterator[int]:
         yield from values
@@ -405,7 +406,9 @@ def test_given_materialization_context_then_has_fields():
             step(
                 "gen",
                 fn=gen,
-                observers=[Observer(MaterializationEvent.STARTED, rec.record)],
+                observers=[
+                    Observer(on_event(MaterializationEvent.STARTED, rec.record))
+                ],
             ),
             step("collect", fn=collect),
         ],
@@ -420,7 +423,7 @@ def test_given_materialization_context_then_has_fields():
 
 
 def test_given_materialization_when_fails_then_failed_emitted():
-    rec = EventRecorder()
+    rec = EventRecorder(MaterializationEvent.FAILED)
 
     def bad_mat(ctx):
         def fail(value):
@@ -445,7 +448,7 @@ def test_given_materialization_when_fails_then_failed_emitted():
                 fn=gen,
                 materializer=bad_mat,
                 on_error=OnError.STOP,
-                observers=[Observer(MaterializationEvent.FAILED, rec.record)],
+                observers=[Observer(on_event(MaterializationEvent.FAILED, rec.record))],
             ),
             step("collect", fn=collect),
         ],
@@ -455,13 +458,12 @@ def test_given_materialization_when_fails_then_failed_emitted():
     except Exception:
         pass
 
-    mat_failed = [e for e in rec.events if e[0] == "MaterializationFailedContext"]
-    assert len(mat_failed) >= 1
-    assert isinstance(mat_failed[0][1].exception, ValueError)
+    assert len(rec.events) >= 1
+    assert isinstance(rec.events[0][1].exception, ValueError)
 
 
 def test_given_lazy_consumer_when_no_materialization_then_no_materialization_events():
-    rec = EventRecorder()
+    rec = EventRecorder(MaterializationEvent.STARTED)
 
     def gen(values: list[int]) -> Iterator[int]:
         yield from values
@@ -477,8 +479,7 @@ def test_given_lazy_consumer_when_no_materialization_then_no_materialization_eve
                 "gen",
                 fn=gen,
                 observers=[
-                    Observer(MaterializationEvent.STARTED, rec.record),
-                    Observer(MaterializationEvent.COMPLETED, rec.record),
+                    Observer(on_event(MaterializationEvent.STARTED, rec.record))
                 ],
             ),
             step("passthrough", fn=passthrough),
@@ -486,12 +487,7 @@ def test_given_lazy_consumer_when_no_materialization_then_no_materialization_eve
     )
     run(p, Params(values=[1]))
 
-    materialization_events = [
-        e
-        for e in rec.events
-        if e[0] in ("MaterializationStartedContext", "MaterializationCompletedContext")
-    ]
-    assert len(materialization_events) == 0
+    assert len(rec.events) == 0
 
 
 # ---------------------------------------------------------------------------
@@ -509,11 +505,7 @@ def test_given_observer_raises_when_dispatched_then_step_still_succeeds(caplog):
     p = pipeline(
         name="p",
         params=Params,
-        steps=[
-            step(
-                "s", fn=ok_step, observers=[Observer(StepEvent.COMPLETED, bad_observer)]
-            )
-        ],
+        steps=[step("s", fn=ok_step, observers=[Observer(bad_observer)])],
     )
     caplog.set_level(logging.DEBUG)
     run(p, Params(values=[1]))
@@ -521,7 +513,7 @@ def test_given_observer_raises_when_dispatched_then_step_still_succeeds(caplog):
 
 
 def test_given_observer_raises_when_dispatched_then_other_observers_still_called():
-    rec = EventRecorder()
+    rec = EventRecorder(StepEvent.COMPLETED)
 
     def bad_observer(ctx):
         raise RuntimeError("fail")
@@ -537,8 +529,8 @@ def test_given_observer_raises_when_dispatched_then_other_observers_still_called
                 "s",
                 fn=identity,
                 observers=[
-                    Observer(StepEvent.COMPLETED, bad_observer),
-                    Observer(StepEvent.COMPLETED, rec.record),
+                    Observer(bad_observer),
+                    Observer(on_event(StepEvent.COMPLETED, rec.record)),
                 ],
             )
         ],
@@ -563,11 +555,7 @@ def test_given_observers_when_lazy_step_then_output_remains_iterator():
         name="p",
         params=Params,
         steps=[
-            step(
-                "gen",
-                fn=gen,
-                observers=[Observer(StepEvent.COMPLETED, lambda ctx: None)],
-            ),
+            step("gen", fn=gen, observers=[Observer(lambda ctx: None)]),
             step("lazy_consumer", fn=lazy_consumer),
         ],
     )
@@ -575,7 +563,7 @@ def test_given_observers_when_lazy_step_then_output_remains_iterator():
 
 
 def test_given_materialization_observer_when_lazy_step_then_materialization_not_triggered():
-    rec = EventRecorder()
+    rec = EventRecorder(MaterializationEvent.STARTED)
 
     def gen(values: list[int]) -> Iterator[int]:
         yield from values
@@ -590,7 +578,9 @@ def test_given_materialization_observer_when_lazy_step_then_materialization_not_
             step(
                 "gen",
                 fn=gen,
-                observers=[Observer(MaterializationEvent.STARTED, rec.record)],
+                observers=[
+                    Observer(on_event(MaterializationEvent.STARTED, rec.record))
+                ],
             ),
             step("lazy_consumer", fn=lazy_consumer),
         ],

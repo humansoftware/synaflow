@@ -262,7 +262,7 @@ class AsyncPipelineExecutor:
             )
         else:
             return
-        await dispatch_observers_async(registrations, event, ctx)
+        await dispatch_observers_async(registrations, ctx)
 
     async def _dispatch_step_event(
         self,
@@ -308,7 +308,7 @@ class AsyncPipelineExecutor:
             )
         else:
             return
-        await dispatch_observers_async(registrations, event, ctx)
+        await dispatch_observers_async(registrations, ctx)
 
     async def _dispatch_materialization_event(
         self,
@@ -353,7 +353,7 @@ class AsyncPipelineExecutor:
             )
         else:
             return
-        await dispatch_observers_async(registrations, event, ctx)
+        await dispatch_observers_async(registrations, ctx)
 
     # ------------------------------------------------------------------
     # Execution

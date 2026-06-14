@@ -137,7 +137,7 @@ class PipelineExecutor:
             )
         else:
             return
-        dispatch_observers(registrations, event, ctx)
+        dispatch_observers(registrations, ctx)
 
     def _dispatch_step_event(
         self,
@@ -183,7 +183,7 @@ class PipelineExecutor:
             )
         else:
             return
-        dispatch_observers(registrations, event, ctx)
+        dispatch_observers(registrations, ctx)
 
     def _dispatch_materialization_event(
         self,
@@ -228,7 +228,7 @@ class PipelineExecutor:
             )
         else:
             return
-        dispatch_observers(registrations, event, ctx)
+        dispatch_observers(registrations, ctx)
 
     # ------------------------------------------------------------------
     # Execution

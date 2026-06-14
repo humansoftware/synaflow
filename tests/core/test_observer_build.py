@@ -3,14 +3,11 @@ from typing import NamedTuple
 import pytest
 
 from synaflow import (
-    MaterializationEvent,
     Observer,
-    PipelineEvent,
-    StepEvent,
     pipeline,
     step,
 )
-from synaflow.core.dag import _serialize_observers
+from synaflow.core.dag import _serialize_observers, _serialize_pipeline_observers
 
 
 class Params(NamedTuple):
@@ -39,26 +36,25 @@ def _make_async_handler(name="async_handler"):
 
 
 # ---------------------------------------------------------------------------
-# Normalization: pipeline-level observers
+# Normalization: pipeline-level observers inherited by all steps
 # ---------------------------------------------------------------------------
 
 
-def test_given_pipeline_event_observers_when_build_then_dag_stores_them():
-    h = _make_handler("on_pipeline_started")
+def test_given_pipeline_observers_when_build_then_dag_stores_them():
+    h = _make_handler("on_event")
     p = pipeline(
         name="p",
         params=Params,
         steps=[step("s", fn=lambda x: x + 1)],
-        observers=[Observer(PipelineEvent.STARTED, h)],
+        observers=[Observer(h)],
     )
     dag = p.dag
     assert len(dag.pipeline_observers) == 1
-    assert dag.pipeline_observers[0].event is PipelineEvent.STARTED
     assert dag.pipeline_observers[0].handler is h
 
 
-def test_given_step_event_observers_on_pipeline_when_build_then_all_steps_inherit():
-    h = _make_handler("on_step_completed")
+def test_given_pipeline_observers_when_build_then_all_steps_inherit_them():
+    h = _make_handler("on_event")
     p = pipeline(
         name="p",
         params=Params,
@@ -66,29 +62,12 @@ def test_given_step_event_observers_on_pipeline_when_build_then_all_steps_inheri
             step("a", fn=lambda x: x + 1),
             step("b", fn=lambda x: x + 2),
         ],
-        observers=[Observer(StepEvent.COMPLETED, h)],
+        observers=[Observer(h)],
     )
     for name in ("a", "b"):
         node_obs = p.dag[name].observers
-        assert len(node_obs) == 1
-        assert node_obs[0].event is StepEvent.COMPLETED
-        assert node_obs[0].handler is h
-
-
-def test_given_materialization_event_observers_on_pipeline_when_build_then_all_steps_inherit():
-    h = _make_handler("on_mat_completed")
-    p = pipeline(
-        name="p",
-        params=Params,
-        steps=[
-            step("a", fn=lambda x: x + 1),
-            step("b", fn=lambda x: x + 2),
-        ],
-        observers=[Observer(MaterializationEvent.COMPLETED, h)],
-    )
-    for name in ("a", "b"):
-        node_obs = p.dag[name].observers
-        assert any(o.event is MaterializationEvent.COMPLETED for o in node_obs)
+        assert len(node_obs) >= 1
+        assert any(o.handler is h for o in node_obs)
 
 
 # ---------------------------------------------------------------------------
@@ -97,18 +76,17 @@ def test_given_materialization_event_observers_on_pipeline_when_build_then_all_s
 
 
 def test_given_step_observers_when_build_then_dagnode_has_them():
-    h = _make_handler("on_failed")
+    h = _make_handler("on_event")
     p = pipeline(
         name="p",
         params=Params,
         steps=[
-            step("a", fn=lambda x: x + 1, observers=[Observer(StepEvent.FAILED, h)]),
+            step("a", fn=lambda x: x + 1, observers=[Observer(h)]),
         ],
     )
     node_obs = p.dag["a"].observers
-    assert len(node_obs) == 1
-    assert node_obs[0].event is StepEvent.FAILED
-    assert node_obs[0].handler is h
+    assert len(node_obs) >= 1
+    assert any(o.handler is h for o in node_obs)
 
 
 # ---------------------------------------------------------------------------
@@ -123,13 +101,9 @@ def test_given_pipeline_and_step_observers_when_build_then_effective_is_union():
         name="p",
         params=Params,
         steps=[
-            step(
-                "a",
-                fn=lambda x: x + 1,
-                observers=[Observer(StepEvent.COMPLETED, h_step)],
-            ),
+            step("a", fn=lambda x: x + 1, observers=[Observer(h_step)]),
         ],
-        observers=[Observer(StepEvent.COMPLETED, h_pipe)],
+        observers=[Observer(h_pipe)],
     )
     node_obs = p.dag["a"].observers
     assert len(node_obs) == 2
@@ -143,13 +117,9 @@ def test_given_duplicate_registrations_when_build_then_not_deduplicated():
         name="p",
         params=Params,
         steps=[
-            step(
-                "a",
-                fn=lambda x: x + 1,
-                observers=[Observer(StepEvent.COMPLETED, h)],
-            ),
+            step("a", fn=lambda x: x + 1, observers=[Observer(h)]),
         ],
-        observers=[Observer(StepEvent.COMPLETED, h)],
+        observers=[Observer(h)],
     )
     node_obs = p.dag["a"].observers
     assert len(node_obs) == 2
@@ -165,14 +135,12 @@ def test_given_observers_when_dag_to_dict_then_steps_include_metadata():
     p = pipeline(
         name="p",
         params=Params,
-        steps=[
-            step("a", fn=lambda x: x + 1),
-        ],
-        observers=[Observer(StepEvent.FAILED, h)],
+        steps=[step("a", fn=lambda x: x + 1)],
+        observers=[Observer(h)],
     )
     d = p.to_dict()
     step_obs = d["steps"]["a"]["observers"]
-    assert step_obs == [{"event": "step_failed", "source": "step"}]
+    assert step_obs == [{"handler_name": "on_step", "source": "step"}]
 
 
 def test_given_observers_when_dag_to_dict_then_no_callables_serialized():
@@ -180,10 +148,8 @@ def test_given_observers_when_dag_to_dict_then_no_callables_serialized():
     p = pipeline(
         name="p",
         params=Params,
-        steps=[
-            step("a", fn=lambda x: x + 1),
-        ],
-        observers=[Observer(StepEvent.COMPLETED, h)],
+        steps=[step("a", fn=lambda x: x + 1)],
+        observers=[Observer(h)],
     )
     d = p.to_dict()
     for obs in d["steps"]["a"].get("observers", []):
@@ -191,21 +157,19 @@ def test_given_observers_when_dag_to_dict_then_no_callables_serialized():
         assert "callable" not in str(obs)
 
 
-def test_given_pipeline_event_observers_when_dag_to_dict_then_at_dag_level():
+def test_given_pipeline_observers_when_dag_to_dict_then_at_dag_level():
     h = _make_handler("on_pipe")
     p = pipeline(
         name="p",
         params=Params,
         steps=[step("a", fn=lambda x: x + 1)],
-        observers=[Observer(PipelineEvent.STARTED, h)],
+        observers=[Observer(h)],
     )
     d = p.to_dict()
     assert "pipeline_observers" in d
     assert d["pipeline_observers"] == [
-        {"event": "pipeline_started", "source": "pipeline"}
+        {"handler_name": "on_pipe", "source": "pipeline"}
     ]
-    # PipelineEvent observers not in any step
-    assert "observers" not in d["steps"]["a"]
 
 
 def test_given_no_observers_when_dag_to_dict_then_no_observers_field():
@@ -220,23 +184,22 @@ def test_given_no_observers_when_dag_to_dict_then_no_observers_field():
 
 
 # ---------------------------------------------------------------------------
-# _serialize_observers helper
+# _serialize_observers and _serialize_pipeline_observers helpers
 # ---------------------------------------------------------------------------
 
 
-def test_serialize_observers_returns_compact_metadata():
-    h = _make_handler()
-    obs_list = [
-        Observer(PipelineEvent.STARTED, h),
-        Observer(StepEvent.FAILED, h),
-        Observer(MaterializationEvent.COMPLETED, h),
-    ]
+def test_serialize_observers_returns_handler_name_and_source():
+    h = _make_handler("my_handler")
+    obs_list = [Observer(h)]
     result = _serialize_observers(obs_list)
-    assert result == [
-        {"event": "pipeline_started", "source": "pipeline"},
-        {"event": "step_failed", "source": "step"},
-        {"event": "materialization_completed", "source": "materialization"},
-    ]
+    assert result == [{"handler_name": "my_handler", "source": "step"}]
+
+
+def test_serialize_pipeline_observers_returns_handler_name_and_pipeline_source():
+    h = _make_handler("pipe_handler")
+    obs_list = [Observer(h)]
+    result = _serialize_pipeline_observers(obs_list)
+    assert result == [{"handler_name": "pipe_handler", "source": "pipeline"}]
 
 
 # ---------------------------------------------------------------------------
@@ -251,7 +214,7 @@ def test_given_async_handler_in_sync_pipeline_when_build_then_validation_error()
             name="p",
             params=Params,
             steps=[step("a", fn=lambda x: x + 1)],
-            observers=[Observer(StepEvent.COMPLETED, h)],
+            observers=[Observer(h)],
         )
 
 
@@ -267,7 +230,7 @@ def test_given_async_partial_handler_in_sync_pipeline_when_build_then_validation
             name="p",
             params=Params,
             steps=[step("a", fn=lambda x: x + 1)],
-            observers=[Observer(StepEvent.COMPLETED, partial_h)],
+            observers=[Observer(partial_h)],
         )
 
 
@@ -277,7 +240,7 @@ def test_given_sync_handler_in_sync_pipeline_when_build_then_ok():
         name="p",
         params=Params,
         steps=[step("a", fn=lambda x: x + 1)],
-        observers=[Observer(StepEvent.STARTED, h)],
+        observers=[Observer(h)],
     )
     assert p.dag is not None
 

@@ -18,7 +18,6 @@ Both are @dataclass — plain data with behaviour, no hidden state.
 from dataclasses import dataclass, field
 from typing import Any, Callable
 
-from synaflow.core.observers import MaterializationEvent, PipelineEvent, StepEvent
 from synaflow.core.type_compatibility import get_type_name
 from synaflow.core.types import OnError, StepMode
 
@@ -72,13 +71,17 @@ class DagNode:
 def _serialize_observers(observers: list) -> list[dict]:
     result = []
     for obs in observers:
-        info = {"event": obs.event.value}
-        if isinstance(obs.event, PipelineEvent):
-            info["source"] = "pipeline"
-        elif isinstance(obs.event, StepEvent):
-            info["source"] = "step"
-        elif isinstance(obs.event, MaterializationEvent):
-            info["source"] = "materialization"
+        info = {"handler_name": getattr(obs.handler, "__name__", str(obs.handler))}
+        info["source"] = "step"
+        result.append(info)
+    return result
+
+
+def _serialize_pipeline_observers(observers: list) -> list[dict]:
+    result = []
+    for obs in observers:
+        info = {"handler_name": getattr(obs.handler, "__name__", str(obs.handler))}
+        info["source"] = "pipeline"
         result.append(info)
     return result
 
@@ -135,7 +138,9 @@ class Dag:
         if self.error_materializer_factory is not None:
             result["error_materializer"] = self.error_materializer_factory.__name__
         if self.pipeline_observers:
-            result["pipeline_observers"] = _serialize_observers(self.pipeline_observers)
+            result["pipeline_observers"] = _serialize_pipeline_observers(
+                self.pipeline_observers
+            )
         return result
 
     def consumers_of(self, step_name: str) -> list[str]:

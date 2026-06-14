@@ -29,19 +29,36 @@ class Params(NamedTuple):
 
 
 # ---------------------------------------------------------------------------
-# Helper: observer that records all events
+# Wrapper-level event filter (per spec: filtering lives above the core)
+# ---------------------------------------------------------------------------
+
+
+def on_event(event_type, handler):
+    def wrapper(ctx):
+        if ctx.event is event_type:
+            return handler(ctx)
+
+    wrapper.__name__ = getattr(handler, "__name__", "on_event")
+    return wrapper
+
+
+# ---------------------------------------------------------------------------
+# Helper: observer that records all events for a specific event type
 # ---------------------------------------------------------------------------
 
 
 class EventRecorder:
-    def __init__(self):
+    def __init__(self, event_type=None):
         self.events: list[tuple] = []
+        self.event_type = event_type
 
     def record(self, ctx):
-        self.events.append((type(ctx).__name__, ctx))
+        if self.event_type is None or ctx.event is self.event_type:
+            self.events.append((type(ctx).__name__, ctx))
 
     async def async_record(self, ctx):
-        self.events.append((type(ctx).__name__, ctx))
+        if self.event_type is None or ctx.event is self.event_type:
+            self.events.append((type(ctx).__name__, ctx))
 
 
 # ---------------------------------------------------------------------------
@@ -66,10 +83,7 @@ async def test_given_pipeline_observer_when_run_completes_then_started_and_compl
             step("gen", fn=gen),
             step("consumer", fn=consumer),
         ],
-        observers=[
-            Observer(PipelineEvent.STARTED, rec.record),
-            Observer(PipelineEvent.COMPLETED, rec.record),
-        ],
+        observers=[Observer(rec.record)],
     )
     await AsyncPipelineExecutor(p.dag).execute(Params(values=[1, 2]))
 
@@ -84,7 +98,7 @@ async def test_given_pipeline_observer_when_run_completes_then_started_and_compl
 
 @pytest.mark.asyncio
 async def test_given_pipeline_observer_when_step_fails_stop_then_failed_emitted():
-    rec = EventRecorder()
+    rec = EventRecorder(PipelineEvent.FAILED)
 
     def failing(values: list[int]) -> int:
         raise ValueError("boom")
@@ -93,7 +107,7 @@ async def test_given_pipeline_observer_when_step_fails_stop_then_failed_emitted(
         name="p",
         params=Params,
         steps=[step("failing", fn=failing, on_error=OnError.STOP)],
-        observers=[Observer(PipelineEvent.FAILED, rec.record)],
+        observers=[Observer(on_event(PipelineEvent.FAILED, rec.record))],
     )
     with pytest.raises(Exception):
         await AsyncPipelineExecutor(p.dag).execute(Params(values=[1]))
@@ -108,7 +122,7 @@ async def test_given_pipeline_observer_when_step_fails_stop_then_failed_emitted(
 
 @pytest.mark.asyncio
 async def test_given_pipeline_failed_context_then_has_fields():
-    rec = EventRecorder()
+    rec = EventRecorder(PipelineEvent.FAILED)
 
     def failing(values: list[int]) -> int:
         raise ValueError("boom")
@@ -117,7 +131,7 @@ async def test_given_pipeline_failed_context_then_has_fields():
         name="my_pipe",
         params=Params,
         steps=[step("s", fn=failing, on_error=OnError.STOP)],
-        observers=[Observer(PipelineEvent.FAILED, rec.record)],
+        observers=[Observer(on_event(PipelineEvent.FAILED, rec.record))],
     )
     with pytest.raises(Exception):
         await AsyncPipelineExecutor(p.dag).execute(Params(values=[1]))
@@ -142,16 +156,7 @@ async def test_given_all_mode_step_when_succeeds_then_started_and_completed_emit
     p = pipeline(
         name="p",
         params=Params,
-        steps=[
-            step(
-                "s",
-                fn=identity,
-                observers=[
-                    Observer(StepEvent.STARTED, rec.record),
-                    Observer(StepEvent.COMPLETED, rec.record),
-                ],
-            )
-        ],
+        steps=[step("s", fn=identity, observers=[Observer(rec.record)])],
     )
     await AsyncPipelineExecutor(p.dag).execute(Params(values=[42]))
 
@@ -163,7 +168,7 @@ async def test_given_all_mode_step_when_succeeds_then_started_and_completed_emit
 
 @pytest.mark.asyncio
 async def test_given_all_mode_step_completed_then_counts_correct():
-    rec = EventRecorder()
+    rec = EventRecorder(StepEvent.COMPLETED)
 
     def identity(values: list[int]) -> int:
         return values[0]
@@ -173,7 +178,9 @@ async def test_given_all_mode_step_completed_then_counts_correct():
         params=Params,
         steps=[
             step(
-                "s", fn=identity, observers=[Observer(StepEvent.COMPLETED, rec.record)]
+                "s",
+                fn=identity,
+                observers=[Observer(on_event(StepEvent.COMPLETED, rec.record))],
             )
         ],
     )
@@ -188,7 +195,7 @@ async def test_given_all_mode_step_completed_then_counts_correct():
 
 @pytest.mark.asyncio
 async def test_given_all_mode_step_when_fails_stop_then_failed_emitted():
-    rec = EventRecorder()
+    rec = EventRecorder(StepEvent.FAILED)
 
     def failing(values: list[int]) -> int:
         raise ValueError("boom")
@@ -201,7 +208,7 @@ async def test_given_all_mode_step_when_fails_stop_then_failed_emitted():
                 "s",
                 fn=failing,
                 on_error=OnError.STOP,
-                observers=[Observer(StepEvent.FAILED, rec.record)],
+                observers=[Observer(on_event(StepEvent.FAILED, rec.record))],
             )
         ],
     )
@@ -221,7 +228,7 @@ async def test_given_all_mode_step_when_fails_stop_then_failed_emitted():
 
 @pytest.mark.asyncio
 async def test_given_each_mode_step_when_all_items_succeed_then_completed_with_counts():
-    rec = EventRecorder()
+    rec = EventRecorder(StepEvent.COMPLETED)
 
     def gen(values: list[int]) -> Iterator[int]:
         yield from values
@@ -240,7 +247,7 @@ async def test_given_each_mode_step_when_all_items_succeed_then_completed_with_c
             step(
                 "double",
                 fn=double,
-                observers=[Observer(StepEvent.COMPLETED, rec.record)],
+                observers=[Observer(on_event(StepEvent.COMPLETED, rec.record))],
             ),
             step("collect", fn=collect),
         ],
@@ -257,7 +264,8 @@ async def test_given_each_mode_step_when_all_items_succeed_then_completed_with_c
 
 @pytest.mark.asyncio
 async def test_given_each_mode_step_when_some_fail_continue_then_completed_not_failed():
-    rec = EventRecorder()
+    rec_comp = EventRecorder(StepEvent.COMPLETED)
+    rec_fail = EventRecorder(StepEvent.FAILED)
 
     def gen(values: list[int]) -> Iterator[int]:
         yield from values
@@ -280,8 +288,8 @@ async def test_given_each_mode_step_when_some_fail_continue_then_completed_not_f
                 fn=maybe_fail,
                 on_error=OnError.CONTINUE,
                 observers=[
-                    Observer(StepEvent.COMPLETED, rec.record),
-                    Observer(StepEvent.FAILED, rec.record),
+                    Observer(on_event(StepEvent.COMPLETED, rec_comp.record)),
+                    Observer(on_event(StepEvent.FAILED, rec_fail.record)),
                 ],
             ),
             step("collect", fn=collect),
@@ -289,15 +297,16 @@ async def test_given_each_mode_step_when_some_fail_continue_then_completed_not_f
     )
     await AsyncPipelineExecutor(p.dag).execute(Params(values=[1, 2, 3]))
 
-    assert len(rec.events) == 1
-    ctx = rec.events[0][1]
+    assert len(rec_comp.events) == 1
+    ctx = rec_comp.events[0][1]
     assert isinstance(ctx, StepCompletedContext)
     assert ctx.completed_all_inputs is True
+    assert len(rec_fail.events) == 0
 
 
 @pytest.mark.asyncio
 async def test_given_each_mode_step_when_item_fails_stop_then_failed_with_partial_counts():
-    rec = EventRecorder()
+    rec = EventRecorder(StepEvent.FAILED)
 
     def gen(values: list[int]) -> Iterator[int]:
         yield from values
@@ -319,7 +328,7 @@ async def test_given_each_mode_step_when_item_fails_stop_then_failed_with_partia
                 "fail_on_second",
                 fn=fail_on_second,
                 on_error=OnError.STOP,
-                observers=[Observer(StepEvent.FAILED, rec.record)],
+                observers=[Observer(on_event(StepEvent.FAILED, rec.record))],
             ),
             step("collect", fn=collect),
         ],
@@ -382,14 +391,7 @@ async def test_given_step_with_list_consumer_when_materialized_then_events_emitt
         name="p",
         params=Params,
         steps=[
-            step(
-                "gen",
-                fn=gen,
-                observers=[
-                    Observer(MaterializationEvent.STARTED, rec.record),
-                    Observer(MaterializationEvent.COMPLETED, rec.record),
-                ],
-            ),
+            step("gen", fn=gen, observers=[Observer(rec.record)]),
             step("collect", fn=collect),
         ],
     )
@@ -398,14 +400,14 @@ async def test_given_step_with_list_consumer_when_materialized_then_events_emitt
     names = [e[0] for e in rec.events]
     assert "MaterializationStartedContext" in names
     assert "MaterializationCompletedContext" in names
-    assert names.index("MaterializationStartedContext") < names.index(
-        "MaterializationCompletedContext"
-    )
+    mat_start = names.index("MaterializationStartedContext")
+    mat_complete = names.index("MaterializationCompletedContext")
+    assert mat_start < mat_complete
 
 
 @pytest.mark.asyncio
 async def test_given_materialization_context_then_has_fields():
-    rec = EventRecorder()
+    rec = EventRecorder(MaterializationEvent.STARTED)
 
     def gen(values: list[int]) -> Iterator[int]:
         yield from values
@@ -420,7 +422,9 @@ async def test_given_materialization_context_then_has_fields():
             step(
                 "gen",
                 fn=gen,
-                observers=[Observer(MaterializationEvent.STARTED, rec.record)],
+                observers=[
+                    Observer(on_event(MaterializationEvent.STARTED, rec.record))
+                ],
             ),
             step("collect", fn=collect),
         ],
@@ -436,7 +440,7 @@ async def test_given_materialization_context_then_has_fields():
 
 @pytest.mark.asyncio
 async def test_given_materialization_when_fails_then_failed_emitted():
-    rec = EventRecorder()
+    rec = EventRecorder(MaterializationEvent.FAILED)
 
     def bad_mat(ctx):
         def fail(value):
@@ -461,7 +465,7 @@ async def test_given_materialization_when_fails_then_failed_emitted():
                 fn=gen,
                 materializer=bad_mat,
                 on_error=OnError.STOP,
-                observers=[Observer(MaterializationEvent.FAILED, rec.record)],
+                observers=[Observer(on_event(MaterializationEvent.FAILED, rec.record))],
             ),
             step("collect", fn=collect),
         ],
@@ -471,14 +475,13 @@ async def test_given_materialization_when_fails_then_failed_emitted():
     except Exception:
         pass
 
-    mat_failed = [e for e in rec.events if e[0] == "MaterializationFailedContext"]
-    assert len(mat_failed) >= 1
-    assert isinstance(mat_failed[0][1].exception, ValueError)
+    assert len(rec.events) >= 1
+    assert isinstance(rec.events[0][1].exception, ValueError)
 
 
 @pytest.mark.asyncio
 async def test_given_lazy_consumer_when_no_materialization_then_no_materialization_events():
-    rec = EventRecorder()
+    rec = EventRecorder(MaterializationEvent.STARTED)
 
     def gen(values: list[int]) -> Iterator[int]:
         yield from values
@@ -494,8 +497,7 @@ async def test_given_lazy_consumer_when_no_materialization_then_no_materializati
                 "gen",
                 fn=gen,
                 observers=[
-                    Observer(MaterializationEvent.STARTED, rec.record),
-                    Observer(MaterializationEvent.COMPLETED, rec.record),
+                    Observer(on_event(MaterializationEvent.STARTED, rec.record))
                 ],
             ),
             step("passthrough", fn=passthrough),
@@ -503,12 +505,7 @@ async def test_given_lazy_consumer_when_no_materialization_then_no_materializati
     )
     await AsyncPipelineExecutor(p.dag).execute(Params(values=[1]))
 
-    materialization_events = [
-        e
-        for e in rec.events
-        if e[0] in ("MaterializationStartedContext", "MaterializationCompletedContext")
-    ]
-    assert len(materialization_events) == 0
+    assert len(rec.events) == 0
 
 
 # ---------------------------------------------------------------------------
@@ -527,11 +524,7 @@ async def test_given_observer_raises_when_dispatched_then_step_still_succeeds(ca
     p = pipeline(
         name="p",
         params=Params,
-        steps=[
-            step(
-                "s", fn=ok_step, observers=[Observer(StepEvent.COMPLETED, bad_observer)]
-            )
-        ],
+        steps=[step("s", fn=ok_step, observers=[Observer(bad_observer)])],
     )
     caplog.set_level(logging.DEBUG)
     await AsyncPipelineExecutor(p.dag).execute(Params(values=[1]))
@@ -540,7 +533,7 @@ async def test_given_observer_raises_when_dispatched_then_step_still_succeeds(ca
 
 @pytest.mark.asyncio
 async def test_given_observer_raises_when_dispatched_then_other_observers_still_called():
-    rec = EventRecorder()
+    rec = EventRecorder(StepEvent.COMPLETED)
 
     def bad_observer(ctx):
         raise RuntimeError("fail")
@@ -556,8 +549,8 @@ async def test_given_observer_raises_when_dispatched_then_other_observers_still_
                 "s",
                 fn=identity,
                 observers=[
-                    Observer(StepEvent.COMPLETED, bad_observer),
-                    Observer(StepEvent.COMPLETED, rec.record),
+                    Observer(bad_observer),
+                    Observer(on_event(StepEvent.COMPLETED, rec.record)),
                 ],
             )
         ],
@@ -583,11 +576,7 @@ async def test_given_observers_when_lazy_step_then_output_remains_iterator():
         name="p",
         params=Params,
         steps=[
-            step(
-                "gen",
-                fn=gen,
-                observers=[Observer(StepEvent.COMPLETED, lambda ctx: None)],
-            ),
+            step("gen", fn=gen, observers=[Observer(lambda ctx: None)]),
             step("lazy_consumer", fn=lazy_consumer),
         ],
     )
@@ -596,7 +585,7 @@ async def test_given_observers_when_lazy_step_then_output_remains_iterator():
 
 @pytest.mark.asyncio
 async def test_given_materialization_observer_when_lazy_step_then_materialization_not_triggered():
-    rec = EventRecorder()
+    rec = EventRecorder(MaterializationEvent.STARTED)
 
     def gen(values: list[int]) -> Iterator[int]:
         yield from values
@@ -611,7 +600,9 @@ async def test_given_materialization_observer_when_lazy_step_then_materializatio
             step(
                 "gen",
                 fn=gen,
-                observers=[Observer(MaterializationEvent.STARTED, rec.record)],
+                observers=[
+                    Observer(on_event(MaterializationEvent.STARTED, rec.record))
+                ],
             ),
             step("lazy_consumer", fn=lazy_consumer),
         ],
@@ -627,7 +618,7 @@ async def test_given_materialization_observer_when_lazy_step_then_materializatio
 
 @pytest.mark.asyncio
 async def test_given_async_def_handler_when_dispatched_then_awaited():
-    rec = EventRecorder()
+    rec = EventRecorder(StepEvent.COMPLETED)
 
     async def identity(values: list[int]) -> int:
         return values[0]
@@ -639,7 +630,7 @@ async def test_given_async_def_handler_when_dispatched_then_awaited():
             step(
                 "s",
                 fn=identity,
-                observers=[Observer(StepEvent.COMPLETED, rec.async_record)],
+                observers=[Observer(on_event(StepEvent.COMPLETED, rec.async_record))],
             )
         ],
     )
@@ -650,7 +641,7 @@ async def test_given_async_def_handler_when_dispatched_then_awaited():
 
 @pytest.mark.asyncio
 async def test_given_partial_async_handler_when_dispatched_then_awaited():
-    rec = EventRecorder()
+    rec = EventRecorder(StepEvent.COMPLETED)
 
     async def handler(ctx):
         rec.record(ctx)
@@ -667,7 +658,7 @@ async def test_given_partial_async_handler_when_dispatched_then_awaited():
             step(
                 "s",
                 fn=identity,
-                observers=[Observer(StepEvent.COMPLETED, partial_handler)],
+                observers=[Observer(on_event(StepEvent.COMPLETED, partial_handler))],
             )
         ],
     )
@@ -677,7 +668,7 @@ async def test_given_partial_async_handler_when_dispatched_then_awaited():
 
 @pytest.mark.asyncio
 async def test_given_callable_object_with_async_call_when_dispatched_then_awaited():
-    rec = EventRecorder()
+    rec = EventRecorder(StepEvent.COMPLETED)
 
     class AsyncCallable:
         async def __call__(self, ctx):
@@ -693,7 +684,7 @@ async def test_given_callable_object_with_async_call_when_dispatched_then_awaite
             step(
                 "s",
                 fn=identity,
-                observers=[Observer(StepEvent.COMPLETED, AsyncCallable())],
+                observers=[Observer(on_event(StepEvent.COMPLETED, AsyncCallable()))],
             )
         ],
     )
