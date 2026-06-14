@@ -41,30 +41,30 @@ def _output_key(dag: Dag, producer: str, consumer: str) -> str:
 
 def _collect_iterator(
     dag: Dag, step_name: str, value: Iterator
-) -> tuple[list[Any], bool]:
+) -> tuple[list[Any], bool, BaseException | None]:
     items = []
     while True:
         try:
             items.append(next(value))
         except StopIteration:
-            return items, False
+            return items, False, None
         except Exception as exc:
             _handle_error(dag, step_name, exc)
             if dag[step_name].on_error == OnError.STOP:
                 raise PipelineStopException(step_name=step_name, cause=exc) from exc
-            return items, True
+            return items, True, exc
 
 
 def _apply_materializer(
     dag: Dag, step_name: str, value: Any, consumer_type: Any = None
-) -> tuple[Any, bool]:
+) -> tuple[Any, bool, BaseException | None]:
     node = dag[step_name]
     mat = node.get("materializer")
     if mat is None:
         if isinstance(value, Iterator):
-            items, had_error = _collect_iterator(dag, step_name, value)
-            return items, had_error
-        return value, False
+            items, had_error, exc = _collect_iterator(dag, step_name, value)
+            return items, had_error, exc
+        return value, False, None
     concrete_mat = mat(
         MaterializeContext(
             pipeline_name=dag.name,
@@ -74,15 +74,16 @@ def _apply_materializer(
         )
     )
     if isinstance(value, Iterator) and concrete_mat in (list, tuple, set, dict):
-        items, had_error = _collect_iterator(dag, step_name, value)
-        return (items if concrete_mat is list else concrete_mat(items)), had_error
+        items, had_error, exc = _collect_iterator(dag, step_name, value)
+        result = items if concrete_mat is list else concrete_mat(items)
+        return result, had_error, exc
     if (
         isinstance(value, Iterator)
         and getattr(concrete_mat, "__name__", "") == "_identity"
     ):
-        items, had_error = _collect_iterator(dag, step_name, value)
-        return items, had_error
-    return concrete_mat(value), False
+        items, had_error, exc = _collect_iterator(dag, step_name, value)
+        return items, had_error, exc
+    return concrete_mat(value), False, None
 
 
 def _handle_error(dag: Dag, step_name: str, exc: BaseException) -> None:
@@ -386,7 +387,7 @@ class PipelineExecutor:
             mat_name,
         )
         try:
-            result, had_error = _apply_materializer(
+            result, had_error, exc = _apply_materializer(
                 self.dag, step_name, output, consumer_type=consumer_type
             )
             self._dispatch_materialization_event(
@@ -396,7 +397,7 @@ class PipelineExecutor:
                 consumer_type,
                 mat_name,
             )
-            return result, had_error
+            return result, had_error, exc
         except PipelineStopException:
             raise
         except Exception as exc:
@@ -410,7 +411,7 @@ class PipelineExecutor:
             )
             raise
 
-    def _emit_step_result(self, node, step_name, output, had_error):
+    def _emit_step_result(self, node, step_name, output, had_error, exception=None):
         success = len(output) if hasattr(output, "__len__") else 1
         if had_error:
             self._dispatch_step_event(
@@ -420,7 +421,7 @@ class PipelineExecutor:
                 success_count=success,
                 error_count=1,
                 completed_all_inputs=False,
-                exception=None,
+                exception=exception,
             )
         else:
             self._dispatch_step_event(
@@ -446,11 +447,11 @@ class PipelineExecutor:
                 consumer_type = None
                 if consumers:
                     consumer_type = self.dag[consumers[0]].deps.get(step_name)
-                output, had_error = self._materialize_with_events(
+                output, had_error, exc = self._materialize_with_events(
                     step_name, output, node, consumer_type=consumer_type
                 )
                 if deferred:
-                    self._emit_step_result(node, step_name, output, had_error)
+                    self._emit_step_result(node, step_name, output, had_error, exc)
                 for c in consumers:
                     self.outputs[_output_key(self.dag, step_name, c)] = output
                 return
@@ -458,11 +459,11 @@ class PipelineExecutor:
             # 2. Single consumer requires materialized input?
             if len(consumers) == 1 and self.dag.needs_materialize(step_name):
                 consumer_type = self.dag[consumers[0]].deps.get(step_name)
-                output, had_error = self._materialize_with_events(
+                output, had_error, exc = self._materialize_with_events(
                     step_name, output, node, consumer_type=consumer_type
                 )
                 if deferred:
-                    self._emit_step_result(node, step_name, output, had_error)
+                    self._emit_step_result(node, step_name, output, had_error, exc)
                 self.outputs[_output_key(self.dag, step_name, consumers[0])] = output
                 return
 
@@ -472,7 +473,7 @@ class PipelineExecutor:
                 for consumer, branch in zip(consumers, branches):
                     consumer_node = self.dag[consumer]
                     if step_name in consumer_node.materialized_deps:
-                        branch, _ = self._materialize_with_events(
+                        branch, _, _ = self._materialize_with_events(
                             step_name,
                             branch,
                             node,
@@ -501,13 +502,15 @@ class PipelineExecutor:
                 )
 
         elif self.dag.needs_materialize(step_name):
-            output, had_error = self._materialize_with_events(
+            output, had_error, exc = self._materialize_with_events(
                 step_name, output, node, consumer_type=node.get("output")
             )
 
         self.outputs[step_name] = output
         if deferred and not isinstance(output, Iterator):
-            self._emit_step_result(node, step_name, output, had_error=False)
+            self._emit_step_result(
+                node, step_name, output, had_error=False, exception=None
+            )
 
 
 # ---------------------------------------------------------------------------

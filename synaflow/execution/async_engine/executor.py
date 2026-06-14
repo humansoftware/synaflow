@@ -45,7 +45,7 @@ from .iterator_utils import queue_to_async_gen
 
 async def _collect_async_iterator(
     dag: Dag, step_name: str, value: Any
-) -> tuple[list[Any], bool]:
+) -> tuple[list[Any], bool, BaseException | None]:
     items = []
     try:
         if isinstance(value, (AsyncIterator, AsyncGenerator)):
@@ -67,20 +67,20 @@ async def _collect_async_iterator(
         await _handle_error(dag, step_name, exc)
         if dag[step_name].on_error == OnError.STOP:
             raise PipelineStopException(step_name=step_name, cause=exc) from exc
-        return items, True
-    return items, False
+        return items, True, exc
+    return items, False, None
 
 
 async def _apply_materializer(
     dag: Dag, step_name: str, value: Any, consumer_type: Any = None
-) -> tuple[Any, bool]:
+) -> tuple[Any, bool, BaseException | None]:
     node = dag[step_name]
     mat = node.get("materializer")
     if mat is None:
         if isinstance(value, (AsyncIterator, AsyncGenerator, Iterator, Generator)):
-            items, had_error = await _collect_async_iterator(dag, step_name, value)
-            return items, had_error
-        return value, False
+            items, had_error, exc = await _collect_async_iterator(dag, step_name, value)
+            return items, had_error, exc
+        return value, False, None
     concrete_mat = mat(
         MaterializeContext(
             pipeline_name=dag.name,
@@ -91,26 +91,26 @@ async def _apply_materializer(
     )
     if inspect.iscoroutinefunction(concrete_mat):
         result = await concrete_mat(value)
-        return result, False
+        return result, False, None
     if isinstance(value, (AsyncIterator, AsyncGenerator, Iterator, Generator)):
         if (
             concrete_mat in (list, tuple, set, dict)
             or getattr(concrete_mat, "__name__", "") == "_identity"
         ):
-            items, had_error = await _collect_async_iterator(dag, step_name, value)
+            items, had_error, exc = await _collect_async_iterator(dag, step_name, value)
             res = items if concrete_mat is list else concrete_mat(items)
             if inspect.iscoroutine(res):
-                return await res, had_error
-            return res, had_error
-        items, had_error = await _collect_async_iterator(dag, step_name, value)
+                return await res, had_error, exc
+            return res, had_error, exc
+        items, had_error, exc = await _collect_async_iterator(dag, step_name, value)
         res = concrete_mat(items)
         if inspect.iscoroutine(res):
-            return await res, had_error
-        return res, had_error
+            return await res, had_error, exc
+        return res, had_error, exc
     res = concrete_mat(value)
     if inspect.iscoroutine(res):
-        return await res, False
-    return res, False
+        return await res, False, None
+    return res, False, None
 
 
 async def _handle_error(dag: Dag, step_name: str, exc: BaseException) -> None:
@@ -160,7 +160,7 @@ async def _pump_iterator(
     try:
         safe = _safe_iterate(name, iterator)
         if materialize_before_enqueue:
-            items, _ = await _apply_materializer(
+            items, _, _ = await _apply_materializer(
                 dag, name, safe, consumer_type=consumer_type
             )
             async for item in _safe_iterate(name, items):
@@ -227,7 +227,7 @@ async def _resolve_queue(
     origin = getattr(consumer_type, "__origin__", consumer_type)
     if origin in (AsyncIterator, AsyncGenerator):
         return queue_to_async_gen(queue)
-    result, _ = await _apply_materializer(
+    result, _, _ = await _apply_materializer(
         dag, producer, queue_to_async_gen(queue), consumer_type=consumer_type
     )
     return result
@@ -535,7 +535,7 @@ class AsyncPipelineExecutor:
             mat_name,
         )
         try:
-            result, had_error = await _apply_materializer(
+            result, had_error, exc = await _apply_materializer(
                 self.dag, step_name, output, consumer_type=consumer_type
             )
             await self._dispatch_materialization_event(
@@ -545,7 +545,7 @@ class AsyncPipelineExecutor:
                 consumer_type,
                 mat_name,
             )
-            return result, had_error
+            return result, had_error, exc
         except PipelineStopException:
             raise
         except Exception as exc:
@@ -559,7 +559,9 @@ class AsyncPipelineExecutor:
             )
             raise
 
-    async def _emit_step_result(self, node, step_name, output, had_error):
+    async def _emit_step_result(
+        self, node, step_name, output, had_error, exception=None
+    ):
         success = len(output) if hasattr(output, "__len__") else 1
         if had_error:
             await self._dispatch_step_event(
@@ -569,7 +571,7 @@ class AsyncPipelineExecutor:
                 success_count=success,
                 error_count=1,
                 completed_all_inputs=False,
-                exception=None,
+                exception=exception,
             )
         else:
             await self._dispatch_step_event(
@@ -596,14 +598,16 @@ class AsyncPipelineExecutor:
                 if consumers:
                     consumer_type = self.dag[consumers[0]].deps.get(step_name)
                 try:
-                    items, had_error = await self._materialize_with_events(
+                    items, had_error, exc = await self._materialize_with_events(
                         step_name, output, node, consumer_type=consumer_type
                     )
                     for c in consumers:
                         self.outputs[_output_key(self.dag, step_name, c)] = items
                     self._notify_observers(step_name, items)
                     if deferred:
-                        await self._emit_step_result(node, step_name, items, had_error)
+                        await self._emit_step_result(
+                            node, step_name, items, had_error, exc
+                        )
                 except PipelineStopException:
                     raise
                 except Exception as exc:
@@ -618,13 +622,15 @@ class AsyncPipelineExecutor:
             if len(consumers) == 1 and self.dag.needs_materialize(step_name):
                 consumer_type = self.dag[consumers[0]].deps.get(step_name)
                 try:
-                    items, had_error = await self._materialize_with_events(
+                    items, had_error, exc = await self._materialize_with_events(
                         step_name, output, node, consumer_type=consumer_type
                     )
                     self.outputs[_output_key(self.dag, step_name, consumers[0])] = items
                     self._notify_observers(step_name, items)
                     if deferred:
-                        await self._emit_step_result(node, step_name, items, had_error)
+                        await self._emit_step_result(
+                            node, step_name, items, had_error, exc
+                        )
                 except PipelineStopException:
                     raise
                 except Exception as exc:
@@ -672,25 +678,31 @@ class AsyncPipelineExecutor:
                 return
             else:
                 if self.dag.needs_materialize(step_name):
-                    output, had_error = await self._materialize_with_events(
+                    output, had_error, exc = await self._materialize_with_events(
                         step_name, output, node, consumer_type=node.get("output")
                     )
                 else:
                     self._notify_observers(step_name, output)
                     had_error = False
+                    exc = None
                 if deferred:
-                    await self._emit_step_result(node, step_name, output, had_error)
+                    await self._emit_step_result(
+                        node, step_name, output, had_error, exc
+                    )
                 return
         elif self.dag.needs_materialize(step_name):
-            output, had_error = await self._materialize_with_events(
+            output, had_error, exc = await self._materialize_with_events(
                 step_name, output, node, consumer_type=node.get("output")
             )
+        else:
+            had_error = False
+            exc = None
         self.outputs[step_name] = output
         self._notify_observers(step_name, output)
         if deferred and not isinstance(
             output, (Iterator, Generator, AsyncIterator, AsyncGenerator)
         ):
-            await self._emit_step_result(node, step_name, output, had_error=False)
+            await self._emit_step_result(node, step_name, output, had_error, exc)
 
 
 # ---------------------------------------------------------------------------
