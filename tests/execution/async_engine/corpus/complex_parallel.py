@@ -120,7 +120,7 @@ pack = PipelinePack(
                 "parent_pipeline": None,
             },
         },
-        "error_materializer_factory": "log_error_materializer",
+        "error_materializer": "log_error_materializer",
     },
     pipeline=pipeline_def,
     input_params=ComplexParallelParams(base=1),

@@ -76,7 +76,7 @@ pack = PipelinePack(
                 "parent_pipeline": None,
             },
         },
-        "error_materializer_factory": "log_error_materializer",
+        "error_materializer": "log_error_materializer",
     },
     pipeline=explicit_modes_pipeline,
     input_params=ExplicitModesParams(items=[1, 2, 3]),

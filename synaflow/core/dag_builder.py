@@ -218,6 +218,9 @@ def build_dag(
     is_default_factory: bool = False,
     error_materializer_factory: Any = None,
 ) -> Dag:
+    if error_materializer_factory is None:
+        error_materializer_factory = log_error_materializer_factory
+
     _validate_params_is_namedtuple(params, pipeline_name)
 
     factory = memory_materializer_factory

@@ -94,7 +94,7 @@ pack = PipelinePack(
                 "parent_pipeline": None,
             },
         },
-        "error_materializer_factory": "log_error_materializer",
+        "error_materializer": "log_error_materializer",
     },
     pipeline=diamond_pipeline,
     input_params=DiamondParams(base_val=10),

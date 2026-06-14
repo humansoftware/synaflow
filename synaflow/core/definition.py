@@ -60,22 +60,13 @@ class PipelineDef:
 
     def __post_init__(self) -> None:
         from synaflow.core.dag_builder import build_dag
-        from synaflow.core.dag_builder import (
-            memory_materializer_factory as _default_factory,
-            log_error_materializer_factory as _default_error_factory,
-        )
-
-        if self.materializer is None:
-            self.materializer = _default_factory
-        if self.error_materializer is None:
-            self.error_materializer = _default_error_factory
 
         self.dag = build_dag(
             self.name,
             self.params,
             self.steps,
             self.materializer,
-            is_default_factory=(self.materializer is _default_factory),
+            is_default_factory=(self.materializer is None),
             error_materializer_factory=self.error_materializer,
         )
         self.requires_sync_runner = self.dag.requires_sync_runner

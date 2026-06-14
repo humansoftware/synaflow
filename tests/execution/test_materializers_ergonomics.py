@@ -523,3 +523,36 @@ async def test_given_async_stream_and_lazy_consumer_when_step_has_materializer_t
 
     await async_run(my_pipeline, P())
     assert calls == ["called"]
+
+
+def test_given_include_when_no_explicit_materializer_then_sub_steps_remain_lazy():
+    from collections.abc import Iterator
+    from synaflow import include
+
+    class P(NamedTuple):
+        pass
+
+    def sub_gen() -> Iterator[int]:
+        yield 1
+
+    sub_pipe = pipeline(
+        name="sub_pipe", params=P, steps=[step("gen", fn=sub_gen)], exports="gen"
+    )
+
+    def adapter() -> P:
+        return P()
+
+    def consumer(sub_pipe: Iterator[int]) -> list[int]:
+        assert not isinstance(sub_pipe, list)
+        return list(sub_pipe)
+
+    root_pipe = pipeline(
+        name="root_pipe",
+        params=P,
+        steps=[
+            include("sub_pipe", pipeline=sub_pipe, fn=adapter),
+            step("consumer", fn=consumer),
+        ],
+    )
+
+    run(root_pipe, P())

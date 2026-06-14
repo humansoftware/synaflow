@@ -198,7 +198,7 @@ pack = PipelinePack(
                 "parent_pipeline": None,
             },
         },
-        "error_materializer_factory": "log_error_materializer",
+        "error_materializer": "log_error_materializer",
     },
     pipeline=pipe_l1,
     input_params=Level1Params(values=[10, 20]),

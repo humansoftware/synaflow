@@ -72,7 +72,7 @@ pack = PipelinePack(
                 "parent_pipeline": None,
             },
         },
-        "error_materializer_factory": "custom_err_mat",
+        "error_materializer": "custom_err_mat",
     },
     pipeline=error_pipeline,
     input_params=ErrorHandlingParams(),

@@ -105,7 +105,7 @@ pack = PipelinePack(
                 "parent_pipeline": None,
             },
         },
-        "error_materializer_factory": "log_error_materializer",
+        "error_materializer": "log_error_materializer",
     },
     pipeline=pipe,
     input_params=AParams(raw_texts=["hi", "world", "synaflow"]),
