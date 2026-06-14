@@ -4,6 +4,7 @@ import pytest
 
 from synaflow import (
     Observer,
+    include,
     pipeline,
     step,
 )
@@ -281,3 +282,128 @@ def test_given_sync_pipeline_without_observers_when_build_then_ok():
         steps=[step("a", fn=lambda x: x + 1)],
     )
     assert p.dag is not None
+
+
+# ---------------------------------------------------------------------------
+# Observer propagation through include() / sub-pipelines
+# ---------------------------------------------------------------------------
+
+
+class SubParams(NamedTuple):
+    y: int
+
+
+def test_given_sub_pipeline_observers_when_include_then_expanded_step_inherits():
+    h = _make_handler("sub_obs")
+
+    sub = pipeline(
+        name="sub",
+        params=SubParams,
+        steps=[step("s1", fn=lambda y: y + 1)],
+        exports="s1",
+        observers=[Observer(h)],
+    )
+
+    def adapter(x: int) -> SubParams:
+        return SubParams(y=x)
+
+    main = pipeline(
+        name="main",
+        params=Params,
+        steps=[
+            include("incl", pipeline=sub, fn=adapter),
+        ],
+    )
+    dag = main.dag
+    node_obs = dag["incl"].observers
+    assert len(node_obs) == 1
+    assert node_obs[0].handler is h
+    assert node_obs[0].source == "pipeline"
+
+
+def test_given_sub_step_observers_when_include_then_expanded_step_preserves():
+    h = _make_handler("step_obs")
+
+    sub = pipeline(
+        name="sub",
+        params=SubParams,
+        steps=[step("s1", fn=lambda y: y + 1, observers=[Observer(h)])],
+        exports="s1",
+    )
+
+    def adapter(x: int) -> SubParams:
+        return SubParams(y=x)
+
+    main = pipeline(
+        name="main",
+        params=Params,
+        steps=[
+            include("incl", pipeline=sub, fn=adapter),
+        ],
+    )
+    dag = main.dag
+    node_obs = dag["incl"].observers
+    assert len(node_obs) >= 1
+    step_obs = [o for o in node_obs if o.source == "step"]
+    assert len(step_obs) == 1
+    assert step_obs[0].handler is h
+
+
+def test_given_sub_pipeline_and_sub_step_observers_when_include_then_both_preserved():
+    h_sub = _make_handler("sub_pipe_obs")
+    h_step = _make_handler("sub_step_obs")
+
+    sub = pipeline(
+        name="sub",
+        params=SubParams,
+        steps=[step("s1", fn=lambda y: y + 1, observers=[Observer(h_step)])],
+        exports="s1",
+        observers=[Observer(h_sub)],
+    )
+
+    def adapter(x: int) -> SubParams:
+        return SubParams(y=x)
+
+    main = pipeline(
+        name="main",
+        params=Params,
+        steps=[
+            include("incl", pipeline=sub, fn=adapter),
+        ],
+    )
+    dag = main.dag
+    node_obs = dag["incl"].observers
+    assert len(node_obs) == 2
+    assert node_obs[0].handler is h_sub
+    assert node_obs[0].source == "pipeline"
+    assert node_obs[1].handler is h_step
+    assert node_obs[1].source == "step"
+
+
+def test_given_include_when_dag_to_dict_then_no_internal_names_in_metadata():
+    h = _make_handler("sub_obs")
+
+    sub = pipeline(
+        name="sub",
+        params=SubParams,
+        steps=[step("s1", fn=lambda y: y + 1)],
+        exports="s1",
+        observers=[Observer(h)],
+    )
+
+    def adapter(x: int) -> SubParams:
+        return SubParams(y=x)
+
+    main = pipeline(
+        name="main",
+        params=Params,
+        steps=[
+            include("incl", pipeline=sub, fn=adapter),
+        ],
+    )
+    d = main.to_dict()
+    assert "incl" in d["steps"]
+    # Adapter step should NOT leak into the exported step JSON
+    assert "sub__adapter" not in d["steps"]
+    obs = d["steps"]["incl"]["observers"]
+    assert obs == [{"handler_name": "sub_obs", "source": "pipeline"}]

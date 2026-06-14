@@ -3,6 +3,7 @@ import inspect
 from typing import Any
 
 from synaflow.core.definition import IncludeStep, Step
+from synaflow.core.observers import ResolvedObserver
 from synaflow.core.types import OnError
 
 
@@ -74,6 +75,7 @@ def _expand_include(
 
     sub_pipeline_mat = getattr(sub_pipeline, "materializer", None)
     sub_pipeline_err = getattr(sub_pipeline, "error_materializer", None)
+    sub_pipeline_obs = getattr(sub_pipeline, "observers", None) or []
 
     # 2. Extract the sub-pipeline's parameter fields
     if hasattr(sub_pipeline.params, "_fields"):
@@ -98,6 +100,13 @@ def _expand_include(
         is_exported = sub_step.name == sub_pipeline.exports
         new_name = prefix if is_exported else f"{prefix}__{sub_step.name}"
 
+        sub_step_obs = getattr(sub_step, "observers", None) or []
+        effective_obs = [
+            ResolvedObserver(handler=obs.handler, source="pipeline")
+            for obs in sub_pipeline_obs
+        ] + [
+            ResolvedObserver(handler=obs.handler, source="step") for obs in sub_step_obs
+        ]
         expanded.append(
             Step(
                 name=new_name,
@@ -111,6 +120,7 @@ def _expand_include(
                 description=sub_step.description,
                 pipeline=sub_pipeline.name,
                 parent_pipeline=new_parent_chain,
+                observers=effective_obs if effective_obs else None,
             )
         )
 

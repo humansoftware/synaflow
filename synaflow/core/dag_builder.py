@@ -255,9 +255,13 @@ def build_dag(
         effective = list(pipeline_obs_resolved)
         step_own = getattr(step, "observers", None)
         if step_own:
-            effective.extend(
-                ResolvedObserver(handler=obs.handler, source="step") for obs in step_own
-            )
+            for obs in step_own:
+                if isinstance(obs, ResolvedObserver):
+                    effective.append(obs)
+                else:
+                    effective.append(
+                        ResolvedObserver(handler=obs.handler, source="step")
+                    )
 
         compiled_step = validate_and_compile_step(
             step, produced, pipeline_name, observers=effective
