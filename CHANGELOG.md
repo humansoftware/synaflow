@@ -2,6 +2,53 @@
 
 
 
+## v0.11.0 (2026-06-14)
+
+### Chore
+
+* chore: address PR #18 review comments
+
+- Add [tool.coverage.run] omit for tests/ and scripts/
+- Delete docs/specs/test_coverage_ci.md (spec implemented)
+- Move Test Coverage CI to Completed in ROADMAP.md ([`19b671b`](https://github.com/humansoftware/synaflow/commit/19b671b07add691f1ba7afa982cbdfb531b2dbcc))
+
+### Documentation
+
+* docs: update roadmap to reflect in-progress specs ([`46a09bf`](https://github.com/humansoftware/synaflow/commit/46a09bf6abfab1dc0aea67e311d9142a12b2ddba))
+
+* docs: add pypi version and install instructions to documentation spec ([`6dcebc9`](https://github.com/humansoftware/synaflow/commit/6dcebc980b55d79ee8a128b70f95e4ff4625e5a0))
+
+* docs: upgrade spec 3 to full documentation portal and visualization ([`b2c73fd`](https://github.com/humansoftware/synaflow/commit/b2c73fdb26c15c46f1ffd8419773ad80f36ec3d5))
+
+* docs: add pre-commit hook requirement for testing to coverage spec ([`7aa5ead`](https://github.com/humansoftware/synaflow/commit/7aa5ead743180eecbb115bff6b77ca6b1e753dd3))
+
+* docs: rewrite coverage spec for dual metrics and non-blocking statuses ([`7145f7b`](https://github.com/humansoftware/synaflow/commit/7145f7b52b1502061ad03b8102f5d83f4bf9a0c2))
+
+* docs: detail coverage spec with pyproject.toml and PR comment action ([`9d4418b`](https://github.com/humansoftware/synaflow/commit/9d4418b8c865ae140fc91382951b6765edd77a8b))
+
+* docs: add specs for naming rules, test coverage, and export guidance ([`fa92f3a`](https://github.com/humansoftware/synaflow/commit/fa92f3a43c3f7b54a0e8f0cdb762001a6651938f))
+
+### Feature
+
+* feat: implement dual test coverage CI (total + patch at 80%)
+
+- Add .github/workflows/test-coverage.yml workflow triggered on PRs
+- Add .github/scripts/coverage_report.py to compute and post check runs
+- Add pytest hook to pre-commit config
+- Add pytest-cov to dev dependencies
+- Update .gitignore for coverage artifacts ([`0580864`](https://github.com/humansoftware/synaflow/commit/05808640e97a27892c4d6b36680d57563bef891c))
+
+### Unknown
+
+* Merge pull request #18 from humansoftware/feat/test-coverage-ci
+
+feat: implement dual test coverage CI (total + patch at 80%) ([`0a4072c`](https://github.com/humansoftware/synaflow/commit/0a4072c03ba3b6f4b8fa01673504edfc882bfbdc))
+
+* Merge pull request #17 from humansoftware/feature/update-roadmap-and-specs
+
+docs: add specs for naming rules, coverage, and export guidance ([`cbb505b`](https://github.com/humansoftware/synaflow/commit/cbb505b1617426486193ccd0a7913ef862058ff5))
+
+
 ## v0.10.0 (2026-06-14)
 
 ### Chore
