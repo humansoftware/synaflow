@@ -12,3 +12,11 @@ repos:
     -   id: ruff-format
     -   id: ruff-check
         args: ["--fix", "--select", "F401"]
+-   repo: local
+    hooks:
+    -   id: pytest
+        name: pytest
+        entry: uv run pytest tests/
+        language: system
+        pass_filenames: false
+        always_run: true
