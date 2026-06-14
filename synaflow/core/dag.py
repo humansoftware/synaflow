@@ -18,8 +18,8 @@ Both are @dataclass — plain data with behaviour, no hidden state.
 from dataclasses import dataclass, field
 from typing import Any, Callable
 
-from synaflow.core.type_compatibility import get_type_name, is_iterable_type, is_scalar
-from synaflow.core.types import OnError
+from synaflow.core.type_compatibility import get_type_name
+from synaflow.core.types import OnError, StepMode
 
 
 @dataclass
@@ -28,8 +28,10 @@ class DagNode:
     deps: dict[str, Any] = field(default_factory=dict)
     output: Any = None
     on_error: OnError | None = None
+    mode: StepMode = StepMode.ALL
     materializer: Callable | None = None
     materialized_deps: list[str] = field(default_factory=list)
+    each_mode_deps: list[str] = field(default_factory=list)
     force_materialize: bool = False
     pipeline: str | None = None
     parent_pipeline: str | None = None
@@ -119,21 +121,7 @@ class Dag:
         node = self.steps.get(step_name)
         if not node:
             return []
-
-        result = []
-        for dep_name, dep_type in node.deps.items():
-            producer = self.steps.get(dep_name)
-            if producer is None and dep_name in self.params:
-                producer_output = self.params[dep_name]
-            elif producer is not None:
-                producer_output = producer.output
-            else:
-                continue
-            if producer_output is None:
-                continue
-            if is_iterable_type(producer_output) and is_scalar(dep_type):
-                result.append(dep_name)
-        return result
+        return list(node.each_mode_deps)
 
     def needs_materialize(self, step_name: str) -> bool:
         node = self.steps.get(step_name)

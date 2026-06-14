@@ -2,7 +2,7 @@ from typing import NamedTuple
 
 import pytest
 
-from synaflow import pipeline, step
+from synaflow import StepMode, pipeline, step
 from synaflow.core.types import OnError
 
 
@@ -217,6 +217,196 @@ def test_given_each_mode_step_with_iterable_dependency_not_in_first_parameter_wh
     p = pipeline(name="test", params=P, steps=[step("transform", fn=transform)])
 
     assert repr(p.dag.steps["transform"].output) == "ListType(<class 'int'>)"
+
+
+def test_given_mode_each_when_return_type_is_tuple_then_output_is_compiled_as_list_of_tuples():
+    class P(NamedTuple):
+        items: list[int] = [1, 2, 3]
+
+    def pair(items: int) -> tuple[int, str]:
+        return (items, str(items))
+
+    p = pipeline(
+        name="test",
+        params=P,
+        steps=[step("pair", fn=pair, mode=StepMode.EACH)],
+    )
+
+    assert repr(p.dag.steps["pair"].output) == "ListType(tuple[int, str])"
+
+
+def test_given_mode_auto_when_each_mode_is_inferred_and_return_type_is_tuple_then_output_is_compiled_as_list_of_tuples():
+    class P(NamedTuple):
+        items: list[int] = [1, 2, 3]
+
+    def pair(items: int) -> tuple[int, str]:
+        return (items, str(items))
+
+    p = pipeline(name="test", params=P, steps=[step("pair", fn=pair)])
+
+    assert p.dag.steps["pair"].mode is StepMode.EACH
+    assert repr(p.dag.steps["pair"].output) == "ListType(tuple[int, str])"
+
+
+def test_given_mode_all_when_return_type_is_tuple_then_output_remains_tuple():
+    class P(NamedTuple):
+        items: list[int] = [1, 2, 3]
+
+    def summarize(items: list[int]) -> tuple[int, int]:
+        return (len(items), sum(items))
+
+    p = pipeline(
+        name="test",
+        params=P,
+        steps=[step("summarize", fn=summarize, mode=StepMode.ALL)],
+    )
+
+    assert p.dag.steps["summarize"].mode is StepMode.ALL
+    assert p.dag.steps["summarize"].output == tuple[int, int]
+
+
+def test_given_mode_each_when_return_type_is_none_then_output_remains_none():
+    class P(NamedTuple):
+        items: list[int] = [1, 2, 3]
+
+    seen = []
+
+    def sink(items: int) -> None:
+        seen.append(items)
+
+    p = pipeline(
+        name="test",
+        params=P,
+        steps=[step("sink", fn=sink, mode=StepMode.EACH)],
+    )
+
+    assert p.dag.steps["sink"].mode is StepMode.EACH
+    assert p.dag.steps["sink"].output is None
+
+
+def test_given_mode_each_when_return_type_is_tuple_and_downstream_expects_list_of_tuples_then_pipeline_constructs():
+    class P(NamedTuple):
+        items: list[int] = [1, 2, 3]
+
+    def pair(items: int) -> tuple[int, str]:
+        return (items, str(items))
+
+    def consume(pair: list[tuple[int, str]]) -> int:
+        return len(pair)
+
+    p = pipeline(
+        name="test",
+        params=P,
+        steps=[step("pair", fn=pair, mode=StepMode.EACH), step("consume", fn=consume)],
+    )
+
+    assert repr(p.dag.steps["pair"].output) == "ListType(tuple[int, str])"
+
+
+def test_given_mode_auto_when_step_supports_each_then_mode_is_inferred_as_each():
+    class P(NamedTuple):
+        items: list[int] = [1, 2, 3]
+
+    def transform(items: int) -> int:
+        return items * 2
+
+    p = pipeline(name="test", params=P, steps=[step("transform", fn=transform)])
+
+    assert p.dag.steps["transform"].mode is StepMode.EACH
+    assert p.dag.steps["transform"].each_mode_deps == ["items"]
+
+
+def test_given_mode_each_when_signature_supports_each_then_dag_marks_step_as_each():
+    class P(NamedTuple):
+        items: list[int] = [1, 2, 3]
+
+    def transform(items: int) -> int:
+        return items * 2
+
+    p = pipeline(
+        name="test",
+        params=P,
+        steps=[step("transform", fn=transform, mode=StepMode.EACH)],
+    )
+
+    assert p.dag.steps["transform"].mode is StepMode.EACH
+    assert p.dag.steps["transform"].each_mode_deps == ["items"]
+
+
+def test_given_mode_all_when_signature_supports_all_then_dag_marks_step_as_all():
+    class P(NamedTuple):
+        items: list[int] = [1, 2, 3]
+
+    def transform(items: list[int]) -> int:
+        return len(items)
+
+    p = pipeline(
+        name="test",
+        params=P,
+        steps=[step("transform", fn=transform, mode=StepMode.ALL)],
+    )
+
+    assert p.dag.steps["transform"].mode is StepMode.ALL
+    assert p.dag.steps["transform"].each_mode_deps == []
+
+
+def test_given_mode_auto_when_signature_supports_all_then_mode_is_inferred_as_all():
+    class P(NamedTuple):
+        items: list[int] = [1, 2, 3]
+
+    def transform(items: list[int]) -> int:
+        return len(items)
+
+    p = pipeline(name="test", params=P, steps=[step("transform", fn=transform)])
+
+    assert p.dag.steps["transform"].mode is StepMode.ALL
+    assert p.dag.steps["transform"].each_mode_deps == []
+
+
+def test_given_mode_auto_when_multiple_dependencies_mix_scalar_and_iterable_then_only_iterable_scalar_inputs_are_marked_each():
+    class P(NamedTuple):
+        multiplier: int = 2
+        items: list[int] = [1, 2, 3]
+
+    def transform(multiplier: int, items: int) -> int:
+        return multiplier * items
+
+    p = pipeline(name="test", params=P, steps=[step("transform", fn=transform)])
+
+    assert p.dag.steps["transform"].mode is StepMode.EACH
+    assert p.dag.steps["transform"].each_mode_deps == ["items"]
+
+
+def test_given_mode_auto_when_multiple_iterable_dependencies_are_consumed_as_scalars_then_all_are_marked_each():
+    class P(NamedTuple):
+        left: list[int] = [1, 2]
+        right: list[int] = [10, 20]
+
+    def pair(left: int, right: int) -> tuple[int, int]:
+        return (left, right)
+
+    p = pipeline(name="test", params=P, steps=[step("pair", fn=pair)])
+
+    assert p.dag.steps["pair"].mode is StepMode.EACH
+    assert p.dag.steps["pair"].each_mode_deps == ["left", "right"]
+
+
+def test_given_mode_each_when_multiple_iterable_dependencies_are_consumed_as_scalars_then_each_mode_deps_preserve_all_matching_inputs():
+    class P(NamedTuple):
+        left: list[int] = [1, 2]
+        right: list[int] = [10, 20]
+
+    def pair(left: int, right: int) -> tuple[int, int]:
+        return (left, right)
+
+    p = pipeline(
+        name="test",
+        params=P,
+        steps=[step("pair", fn=pair, mode=StepMode.EACH)],
+    )
+
+    assert p.dag.steps["pair"].mode is StepMode.EACH
+    assert p.dag.steps["pair"].each_mode_deps == ["left", "right"]
 
 
 def test_given_each_mode_step_with_iterable_dependency_not_in_first_parameter_and_list_downstream_when_constructed_then_passes():

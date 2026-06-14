@@ -2,7 +2,7 @@ from typing import Iterator, NamedTuple
 
 import pytest
 
-from synaflow import include, pipeline, step
+from synaflow import StepMode, include, pipeline, step
 
 
 class BParams(NamedTuple):
@@ -129,3 +129,69 @@ def test_infinite_cycle_detection():
             params=Empty,
             steps=[include("start", pipeline=pipe_cycle_a, fn=dummy)],
         )
+
+
+def test_sub_pipeline_preserves_explicit_step_mode_after_expansion():
+    class ChildParams(NamedTuple):
+        items: list[int]
+
+    def emit(items: list[int]) -> Iterator[int]:
+        yield from items
+
+    def child_each(emit: int) -> int:
+        return emit * 2
+
+    child = pipeline(
+        name="Child",
+        params=ChildParams,
+        exports="child_each",
+        steps=[
+            step("emit", fn=emit),
+            step("child_each", fn=child_each, mode=StepMode.EACH),
+        ],
+    )
+
+    class ParentParams(NamedTuple):
+        items: list[int]
+
+    def adapt(items: list[int]) -> ChildParams:
+        return ChildParams(items=items)
+
+    parent = pipeline(
+        name="Parent",
+        params=ParentParams,
+        steps=[include("child", pipeline=child, fn=adapt)],
+    )
+
+    assert parent.dag.steps["child"].mode is StepMode.EACH
+    assert parent.dag.steps["child"].each_mode_deps == ["child__emit"]
+
+
+def test_sub_pipeline_preserves_explicit_all_mode_after_expansion():
+    class ChildParams(NamedTuple):
+        items: list[int]
+
+    def child_all(items: list[int]) -> int:
+        return len(items)
+
+    child = pipeline(
+        name="Child",
+        params=ChildParams,
+        exports="child_all",
+        steps=[step("child_all", fn=child_all, mode=StepMode.ALL)],
+    )
+
+    class ParentParams(NamedTuple):
+        items: list[int]
+
+    def adapt(items: list[int]) -> ChildParams:
+        return ChildParams(items=items)
+
+    parent = pipeline(
+        name="Parent",
+        params=ParentParams,
+        steps=[include("child", pipeline=child, fn=adapt)],
+    )
+
+    assert parent.dag.steps["child"].mode is StepMode.ALL
+    assert parent.dag.steps["child"].each_mode_deps == []

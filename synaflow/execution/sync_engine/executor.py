@@ -20,13 +20,31 @@ def _output_key(dag: Dag, producer: str, consumer: str) -> str:
 # ---------------------------------------------------------------------------
 
 
+def _collect_iterator(dag: Dag, step_name: str, value: Iterator) -> list[Any]:
+    items = []
+    while True:
+        try:
+            items.append(next(value))
+        except StopIteration:
+            return items
+        except Exception as exc:
+            _handle_error(dag, step_name, exc)
+            if dag[step_name].on_error == OnError.STOP:
+                raise PipelineStopException(step_name=step_name, cause=exc) from exc
+            return items
+
+
 def _apply_materializer(
     dag: Dag, step_name: str, value: Any, consumer_type: Any = None
 ) -> Any:
     node = dag[step_name]
     mat = node.get("materializer")
     if mat is None:
-        return list(value) if isinstance(value, Iterator) else value
+        return (
+            _collect_iterator(dag, step_name, value)
+            if isinstance(value, Iterator)
+            else value
+        )
     sig = inspect.signature(mat)
     if (
         len(sig.parameters) > 1
@@ -41,8 +59,11 @@ def _apply_materializer(
                 consumer_type=consumer_type,
             )
         )
+    if isinstance(value, Iterator) and mat in (list, tuple, set, dict):
+        items = _collect_iterator(dag, step_name, value)
+        return items if mat is list else mat(items)
     if isinstance(value, Iterator) and getattr(mat, "__name__", "") == "_identity":
-        return list(value)
+        return _collect_iterator(dag, step_name, value)
     return mat(value)
 
 

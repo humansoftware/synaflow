@@ -195,3 +195,72 @@ async def test_given_on_error_stop_when_step_fails_then_error_materializer_is_ca
         await async_run(my_pipeline, params=P())
 
     assert handled == [("s1", "ValueError", "boom")]
+
+
+async def test_given_on_error_continue_when_stream_iteration_fails_then_previous_items_are_preserved_and_error_materializer_is_called():
+    class P(NamedTuple):
+        pass
+
+    handled = []
+
+    def error_factory(ctx):
+        def handle(exc):
+            handled.append((ctx.dataset_name, type(exc).__name__))
+
+        return handle
+
+    async def source():
+        yield 1
+        raise ValueError("iterboom")
+
+    sink = mock_step(return_annotation=list, source=list)
+
+    my_pipeline = pipeline(
+        name="test_async_iter_continue",
+        params=P,
+        default_error_materializer_factory=error_factory,
+        steps=[
+            step("source", fn=source, on_error=OnError.CONTINUE),
+            step("sink", fn=sink),
+        ],
+    )
+
+    await async_run(my_pipeline, params=P())
+
+    sink.assert_called_once_with(source=[1])
+    assert handled == [("source", "ValueError")]
+
+
+async def test_given_on_error_stop_when_stream_iteration_fails_then_pipeline_stops_and_error_materializer_is_called():
+    class P(NamedTuple):
+        pass
+
+    handled = []
+
+    def error_factory(ctx):
+        def handle(exc):
+            handled.append((ctx.dataset_name, type(exc).__name__))
+
+        return handle
+
+    async def source():
+        yield 1
+        raise ValueError("iterboom")
+
+    sink = mock_step(return_annotation=list, source=list)
+
+    my_pipeline = pipeline(
+        name="test_async_iter_stop",
+        params=P,
+        default_error_materializer_factory=error_factory,
+        steps=[
+            step("source", fn=source, on_error=OnError.STOP),
+            step("sink", fn=sink),
+        ],
+    )
+
+    with pytest.raises(PipelineStopException, match="source"):
+        await async_run(my_pipeline, params=P())
+
+    sink.assert_not_called()
+    assert handled == [("source", "ValueError")]

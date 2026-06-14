@@ -100,6 +100,7 @@ def _expand_include(
                 name=new_name,
                 fn=wrapped_fn,
                 on_error=sub_step.on_error,
+                mode=sub_step.mode,
                 params=sub_step.params,
                 materializer=sub_step.materializer,
                 description=sub_step.description,

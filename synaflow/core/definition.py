@@ -2,7 +2,7 @@ from dataclasses import dataclass, field
 from typing import Any, Callable
 
 from synaflow.core.dag import Dag
-from synaflow.core.types import OnError, StepParams
+from synaflow.core.types import OnError, StepMode, StepParams
 
 
 def _get_default_factory():
@@ -26,6 +26,7 @@ class BaseStep:
 @dataclass
 class Step(BaseStep):
     on_error: OnError = OnError.CONTINUE
+    mode: StepMode = StepMode.AUTO
     params: StepParams | None = None
     materializer: Callable | None = None
     force_materialize: bool = False

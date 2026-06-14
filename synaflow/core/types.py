@@ -10,6 +10,12 @@ class OnError(Enum):
     STOP = "stop"
 
 
+class StepMode(Enum):
+    AUTO = "auto"
+    EACH = "each"
+    ALL = "all"
+
+
 @dataclass(frozen=True)
 class StepParams:
     values: dict[str, Any] = field(default_factory=dict)
