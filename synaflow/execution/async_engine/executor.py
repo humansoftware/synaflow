@@ -479,17 +479,20 @@ class AsyncPipelineExecutor:
                 item_args = dict(base_args)
                 for dep in unrolled:
                     if dep in completed:
-                        item_args[dep] = None
+                        param = node.dataset_param_names.get(dep, dep)
+                        item_args[param] = None
                         continue
 
                     item = await queues[dep].get()
                     if item is EOF_MARKER:
                         completed.add(dep)
-                        item_args[dep] = None
+                        param = node.dataset_param_names.get(dep, dep)
+                        item_args[param] = None
                     elif isinstance(item, Exception):
                         raise item
                     else:
-                        item_args[dep] = item
+                        param = node.dataset_param_names.get(dep, dep)
+                        item_args[param] = item
                 if len(completed) == len(unrolled):
                     break
                 try:
@@ -518,7 +521,8 @@ class AsyncPipelineExecutor:
             if isinstance(value, asyncio.Queue) and dep_name not in unrolled:
                 dep_type = node.deps.get(dep_name)
                 value = await _resolve_queue(self.dag, dep_name, value, dep_type)
-            args[dep_name] = value
+            param = node.dataset_param_names.get(dep_name, dep_name)
+            args[param] = value
         return args
 
     def _notify_observers(self, step_name, output):

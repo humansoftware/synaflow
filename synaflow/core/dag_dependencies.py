@@ -6,6 +6,7 @@ from typing import Any, NamedTuple, Union
 
 from synaflow.core.dag import DagNode
 from synaflow.core.definition import Step
+from synaflow.core.naming import get_base_dataset_name
 from synaflow.core.types import StepMode
 from synaflow.core.type_compatibility import (
     ListType,
@@ -46,21 +47,41 @@ def validate_and_resolve_dependencies(
     hints: dict[str, Any],
     produced: dict[str, DagNode],
     pipeline_name: str,
-) -> dict[str, Any]:
+) -> tuple[dict[str, Any], dict[str, str]]:
     deps: dict[str, Any] = {}
+    dataset_param_names: dict[str, str] = {}
 
     for param_name, param in sig.parameters.items():
         consumer_type = hints.get(param_name, param.annotation)
         if consumer_type is inspect.Parameter.empty:
             consumer_type = None
 
-        if param_name not in produced:
+        if param_name in produced:
+            producer_name = param_name
+        else:
+            param_base = get_base_dataset_name(param_name)
+            producer_name = param_name
+            for key in produced:
+                if get_base_dataset_name(key) == param_base:
+                    producer_name = key
+                    break
+            else:
+                raise ValueError(
+                    f"Pipeline '{pipeline_name}': step '{step.name}' depends on '{param_name}' "
+                    "but no prior step or param produces it"
+                )
+
+        if param_name != producer_name:
+            dataset_param_names[producer_name] = param_name
+
+        if producer_name in deps:
+            first = dataset_param_names.get(producer_name, producer_name)
             raise ValueError(
-                f"Pipeline '{pipeline_name}': step '{step.name}' depends on '{param_name}' "
-                "but no prior step or param produces it"
+                f"Pipeline '{pipeline_name}': step '{step.name}' has duplicate parameters "
+                f"'{param_name}' and '{first}' that both map to '{producer_name}'"
             )
 
-        producer_type = produced[param_name].output
+        producer_type = produced[producer_name].output
 
         if (
             producer_type is type(None)
@@ -70,19 +91,19 @@ def validate_and_resolve_dependencies(
             raise ValueError(
                 f"Pipeline '{pipeline_name}': step '{step.name}' param '{param_name}': "
                 f"expects {get_type_name(consumer_type)} "
-                f"but '{param_name}' produces explicit NoneType"
+                f"but '{producer_name}' produces explicit NoneType"
             )
 
         if not is_type_compatible(producer_type, consumer_type):
             raise ValueError(
                 f"Pipeline '{pipeline_name}': step '{step.name}' param '{param_name}': "
                 f"expects {get_type_name(consumer_type)} "
-                f"but '{param_name}' produces {get_type_name(producer_type)}"
+                f"but '{producer_name}' produces {get_type_name(producer_type)}"
             )
 
-        deps[param_name] = consumer_type
+        deps[producer_name] = consumer_type
 
-    return deps
+    return deps, dataset_param_names
 
 
 def resolve_step_output_type(

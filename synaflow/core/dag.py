@@ -37,6 +37,7 @@ class DagNode:
     parent_pipeline: str | None = None
     error_materializer: Callable | None = None
     observers: list = field(default_factory=list)
+    dataset_param_names: dict[str, str] = field(default_factory=dict)
 
     def __getitem__(self, key):
         return getattr(self, key)
@@ -65,6 +66,8 @@ class DagNode:
         }
         if self.observers:
             ret["observers"] = _serialize_observers(self.observers)
+        if self.dataset_param_names:
+            ret["dataset_param_names"] = dict(self.dataset_param_names)
         return ret
 
 

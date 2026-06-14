@@ -206,4 +206,22 @@ For uneven multi-stream each-mode, exhaustion is modeled with `None` padding rat
 
 ---
 
+### 3.16. Base Dataset Name & Smart Binding
+
+**Decision:** Every step produces exactly one Base Dataset. The Base Dataset name is derived from the step name by normalizing it to its absolute plural form. Function parameters can reference datasets using any natural synonym (singular, plural, or common suffixes like `_list`), and the framework resolves them automatically via **Smart Binding**.
+
+**Reason:** Reduces boilerplate and naming friction. Users writing EACH-mode consumers naturally think in singular terms (`item`) while ALL-mode consumers think in plural terms (`items`). The framework bridges the gap so the developer writes what is semantically correct without worrying about exact name matching. This also prevents accidental collisions (a `user` step and a `users` step in the same pipeline are now detected as conflicting Base Datasets).
+
+**How it works:**
+1. `get_base_dataset_name(name)` strips collection suffixes (`_list`, `_set`, `_dict`, `_tuple`) and pluralizes the last word using `inflect`, producing the canonical Base Dataset name (always absolute plural).
+2. During dependency resolution, if a parameter name is not found directly in `produced`, the system computes its Base Dataset name and searches for a match among existing producers.
+3. Build-time validations prevent:
+   - **Duplicate Base Datasets**: two steps whose names map to the same Base Dataset (e.g., `user` and `users`) raise a `ValueError`.
+   - **Duplicate Parameters**: a single function with two parameters that map to the same Base Dataset (e.g., `def fn(user, users)`) raises a `ValueError`.
+4. The resolved mappings are stored in `DagNode.binding_map` and serialized in the DAG JSON under `binding_map` so external runners can replicate the resolution without re-inferring semantics.
+
+**Naming philosophy:** Step names should focus on **nouns** that describe what data the step produces (e.g., `users`, `transactions`, `logs`). EACH-mode consumers naturally reference the singular form (`user: User`) while ALL-mode consumers reference the plural or a suffixed form (`users_list: list[User]`). The framework handles the mapping transparently — there is no state collision because the Base Dataset name is always unique.
+
+---
+
 *(This document should be iteratively evolved whenever a new architectural contract is established in the Synaflow codebase).*

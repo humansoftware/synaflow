@@ -8,12 +8,12 @@ class LinearParams(NamedTuple):
     count: int = 3
 
 
-def gen(count: int) -> Generator[int, None, None]:
+def numbers(count: int) -> Generator[int, None, None]:
     yield from range(count)
 
 
-def transformer(gen: int) -> int:
-    return gen * 2
+def transformer(number: int) -> int:
+    return number * 2
 
 
 def consumer(transformer: Iterator[int]) -> None:
@@ -27,7 +27,7 @@ linear_pipeline = pipeline(
     name="linear_example",
     params=LinearParams,
     steps=[
-        step("gen", fn=gen),
+        step("numbers", fn=numbers),
         step(
             "transformer",
             fn=transformer,
@@ -42,10 +42,10 @@ pack = PipelinePack(
         "name": "linear_example",
         "params": {"count": "int"},
         "steps": {
-            "gen": {
+            "numbers": {
                 "deps": {"count": "int"},
                 "output": "Stream[int, None, None]",
-                "fn": "gen",
+                "fn": "numbers",
                 "on_error": "continue",
                 "mode": "all",
                 "materializer": "memory_materializer",
@@ -56,7 +56,7 @@ pack = PipelinePack(
                 "parent_pipeline": None,
             },
             "transformer": {
-                "deps": {"gen": "int"},
+                "deps": {"numbers": "int"},
                 "output": "ListType(<class 'int'>)",
                 "fn": "transformer",
                 "on_error": "continue",
@@ -64,7 +64,8 @@ pack = PipelinePack(
                 "materializer": "memory_materializer",
                 "error_materializer": "log_error_materializer",
                 "materialized_deps": [],
-                "each_mode_deps": ["gen"],
+                "each_mode_deps": ["numbers"],
+                "dataset_param_names": {"numbers": "number"},
                 "pipeline": "linear_example",
                 "parent_pipeline": None,
                 "observers": [{"handler_name": "<lambda>", "source": "step"}],
@@ -88,13 +89,13 @@ pack = PipelinePack(
     pipeline=linear_pipeline,
     input_params=LinearParams(count=3),
     step_results={
-        "gen": [0, 1, 2],
+        "numbers": [0, 1, 2],
         "transformer": [0, 2, 4],
         "consumer": None,
     },
-    expected_call_order=["gen", "transformer", "consumer"],
+    expected_call_order=["numbers", "transformer", "consumer"],
     expected_execution_levels=[
-        ["gen"],
+        ["numbers"],
         ["transformer"],
         ["consumer"],
     ],
