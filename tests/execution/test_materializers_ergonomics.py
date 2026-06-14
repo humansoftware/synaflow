@@ -777,3 +777,74 @@ def test_given_include_with_step_error_materializer_overriding_pipeline_error_ma
     )
 
     assert root_pipe.dag.steps["sub_pipe"].error_materializer is my_step_err
+
+
+@pytest.mark.asyncio
+async def test_given_async_composite_error_materializer_with_async_handlers_when_fails_then_awaits_all():
+    class P(NamedTuple):
+        pass
+
+    calls = []
+
+    async def async_handler1(exc):
+        await asyncio.sleep(0.001)
+        calls.append("one")
+
+    async def async_handler2(exc):
+        await asyncio.sleep(0.001)
+        calls.append("two")
+
+    comp = composite_error_materializer(
+        to_error_materializer(async_handler1),
+        to_error_materializer(async_handler2),
+    )
+
+    async def step_fn():
+        raise ValueError("boom")
+
+    my_pipeline = pipeline(
+        name="async_composite_err_async_handlers",
+        params=P,
+        steps=[
+            step("s", fn=step_fn, error_materializer=comp, on_error=OnError.CONTINUE)
+        ],
+    )
+    await async_run(my_pipeline, P())
+    assert calls == ["one", "two"]
+
+
+@pytest.mark.asyncio
+async def test_given_async_composite_materializer_with_async_sub_materializers_when_run_then_awaits_all():
+    class P(NamedTuple):
+        pass
+
+    calls = []
+
+    def async_mat1(ctx):
+        async def concrete(val):
+            await asyncio.sleep(0.001)
+            calls.append("one")
+            return val
+
+        return concrete
+
+    def async_mat2(ctx):
+        async def concrete(val):
+            await asyncio.sleep(0.001)
+            calls.append("two")
+            return val
+
+        return concrete
+
+    comp = composite_materializer(async_mat1, async_mat2)
+
+    async def step_fn():
+        return 42
+
+    my_pipeline = pipeline(
+        name="async_composite_mat_async_mats",
+        params=P,
+        steps=[step("s", fn=step_fn, materializer=comp)],
+    )
+    await async_run(my_pipeline, P())
+    assert calls == ["one", "two"]

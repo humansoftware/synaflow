@@ -78,10 +78,19 @@ async def _apply_materializer(
             or getattr(concrete_mat, "__name__", "") == "_identity"
         ):
             items = await _collect_async_iterator(dag, step_name, value)
-            return items if concrete_mat is list else concrete_mat(items)
+            res = items if concrete_mat is list else concrete_mat(items)
+            if inspect.iscoroutine(res):
+                return await res
+            return res
         items = await _collect_async_iterator(dag, step_name, value)
-        return concrete_mat(items)
-    return concrete_mat(value)
+        res = concrete_mat(items)
+        if inspect.iscoroutine(res):
+            return await res
+        return res
+    res = concrete_mat(value)
+    if inspect.iscoroutine(res):
+        return await res
+    return res
 
 
 async def _handle_error(dag: Dag, step_name: str, exc: BaseException) -> None:
@@ -114,7 +123,9 @@ async def _handle_error(dag: Dag, step_name: str, exc: BaseException) -> None:
         if inspect.iscoroutinefunction(handler):
             await handler(exc)
         else:
-            handler(exc)
+            res = handler(exc)
+            if inspect.iscoroutine(res):
+                await res
 
 
 async def _pump_iterator(
