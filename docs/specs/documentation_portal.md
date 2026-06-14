@@ -15,6 +15,7 @@ The documentation must be logically organized in the sidebar with the following 
 
 ### 1. Introduction & Getting Started
 * What is SynaFlow and why it exists.
+* **Installation:** Clear instructions on how to install the library (`pip install synaflow` / `uv pip install synaflow`), including a dynamic badge or text indicating the **current published version on PyPI**.
 * **Lockstep Data Flow:** A visual and textual explanation of how a single data item flows entirely through the pipeline (from producer to materializer) before the second item is consumed, guaranteeing extreme memory efficiency.
 * Links pointing developers to the living example pipelines in the test corpus.
 
