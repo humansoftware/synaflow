@@ -345,7 +345,9 @@ def test_given_disk_materializer_when_no_filename_then_infers_from_dataset(tmp_p
     my_pipeline = pipeline(
         name="disk_mat_test",
         params=P,
-        steps=[step("my_dataset", fn=step_fn, materializer=my_mat)],
+        steps=[
+            step("my_dataset", fn=step_fn, materializer=my_mat, force_materialize=True)
+        ],
     )
     run(my_pipeline, P())
 
@@ -370,7 +372,7 @@ def test_given_disk_materializer_with_filename_when_run_then_respects_override(
     my_pipeline = pipeline(
         name="disk_override_test",
         params=P,
-        steps=[step("ds", fn=step_fn, materializer=my_mat)],
+        steps=[step("ds", fn=step_fn, materializer=my_mat, force_materialize=True)],
     )
     run(my_pipeline, P())
 
@@ -450,7 +452,7 @@ def test_given_composite_materializer_when_run_then_calls_all_underlying_materia
     my_pipeline = pipeline(
         name="composite_test",
         params=P,
-        steps=[step("s", fn=step_fn, materializer=comp)],
+        steps=[step("s", fn=step_fn, materializer=comp, force_materialize=True)],
     )
     run(my_pipeline, P())
 
@@ -490,7 +492,7 @@ def test_given_composite_error_materializer_when_fails_then_calls_all_underlying
 
 
 @pytest.mark.asyncio
-async def test_given_async_stream_and_lazy_consumer_when_step_has_materializer_then_materializer_is_called():
+async def test_given_async_stream_and_lazy_consumer_with_force_materialize_then_materializer_is_called():
     from collections.abc import AsyncIterator
 
     class P(NamedTuple):
@@ -513,10 +515,10 @@ async def test_given_async_stream_and_lazy_consumer_when_step_has_materializer_t
             pass
 
     my_pipeline = pipeline(
-        name="test_async_lazy_mat",
+        name="test_async_lazy_force_mat",
         params=P,
         steps=[
-            step("gen", fn=gen, materializer=spy_materializer),
+            step("gen", fn=gen, materializer=spy_materializer, force_materialize=True),
             step("consumer", fn=consumer),
         ],
     )
@@ -844,7 +846,7 @@ async def test_given_async_composite_materializer_with_async_sub_materializers_w
     my_pipeline = pipeline(
         name="async_composite_mat_async_mats",
         params=P,
-        steps=[step("s", fn=step_fn, materializer=comp)],
+        steps=[step("s", fn=step_fn, materializer=comp, force_materialize=True)],
     )
     await async_run(my_pipeline, P())
     assert calls == ["one", "two"]

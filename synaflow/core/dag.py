@@ -36,7 +36,6 @@ class DagNode:
     pipeline: str | None = None
     parent_pipeline: str | None = None
     error_materializer: Callable | None = None
-    has_step_materializer: bool = False
 
     def __getitem__(self, key):
         return getattr(self, key)
@@ -133,11 +132,7 @@ class Dag:
         if node is None:
             return False
 
-        if (
-            node.on_error == OnError.STOP
-            or node.force_materialize
-            or node.has_step_materializer
-        ):
+        if node.on_error == OnError.STOP or node.force_materialize:
             return True
 
         return any(

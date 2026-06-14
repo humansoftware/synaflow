@@ -60,7 +60,6 @@ def validate_and_compile_step(
         force_materialize=step.force_materialize,
         pipeline=step.pipeline or pipeline_name,
         parent_pipeline=getattr(step, "parent_pipeline", None),
-        has_step_materializer=(step.materializer is not None),
     )
 
 

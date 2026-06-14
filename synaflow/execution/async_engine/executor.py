@@ -341,11 +341,7 @@ class AsyncPipelineExecutor:
             consumers = self.dag.consumers_of(step_name)
 
             # 1. Step-level materialization required?
-            if (
-                node.on_error == OnError.STOP
-                or node.force_materialize
-                or node.has_step_materializer
-            ):
+            if node.on_error == OnError.STOP or node.force_materialize:
                 consumer_type = None
                 if consumers:
                     consumer_type = self.dag[consumers[0]].deps.get(step_name)
