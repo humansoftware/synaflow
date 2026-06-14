@@ -26,6 +26,7 @@ from synaflow.core.dag import Dag, DagNode
 from synaflow.core.dag_dependencies import initialize_parameters
 from synaflow.core.dag_steps import (
     validate_and_compile_step,
+    validate_no_duplicate_base_datasets,
     validate_step_is_callable,
     validate_sync_async_consistency,
     validate_unique_step_name,
@@ -240,6 +241,8 @@ def build_dag(
             validate_unique_step_name(step.name, {}, pipeline_name)
 
     expanded_steps = expand_macros(steps, current_pipeline_name=pipeline_name)
+
+    validate_no_duplicate_base_datasets(expanded_steps, pipeline_name)
 
     pipeline_obs_resolved = [
         ResolvedObserver(handler=obs.handler, source="pipeline")

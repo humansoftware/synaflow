@@ -8,11 +8,12 @@ from synaflow.core.dag_dependencies import (
     validate_and_resolve_dependencies,
 )
 from synaflow.core.definition import Step
+from synaflow.core.naming import get_base_dataset_name
 from synaflow.core.type_compatibility import (
     is_async_stream_type,
     is_iterable_type,
-    is_sync_stream_type,
     is_scalar,
+    is_sync_stream_type,
 )
 from synaflow.core.types import MaterializeContext, StepMode
 
@@ -47,7 +48,10 @@ def validate_and_compile_step(
     sig = inspect.signature(step.fn)
     hints = get_safe_type_hints(step.fn)
 
-    deps = validate_and_resolve_dependencies(step, sig, hints, produced, pipeline_name)
+    deps, dataset_param_names = validate_and_resolve_dependencies(
+        step, sig, hints, produced, pipeline_name
+    )
+
     mode, each_mode_deps = resolve_step_mode(step, deps, produced, pipeline_name)
     output_type = resolve_step_output_type(sig, hints, deps, produced, mode)
 
@@ -64,6 +68,7 @@ def validate_and_compile_step(
         pipeline=step.pipeline or pipeline_name,
         parent_pipeline=getattr(step, "parent_pipeline", None),
         observers=observers or [],
+        dataset_param_names=dataset_param_names,
     )
 
 
@@ -76,7 +81,8 @@ def resolve_step_mode(
     each_mode_deps = [
         dep_name
         for dep_name, dep_type in deps.items()
-        if produced[dep_name].output is not None
+        if dep_name in produced
+        and produced[dep_name].output is not None
         and is_iterable_type(produced[dep_name].output)
         and is_scalar(dep_type)
     ]
@@ -188,3 +194,19 @@ def validate_sync_async_consistency(
 
     dag.requires_sync_runner = has_sync
     dag.requires_async_runner = has_async
+
+
+def validate_no_duplicate_base_datasets(
+    steps: list,
+    pipeline_name: str,
+) -> None:
+    seen: dict[str, str] = {}
+    for s in steps:
+        base = get_base_dataset_name(s.name)
+        if base in seen and s.name != seen[base]:
+            raise ValueError(
+                f"Pipeline '{pipeline_name}': step '{s.name}' and step '{seen[base]}' "
+                f"both map to Base Dataset '{base}'. Use distinct nouns for step names."
+            )
+        if base not in seen:
+            seen[base] = s.name

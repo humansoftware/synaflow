@@ -335,10 +335,12 @@ class PipelineExecutor:
                 exhausted = 0
                 for dep in unrolled:
                     try:
-                        item_args[dep] = next(iterators[dep])
+                        value = next(iterators[dep])
                     except StopIteration:
-                        item_args[dep] = None
+                        value = None
                         exhausted += 1
+                    param = node.dataset_param_names.get(dep, dep)
+                    item_args[param] = value
                 if exhausted == len(unrolled):
                     break
                 try:
@@ -363,7 +365,9 @@ class PipelineExecutor:
         args = {}
         for dep_name in node.deps:
             key = _output_key(self.dag, dep_name, consumer)
-            args[dep_name] = self.outputs.get(key, self.outputs.get(dep_name))
+            value = self.outputs.get(key, self.outputs.get(dep_name))
+            param = node.dataset_param_names.get(dep_name, dep_name)
+            args[param] = value
         return args
 
     def _notify_observers(self, step_name, output):

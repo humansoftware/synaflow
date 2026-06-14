@@ -17,10 +17,10 @@ This roadmap outlines the planned features and architectural evolutions for the 
 - **Observer/runtime contract coverage** — mixed fan-out, partial stream failure, and explicit-mode corpus specs
 - **Lifecycle observer system** — `Observer`, `PipelineEvent`/`StepEvent`/`MaterializationEvent`, per-event context dataclasses, sync/async dispatch, build-time normalization, DAG JSON metadata, fire-and-forget with failure isolation
 - **Test Coverage CI** — Dual metrics (Total vs Patch coverage), 80% patch threshold, non-blocking GitHub status checks, and pre-commit hooks
+- **Semantic Naming & Smart Binding** — Base Dataset name normalization via `inflect`, smart binding for dependency resolution, duplicate dataset/param detection, `binding_map` in DAG JSON
 
 ## 🚧 In Progress / Next
 
-- **Semantic Naming & Smart Binding** — Enforce noun-based step names, prevent Base Dataset collisions, and auto-resolve singular/plural dependency synonyms via `inflect`.
 - **Documentation Portal** — Build a comprehensive MkDocs-Material site with step-by-step tutorials, sync/async code tabs, export guidance for downstream orchestrators, and auto-generated Mermaid DAG visualizations.
 
 ## 📋 Planned
