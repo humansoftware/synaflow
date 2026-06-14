@@ -241,6 +241,8 @@ def build_dag(
     expanded_steps = expand_macros(steps, current_pipeline_name=pipeline_name)
 
     pipeline_obs = list(pipeline_observers) if pipeline_observers else []
+    for obs in pipeline_obs:
+        obs._source = "pipeline"
 
     produced = initialize_parameters(params)
 
@@ -251,6 +253,8 @@ def build_dag(
         effective = list(pipeline_obs)
         step_own = getattr(step, "observers", None)
         if step_own:
+            for obs in step_own:
+                obs._source = "step"
             effective.extend(step_own)
 
         compiled_step = validate_and_compile_step(

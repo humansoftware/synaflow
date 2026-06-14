@@ -72,7 +72,7 @@ def _serialize_observers(observers: list) -> list[dict]:
     result = []
     for obs in observers:
         info = {"handler_name": getattr(obs.handler, "__name__", str(obs.handler))}
-        info["source"] = "step"
+        info["source"] = getattr(obs, "_source", "step")
         result.append(info)
     return result
 

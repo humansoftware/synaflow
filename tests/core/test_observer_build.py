@@ -140,7 +140,7 @@ def test_given_observers_when_dag_to_dict_then_steps_include_metadata():
     )
     d = p.to_dict()
     step_obs = d["steps"]["a"]["observers"]
-    assert step_obs == [{"handler_name": "on_step", "source": "step"}]
+    assert step_obs == [{"handler_name": "on_step", "source": "pipeline"}]
 
 
 def test_given_observers_when_dag_to_dict_then_no_callables_serialized():
@@ -190,9 +190,39 @@ def test_given_no_observers_when_dag_to_dict_then_no_observers_field():
 
 def test_serialize_observers_returns_handler_name_and_source():
     h = _make_handler("my_handler")
-    obs_list = [Observer(h)]
-    result = _serialize_observers(obs_list)
-    assert result == [{"handler_name": "my_handler", "source": "step"}]
+    obs = Observer(h)
+    obs._source = "pipeline"
+    result = _serialize_observers([obs])
+    assert result == [{"handler_name": "my_handler", "source": "pipeline"}]
+
+
+def test_given_step_observers_when_dag_to_dict_then_source_is_step():
+    h = _make_handler("step_handler")
+    p = pipeline(
+        name="p",
+        params=Params,
+        steps=[step("a", fn=lambda x: x + 1, observers=[Observer(h)])],
+    )
+    d = p.to_dict()
+    step_obs = d["steps"]["a"]["observers"]
+    assert step_obs == [{"handler_name": "step_handler", "source": "step"}]
+
+
+def test_given_pipeline_and_step_observers_when_dag_to_dict_then_sources_preserved():
+    h_pipe = _make_handler("pipe_handler")
+    h_step = _make_handler("step_handler")
+    p = pipeline(
+        name="p",
+        params=Params,
+        steps=[step("a", fn=lambda x: x + 1, observers=[Observer(h_step)])],
+        observers=[Observer(h_pipe)],
+    )
+    d = p.to_dict()
+    step_obs = d["steps"]["a"]["observers"]
+    assert step_obs == [
+        {"handler_name": "pipe_handler", "source": "pipeline"},
+        {"handler_name": "step_handler", "source": "step"},
+    ]
 
 
 def test_serialize_pipeline_observers_returns_handler_name_and_pipeline_source():

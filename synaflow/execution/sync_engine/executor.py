@@ -39,31 +39,32 @@ def _output_key(dag: Dag, producer: str, consumer: str) -> str:
 # ---------------------------------------------------------------------------
 
 
-def _collect_iterator(dag: Dag, step_name: str, value: Iterator) -> list[Any]:
+def _collect_iterator(
+    dag: Dag, step_name: str, value: Iterator
+) -> tuple[list[Any], bool]:
     items = []
     while True:
         try:
             items.append(next(value))
         except StopIteration:
-            return items
+            return items, False
         except Exception as exc:
             _handle_error(dag, step_name, exc)
             if dag[step_name].on_error == OnError.STOP:
                 raise PipelineStopException(step_name=step_name, cause=exc) from exc
-            return items
+            return items, True
 
 
 def _apply_materializer(
     dag: Dag, step_name: str, value: Any, consumer_type: Any = None
-) -> Any:
+) -> tuple[Any, bool]:
     node = dag[step_name]
     mat = node.get("materializer")
     if mat is None:
-        return (
-            _collect_iterator(dag, step_name, value)
-            if isinstance(value, Iterator)
-            else value
-        )
+        if isinstance(value, Iterator):
+            items, had_error = _collect_iterator(dag, step_name, value)
+            return items, had_error
+        return value, False
     concrete_mat = mat(
         MaterializeContext(
             pipeline_name=dag.name,
@@ -73,14 +74,15 @@ def _apply_materializer(
         )
     )
     if isinstance(value, Iterator) and concrete_mat in (list, tuple, set, dict):
-        items = _collect_iterator(dag, step_name, value)
-        return items if concrete_mat is list else concrete_mat(items)
+        items, had_error = _collect_iterator(dag, step_name, value)
+        return (items if concrete_mat is list else concrete_mat(items)), had_error
     if (
         isinstance(value, Iterator)
         and getattr(concrete_mat, "__name__", "") == "_identity"
     ):
-        return _collect_iterator(dag, step_name, value)
-    return concrete_mat(value)
+        items, had_error = _collect_iterator(dag, step_name, value)
+        return items, had_error
+    return concrete_mat(value), False
 
 
 def _handle_error(dag: Dag, step_name: str, exc: BaseException) -> None:
@@ -384,7 +386,7 @@ class PipelineExecutor:
             mat_name,
         )
         try:
-            result = _apply_materializer(
+            result, had_error = _apply_materializer(
                 self.dag, step_name, output, consumer_type=consumer_type
             )
             self._dispatch_materialization_event(
@@ -394,7 +396,7 @@ class PipelineExecutor:
                 consumer_type,
                 mat_name,
             )
-            return result
+            return result, had_error
         except PipelineStopException:
             raise
         except Exception as exc:
@@ -408,6 +410,28 @@ class PipelineExecutor:
             )
             raise
 
+    def _emit_each_step_result(self, node, step_name, output, had_error):
+        success = len(output) if hasattr(output, "__len__") else 1
+        if had_error:
+            self._dispatch_step_event(
+                node,
+                StepEvent.FAILED,
+                step_name,
+                success_count=success,
+                error_count=1,
+                completed_all_inputs=False,
+                exception=None,
+            )
+        else:
+            self._dispatch_step_event(
+                node,
+                StepEvent.COMPLETED,
+                step_name,
+                success_count=success,
+                error_count=0,
+                completed_all_inputs=True,
+            )
+
     def _publish_output(self, step_name, output, node):
         output = self._notify_observers(step_name, output)
         is_each = node.mode == StepMode.EACH
@@ -420,19 +444,11 @@ class PipelineExecutor:
                 consumer_type = None
                 if consumers:
                     consumer_type = self.dag[consumers[0]].deps.get(step_name)
-                output = self._materialize_with_events(
+                output, had_error = self._materialize_with_events(
                     step_name, output, node, consumer_type=consumer_type
                 )
                 if is_each:
-                    success = len(output) if hasattr(output, "__len__") else 0
-                    self._dispatch_step_event(
-                        node,
-                        StepEvent.COMPLETED,
-                        step_name,
-                        success_count=success,
-                        error_count=0,
-                        completed_all_inputs=True,
-                    )
+                    self._emit_each_step_result(node, step_name, output, had_error)
                 for c in consumers:
                     self.outputs[_output_key(self.dag, step_name, c)] = output
                 return
@@ -440,19 +456,11 @@ class PipelineExecutor:
             # 2. Single consumer requires materialized input?
             if len(consumers) == 1 and self.dag.needs_materialize(step_name):
                 consumer_type = self.dag[consumers[0]].deps.get(step_name)
-                output = self._materialize_with_events(
+                output, had_error = self._materialize_with_events(
                     step_name, output, node, consumer_type=consumer_type
                 )
                 if is_each:
-                    success = len(output) if hasattr(output, "__len__") else 0
-                    self._dispatch_step_event(
-                        node,
-                        StepEvent.COMPLETED,
-                        step_name,
-                        success_count=success,
-                        error_count=0,
-                        completed_all_inputs=True,
-                    )
+                    self._emit_each_step_result(node, step_name, output, had_error)
                 self.outputs[_output_key(self.dag, step_name, consumers[0])] = output
                 return
 
@@ -462,7 +470,7 @@ class PipelineExecutor:
                 for consumer, branch in zip(consumers, branches):
                     consumer_node = self.dag[consumer]
                     if step_name in consumer_node.materialized_deps:
-                        branch = self._materialize_with_events(
+                        branch, _ = self._materialize_with_events(
                             step_name,
                             branch,
                             node,
@@ -491,21 +499,13 @@ class PipelineExecutor:
                 )
 
         elif self.dag.needs_materialize(step_name):
-            output = self._materialize_with_events(
+            output, had_error = self._materialize_with_events(
                 step_name, output, node, consumer_type=node.get("output")
             )
 
         self.outputs[step_name] = output
         if is_each and not isinstance(output, Iterator):
-            success = len(output) if hasattr(output, "__len__") else 1
-            self._dispatch_step_event(
-                node,
-                StepEvent.COMPLETED,
-                step_name,
-                success_count=success,
-                error_count=0,
-                completed_all_inputs=True,
-            )
+            self._emit_each_step_result(node, step_name, output, had_error=False)
 
 
 # ---------------------------------------------------------------------------
