@@ -178,4 +178,22 @@ For uneven multi-stream each-mode, exhaustion is modeled with `None` padding rat
 
 ---
 
+### 3.15. Lifecycle Observer System
+
+**Decision:** A unified observer infrastructure for pipeline, step, and materialization lifecycle events. Observers are registered declaratively on `pipeline(...)` or `step(...)` and are fire-and-forget — their failures are logged and swallowed, never affecting pipeline execution.
+
+**Reason:** Provides a single mental model for logging, metrics, tracing, and alerts. Step-level `observers=[...]` is ergonomic convenience syntax that compiles into the same observer model as pipeline-level registration. Observers observe lifecycle; materializers handle data. The two are strictly separated: observer presence must not force materialization, disable laziness, or alter dataflow semantics.
+
+**Key rules:**
+- Observer registration is declarative only — it does not change execution semantics
+- Materialization events only fire when materialization actually occurs per normal runtime rules
+- Observer dispatch is fire-and-forget; failures are swallowed after logging
+- Observers carry metadata only (step name, mode, counts, exception); never inputs/outputs
+- Effective observers are resolved at build time and stored in the DAG; DAG JSON includes metadata (event + source) but never raw callables
+- Sync and async executors provide semantic parity; async handlers are detected by awaitable protocol
+
+**Scope boundary:** Observers are for lightweight operational side effects (metrics, logs, alerts). They are not for data tapping, item-level inspection, or replacing materializers.
+
+---
+
 *(This document should be iteratively evolved whenever a new architectural contract is established in the Synaflow codebase).*

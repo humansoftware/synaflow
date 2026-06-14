@@ -50,6 +50,10 @@ def test_sync_async_test_parity():
         "test_given_async_generator_and_each_consumer_when_run_then_processed_concurrently",
         "test_given_async_generator_and_list_consumer_when_run_then_materialized",
         "test_given_async_generator_and_two_async_iterator_consumers_when_run_then_both_receive_items",
+        # Async-only observer handler tests
+        "test_given_async_def_handler_when_dispatched_then_awaited",
+        "test_given_partial_async_handler_when_dispatched_then_awaited",
+        "test_given_callable_object_with_async_call_when_dispatched_then_awaited",
     }
 
     # Remove expected differences

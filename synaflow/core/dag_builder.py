@@ -31,6 +31,12 @@ from synaflow.core.dag_steps import (
     validate_unique_step_name,
 )
 from synaflow.core.dag_topology import check_circular_dependencies
+from synaflow.core.observers import (
+    MaterializationEvent,
+    Observer,
+    PipelineEvent,
+    StepEvent,
+)
 from synaflow.core.type_compatibility import (
     get_inner_type,
     is_iterable_type,
@@ -217,6 +223,7 @@ def build_dag(
     memory_materializer_factory: Any = None,
     is_default_factory: bool = False,
     error_materializer_factory: Any = None,
+    pipeline_observers: list[Observer] | None = None,
 ) -> Dag:
     if error_materializer_factory is None:
         error_materializer_factory = log_error_materializer_factory
@@ -236,13 +243,29 @@ def build_dag(
 
     expanded_steps = expand_macros(steps, current_pipeline_name=pipeline_name)
 
+    pipeline_step_observers: list[Observer] = []
+    pipeline_pipeline_observers: list[Observer] = []
+    if pipeline_observers:
+        for obs in pipeline_observers:
+            if isinstance(obs.event, PipelineEvent):
+                pipeline_pipeline_observers.append(obs)
+            elif isinstance(obs.event, (StepEvent, MaterializationEvent)):
+                pipeline_step_observers.append(obs)
+
     produced = initialize_parameters(params)
 
     for step in expanded_steps:
         validate_step_is_callable(step, pipeline_name)
         validate_unique_step_name(step.name, dag, pipeline_name, is_expanded=True)
 
-        compiled_step = validate_and_compile_step(step, produced, pipeline_name)
+        effective = list(pipeline_step_observers)
+        step_own = getattr(step, "observers", None)
+        if step_own:
+            effective.extend(step_own)
+
+        compiled_step = validate_and_compile_step(
+            step, produced, pipeline_name, observers=effective
+        )
         dag[step.name] = compiled_step
         produced[step.name] = compiled_step
 
@@ -254,6 +277,7 @@ def build_dag(
     }
     dag_obj.steps = dag
     dag_obj.error_materializer_factory = error_materializer_factory
+    dag_obj.pipeline_observers = pipeline_pipeline_observers
 
     check_circular_dependencies(dag_obj, pipeline_name)
 

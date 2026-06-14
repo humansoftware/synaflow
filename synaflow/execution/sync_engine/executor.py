@@ -5,7 +5,27 @@ from typing import Any
 from synaflow.core.dag import Dag
 from synaflow.core.definition import PipelineDef
 from synaflow.core.exceptions import PipelineStopException
-from synaflow.core.types import ErrorMaterializeContext, MaterializeContext, OnError
+from synaflow.core.observers import (
+    MaterializationCompletedContext,
+    MaterializationEvent,
+    MaterializationFailedContext,
+    MaterializationStartedContext,
+    PipelineCompletedContext,
+    PipelineEvent,
+    PipelineFailedContext,
+    PipelineStartedContext,
+    StepCompletedContext,
+    StepEvent,
+    StepFailedContext,
+    StepStartedContext,
+    dispatch_observers,
+)
+from synaflow.core.types import (
+    ErrorMaterializeContext,
+    MaterializeContext,
+    OnError,
+    StepMode,
+)
 
 
 def _output_key(dag: Dag, producer: str, consumer: str) -> str:
@@ -95,13 +115,148 @@ class PipelineExecutor:
         self.outputs = {}
         self._step_output_observers = step_output_observers or []
 
+    # ------------------------------------------------------------------
+    # Lifecycle observer dispatch helpers
+    # ------------------------------------------------------------------
+
+    def _dispatch_pipeline_event(self, event: PipelineEvent, **kw: Any) -> None:
+        registrations = self.dag.pipeline_observers
+        if not registrations:
+            return
+        ctx: Any
+        if event is PipelineEvent.STARTED:
+            ctx = PipelineStartedContext(pipeline_name=self.dag.name, event=event)
+        elif event is PipelineEvent.COMPLETED:
+            ctx = PipelineCompletedContext(pipeline_name=self.dag.name, event=event)
+        elif event is PipelineEvent.FAILED:
+            ctx = PipelineFailedContext(
+                pipeline_name=self.dag.name,
+                event=event,
+                step_name=kw.get("step_name"),
+                exception=kw.get("exception"),
+            )
+        else:
+            return
+        dispatch_observers(registrations, event, ctx)
+
+    def _dispatch_step_event(
+        self,
+        node: Any,
+        event: StepEvent,
+        step_name: str,
+        **kw: Any,
+    ) -> None:
+        registrations = getattr(node, "observers", None) or []
+        if not registrations:
+            return
+        ctx: Any
+        if event is StepEvent.STARTED:
+            ctx = StepStartedContext(
+                pipeline_name=self.dag.name,
+                event=event,
+                step_name=step_name,
+                mode=node.mode,
+                on_error=node.on_error,
+            )
+        elif event is StepEvent.COMPLETED:
+            ctx = StepCompletedContext(
+                pipeline_name=self.dag.name,
+                event=event,
+                step_name=step_name,
+                mode=node.mode,
+                on_error=node.on_error,
+                success_count=kw.get("success_count", 0),
+                error_count=kw.get("error_count", 0),
+                completed_all_inputs=kw.get("completed_all_inputs", True),
+            )
+        elif event is StepEvent.FAILED:
+            ctx = StepFailedContext(
+                pipeline_name=self.dag.name,
+                event=event,
+                step_name=step_name,
+                mode=node.mode,
+                on_error=node.on_error,
+                success_count=kw.get("success_count", 0),
+                error_count=kw.get("error_count", 0),
+                completed_all_inputs=kw.get("completed_all_inputs", False),
+                exception=kw.get("exception"),
+            )
+        else:
+            return
+        dispatch_observers(registrations, event, ctx)
+
+    def _dispatch_materialization_event(
+        self,
+        step_name: str,
+        node: Any,
+        event: MaterializationEvent,
+        consumer_type: Any = None,
+        materializer_name: str | None = None,
+        **kw: Any,
+    ) -> None:
+        registrations = getattr(node, "observers", None) or []
+        if not registrations:
+            return
+        ctx: Any
+        if event is MaterializationEvent.STARTED:
+            ctx = MaterializationStartedContext(
+                pipeline_name=self.dag.name,
+                event=event,
+                step_name=step_name,
+                dataset_name=step_name,
+                consumer_type=consumer_type,
+                materializer_name=materializer_name,
+            )
+        elif event is MaterializationEvent.COMPLETED:
+            ctx = MaterializationCompletedContext(
+                pipeline_name=self.dag.name,
+                event=event,
+                step_name=step_name,
+                dataset_name=step_name,
+                consumer_type=consumer_type,
+                materializer_name=materializer_name,
+            )
+        elif event is MaterializationEvent.FAILED:
+            ctx = MaterializationFailedContext(
+                pipeline_name=self.dag.name,
+                event=event,
+                step_name=step_name,
+                dataset_name=step_name,
+                consumer_type=consumer_type,
+                materializer_name=materializer_name,
+                exception=kw.get("exception"),
+            )
+        else:
+            return
+        dispatch_observers(registrations, event, ctx)
+
+    # ------------------------------------------------------------------
+    # Execution
+    # ------------------------------------------------------------------
+
     def execute(self, params: Any) -> None:
         for field, value in params._asdict().items():
             self.outputs[field] = value
 
-        for level in self.dag.get_execution_levels():
-            for step_name in level:
-                self._run_step(step_name)
+        self._dispatch_pipeline_event(PipelineEvent.STARTED)
+        try:
+            for level in self.dag.get_execution_levels():
+                for step_name in level:
+                    self._run_step(step_name)
+        except PipelineStopException as exc:
+            self._dispatch_pipeline_event(
+                PipelineEvent.FAILED,
+                step_name=exc.step_name,
+                exception=exc.cause or exc,
+            )
+            raise
+        except Exception as exc:
+            self._dispatch_pipeline_event(
+                PipelineEvent.FAILED, step_name=None, exception=exc
+            )
+            raise
+        else:
+            self._dispatch_pipeline_event(PipelineEvent.COMPLETED)
 
     def _run_step(self, step_name: str) -> None:
         node = self.dag[step_name]
@@ -110,6 +265,9 @@ class PipelineExecutor:
 
         arguments = self._build_arguments(step_name, node)
         unrolled = self.dag.each_inputs(step_name)
+        is_each = bool(unrolled)
+
+        self._dispatch_step_event(node, StepEvent.STARTED, step_name)
 
         try:
             if unrolled:
@@ -117,12 +275,43 @@ class PipelineExecutor:
             else:
                 output = node.fn(**arguments)
 
+            if not is_each:
+                self._dispatch_step_event(
+                    node,
+                    StepEvent.COMPLETED,
+                    step_name,
+                    success_count=1,
+                    error_count=0,
+                    completed_all_inputs=True,
+                )
+
             if not step_name.startswith("_"):
                 self._publish_output(step_name, output, node)
-        except PipelineStopException:
+        except PipelineStopException as exc:
+            cause = exc.cause or exc
+            if isinstance(cause, PipelineStopException):
+                cause = cause.cause or cause
+            self._dispatch_step_event(
+                node,
+                StepEvent.FAILED,
+                step_name,
+                success_count=0,
+                error_count=1,
+                completed_all_inputs=False,
+                exception=cause,
+            )
             raise
         except Exception as exc:
             _handle_error(self.dag, step_name, exc)
+            self._dispatch_step_event(
+                node,
+                StepEvent.FAILED,
+                step_name,
+                success_count=0,
+                error_count=1,
+                completed_all_inputs=False,
+                exception=exc,
+            )
             if node.on_error == OnError.STOP:
                 raise PipelineStopException(step_name=step_name, cause=exc) from exc
 
@@ -185,8 +374,44 @@ class PipelineExecutor:
                 observer(step_name, output)
         return output
 
+    def _materialize_with_events(self, step_name, output, node, consumer_type=None):
+        mat_name = node.materializer.__name__ if callable(node.materializer) else None
+        self._dispatch_materialization_event(
+            step_name,
+            node,
+            MaterializationEvent.STARTED,
+            consumer_type,
+            mat_name,
+        )
+        try:
+            result = _apply_materializer(
+                self.dag, step_name, output, consumer_type=consumer_type
+            )
+            self._dispatch_materialization_event(
+                step_name,
+                node,
+                MaterializationEvent.COMPLETED,
+                consumer_type,
+                mat_name,
+            )
+            return result
+        except PipelineStopException:
+            raise
+        except Exception as exc:
+            self._dispatch_materialization_event(
+                step_name,
+                node,
+                MaterializationEvent.FAILED,
+                consumer_type,
+                mat_name,
+                exception=exc,
+            )
+            raise
+
     def _publish_output(self, step_name, output, node):
         output = self._notify_observers(step_name, output)
+        is_each = node.mode == StepMode.EACH
+
         if isinstance(output, Iterator):
             consumers = self.dag.consumers_of(step_name)
 
@@ -195,9 +420,19 @@ class PipelineExecutor:
                 consumer_type = None
                 if consumers:
                     consumer_type = self.dag[consumers[0]].deps.get(step_name)
-                output = _apply_materializer(
-                    self.dag, step_name, output, consumer_type=consumer_type
+                output = self._materialize_with_events(
+                    step_name, output, node, consumer_type=consumer_type
                 )
+                if is_each:
+                    success = len(output) if hasattr(output, "__len__") else 0
+                    self._dispatch_step_event(
+                        node,
+                        StepEvent.COMPLETED,
+                        step_name,
+                        success_count=success,
+                        error_count=0,
+                        completed_all_inputs=True,
+                    )
                 for c in consumers:
                     self.outputs[_output_key(self.dag, step_name, c)] = output
                 return
@@ -205,9 +440,19 @@ class PipelineExecutor:
             # 2. Single consumer requires materialized input?
             if len(consumers) == 1 and self.dag.needs_materialize(step_name):
                 consumer_type = self.dag[consumers[0]].deps.get(step_name)
-                output = _apply_materializer(
-                    self.dag, step_name, output, consumer_type=consumer_type
+                output = self._materialize_with_events(
+                    step_name, output, node, consumer_type=consumer_type
                 )
+                if is_each:
+                    success = len(output) if hasattr(output, "__len__") else 0
+                    self._dispatch_step_event(
+                        node,
+                        StepEvent.COMPLETED,
+                        step_name,
+                        success_count=success,
+                        error_count=0,
+                        completed_all_inputs=True,
+                    )
                 self.outputs[_output_key(self.dag, step_name, consumers[0])] = output
                 return
 
@@ -217,19 +462,50 @@ class PipelineExecutor:
                 for consumer, branch in zip(consumers, branches):
                     consumer_node = self.dag[consumer]
                     if step_name in consumer_node.materialized_deps:
-                        branch = _apply_materializer(
-                            self.dag,
+                        branch = self._materialize_with_events(
                             step_name,
                             branch,
+                            node,
                             consumer_type=consumer_node.deps.get(step_name),
                         )
                     self.outputs[_output_key(self.dag, step_name, consumer)] = branch
+                if is_each:
+                    self._dispatch_step_event(
+                        node,
+                        StepEvent.COMPLETED,
+                        step_name,
+                        success_count=0,
+                        error_count=0,
+                        completed_all_inputs=True,
+                    )
                 return
+
+            if is_each:
+                self._dispatch_step_event(
+                    node,
+                    StepEvent.COMPLETED,
+                    step_name,
+                    success_count=0,
+                    error_count=0,
+                    completed_all_inputs=True,
+                )
+
         elif self.dag.needs_materialize(step_name):
-            output = _apply_materializer(
-                self.dag, step_name, output, consumer_type=node.get("output")
+            output = self._materialize_with_events(
+                step_name, output, node, consumer_type=node.get("output")
             )
+
         self.outputs[step_name] = output
+        if is_each and not isinstance(output, Iterator):
+            success = len(output) if hasattr(output, "__len__") else 1
+            self._dispatch_step_event(
+                node,
+                StepEvent.COMPLETED,
+                step_name,
+                success_count=success,
+                error_count=0,
+                completed_all_inputs=True,
+            )
 
 
 # ---------------------------------------------------------------------------
