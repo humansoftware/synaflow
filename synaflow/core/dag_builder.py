@@ -142,14 +142,14 @@ def _validate_materializer_factory(name: str, mat: Any, is_error: bool = False) 
             f"Please wrap it using {helper}({mat.__name__})."
         )
 
-    # Let's inspect the signature if possible to detect functions that don't take context
+    # Let's inspect the signature to verify it accepts a context argument
     try:
         sig = inspect.signature(mat)
+        has_params = len(sig.parameters) > 0
     except (ValueError, TypeError):
-        return
+        has_params = False
 
-    # If the parameter list is empty, it's definitely not a factory taking a context
-    if len(sig.parameters) == 0:
+    if not has_params:
         label = "error materializer" if is_error else "materializer"
         helper = "to_error_materializer" if is_error else "to_materializer"
         raise ValueError(

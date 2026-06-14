@@ -120,6 +120,12 @@ def test_given_direct_callable_types_when_dag_built_then_raises_validation_error
             name="err2", params=P, steps=[step("s", fn=dummy, materializer=bad_mat)]
         )
 
+    # builtin without signature support / 0 parameters
+    with pytest.raises(ValueError, match="factory must accept at least one argument"):
+        pipeline(
+            name="err3", params=P, steps=[step("s", fn=dummy, materializer=object)]
+        )
+
 
 # ---------------------------------------------------------------------------
 # 2. Phase 1 - Runtime Sync/Async tests (Resolutions & Fallbacks)
