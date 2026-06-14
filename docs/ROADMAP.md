@@ -19,13 +19,10 @@ This roadmap outlines the planned features and architectural evolutions for the 
 
 ## 🚧 In Progress / Next
 
-- **Test coverage** — add CI coverage threshold (80%)
-- **Documentation/export guidance** — document how downstream orchestrator exporters should consume `mode` and `each_mode_deps` from DAG JSON rather than re-infer behavior
+- **Semantic Naming & Smart Binding** — Enforce noun-based step names, prevent Base Dataset collisions, and auto-resolve singular/plural dependency synonyms via `inflect`.
+- **Test Coverage CI** — Implement dual metrics (Total vs Patch coverage), set 80% patch threshold, and create non-blocking GitHub status checks (warning mode) and pre-commit hooks.
+- **Documentation Portal** — Build a comprehensive MkDocs-Material site with step-by-step tutorials, sync/async code tabs, export guidance for downstream orchestrators, and auto-generated Mermaid DAG visualizations.
 
 ## 📋 Planned
 
-- **Observer system** — unified lifecycle observer infrastructure for pipeline, step, and materialization events with sync/async parity
 - **Timeouts** — per-step execution timeouts with graceful abort
-
-- **Regex validation** — step name and pipeline name validation patterns
-- **CI/CD** — GitHub Pages for docs, coverage reports
