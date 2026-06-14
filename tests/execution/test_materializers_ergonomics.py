@@ -556,3 +556,224 @@ def test_given_include_when_no_explicit_materializer_then_sub_steps_remain_lazy(
     )
 
     run(root_pipe, P())
+
+
+@pytest.mark.asyncio
+async def test_given_async_disk_error_materializer_when_run_then_appends_error_records(
+    tmp_path,
+):
+    class P(NamedTuple):
+        items: list[int] = [1, 2, 3]
+
+    async def fail_always(items: int):
+        raise ValueError(f"err {items}")
+
+    my_err_mat = disk_error_materializer(path=tmp_path, serializer=jsonl_serializer)
+
+    my_pipeline = pipeline(
+        name="async_disk_err_test",
+        params=P,
+        steps=[
+            step(
+                "s1",
+                fn=fail_always,
+                error_materializer=my_err_mat,
+                on_error=OnError.CONTINUE,
+            )
+        ],
+    )
+    await async_run(my_pipeline, P())
+
+    expected_file = tmp_path / "s1.jsonl"
+    assert expected_file.exists()
+
+    lines = expected_file.read_text().strip().split("\n")
+    assert len(lines) == 3
+    first_record = json.loads(lines[0])
+    assert first_record["pipeline_name"] == "async_disk_err_test"
+    assert first_record["dataset_name"] == "s1"
+    assert first_record["exception_type"] == "ValueError"
+    assert first_record["exception_message"] == "err 1"
+    assert "traceback" in first_record
+
+
+@pytest.mark.asyncio
+async def test_given_async_composite_error_materializer_when_fails_then_calls_all_underlying_handlers():
+    class P(NamedTuple):
+        pass
+
+    calls = []
+
+    def handler1(exc):
+        calls.append("one")
+
+    def handler2(exc):
+        calls.append("two")
+
+    comp = composite_error_materializer(
+        to_error_materializer(handler1),
+        to_error_materializer(handler2),
+    )
+
+    async def step_fn():
+        raise ValueError("boom")
+
+    my_pipeline = pipeline(
+        name="async_composite_err_test",
+        params=P,
+        steps=[
+            step("s", fn=step_fn, error_materializer=comp, on_error=OnError.CONTINUE)
+        ],
+    )
+    await async_run(my_pipeline, P())
+    assert calls == ["one", "two"]
+
+
+def test_given_include_with_explicit_pipeline_materializer_then_propagates_to_sub_steps():
+    from synaflow import include
+
+    class P(NamedTuple):
+        pass
+
+    def sub_gen() -> Iterator[int]:
+        yield 1
+
+    def my_pipeline_mat(ctx):
+        return list
+
+    sub_pipe = pipeline(
+        name="sub_pipe",
+        params=P,
+        steps=[step("gen", fn=sub_gen)],
+        exports="gen",
+        materializer=my_pipeline_mat,
+    )
+
+    def adapter() -> P:
+        return P()
+
+    def consumer(sub_pipe: list[int]) -> int:
+        return len(sub_pipe)
+
+    root_pipe = pipeline(
+        name="root_pipe",
+        params=P,
+        steps=[
+            include("sub_pipe", pipeline=sub_pipe, fn=adapter),
+            step("consumer", fn=consumer),
+        ],
+    )
+
+    assert root_pipe.dag.steps["sub_pipe"].materializer is my_pipeline_mat
+
+
+def test_given_include_with_step_materializer_overriding_pipeline_materializer_then_step_wins():
+    from synaflow import include
+
+    class P(NamedTuple):
+        pass
+
+    def sub_gen() -> Iterator[int]:
+        yield 1
+
+    def my_pipeline_mat(ctx):
+        return list
+
+    def my_step_mat(ctx):
+        return set
+
+    sub_pipe = pipeline(
+        name="sub_pipe",
+        params=P,
+        steps=[step("gen", fn=sub_gen, materializer=my_step_mat)],
+        exports="gen",
+        materializer=my_pipeline_mat,
+    )
+
+    def adapter() -> P:
+        return P()
+
+    def consumer(sub_pipe: list[int]) -> int:
+        return len(sub_pipe)
+
+    root_pipe = pipeline(
+        name="root_pipe",
+        params=P,
+        steps=[
+            include("sub_pipe", pipeline=sub_pipe, fn=adapter),
+            step("consumer", fn=consumer),
+        ],
+    )
+
+    assert root_pipe.dag.steps["sub_pipe"].materializer is my_step_mat
+
+
+def test_given_include_with_explicit_pipeline_error_materializer_then_propagates_to_sub_steps():
+    from synaflow import include
+
+    class P(NamedTuple):
+        pass
+
+    def sub_gen() -> Iterator[int]:
+        yield 1
+
+    def my_pipeline_err(ctx):
+        return lambda exc: None
+
+    sub_pipe = pipeline(
+        name="sub_pipe",
+        params=P,
+        steps=[step("gen", fn=sub_gen)],
+        exports="gen",
+        error_materializer=my_pipeline_err,
+    )
+
+    def adapter() -> P:
+        return P()
+
+    root_pipe = pipeline(
+        name="root_pipe",
+        params=P,
+        steps=[
+            include("sub_pipe", pipeline=sub_pipe, fn=adapter),
+        ],
+    )
+
+    assert root_pipe.dag.steps["sub_pipe"].error_materializer is my_pipeline_err
+
+
+def test_given_include_with_step_error_materializer_overriding_pipeline_error_materializer_then_step_wins():
+    from synaflow import include
+
+    class P(NamedTuple):
+        pass
+
+    def sub_gen() -> Iterator[int]:
+        yield 1
+
+    def my_pipeline_err(ctx):
+        return lambda exc: None
+
+    def my_step_err(ctx):
+        return lambda exc: None
+
+    sub_pipe = pipeline(
+        name="sub_pipe",
+        params=P,
+        steps=[step("gen", fn=sub_gen, error_materializer=my_step_err)],
+        exports="gen",
+        error_materializer=my_pipeline_err,
+    )
+
+    def adapter() -> P:
+        return P()
+
+    root_pipe = pipeline(
+        name="root_pipe",
+        params=P,
+        steps=[
+            include("sub_pipe", pipeline=sub_pipe, fn=adapter),
+        ],
+    )
+
+    assert root_pipe.dag.steps["sub_pipe"].error_materializer is my_step_err
