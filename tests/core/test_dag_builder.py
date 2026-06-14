@@ -219,6 +219,90 @@ def test_given_each_mode_step_with_iterable_dependency_not_in_first_parameter_wh
     assert repr(p.dag.steps["transform"].output) == "ListType(<class 'int'>)"
 
 
+def test_given_mode_each_when_return_type_is_tuple_then_output_is_compiled_as_list_of_tuples():
+    class P(NamedTuple):
+        items: list[int] = [1, 2, 3]
+
+    def pair(items: int) -> tuple[int, str]:
+        return (items, str(items))
+
+    p = pipeline(
+        name="test",
+        params=P,
+        steps=[step("pair", fn=pair, mode=StepMode.EACH)],
+    )
+
+    assert repr(p.dag.steps["pair"].output) == "ListType(tuple[int, str])"
+
+
+def test_given_mode_auto_when_each_mode_is_inferred_and_return_type_is_tuple_then_output_is_compiled_as_list_of_tuples():
+    class P(NamedTuple):
+        items: list[int] = [1, 2, 3]
+
+    def pair(items: int) -> tuple[int, str]:
+        return (items, str(items))
+
+    p = pipeline(name="test", params=P, steps=[step("pair", fn=pair)])
+
+    assert p.dag.steps["pair"].mode is StepMode.EACH
+    assert repr(p.dag.steps["pair"].output) == "ListType(tuple[int, str])"
+
+
+def test_given_mode_all_when_return_type_is_tuple_then_output_remains_tuple():
+    class P(NamedTuple):
+        items: list[int] = [1, 2, 3]
+
+    def summarize(items: list[int]) -> tuple[int, int]:
+        return (len(items), sum(items))
+
+    p = pipeline(
+        name="test",
+        params=P,
+        steps=[step("summarize", fn=summarize, mode=StepMode.ALL)],
+    )
+
+    assert p.dag.steps["summarize"].mode is StepMode.ALL
+    assert p.dag.steps["summarize"].output == tuple[int, int]
+
+
+def test_given_mode_each_when_return_type_is_none_then_output_remains_none():
+    class P(NamedTuple):
+        items: list[int] = [1, 2, 3]
+
+    seen = []
+
+    def sink(items: int) -> None:
+        seen.append(items)
+
+    p = pipeline(
+        name="test",
+        params=P,
+        steps=[step("sink", fn=sink, mode=StepMode.EACH)],
+    )
+
+    assert p.dag.steps["sink"].mode is StepMode.EACH
+    assert p.dag.steps["sink"].output is None
+
+
+def test_given_mode_each_when_return_type_is_tuple_and_downstream_expects_list_of_tuples_then_pipeline_constructs():
+    class P(NamedTuple):
+        items: list[int] = [1, 2, 3]
+
+    def pair(items: int) -> tuple[int, str]:
+        return (items, str(items))
+
+    def consume(pair: list[tuple[int, str]]) -> int:
+        return len(pair)
+
+    p = pipeline(
+        name="test",
+        params=P,
+        steps=[step("pair", fn=pair, mode=StepMode.EACH), step("consume", fn=consume)],
+    )
+
+    assert repr(p.dag.steps["pair"].output) == "ListType(tuple[int, str])"
+
+
 def test_given_mode_auto_when_step_supports_each_then_mode_is_inferred_as_each():
     class P(NamedTuple):
         items: list[int] = [1, 2, 3]

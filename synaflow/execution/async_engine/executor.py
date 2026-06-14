@@ -77,14 +77,17 @@ async def _pump_iterator(
     name: str,
     iterator: Any,
     queues: dict[str, asyncio.Queue],
-    needs_materialize: bool,
     on_error: Any,
     dag: Dag | None = None,
+    materialize_before_enqueue: bool = False,
+    consumer_type: Any = None,
 ) -> None:
     try:
         safe = _safe_iterate(name, iterator)
-        if needs_materialize:
-            items = await _apply_materializer(dag, name, safe)
+        if materialize_before_enqueue:
+            items = await _apply_materializer(
+                dag, name, safe, consumer_type=consumer_type
+            )
             async for item in _safe_iterate(name, items):
                 for q in queues.values():
                     await q.put(item)
@@ -93,12 +96,11 @@ async def _pump_iterator(
                 for q in queues.values():
                     await q.put(item)
     except StepExecutionError as e:
+        _handle_error(dag, name, e.__cause__ or e)
         if on_error == OnError.STOP:
             for q in queues.values():
                 await q.put(PipelineStopException(step_name=name))
             raise PipelineStopException(step_name=name) from e
-        for q in queues.values():
-            await q.put(e)
     finally:
         for q in queues.values():
             await q.put(EOF_MARKER)
@@ -142,13 +144,17 @@ async def _safe_iterate(name: str, iterable: Any):
                 raise StepExecutionError(f"Error iterating step '{name}'") from e
 
 
-async def _resolve_queue(queue: asyncio.Queue, consumer_type: Any) -> Any:
+async def _resolve_queue(
+    dag: Dag, producer: str, queue: asyncio.Queue, consumer_type: Any
+) -> Any:
     if consumer_type in (AsyncIterator, AsyncGenerator):
         return queue_to_async_gen(queue)
     origin = getattr(consumer_type, "__origin__", consumer_type)
     if origin in (AsyncIterator, AsyncGenerator):
         return queue_to_async_gen(queue)
-    return await async_list(queue_to_async_gen(queue))
+    return await _apply_materializer(
+        dag, producer, queue_to_async_gen(queue), consumer_type=consumer_type
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -222,22 +228,25 @@ class AsyncPipelineExecutor:
                     await q.put(value)
                 await q.put(EOF_MARKER)
                 queues[dep] = q
+        completed = set()
 
         async def generate():
-            exhausted = 0
-            while exhausted < len(unrolled):
+            while len(completed) < len(unrolled):
                 item_args = dict(base_args)
-                exhausted = 0
                 for dep in unrolled:
+                    if dep in completed:
+                        item_args[dep] = None
+                        continue
+
                     item = await queues[dep].get()
                     if item is EOF_MARKER:
+                        completed.add(dep)
                         item_args[dep] = None
-                        exhausted += 1
                     elif isinstance(item, Exception):
                         raise item
                     else:
                         item_args[dep] = item
-                if exhausted == len(unrolled):
+                if len(completed) == len(unrolled):
                     break
                 try:
                     yield await self._call_fn(node.fn, item_args)
@@ -264,7 +273,7 @@ class AsyncPipelineExecutor:
             value = self.outputs.get(key, self.outputs.get(dep_name))
             if isinstance(value, asyncio.Queue) and dep_name not in unrolled:
                 dep_type = node.deps.get(dep_name)
-                value = await _resolve_queue(value, dep_type)
+                value = await _resolve_queue(self.dag, dep_name, value, dep_type)
             args[dep_name] = value
         return args
 
@@ -288,14 +297,21 @@ class AsyncPipelineExecutor:
                                 _pump_observer(step_name, obs_queue, observer)
                             )
                         )
+                materialize_before_enqueue = len(consumers) == 1 and (
+                    node.on_error == OnError.STOP or node.force_materialize
+                )
+                consumer_type = None
+                if materialize_before_enqueue:
+                    consumer_type = self.dag[consumers[0]].deps.get(step_name)
                 task = asyncio.create_task(
                     _pump_iterator(
                         step_name,
                         output,
                         queues,
-                        self.dag.needs_materialize(step_name),
                         node.on_error,
                         dag=self.dag,
+                        materialize_before_enqueue=materialize_before_enqueue,
+                        consumer_type=consumer_type,
                     )
                 )
                 self._pump_tasks.append(task)
