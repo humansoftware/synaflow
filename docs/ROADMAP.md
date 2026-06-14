@@ -26,6 +26,6 @@ This roadmap outlines the planned features and architectural evolutions for the 
 
 - **Observer system** — unified lifecycle observer infrastructure for pipeline, step, and materialization events with sync/async parity
 - **Timeouts** — per-step execution timeouts with graceful abort
-- **Decorators** — pluggable step decorators for cross-cutting concerns
+
 - **Regex validation** — step name and pipeline name validation patterns
 - **CI/CD** — GitHub Pages for docs, coverage reports
