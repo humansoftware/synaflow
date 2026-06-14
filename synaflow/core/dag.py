@@ -72,7 +72,7 @@ def _serialize_observers(observers: list) -> list[dict]:
     result = []
     for obs in observers:
         info = {"handler_name": getattr(obs.handler, "__name__", str(obs.handler))}
-        info["source"] = getattr(obs, "_source", "step")
+        info["source"] = getattr(obs, "source", "step")
         result.append(info)
     return result
 
@@ -81,7 +81,7 @@ def _serialize_pipeline_observers(observers: list) -> list[dict]:
     result = []
     for obs in observers:
         info = {"handler_name": getattr(obs.handler, "__name__", str(obs.handler))}
-        info["source"] = "pipeline"
+        info["source"] = getattr(obs, "source", "pipeline")
         result.append(info)
     return result
 

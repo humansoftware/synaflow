@@ -68,6 +68,24 @@ class Observer:
 
 
 # ---------------------------------------------------------------------------
+# Internal resolved registration (build-time only)
+# ---------------------------------------------------------------------------
+
+
+@dataclass
+class ResolvedObserver:
+    """Internal build-time resolution of a public Observer registration.
+
+    Carries the final handler and the registration origin so the DAG
+    JSON can preserve the real ``source`` without mutating the public
+    ``Observer`` object.
+    """
+
+    handler: Callable
+    source: str  # "pipeline" or "step"
+
+
+# ---------------------------------------------------------------------------
 # Immutable context dataclasses — one per event
 # ---------------------------------------------------------------------------
 
@@ -179,10 +197,12 @@ async def dispatch_observers_async(
     returned by a handler (supports ``async def``, ``functools.partial``,
     and callable objects with ``async __call__``).
     """
+    import inspect as _inspect
+
     for reg in registrations:
         try:
             result = reg.handler(context)
-            if hasattr(result, "__await__"):
+            if _inspect.isawaitable(result):
                 await result
         except Exception:
             _log.exception("Observer handler failed for event %r", context.event.value)

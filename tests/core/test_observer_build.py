@@ -8,6 +8,7 @@ from synaflow import (
     step,
 )
 from synaflow.core.dag import _serialize_observers, _serialize_pipeline_observers
+from synaflow.core.observers import ResolvedObserver
 
 
 class Params(NamedTuple):
@@ -189,8 +190,7 @@ def test_given_no_observers_when_dag_to_dict_then_no_observers_field():
 
 def test_serialize_observers_returns_handler_name_and_source():
     h = _make_handler("my_handler")
-    obs = Observer(h)
-    obs._source = "pipeline"
+    obs = ResolvedObserver(handler=h, source="pipeline")
     result = _serialize_observers([obs])
     assert result == [{"handler_name": "my_handler", "source": "pipeline"}]
 
@@ -226,7 +226,7 @@ def test_given_pipeline_and_step_observers_when_dag_to_dict_then_sources_preserv
 
 def test_serialize_pipeline_observers_returns_handler_name_and_pipeline_source():
     h = _make_handler("pipe_handler")
-    obs_list = [Observer(h)]
+    obs_list = [ResolvedObserver(handler=h, source="pipeline")]
     result = _serialize_pipeline_observers(obs_list)
     assert result == [{"handler_name": "pipe_handler", "source": "pipeline"}]
 

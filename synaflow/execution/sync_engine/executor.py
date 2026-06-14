@@ -278,7 +278,7 @@ class PipelineExecutor:
             else:
                 output = node.fn(**arguments)
 
-            if not is_each and not isinstance(output, Iterator):
+            if not is_each and not isinstance(output, (Iterator,)):
                 self._dispatch_step_event(
                     node,
                     StepEvent.COMPLETED,

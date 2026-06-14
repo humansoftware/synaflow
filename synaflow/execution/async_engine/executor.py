@@ -409,7 +409,9 @@ class AsyncPipelineExecutor:
             else:
                 output = await self._call_fn(node.fn, arguments)
 
-            if not is_each and not isinstance(output, (Iterator,)):
+            if not is_each and not isinstance(
+                output, (Iterator, Generator, AsyncIterator, AsyncGenerator)
+            ):
                 await self._dispatch_step_event(
                     node,
                     StepEvent.COMPLETED,
