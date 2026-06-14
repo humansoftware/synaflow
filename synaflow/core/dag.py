@@ -63,7 +63,7 @@ class DagNode:
             "pipeline": self.pipeline,
             "parent_pipeline": self.parent_pipeline,
             "observers": [
-                {"event": obs.event.value, "source": obs.source}
+                {"handler_name": obs.handler_name, "source": obs.source}
                 for obs in self.observers
             ],
         }

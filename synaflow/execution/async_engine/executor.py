@@ -31,18 +31,17 @@ from .constants import EOF_MARKER
 from .iterator_utils import queue_to_async_gen
 
 
-async def _dispatch_observers(observers: list, event: Any, context: Any) -> None:
+async def _dispatch_observers(observers: list, context: Any) -> None:
     log = logging.getLogger("synaflow")
     for obs in observers:
-        if obs.event == event:
-            try:
-                res = obs.handler(context)
-                if inspect.isawaitable(res):
-                    await res
-            except Exception as exc:
-                log.warning(
-                    "Observer failed for event %s: %s", event, exc, exc_info=True
-                )
+        try:
+            res = obs.handler(context)
+            if inspect.isawaitable(res):
+                await res
+        except Exception as exc:
+            log.warning(
+                "Observer failed for event %s: %s", context.event, exc, exc_info=True
+            )
 
 
 class StepState:
@@ -88,7 +87,7 @@ async def _wrap_step_async_iterator(
             error_count=step_state.error_count,
             completed_all_inputs=step_state.completed_all_inputs,
         )
-        await _dispatch_observers(node.observers, StepEvent.COMPLETED, ctx)
+        await _dispatch_observers(node.observers, ctx)
     except Exception as exc:
         cause = exc.__cause__ or exc if isinstance(exc, PipelineStopException) else exc
         ctx = StepFailedContext(
@@ -102,7 +101,7 @@ async def _wrap_step_async_iterator(
             completed_all_inputs=step_state.completed_all_inputs,
             exception=cause,
         )
-        await _dispatch_observers(node.observers, StepEvent.FAILED, ctx)
+        await _dispatch_observers(node.observers, ctx)
         raise
 
 
@@ -158,7 +157,7 @@ async def _apply_materializer(
         consumer_type=consumer_type,
         materializer_name=mat_name,
     )
-    await _dispatch_observers(node.observers, MaterializationEvent.STARTED, ctx_started)
+    await _dispatch_observers(node.observers, ctx_started)
 
     try:
         if mat is None:
@@ -208,9 +207,7 @@ async def _apply_materializer(
             consumer_type=consumer_type,
             materializer_name=mat_name,
         )
-        await _dispatch_observers(
-            node.observers, MaterializationEvent.COMPLETED, ctx_completed
-        )
+        await _dispatch_observers(node.observers, ctx_completed)
         return res
     except Exception as exc:
         # Emit Materialization FAILED
@@ -223,9 +220,7 @@ async def _apply_materializer(
             materializer_name=mat_name,
             exception=exc,
         )
-        await _dispatch_observers(
-            node.observers, MaterializationEvent.FAILED, ctx_failed
-        )
+        await _dispatch_observers(node.observers, ctx_failed)
         raise
 
 
@@ -367,9 +362,7 @@ class AsyncPipelineExecutor:
         ctx_started = PipelineStartedContext(
             pipeline_name=self.dag.name, event=PipelineEvent.STARTED
         )
-        await _dispatch_observers(
-            pipeline_observers, PipelineEvent.STARTED, ctx_started
-        )
+        await _dispatch_observers(pipeline_observers, ctx_started)
 
         for field, value in params._asdict().items():
             self.outputs[field] = value
@@ -390,9 +383,7 @@ class AsyncPipelineExecutor:
                 step_name=exc.step_name,
                 exception=exc.__cause__ or exc,
             )
-            await _dispatch_observers(
-                pipeline_observers, PipelineEvent.FAILED, ctx_failed
-            )
+            await _dispatch_observers(pipeline_observers, ctx_failed)
             raise
         except Exception as exc:
             # Emit Pipeline FAILED for generic exception
@@ -402,18 +393,14 @@ class AsyncPipelineExecutor:
                 step_name=None,
                 exception=exc,
             )
-            await _dispatch_observers(
-                pipeline_observers, PipelineEvent.FAILED, ctx_failed
-            )
+            await _dispatch_observers(pipeline_observers, ctx_failed)
             raise
         else:
             # Emit Pipeline COMPLETED
             ctx_completed = PipelineCompletedContext(
                 pipeline_name=self.dag.name, event=PipelineEvent.COMPLETED
             )
-            await _dispatch_observers(
-                pipeline_observers, PipelineEvent.COMPLETED, ctx_completed
-            )
+            await _dispatch_observers(pipeline_observers, ctx_completed)
 
     async def _run_step(self, step_name: str) -> None:
         node = self.dag[step_name]
@@ -431,7 +418,7 @@ class AsyncPipelineExecutor:
             mode=node.mode,
             on_error=node.on_error,
         )
-        await _dispatch_observers(node.observers, StepEvent.STARTED, ctx_started)
+        await _dispatch_observers(node.observers, ctx_started)
 
         arguments = await self._build_arguments(step_name, node, unrolled)
 
@@ -462,9 +449,7 @@ class AsyncPipelineExecutor:
                         error_count=step_state.error_count,
                         completed_all_inputs=step_state.completed_all_inputs,
                     )
-                    await _dispatch_observers(
-                        node.observers, StepEvent.COMPLETED, ctx_completed
-                    )
+                    await _dispatch_observers(node.observers, ctx_completed)
 
             if not step_name.startswith("_"):
                 await self._publish_output(step_name, output, node)
@@ -480,7 +465,7 @@ class AsyncPipelineExecutor:
                 completed_all_inputs=step_state.completed_all_inputs,
                 exception=exc.__cause__ or exc,
             )
-            await _dispatch_observers(node.observers, StepEvent.FAILED, ctx_failed)
+            await _dispatch_observers(node.observers, ctx_failed)
             raise
         except Exception as exc:
             ctx_failed = StepFailedContext(
@@ -494,7 +479,7 @@ class AsyncPipelineExecutor:
                 completed_all_inputs=step_state.completed_all_inputs,
                 exception=exc,
             )
-            await _dispatch_observers(node.observers, StepEvent.FAILED, ctx_failed)
+            await _dispatch_observers(node.observers, ctx_failed)
             await _handle_error(self.dag, step_name, exc)
             if node.on_error == OnError.STOP:
                 raise PipelineStopException(step_name=step_name, cause=exc) from exc
@@ -569,9 +554,7 @@ class AsyncPipelineExecutor:
                     error_count=step_state.error_count,
                     completed_all_inputs=step_state.completed_all_inputs,
                 )
-                await _dispatch_observers(
-                    node.observers, StepEvent.COMPLETED, ctx_completed
-                )
+                await _dispatch_observers(node.observers, ctx_completed)
             except Exception as exc:
                 raise
             return None

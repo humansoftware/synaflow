@@ -1,8 +1,19 @@
+import functools
 from dataclasses import dataclass
 from enum import Enum
 from typing import Any, Callable
 
 from synaflow.core.types import OnError, StepMode
+
+
+def _get_handler_name(handler: Callable) -> str:
+    if isinstance(handler, functools.partial):
+        return _get_handler_name(handler.func)
+    if hasattr(handler, "__name__"):
+        return handler.__name__
+    if hasattr(handler, "__class__") and hasattr(handler.__class__, "__name__"):
+        return handler.__class__.__name__
+    return str(handler)
 
 
 class PipelineEvent(Enum):
@@ -25,14 +36,13 @@ class MaterializationEvent(Enum):
 
 @dataclass
 class Observer:
-    event: Enum
     handler: Callable
 
 
 @dataclass(frozen=True)
 class ResolvedObserver:
-    event: Enum
     handler: Callable
+    handler_name: str
     source: str  # "pipeline" | "step"
 
 

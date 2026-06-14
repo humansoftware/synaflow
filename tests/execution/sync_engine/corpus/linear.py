@@ -1,7 +1,7 @@
 from collections.abc import Generator, Iterator
 from typing import NamedTuple
 
-from synaflow import pipeline, step, PipelineEvent, StepEvent, Observer
+from synaflow import pipeline, step, Observer
 
 
 class LinearParams(NamedTuple):
@@ -39,14 +39,14 @@ linear_pipeline = pipeline(
     name="linear_example",
     params=LinearParams,
     observers=[
-        Observer(PipelineEvent.STARTED, on_pipeline_started),
-        Observer(StepEvent.FAILED, on_step_failed),
+        Observer(on_pipeline_started),
+        Observer(on_step_failed),
     ],
     steps=[
         step(
             "gen",
             fn=gen,
-            observers=[Observer(StepEvent.COMPLETED, on_step_completed)],
+            observers=[Observer(on_step_completed)],
         ),
         step("transformer", fn=transformer),
         step("consumer", fn=consumer),
@@ -71,8 +71,9 @@ pack = PipelinePack(
                 "pipeline": "linear_example",
                 "parent_pipeline": None,
                 "observers": [
-                    {"event": "step_failed", "source": "pipeline"},
-                    {"event": "step_completed", "source": "step"},
+                    {"handler_name": "on_pipeline_started", "source": "pipeline"},
+                    {"handler_name": "on_step_failed", "source": "pipeline"},
+                    {"handler_name": "on_step_completed", "source": "step"},
                 ],
             },
             "transformer": {
@@ -87,7 +88,10 @@ pack = PipelinePack(
                 "each_mode_deps": ["gen"],
                 "pipeline": "linear_example",
                 "parent_pipeline": None,
-                "observers": [{"event": "step_failed", "source": "pipeline"}],
+                "observers": [
+                    {"handler_name": "on_pipeline_started", "source": "pipeline"},
+                    {"handler_name": "on_step_failed", "source": "pipeline"},
+                ],
             },
             "consumer": {
                 "deps": {"transformer": "Stream[int]"},
@@ -101,7 +105,10 @@ pack = PipelinePack(
                 "each_mode_deps": [],
                 "pipeline": "linear_example",
                 "parent_pipeline": None,
-                "observers": [{"event": "step_failed", "source": "pipeline"}],
+                "observers": [
+                    {"handler_name": "on_pipeline_started", "source": "pipeline"},
+                    {"handler_name": "on_step_failed", "source": "pipeline"},
+                ],
             },
         },
         "error_materializer": "log_error_materializer",

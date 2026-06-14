@@ -41,7 +41,6 @@ from synaflow.core.types import ErrorMaterializeContext, MaterializeContext, OnE
 from synaflow.core.observers import (
     Observer,
     ResolvedObserver,
-    PipelineEvent,
 )
 
 
@@ -275,22 +274,26 @@ def build_dag(
     dag_obj.steps = dag
     dag_obj.error_materializer_factory = error_materializer_factory
 
-    # Resolve and compile pipeline-level observers for PipelineEvents
+    # Resolve and compile pipeline-level observers
     resolved_pipeline_observers = []
+    from synaflow.core.observers import _get_handler_name
+
     for obs in pipeline_observers:
-        if obs.event.__class__ is PipelineEvent:
-            resolved_pipeline_observers.append(
-                ResolvedObserver(
-                    event=obs.event, handler=obs.handler, source="pipeline"
-                )
+        resolved_pipeline_observers.append(
+            ResolvedObserver(
+                handler=obs.handler,
+                handler_name=_get_handler_name(obs.handler),
+                source="pipeline",
             )
+        )
     for obs in collected_pipeline_observers:
-        if obs.event.__class__ is PipelineEvent:
-            resolved_pipeline_observers.append(
-                ResolvedObserver(
-                    event=obs.event, handler=obs.handler, source="pipeline"
-                )
+        resolved_pipeline_observers.append(
+            ResolvedObserver(
+                handler=obs.handler,
+                handler_name=_get_handler_name(obs.handler),
+                source="pipeline",
             )
+        )
     dag_obj.observers = resolved_pipeline_observers
 
     check_circular_dependencies(dag_obj, pipeline_name)

@@ -6,9 +6,7 @@ from synaflow.core.definition import IncludeStep, Step
 from synaflow.core.observers import (
     Observer,
     ResolvedObserver,
-    PipelineEvent,
-    StepEvent,
-    MaterializationEvent,
+    _get_handler_name,
 )
 from synaflow.core.types import OnError
 
@@ -24,12 +22,13 @@ def _resolve_step_observers(
             continue
         if not isinstance(obs, Observer):
             raise TypeError(f"Expected Observer instance, got {type(obs).__name__}")
-        if obs.event.__class__ in (StepEvent, MaterializationEvent):
-            resolved.append(
-                ResolvedObserver(
-                    event=obs.event, handler=obs.handler, source="pipeline"
-                )
+        resolved.append(
+            ResolvedObserver(
+                handler=obs.handler,
+                handler_name=_get_handler_name(obs.handler),
+                source="pipeline",
             )
+        )
     # 2. Step-level observers
     for obs in getattr(step, "observers", []):
         if isinstance(obs, ResolvedObserver):
@@ -37,14 +36,13 @@ def _resolve_step_observers(
             continue
         if not isinstance(obs, Observer):
             raise TypeError(f"Expected Observer instance, got {type(obs).__name__}")
-        if obs.event.__class__ is PipelineEvent:
-            raise ValueError(
-                f"Step '{step.name}' cannot register observer for PipelineEvent '{obs.event}'"
+        resolved.append(
+            ResolvedObserver(
+                handler=obs.handler,
+                handler_name=_get_handler_name(obs.handler),
+                source="step",
             )
-        if obs.event.__class__ in (StepEvent, MaterializationEvent):
-            resolved.append(
-                ResolvedObserver(event=obs.event, handler=obs.handler, source="step")
-            )
+        )
     return resolved
 
 
@@ -146,19 +144,22 @@ def _expand_include(
     sub_pipeline_observers = getattr(sub_pipeline, "observers", [])
 
     for obs in sub_pipeline_observers:
-        if obs.event.__class__ is PipelineEvent:
 
-            def wrap_handler(handler=obs.handler, name=sub_pipeline.name):
-                def wrapped(ctx):
-                    from dataclasses import replace
+        def wrap_handler(handler=obs.handler, name=sub_pipeline.name):
+            def wrapped(ctx):
+                from dataclasses import replace
 
-                    return handler(replace(ctx, pipeline_name=name))
+                return handler(replace(ctx, pipeline_name=name))
 
-                return wrapped
+            if hasattr(handler, "__name__"):
+                wrapped.__name__ = handler.__name__
+            elif hasattr(handler, "__class__") and hasattr(
+                handler.__class__, "__name__"
+            ):
+                wrapped.__name__ = handler.__class__.__name__
+            return wrapped
 
-            collected_pipeline_observers.append(
-                Observer(event=obs.event, handler=wrap_handler())
-            )
+        collected_pipeline_observers.append(Observer(handler=wrap_handler()))
 
     # 2. Extract the sub-pipeline's parameter fields
     if hasattr(sub_pipeline.params, "_fields"):

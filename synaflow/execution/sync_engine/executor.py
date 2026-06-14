@@ -27,16 +27,15 @@ from synaflow.core.observers import (
 )
 
 
-def _dispatch_observers(observers: list, event: Any, context: Any) -> None:
+def _dispatch_observers(observers: list, context: Any) -> None:
     log = logging.getLogger("synaflow")
     for obs in observers:
-        if obs.event == event:
-            try:
-                obs.handler(context)
-            except Exception as exc:
-                log.warning(
-                    "Observer failed for event %s: %s", event, exc, exc_info=True
-                )
+        try:
+            obs.handler(context)
+        except Exception as exc:
+            log.warning(
+                "Observer failed for event %s: %s", context.event, exc, exc_info=True
+            )
 
 
 class StepState:
@@ -68,7 +67,7 @@ def _wrap_step_iterator(
             error_count=step_state.error_count,
             completed_all_inputs=step_state.completed_all_inputs,
         )
-        _dispatch_observers(node.observers, StepEvent.COMPLETED, ctx)
+        _dispatch_observers(node.observers, ctx)
     except Exception as exc:
         cause = exc.__cause__ or exc if isinstance(exc, PipelineStopException) else exc
         ctx = StepFailedContext(
@@ -82,7 +81,7 @@ def _wrap_step_iterator(
             completed_all_inputs=step_state.completed_all_inputs,
             exception=cause,
         )
-        _dispatch_observers(node.observers, StepEvent.FAILED, ctx)
+        _dispatch_observers(node.observers, ctx)
         raise
 
 
@@ -127,7 +126,7 @@ def _apply_materializer(
         consumer_type=consumer_type,
         materializer_name=mat_name,
     )
-    _dispatch_observers(node.observers, MaterializationEvent.STARTED, ctx_started)
+    _dispatch_observers(node.observers, ctx_started)
 
     try:
         if mat is None:
@@ -165,9 +164,7 @@ def _apply_materializer(
             consumer_type=consumer_type,
             materializer_name=mat_name,
         )
-        _dispatch_observers(
-            node.observers, MaterializationEvent.COMPLETED, ctx_completed
-        )
+        _dispatch_observers(node.observers, ctx_completed)
         return res
     except Exception as exc:
         # Emit Materialization FAILED
@@ -180,7 +177,7 @@ def _apply_materializer(
             materializer_name=mat_name,
             exception=exc,
         )
-        _dispatch_observers(node.observers, MaterializationEvent.FAILED, ctx_failed)
+        _dispatch_observers(node.observers, ctx_failed)
         raise
 
 
@@ -223,7 +220,7 @@ class PipelineExecutor:
         ctx_started = PipelineStartedContext(
             pipeline_name=self.dag.name, event=PipelineEvent.STARTED
         )
-        _dispatch_observers(pipeline_observers, PipelineEvent.STARTED, ctx_started)
+        _dispatch_observers(pipeline_observers, ctx_started)
 
         for field, value in params._asdict().items():
             self.outputs[field] = value
@@ -240,7 +237,7 @@ class PipelineExecutor:
                 step_name=exc.step_name,
                 exception=exc.__cause__ or exc,
             )
-            _dispatch_observers(pipeline_observers, PipelineEvent.FAILED, ctx_failed)
+            _dispatch_observers(pipeline_observers, ctx_failed)
             raise
         except Exception as exc:
             # Emit Pipeline FAILED for generic exception
@@ -250,16 +247,14 @@ class PipelineExecutor:
                 step_name=None,
                 exception=exc,
             )
-            _dispatch_observers(pipeline_observers, PipelineEvent.FAILED, ctx_failed)
+            _dispatch_observers(pipeline_observers, ctx_failed)
             raise
         else:
             # Emit Pipeline COMPLETED
             ctx_completed = PipelineCompletedContext(
                 pipeline_name=self.dag.name, event=PipelineEvent.COMPLETED
             )
-            _dispatch_observers(
-                pipeline_observers, PipelineEvent.COMPLETED, ctx_completed
-            )
+            _dispatch_observers(pipeline_observers, ctx_completed)
 
     def _run_step(self, step_name: str) -> None:
         node = self.dag[step_name]
@@ -278,7 +273,7 @@ class PipelineExecutor:
             mode=node.mode,
             on_error=node.on_error,
         )
-        _dispatch_observers(node.observers, StepEvent.STARTED, ctx_started)
+        _dispatch_observers(node.observers, ctx_started)
 
         try:
             if unrolled:
@@ -306,9 +301,7 @@ class PipelineExecutor:
                         error_count=step_state.error_count,
                         completed_all_inputs=step_state.completed_all_inputs,
                     )
-                    _dispatch_observers(
-                        node.observers, StepEvent.COMPLETED, ctx_completed
-                    )
+                    _dispatch_observers(node.observers, ctx_completed)
 
             if not step_name.startswith("_"):
                 self._publish_output(step_name, output, node)
@@ -324,7 +317,7 @@ class PipelineExecutor:
                 completed_all_inputs=step_state.completed_all_inputs,
                 exception=exc.__cause__ or exc,
             )
-            _dispatch_observers(node.observers, StepEvent.FAILED, ctx_failed)
+            _dispatch_observers(node.observers, ctx_failed)
             raise
         except Exception as exc:
             ctx_failed = StepFailedContext(
@@ -338,7 +331,7 @@ class PipelineExecutor:
                 completed_all_inputs=step_state.completed_all_inputs,
                 exception=exc,
             )
-            _dispatch_observers(node.observers, StepEvent.FAILED, ctx_failed)
+            _dispatch_observers(node.observers, ctx_failed)
             _handle_error(self.dag, step_name, exc)
             if node.on_error == OnError.STOP:
                 raise PipelineStopException(step_name=step_name, cause=exc) from exc
@@ -395,7 +388,7 @@ class PipelineExecutor:
                     error_count=step_state.error_count,
                     completed_all_inputs=step_state.completed_all_inputs,
                 )
-                _dispatch_observers(node.observers, StepEvent.COMPLETED, ctx_completed)
+                _dispatch_observers(node.observers, ctx_completed)
             except Exception as exc:
                 raise
             return None

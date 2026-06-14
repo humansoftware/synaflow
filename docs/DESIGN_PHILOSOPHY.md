@@ -185,7 +185,8 @@ For uneven multi-stream each-mode, exhaustion is modeled with `None` padding rat
 - **Declarative Only:** Registering observers must not alter runtime semantics (such as forcing materialization or breaking laziness). Materializers remain the sole causative mechanism for data handling.
 - **Fire-and-Forget:** Observers run on an operational side-channel; their failures are caught, logged, and swallowed, preventing observer errors from halting business logic or step execution.
 - **Sync/Async Parity:** Offers transparent síncrono/assíncrono execution. Async handlers (coroutines or awaitables) are automatically awaited in the async executor.
-- **DAG/Runtime Split:** Effective observers for steps (the union of global and step-specific registrations) are resolved at build time and exported to DAG JSON as metadata only (`event` and `source`). The runtime consumes the compiled DagNode list directly.
+- **DAG/Runtime Split:** Effective observers for steps (the union of global and step-specific registrations) are resolved at build time and exported to DAG JSON as metadata only (`handler_name` and `source`). The runtime consumes the compiled DagNode list directly.
+- **Event-specific Filtering:** The core runtime dispatcher executes all resolved observers unconditionally without filtering by event type. Event-specific filtering is moved to wrapper filters on the handlers themselves (e.g., by checking `ctx.event` or wrapping the callables) outside the core.
 - **Progress Metadata:** Step contexts carry `success_count` (number of successful item runs), `error_count` (number of item runs that failed but were skipped due to `OnError.CONTINUE`), and `completed_all_inputs` (whether the stream ran to completion without early termination).
 
 ---
