@@ -409,7 +409,7 @@ class AsyncPipelineExecutor:
             else:
                 output = await self._call_fn(node.fn, arguments)
 
-            if not is_each:
+            if not is_each and not isinstance(output, (Iterator,)):
                 await self._dispatch_step_event(
                     node,
                     StepEvent.COMPLETED,
@@ -559,7 +559,7 @@ class AsyncPipelineExecutor:
             )
             raise
 
-    async def _emit_each_step_result(self, node, step_name, output, had_error):
+    async def _emit_step_result(self, node, step_name, output, had_error):
         success = len(output) if hasattr(output, "__len__") else 1
         if had_error:
             await self._dispatch_step_event(
@@ -582,7 +582,10 @@ class AsyncPipelineExecutor:
             )
 
     async def _publish_output(self, step_name, output, node):
-        is_each = node.mode == StepMode.EACH
+        deferred = node.mode == StepMode.EACH or (
+            node.mode == StepMode.ALL
+            and isinstance(output, (Iterator, Generator, AsyncIterator, AsyncGenerator))
+        )
 
         if isinstance(output, (Iterator, Generator, AsyncIterator, AsyncGenerator)):
             consumers = self.dag.consumers_of(step_name)
@@ -599,10 +602,8 @@ class AsyncPipelineExecutor:
                     for c in consumers:
                         self.outputs[_output_key(self.dag, step_name, c)] = items
                     self._notify_observers(step_name, items)
-                    if is_each:
-                        await self._emit_each_step_result(
-                            node, step_name, items, had_error
-                        )
+                    if deferred:
+                        await self._emit_step_result(node, step_name, items, had_error)
                 except PipelineStopException:
                     raise
                 except Exception as exc:
@@ -622,10 +623,8 @@ class AsyncPipelineExecutor:
                     )
                     self.outputs[_output_key(self.dag, step_name, consumers[0])] = items
                     self._notify_observers(step_name, items)
-                    if is_each:
-                        await self._emit_each_step_result(
-                            node, step_name, items, had_error
-                        )
+                    if deferred:
+                        await self._emit_step_result(node, step_name, items, had_error)
                 except PipelineStopException:
                     raise
                 except Exception as exc:
@@ -661,7 +660,7 @@ class AsyncPipelineExecutor:
                     )
                 )
                 self._pump_tasks.append(task)
-                if is_each:
+                if deferred:
                     await self._dispatch_step_event(
                         node,
                         StepEvent.COMPLETED,
@@ -679,10 +678,8 @@ class AsyncPipelineExecutor:
                 else:
                     self._notify_observers(step_name, output)
                     had_error = False
-                if is_each:
-                    await self._emit_each_step_result(
-                        node, step_name, output, had_error
-                    )
+                if deferred:
+                    await self._emit_step_result(node, step_name, output, had_error)
                 return
         elif self.dag.needs_materialize(step_name):
             output, had_error = await self._materialize_with_events(
@@ -690,10 +687,10 @@ class AsyncPipelineExecutor:
             )
         self.outputs[step_name] = output
         self._notify_observers(step_name, output)
-        if is_each and not isinstance(
+        if deferred and not isinstance(
             output, (Iterator, Generator, AsyncIterator, AsyncGenerator)
         ):
-            await self._emit_each_step_result(node, step_name, output, had_error=False)
+            await self._emit_step_result(node, step_name, output, had_error=False)
 
 
 # ---------------------------------------------------------------------------

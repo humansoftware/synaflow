@@ -277,7 +277,7 @@ class PipelineExecutor:
             else:
                 output = node.fn(**arguments)
 
-            if not is_each:
+            if not is_each and not isinstance(output, Iterator):
                 self._dispatch_step_event(
                     node,
                     StepEvent.COMPLETED,
@@ -410,7 +410,7 @@ class PipelineExecutor:
             )
             raise
 
-    def _emit_each_step_result(self, node, step_name, output, had_error):
+    def _emit_step_result(self, node, step_name, output, had_error):
         success = len(output) if hasattr(output, "__len__") else 1
         if had_error:
             self._dispatch_step_event(
@@ -434,7 +434,9 @@ class PipelineExecutor:
 
     def _publish_output(self, step_name, output, node):
         output = self._notify_observers(step_name, output)
-        is_each = node.mode == StepMode.EACH
+        deferred = node.mode == StepMode.EACH or (
+            node.mode == StepMode.ALL and isinstance(output, Iterator)
+        )
 
         if isinstance(output, Iterator):
             consumers = self.dag.consumers_of(step_name)
@@ -447,8 +449,8 @@ class PipelineExecutor:
                 output, had_error = self._materialize_with_events(
                     step_name, output, node, consumer_type=consumer_type
                 )
-                if is_each:
-                    self._emit_each_step_result(node, step_name, output, had_error)
+                if deferred:
+                    self._emit_step_result(node, step_name, output, had_error)
                 for c in consumers:
                     self.outputs[_output_key(self.dag, step_name, c)] = output
                 return
@@ -459,8 +461,8 @@ class PipelineExecutor:
                 output, had_error = self._materialize_with_events(
                     step_name, output, node, consumer_type=consumer_type
                 )
-                if is_each:
-                    self._emit_each_step_result(node, step_name, output, had_error)
+                if deferred:
+                    self._emit_step_result(node, step_name, output, had_error)
                 self.outputs[_output_key(self.dag, step_name, consumers[0])] = output
                 return
 
@@ -477,7 +479,7 @@ class PipelineExecutor:
                             consumer_type=consumer_node.deps.get(step_name),
                         )
                     self.outputs[_output_key(self.dag, step_name, consumer)] = branch
-                if is_each:
+                if deferred:
                     self._dispatch_step_event(
                         node,
                         StepEvent.COMPLETED,
@@ -488,7 +490,7 @@ class PipelineExecutor:
                     )
                 return
 
-            if is_each:
+            if deferred:
                 self._dispatch_step_event(
                     node,
                     StepEvent.COMPLETED,
@@ -504,8 +506,8 @@ class PipelineExecutor:
             )
 
         self.outputs[step_name] = output
-        if is_each and not isinstance(output, Iterator):
-            self._emit_each_step_result(node, step_name, output, had_error=False)
+        if deferred and not isinstance(output, Iterator):
+            self._emit_step_result(node, step_name, output, had_error=False)
 
 
 # ---------------------------------------------------------------------------
