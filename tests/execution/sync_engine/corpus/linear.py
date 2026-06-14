@@ -1,7 +1,7 @@
 from collections.abc import Generator, Iterator
 from typing import NamedTuple
 
-from synaflow import pipeline, step
+from synaflow import Observer, pipeline, step
 
 
 class LinearParams(NamedTuple):
@@ -28,7 +28,11 @@ linear_pipeline = pipeline(
     params=LinearParams,
     steps=[
         step("gen", fn=gen),
-        step("transformer", fn=transformer),
+        step(
+            "transformer",
+            fn=transformer,
+            observers=[Observer(lambda ctx: None)],
+        ),
         step("consumer", fn=consumer),
     ],
 )
@@ -63,6 +67,7 @@ pack = PipelinePack(
                 "each_mode_deps": ["gen"],
                 "pipeline": "linear_example",
                 "parent_pipeline": None,
+                "observers": [{"handler_name": "<lambda>", "source": "step"}],
             },
             "consumer": {
                 "deps": {"transformer": "Stream[int]"},

@@ -39,7 +39,10 @@ def validate_unique_step_name(
 
 
 def validate_and_compile_step(
-    step: Step, produced: dict[str, DagNode], pipeline_name: str
+    step: Step,
+    produced: dict[str, DagNode],
+    pipeline_name: str,
+    observers: list | None = None,
 ) -> DagNode:
     sig = inspect.signature(step.fn)
     hints = get_safe_type_hints(step.fn)
@@ -60,6 +63,7 @@ def validate_and_compile_step(
         force_materialize=step.force_materialize,
         pipeline=step.pipeline or pipeline_name,
         parent_pipeline=getattr(step, "parent_pipeline", None),
+        observers=observers or [],
     )
 
 

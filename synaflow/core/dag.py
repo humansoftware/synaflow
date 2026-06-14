@@ -36,6 +36,7 @@ class DagNode:
     pipeline: str | None = None
     parent_pipeline: str | None = None
     error_materializer: Callable | None = None
+    observers: list = field(default_factory=list)
 
     def __getitem__(self, key):
         return getattr(self, key)
@@ -62,7 +63,27 @@ class DagNode:
             "pipeline": self.pipeline,
             "parent_pipeline": self.parent_pipeline,
         }
+        if self.observers:
+            ret["observers"] = _serialize_observers(self.observers)
         return ret
+
+
+def _serialize_observers(observers: list) -> list[dict]:
+    result = []
+    for obs in observers:
+        info = {"handler_name": getattr(obs.handler, "__name__", str(obs.handler))}
+        info["source"] = getattr(obs, "source", "step")
+        result.append(info)
+    return result
+
+
+def _serialize_pipeline_observers(observers: list) -> list[dict]:
+    result = []
+    for obs in observers:
+        info = {"handler_name": getattr(obs.handler, "__name__", str(obs.handler))}
+        info["source"] = getattr(obs, "source", "pipeline")
+        result.append(info)
+    return result
 
 
 @dataclass
@@ -73,6 +94,7 @@ class Dag:
     requires_sync_runner: bool = False
     requires_async_runner: bool = False
     error_materializer_factory: Any = None
+    pipeline_observers: list = field(default_factory=list)
 
     def __getitem__(self, key):
         return self.steps[key]
@@ -115,6 +137,10 @@ class Dag:
         }
         if self.error_materializer_factory is not None:
             result["error_materializer"] = self.error_materializer_factory.__name__
+        if self.pipeline_observers:
+            result["pipeline_observers"] = _serialize_pipeline_observers(
+                self.pipeline_observers
+            )
         return result
 
     def consumers_of(self, step_name: str) -> list[str]:

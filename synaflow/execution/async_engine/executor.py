@@ -6,10 +6,26 @@ from typing import Any
 from synaflow.core.dag import Dag
 from synaflow.core.definition import PipelineDef
 from synaflow.core.exceptions import PipelineStopException, StepExecutionError
+from synaflow.core.observers import (
+    MaterializationCompletedContext,
+    MaterializationEvent,
+    MaterializationFailedContext,
+    MaterializationStartedContext,
+    PipelineCompletedContext,
+    PipelineEvent,
+    PipelineFailedContext,
+    PipelineStartedContext,
+    StepCompletedContext,
+    StepEvent,
+    StepFailedContext,
+    StepStartedContext,
+    dispatch_observers_async,
+)
 from synaflow.core.types import (
     ErrorMaterializeContext,
     MaterializeContext,
     OnError,
+    StepMode,
 )
 
 
@@ -27,7 +43,9 @@ from .iterator_utils import queue_to_async_gen
 # ---------------------------------------------------------------------------
 
 
-async def _collect_async_iterator(dag: Dag, step_name: str, value: Any) -> list[Any]:
+async def _collect_async_iterator(
+    dag: Dag, step_name: str, value: Any
+) -> tuple[list[Any], bool, BaseException | None]:
     items = []
     try:
         if isinstance(value, (AsyncIterator, AsyncGenerator)):
@@ -49,18 +67,20 @@ async def _collect_async_iterator(dag: Dag, step_name: str, value: Any) -> list[
         await _handle_error(dag, step_name, exc)
         if dag[step_name].on_error == OnError.STOP:
             raise PipelineStopException(step_name=step_name, cause=exc) from exc
-    return items
+        return items, True, exc
+    return items, False, None
 
 
 async def _apply_materializer(
     dag: Dag, step_name: str, value: Any, consumer_type: Any = None
-) -> Any:
+) -> tuple[Any, bool, BaseException | None]:
     node = dag[step_name]
     mat = node.get("materializer")
     if mat is None:
         if isinstance(value, (AsyncIterator, AsyncGenerator, Iterator, Generator)):
-            return await _collect_async_iterator(dag, step_name, value)
-        return value
+            items, had_error, exc = await _collect_async_iterator(dag, step_name, value)
+            return items, had_error, exc
+        return value, False, None
     concrete_mat = mat(
         MaterializeContext(
             pipeline_name=dag.name,
@@ -70,27 +90,27 @@ async def _apply_materializer(
         )
     )
     if inspect.iscoroutinefunction(concrete_mat):
-        return await concrete_mat(value)
+        result = await concrete_mat(value)
+        return result, False, None
     if isinstance(value, (AsyncIterator, AsyncGenerator, Iterator, Generator)):
-        # If it's a standard collection, collect first
         if (
             concrete_mat in (list, tuple, set, dict)
             or getattr(concrete_mat, "__name__", "") == "_identity"
         ):
-            items = await _collect_async_iterator(dag, step_name, value)
+            items, had_error, exc = await _collect_async_iterator(dag, step_name, value)
             res = items if concrete_mat is list else concrete_mat(items)
             if inspect.iscoroutine(res):
-                return await res
-            return res
-        items = await _collect_async_iterator(dag, step_name, value)
+                return await res, had_error, exc
+            return res, had_error, exc
+        items, had_error, exc = await _collect_async_iterator(dag, step_name, value)
         res = concrete_mat(items)
         if inspect.iscoroutine(res):
-            return await res
-        return res
+            return await res, had_error, exc
+        return res, had_error, exc
     res = concrete_mat(value)
     if inspect.iscoroutine(res):
-        return await res
-    return res
+        return await res, False, None
+    return res, False, None
 
 
 async def _handle_error(dag: Dag, step_name: str, exc: BaseException) -> None:
@@ -140,7 +160,7 @@ async def _pump_iterator(
     try:
         safe = _safe_iterate(name, iterator)
         if materialize_before_enqueue:
-            items = await _apply_materializer(
+            items, _, _ = await _apply_materializer(
                 dag, name, safe, consumer_type=consumer_type
             )
             async for item in _safe_iterate(name, items):
@@ -207,9 +227,10 @@ async def _resolve_queue(
     origin = getattr(consumer_type, "__origin__", consumer_type)
     if origin in (AsyncIterator, AsyncGenerator):
         return queue_to_async_gen(queue)
-    return await _apply_materializer(
+    result, _, _ = await _apply_materializer(
         dag, producer, queue_to_async_gen(queue), consumer_type=consumer_type
     )
+    return result
 
 
 # ---------------------------------------------------------------------------
@@ -224,10 +245,130 @@ class AsyncPipelineExecutor:
         self._pump_tasks: list[asyncio.Task] = []
         self._step_output_observers = step_output_observers or []
 
+    # ------------------------------------------------------------------
+    # Lifecycle observer dispatch helpers (async)
+    # ------------------------------------------------------------------
+
+    async def _dispatch_pipeline_event(self, event: PipelineEvent, **kw: Any) -> None:
+        registrations = self.dag.pipeline_observers
+        if not registrations:
+            return
+        ctx: Any
+        if event is PipelineEvent.STARTED:
+            ctx = PipelineStartedContext(pipeline_name=self.dag.name, event=event)
+        elif event is PipelineEvent.COMPLETED:
+            ctx = PipelineCompletedContext(pipeline_name=self.dag.name, event=event)
+        elif event is PipelineEvent.FAILED:
+            ctx = PipelineFailedContext(
+                pipeline_name=self.dag.name,
+                event=event,
+                step_name=kw.get("step_name"),
+                exception=kw.get("exception"),
+            )
+        else:
+            return
+        await dispatch_observers_async(registrations, ctx)
+
+    async def _dispatch_step_event(
+        self,
+        node: Any,
+        event: StepEvent,
+        step_name: str,
+        **kw: Any,
+    ) -> None:
+        registrations = getattr(node, "observers", None) or []
+        if not registrations:
+            return
+        ctx: Any
+        if event is StepEvent.STARTED:
+            ctx = StepStartedContext(
+                pipeline_name=self.dag.name,
+                event=event,
+                step_name=step_name,
+                mode=node.mode,
+                on_error=node.on_error,
+            )
+        elif event is StepEvent.COMPLETED:
+            ctx = StepCompletedContext(
+                pipeline_name=self.dag.name,
+                event=event,
+                step_name=step_name,
+                mode=node.mode,
+                on_error=node.on_error,
+                success_count=kw.get("success_count", 0),
+                error_count=kw.get("error_count", 0),
+                completed_all_inputs=kw.get("completed_all_inputs", True),
+            )
+        elif event is StepEvent.FAILED:
+            ctx = StepFailedContext(
+                pipeline_name=self.dag.name,
+                event=event,
+                step_name=step_name,
+                mode=node.mode,
+                on_error=node.on_error,
+                success_count=kw.get("success_count", 0),
+                error_count=kw.get("error_count", 0),
+                completed_all_inputs=kw.get("completed_all_inputs", False),
+                exception=kw.get("exception"),
+            )
+        else:
+            return
+        await dispatch_observers_async(registrations, ctx)
+
+    async def _dispatch_materialization_event(
+        self,
+        step_name: str,
+        node: Any,
+        event: MaterializationEvent,
+        consumer_type: Any = None,
+        materializer_name: str | None = None,
+        **kw: Any,
+    ) -> None:
+        registrations = getattr(node, "observers", None) or []
+        if not registrations:
+            return
+        ctx: Any
+        if event is MaterializationEvent.STARTED:
+            ctx = MaterializationStartedContext(
+                pipeline_name=self.dag.name,
+                event=event,
+                step_name=step_name,
+                dataset_name=step_name,
+                consumer_type=consumer_type,
+                materializer_name=materializer_name,
+            )
+        elif event is MaterializationEvent.COMPLETED:
+            ctx = MaterializationCompletedContext(
+                pipeline_name=self.dag.name,
+                event=event,
+                step_name=step_name,
+                dataset_name=step_name,
+                consumer_type=consumer_type,
+                materializer_name=materializer_name,
+            )
+        elif event is MaterializationEvent.FAILED:
+            ctx = MaterializationFailedContext(
+                pipeline_name=self.dag.name,
+                event=event,
+                step_name=step_name,
+                dataset_name=step_name,
+                consumer_type=consumer_type,
+                materializer_name=materializer_name,
+                exception=kw.get("exception"),
+            )
+        else:
+            return
+        await dispatch_observers_async(registrations, ctx)
+
+    # ------------------------------------------------------------------
+    # Execution
+    # ------------------------------------------------------------------
+
     async def execute(self, params: Any) -> None:
         for field, value in params._asdict().items():
             self.outputs[field] = value
 
+        await self._dispatch_pipeline_event(PipelineEvent.STARTED)
         try:
             for level in self.dag.get_execution_levels():
                 tasks = [self._run_step(name) for name in level]
@@ -236,8 +377,20 @@ class AsyncPipelineExecutor:
 
             if self._pump_tasks:
                 await asyncio.gather(*self._pump_tasks)
-        except PipelineStopException:
+        except PipelineStopException as exc:
+            await self._dispatch_pipeline_event(
+                PipelineEvent.FAILED,
+                step_name=exc.step_name,
+                exception=exc.cause or exc,
+            )
             raise
+        except Exception as exc:
+            await self._dispatch_pipeline_event(
+                PipelineEvent.FAILED, step_name=None, exception=exc
+            )
+            raise
+        else:
+            await self._dispatch_pipeline_event(PipelineEvent.COMPLETED)
 
     async def _run_step(self, step_name: str) -> None:
         node = self.dag[step_name]
@@ -246,6 +399,9 @@ class AsyncPipelineExecutor:
 
         unrolled = self.dag.each_inputs(step_name)
         arguments = await self._build_arguments(step_name, node, unrolled)
+        is_each = bool(unrolled)
+
+        await self._dispatch_step_event(node, StepEvent.STARTED, step_name)
 
         try:
             if unrolled:
@@ -253,12 +409,45 @@ class AsyncPipelineExecutor:
             else:
                 output = await self._call_fn(node.fn, arguments)
 
+            if not is_each and not isinstance(
+                output, (Iterator, Generator, AsyncIterator, AsyncGenerator)
+            ):
+                await self._dispatch_step_event(
+                    node,
+                    StepEvent.COMPLETED,
+                    step_name,
+                    success_count=1,
+                    error_count=0,
+                    completed_all_inputs=True,
+                )
+
             if not step_name.startswith("_"):
                 await self._publish_output(step_name, output, node)
-        except PipelineStopException:
+        except PipelineStopException as exc:
+            cause = exc.cause or exc
+            if isinstance(cause, PipelineStopException):
+                cause = cause.cause or cause
+            await self._dispatch_step_event(
+                node,
+                StepEvent.FAILED,
+                step_name,
+                success_count=0,
+                error_count=1,
+                completed_all_inputs=False,
+                exception=cause,
+            )
             raise
         except Exception as exc:
             await _handle_error(self.dag, step_name, exc)
+            await self._dispatch_step_event(
+                node,
+                StepEvent.FAILED,
+                step_name,
+                success_count=0,
+                error_count=1,
+                completed_all_inputs=False,
+                exception=exc,
+            )
             if node.on_error == OnError.STOP:
                 raise PipelineStopException(step_name=step_name, cause=exc) from exc
 
@@ -336,7 +525,72 @@ class AsyncPipelineExecutor:
         for observer in self._step_output_observers:
             observer(step_name, output)
 
+    async def _materialize_with_events(
+        self, step_name, output, node, consumer_type=None
+    ):
+        mat_name = node.materializer.__name__ if callable(node.materializer) else None
+        await self._dispatch_materialization_event(
+            step_name,
+            node,
+            MaterializationEvent.STARTED,
+            consumer_type,
+            mat_name,
+        )
+        try:
+            result, had_error, exc = await _apply_materializer(
+                self.dag, step_name, output, consumer_type=consumer_type
+            )
+            await self._dispatch_materialization_event(
+                step_name,
+                node,
+                MaterializationEvent.COMPLETED,
+                consumer_type,
+                mat_name,
+            )
+            return result, had_error, exc
+        except PipelineStopException:
+            raise
+        except Exception as exc:
+            await self._dispatch_materialization_event(
+                step_name,
+                node,
+                MaterializationEvent.FAILED,
+                consumer_type,
+                mat_name,
+                exception=exc,
+            )
+            raise
+
+    async def _emit_step_result(
+        self, node, step_name, output, had_error, exception=None
+    ):
+        success = len(output) if hasattr(output, "__len__") else 1
+        if had_error:
+            await self._dispatch_step_event(
+                node,
+                StepEvent.FAILED,
+                step_name,
+                success_count=success,
+                error_count=1,
+                completed_all_inputs=False,
+                exception=exception,
+            )
+        else:
+            await self._dispatch_step_event(
+                node,
+                StepEvent.COMPLETED,
+                step_name,
+                success_count=success,
+                error_count=0,
+                completed_all_inputs=True,
+            )
+
     async def _publish_output(self, step_name, output, node):
+        deferred = node.mode == StepMode.EACH or (
+            node.mode == StepMode.ALL
+            and isinstance(output, (Iterator, Generator, AsyncIterator, AsyncGenerator))
+        )
+
         if isinstance(output, (Iterator, Generator, AsyncIterator, AsyncGenerator)):
             consumers = self.dag.consumers_of(step_name)
 
@@ -346,12 +600,16 @@ class AsyncPipelineExecutor:
                 if consumers:
                     consumer_type = self.dag[consumers[0]].deps.get(step_name)
                 try:
-                    items = await _apply_materializer(
-                        self.dag, step_name, output, consumer_type=consumer_type
+                    items, had_error, exc = await self._materialize_with_events(
+                        step_name, output, node, consumer_type=consumer_type
                     )
                     for c in consumers:
                         self.outputs[_output_key(self.dag, step_name, c)] = items
                     self._notify_observers(step_name, items)
+                    if deferred:
+                        await self._emit_step_result(
+                            node, step_name, items, had_error, exc
+                        )
                 except PipelineStopException:
                     raise
                 except Exception as exc:
@@ -366,11 +624,15 @@ class AsyncPipelineExecutor:
             if len(consumers) == 1 and self.dag.needs_materialize(step_name):
                 consumer_type = self.dag[consumers[0]].deps.get(step_name)
                 try:
-                    items = await _apply_materializer(
-                        self.dag, step_name, output, consumer_type=consumer_type
+                    items, had_error, exc = await self._materialize_with_events(
+                        step_name, output, node, consumer_type=consumer_type
                     )
                     self.outputs[_output_key(self.dag, step_name, consumers[0])] = items
                     self._notify_observers(step_name, items)
+                    if deferred:
+                        await self._emit_step_result(
+                            node, step_name, items, had_error, exc
+                        )
                 except PipelineStopException:
                     raise
                 except Exception as exc:
@@ -406,20 +668,43 @@ class AsyncPipelineExecutor:
                     )
                 )
                 self._pump_tasks.append(task)
+                if deferred:
+                    await self._dispatch_step_event(
+                        node,
+                        StepEvent.COMPLETED,
+                        step_name,
+                        success_count=0,
+                        error_count=0,
+                        completed_all_inputs=True,
+                    )
                 return
             else:
                 if self.dag.needs_materialize(step_name):
-                    output = await _apply_materializer(
-                        self.dag, step_name, output, consumer_type=node.get("output")
+                    output, had_error, exc = await self._materialize_with_events(
+                        step_name, output, node, consumer_type=node.get("output")
                     )
                 else:
                     self._notify_observers(step_name, output)
+                    had_error = False
+                    exc = None
+                if deferred:
+                    await self._emit_step_result(
+                        node, step_name, output, had_error, exc
+                    )
+                return
         elif self.dag.needs_materialize(step_name):
-            output = await _apply_materializer(
-                self.dag, step_name, output, consumer_type=node.get("output")
+            output, had_error, exc = await self._materialize_with_events(
+                step_name, output, node, consumer_type=node.get("output")
             )
+        else:
+            had_error = False
+            exc = None
         self.outputs[step_name] = output
         self._notify_observers(step_name, output)
+        if deferred and not isinstance(
+            output, (Iterator, Generator, AsyncIterator, AsyncGenerator)
+        ):
+            await self._emit_step_result(node, step_name, output, had_error, exc)
 
 
 # ---------------------------------------------------------------------------
