@@ -39,13 +39,17 @@ nav:
   - Home: index.md
   - Getting Started:
       - Installation: getting-started/installation.md
-      - Lockstep Data Flow: getting-started/lockstep-flow.md
+      - Introduction: getting-started/introduction.md
   - Tutorial:
       - Level 1 — Hello World: tutorial/hello-world.md
-      - Level 2 — Multiple Steps: tutorial/multiple-steps.md
-      - Level 3 — Observers: tutorial/observers.md
-      - Level 4 — Materializers: tutorial/materializers.md
+      - Level 2 — Lowercase Transform: tutorial/multiple-steps.md
+      - Level 3 — Character Counter: tutorial/observers.md
+      - Level 4 — Print Key-Value Pairs: tutorial/materializers.md
+      - Level 5 — Streaming: tutorial/streaming.md
   - Core Concepts:
+      - How the DAG is Wired: core-concepts/how-dag-is-wired.md
+      - Lockstep Data Flow: core-concepts/lockstep-flow.md
+      - Materialization & Errors: core-concepts/materialization.md
       - Semantic Naming: core-concepts/semantic-naming.md
       - DAG Construction: core-concepts/dag-construction.md
       - Sync & Async Parity: core-concepts/sync-async.md

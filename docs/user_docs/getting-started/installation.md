@@ -39,4 +39,4 @@ For development and running the test suite:
 
 ## Next
 
-Learn how SynaFlow's [lockstep data flow](lockstep-flow.md) guarantees extreme memory efficiency.
+Read the [Introduction](introduction.md) for a tour of the documentation, or jump straight into the [Tutorial](../tutorial/hello-world.md).
