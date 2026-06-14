@@ -35,6 +35,7 @@ class DagNode:
     force_materialize: bool = False
     pipeline: str | None = None
     parent_pipeline: str | None = None
+    error_interceptors: list[Callable] = field(default_factory=list)
 
     def __getitem__(self, key):
         return getattr(self, key)
@@ -47,7 +48,7 @@ class DagNode:
 
     def to_serializable(self) -> dict:
         mat = self.materializer
-        return {
+        ret = {
             "deps": {k: get_type_name(v) for k, v in self.deps.items()},
             "output": get_type_name(self.output),
             "fn": self.fn.__name__ if self.fn else None,
@@ -59,6 +60,9 @@ class DagNode:
             "pipeline": self.pipeline,
             "parent_pipeline": self.parent_pipeline,
         }
+        if self.error_interceptors:
+            ret["error_interceptors"] = [f.__name__ for f in self.error_interceptors]
+        return ret
 
 
 @dataclass
@@ -69,6 +73,7 @@ class Dag:
     requires_sync_runner: bool = False
     requires_async_runner: bool = False
     error_materializer_factory: Any = None
+    error_interceptors: list[Callable] = field(default_factory=list)
 
     def __getitem__(self, key):
         return self.steps[key]
@@ -113,6 +118,8 @@ class Dag:
             result["error_materializer_factory"] = (
                 self.error_materializer_factory.__name__
             )
+        if self.error_interceptors:
+            result["error_interceptors"] = [f.__name__ for f in self.error_interceptors]
         return result
 
     def consumers_of(self, step_name: str) -> list[str]:

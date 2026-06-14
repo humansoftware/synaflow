@@ -7,6 +7,7 @@ from synaflow.core.dag import Dag
 from synaflow.core.definition import PipelineDef
 from synaflow.core.exceptions import PipelineStopException, StepExecutionError
 from synaflow.core.types import (
+    ErrorInterceptorContext,
     ErrorMaterializeContext,
     MaterializeContext,
     OnError,
@@ -28,7 +29,11 @@ from .iterator_utils import async_list, queue_to_async_gen
 
 
 async def _apply_materializer(
-    dag: Dag, step_name: str, value: Any, consumer_type: Any = None
+    dag: Dag,
+    step_name: str,
+    value: Any,
+    consumer_type: Any = None,
+    inputs: dict[str, Any] | None = None,
 ) -> Any:
     node = dag[step_name]
     mat = node.get("materializer")
@@ -73,6 +78,33 @@ def _handle_error(dag: Dag, step_name: str, exc: BaseException) -> None:
         handler(exc)
 
 
+async def _trigger_interceptors(
+    dag: Dag, step_name: str, exc: Exception, inputs: dict[str, Any] | None
+) -> None:
+    node = dag.steps.get(step_name)
+    if not node:
+        return
+
+    ctx = ErrorInterceptorContext(
+        pipeline_name=dag.name,
+        step_name=step_name,
+        inputs=inputs or {},
+    )
+
+    for interceptor in getattr(node, "error_interceptors", []):
+        try:
+            if inspect.iscoroutinefunction(interceptor):
+                await interceptor(exc, ctx)
+            else:
+                interceptor(exc, ctx)
+        except Exception as interceptor_exc:
+            import logging
+
+            logging.getLogger("synaflow").warning(
+                f"Error in interceptor {interceptor.__name__ if hasattr(interceptor, '__name__') else interceptor} for step '{step_name}': {interceptor_exc}"
+            )
+
+
 async def _pump_iterator(
     name: str,
     iterator: Any,
@@ -81,12 +113,13 @@ async def _pump_iterator(
     dag: Dag | None = None,
     materialize_before_enqueue: bool = False,
     consumer_type: Any = None,
+    inputs: dict[str, Any] | None = None,
 ) -> None:
     try:
         safe = _safe_iterate(name, iterator)
         if materialize_before_enqueue:
             items = await _apply_materializer(
-                dag, name, safe, consumer_type=consumer_type
+                dag, name, safe, consumer_type=consumer_type, inputs=inputs
             )
             async for item in _safe_iterate(name, items):
                 for q in queues.values():
@@ -96,7 +129,9 @@ async def _pump_iterator(
                 for q in queues.values():
                     await q.put(item)
     except StepExecutionError as e:
-        _handle_error(dag, name, e.__cause__ or e)
+        exc = e.__cause__ or e
+        await _trigger_interceptors(dag, name, exc, inputs)
+        _handle_error(dag, name, exc)
         if on_error == OnError.STOP:
             for q in queues.values():
                 await q.put(PipelineStopException(step_name=name))
@@ -168,6 +203,7 @@ class AsyncPipelineExecutor:
         self.outputs = {}
         self._pump_tasks: list[asyncio.Task] = []
         self._step_output_observers = step_output_observers or []
+        self._step_inputs = {}
 
     async def execute(self, params: Any) -> None:
         for field, value in params._asdict().items():
@@ -191,6 +227,7 @@ class AsyncPipelineExecutor:
 
         unrolled = self.dag.each_inputs(step_name)
         arguments = await self._build_arguments(step_name, node, unrolled)
+        self._step_inputs[step_name] = arguments
 
         try:
             if unrolled:
@@ -203,6 +240,7 @@ class AsyncPipelineExecutor:
         except PipelineStopException:
             raise
         except Exception as exc:
+            await _trigger_interceptors(self.dag, step_name, exc, arguments)
             _handle_error(self.dag, step_name, exc)
             if node.on_error == OnError.STOP:
                 raise PipelineStopException(step_name=step_name, cause=exc) from exc
@@ -251,6 +289,7 @@ class AsyncPipelineExecutor:
                 try:
                     yield await self._call_fn(node.fn, item_args)
                 except Exception as exc:
+                    await _trigger_interceptors(self.dag, step_name, exc, item_args)
                     _handle_error(self.dag, step_name, exc)
                     if node.on_error == OnError.STOP:
                         raise PipelineStopException(
@@ -282,6 +321,7 @@ class AsyncPipelineExecutor:
             observer(step_name, output)
 
     async def _publish_output(self, step_name, output, node):
+        inputs = self._step_inputs.get(step_name)
         if isinstance(output, (Iterator, Generator, AsyncIterator, AsyncGenerator)):
             consumers = self.dag.consumers_of(step_name)
             if consumers:
@@ -312,6 +352,7 @@ class AsyncPipelineExecutor:
                         dag=self.dag,
                         materialize_before_enqueue=materialize_before_enqueue,
                         consumer_type=consumer_type,
+                        inputs=inputs,
                     )
                 )
                 self._pump_tasks.append(task)
@@ -320,7 +361,11 @@ class AsyncPipelineExecutor:
                 self._notify_observers(step_name, output)
         elif self.dag.needs_materialize(step_name):
             output = await _apply_materializer(
-                self.dag, step_name, output, consumer_type=node.get("output")
+                self.dag,
+                step_name,
+                output,
+                consumer_type=node.get("output"),
+                inputs=inputs,
             )
         self.outputs[step_name] = output
         self._notify_observers(step_name, output)

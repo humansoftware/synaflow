@@ -95,6 +95,12 @@ def _expand_include(
         is_exported = sub_step.name == sub_pipeline.exports
         new_name = prefix if is_exported else f"{prefix}__{sub_step.name}"
 
+        new_interceptors = list(getattr(sub_step, "error_interceptors", []) or [])
+        if getattr(sub_pipeline, "error_interceptors", None):
+            for interceptor in sub_pipeline.error_interceptors:
+                if interceptor not in new_interceptors:
+                    new_interceptors.append(interceptor)
+
         expanded.append(
             Step(
                 name=new_name,
@@ -106,6 +112,7 @@ def _expand_include(
                 description=sub_step.description,
                 pipeline=sub_pipeline.name,
                 parent_pipeline=new_parent_chain,
+                error_interceptors=new_interceptors,
             )
         )
 

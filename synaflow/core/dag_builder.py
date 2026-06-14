@@ -163,6 +163,7 @@ def build_dag(
     default_materializer_factory: Any = None,
     is_default_factory: bool = False,
     error_materializer_factory: Any = None,
+    error_interceptors: list[Any] = None,
 ) -> Dag:
     _validate_params_is_namedtuple(params, pipeline_name)
 
@@ -192,11 +193,21 @@ def build_dag(
     _resolve_materializers(dag, factory)
     _compute_materialized_deps(dag)
 
+    # Merge pipeline-level error interceptors into each node
+    for node in dag.values():
+        merged = list(node.error_interceptors or [])
+        if error_interceptors:
+            for interceptor in error_interceptors:
+                if interceptor not in merged:
+                    merged.append(interceptor)
+        node.error_interceptors = merged
+
     dag_obj.params = {
         name: info.output for name, info in produced.items() if name not in dag
     }
     dag_obj.steps = dag
     dag_obj.error_materializer_factory = error_materializer_factory
+    dag_obj.error_interceptors = error_interceptors or []
 
     check_circular_dependencies(dag_obj, pipeline_name)
 

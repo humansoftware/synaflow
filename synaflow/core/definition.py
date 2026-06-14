@@ -33,6 +33,13 @@ class Step(BaseStep):
     description: str = ""
     pipeline: str | None = None
     parent_pipeline: str | None = None
+    error_interceptors: list[Callable] | Callable | None = None
+
+    def __post_init__(self) -> None:
+        if self.error_interceptors is None:
+            self.error_interceptors = []
+        elif not isinstance(self.error_interceptors, list):
+            self.error_interceptors = [self.error_interceptors]
 
 
 @dataclass
@@ -57,11 +64,17 @@ class PipelineDef:
     default_error_materializer_factory: Callable | None = field(
         default_factory=lambda: _get_default_error_factory()
     )
+    error_interceptors: list[Callable] | Callable | None = None
     dag: Dag = field(default_factory=Dag)
     _compiled: bool = False
     description: str = ""
 
     def __post_init__(self) -> None:
+        if self.error_interceptors is None:
+            self.error_interceptors = []
+        elif not isinstance(self.error_interceptors, list):
+            self.error_interceptors = [self.error_interceptors]
+
         from synaflow.core.dag_builder import build_dag
         from synaflow.core.dag_builder import (
             default_materializer_factory as _default_factory,
@@ -74,6 +87,7 @@ class PipelineDef:
             self.default_materializer_factory,
             is_default_factory=(self.default_materializer_factory is _default_factory),
             error_materializer_factory=self.default_error_materializer_factory,
+            error_interceptors=self.error_interceptors,
         )
         self.requires_sync_runner = self.dag.requires_sync_runner
         self.requires_async_runner = self.dag.requires_async_runner

@@ -15,6 +15,7 @@ This roadmap outlines the planned features and architectural evolutions for the 
 - **Sync/async parity fixes** — async iteration failure handling, branch-aware materialization context, uneven unroll termination, and preserved valid prefixes under `OnError.CONTINUE`
 - **PipelineStopException** — carries `step_name` + `cause` + `raise ... from`
 - **Observer/runtime contract coverage** — mixed fan-out, partial stream failure, and explicit-mode corpus specs
+- **Error interceptors** — attach error handlers at step or pipeline level; route failed records to sinks, logs, or dead-letter queues
 
 ## 🚧 In Progress / Next
 
@@ -23,7 +24,6 @@ This roadmap outlines the planned features and architectural evolutions for the 
 
 ## 📋 Planned
 
-- **Error interceptors** — attach error handlers at step or pipeline level; route failed records to sinks, logs, or dead-letter queues
 - **Timeouts** — per-step execution timeouts with graceful abort
 - **Observability** — telemetry decorators for success/failure/timeout tracking
 - **Decorators** — pluggable step decorators for cross-cutting concerns

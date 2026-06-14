@@ -6,7 +6,12 @@ from typing import Any
 from synaflow.core.dag import Dag
 from synaflow.core.definition import PipelineDef
 from synaflow.core.exceptions import PipelineStopException
-from synaflow.core.types import ErrorMaterializeContext, MaterializeContext, OnError
+from synaflow.core.types import (
+    ErrorInterceptorContext,
+    ErrorMaterializeContext,
+    MaterializeContext,
+    OnError,
+)
 
 
 def _output_key(dag: Dag, producer: str, consumer: str) -> str:
@@ -20,7 +25,9 @@ def _output_key(dag: Dag, producer: str, consumer: str) -> str:
 # ---------------------------------------------------------------------------
 
 
-def _collect_iterator(dag: Dag, step_name: str, value: Iterator) -> list[Any]:
+def _collect_iterator(
+    dag: Dag, step_name: str, value: Iterator, inputs: dict[str, Any] | None = None
+) -> list[Any]:
     items = []
     while True:
         try:
@@ -28,6 +35,7 @@ def _collect_iterator(dag: Dag, step_name: str, value: Iterator) -> list[Any]:
         except StopIteration:
             return items
         except Exception as exc:
+            _trigger_interceptors(dag, step_name, exc, inputs)
             _handle_error(dag, step_name, exc)
             if dag[step_name].on_error == OnError.STOP:
                 raise PipelineStopException(step_name=step_name, cause=exc) from exc
@@ -35,13 +43,17 @@ def _collect_iterator(dag: Dag, step_name: str, value: Iterator) -> list[Any]:
 
 
 def _apply_materializer(
-    dag: Dag, step_name: str, value: Any, consumer_type: Any = None
+    dag: Dag,
+    step_name: str,
+    value: Any,
+    consumer_type: Any = None,
+    inputs: dict[str, Any] | None = None,
 ) -> Any:
     node = dag[step_name]
     mat = node.get("materializer")
     if mat is None:
         return (
-            _collect_iterator(dag, step_name, value)
+            _collect_iterator(dag, step_name, value, inputs=inputs)
             if isinstance(value, Iterator)
             else value
         )
@@ -60,10 +72,10 @@ def _apply_materializer(
             )
         )
     if isinstance(value, Iterator) and mat in (list, tuple, set, dict):
-        items = _collect_iterator(dag, step_name, value)
+        items = _collect_iterator(dag, step_name, value, inputs=inputs)
         return items if mat is list else mat(items)
     if isinstance(value, Iterator) and getattr(mat, "__name__", "") == "_identity":
-        return _collect_iterator(dag, step_name, value)
+        return _collect_iterator(dag, step_name, value, inputs=inputs)
     return mat(value)
 
 
@@ -83,6 +95,30 @@ def _handle_error(dag: Dag, step_name: str, exc: BaseException) -> None:
         handler(exc)
 
 
+def _trigger_interceptors(
+    dag: Dag, step_name: str, exc: Exception, inputs: dict[str, Any] | None
+) -> None:
+    node = dag.steps.get(step_name)
+    if not node:
+        return
+
+    ctx = ErrorInterceptorContext(
+        pipeline_name=dag.name,
+        step_name=step_name,
+        inputs=inputs or {},
+    )
+
+    for interceptor in getattr(node, "error_interceptors", []):
+        try:
+            interceptor(exc, ctx)
+        except Exception as interceptor_exc:
+            import logging
+
+            logging.getLogger("synaflow").warning(
+                f"Error in interceptor {interceptor.__name__ if hasattr(interceptor, '__name__') else interceptor} for step '{step_name}': {interceptor_exc}"
+            )
+
+
 # ---------------------------------------------------------------------------
 # Executor
 # ---------------------------------------------------------------------------
@@ -93,6 +129,7 @@ class PipelineExecutor:
         self.dag = dag
         self.outputs = {}
         self._step_output_observers = step_output_observers or []
+        self._step_inputs = {}
 
     def execute(self, params: Any) -> None:
         for field, value in params._asdict().items():
@@ -108,6 +145,7 @@ class PipelineExecutor:
             return
 
         arguments = self._build_arguments(step_name, node)
+        self._step_inputs[step_name] = arguments
         unrolled = self.dag.each_inputs(step_name)
 
         try:
@@ -121,6 +159,7 @@ class PipelineExecutor:
         except PipelineStopException:
             raise
         except Exception as exc:
+            _trigger_interceptors(self.dag, step_name, exc, arguments)
             _handle_error(self.dag, step_name, exc)
             if node.on_error == OnError.STOP:
                 raise PipelineStopException(step_name=step_name, cause=exc) from exc
@@ -151,6 +190,7 @@ class PipelineExecutor:
                 try:
                     yield node.fn(**item_args)
                 except Exception as exc:
+                    _trigger_interceptors(self.dag, step_name, exc, item_args)
                     _handle_error(self.dag, step_name, exc)
                     if on_err == OnError.STOP:
                         raise PipelineStopException(
@@ -186,6 +226,7 @@ class PipelineExecutor:
 
     def _publish_output(self, step_name, output, node):
         output = self._notify_observers(step_name, output)
+        inputs = self._step_inputs.get(step_name)
         if isinstance(output, Iterator):
             consumers = self.dag.consumers_of(step_name)
             if len(consumers) > 1:
@@ -198,6 +239,7 @@ class PipelineExecutor:
                             step_name,
                             branch,
                             consumer_type=consumer_node.deps.get(step_name),
+                            inputs=inputs,
                         )
                     self.outputs[_output_key(self.dag, step_name, consumer)] = branch
                 return
@@ -206,11 +248,19 @@ class PipelineExecutor:
                 if consumers:
                     consumer_type = self.dag[consumers[0]].deps.get(step_name)
                 output = _apply_materializer(
-                    self.dag, step_name, output, consumer_type=consumer_type
+                    self.dag,
+                    step_name,
+                    output,
+                    consumer_type=consumer_type,
+                    inputs=inputs,
                 )
         elif self.dag.needs_materialize(step_name):
             output = _apply_materializer(
-                self.dag, step_name, output, consumer_type=node.get("output")
+                self.dag,
+                step_name,
+                output,
+                consumer_type=node.get("output"),
+                inputs=inputs,
             )
         self.outputs[step_name] = output
 

@@ -43,3 +43,10 @@ class ErrorMaterializeContext:
     pipeline_name: str
     dataset_name: str
     exception_type: type[BaseException]
+
+
+@dataclass
+class ErrorInterceptorContext:
+    pipeline_name: str
+    step_name: str
+    inputs: dict[str, Any]
