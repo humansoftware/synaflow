@@ -25,5 +25,7 @@ Enforce test coverage visibility on Pull Requests, specifically differentiating 
    - Run `pytest --cov=synaflow` without a hard `--cov-fail-under` that returns an exit code 1 (which would abruptly fail the whole GitHub Actions job).
    - Pass the coverage artifact to the reporting action.
    - Configure the reporting action to require 80% on the patch.
-3. **Testing the CI:**
+3. **Pre-commit Hook:**
+   - Update `.pre-commit-config.yaml` to include a local hook that runs `pytest` (and optionally checks coverage) before allowing a commit. This catches failing tests early on the developer's machine.
+4. **Testing the CI:**
    - Create a dummy PR that adds untested code to verify that the two statuses appear, the Patch status shows failure, but the Merge button remains green/clickable.
