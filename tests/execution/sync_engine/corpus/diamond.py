@@ -53,6 +53,7 @@ pack = PipelinePack(
                 "each_mode_deps": [],
                 "pipeline": "diamond_example",
                 "parent_pipeline": None,
+                "observers": [],
             },
             "branch_a": {
                 "deps": {"start": "int"},
@@ -66,6 +67,7 @@ pack = PipelinePack(
                 "each_mode_deps": [],
                 "pipeline": "diamond_example",
                 "parent_pipeline": None,
+                "observers": [],
             },
             "branch_b": {
                 "deps": {"start": "int"},
@@ -79,6 +81,7 @@ pack = PipelinePack(
                 "each_mode_deps": [],
                 "pipeline": "diamond_example",
                 "parent_pipeline": None,
+                "observers": [],
             },
             "merge": {
                 "deps": {"branch_a": "int", "branch_b": "int"},
@@ -92,6 +95,7 @@ pack = PipelinePack(
                 "each_mode_deps": [],
                 "pipeline": "diamond_example",
                 "parent_pipeline": None,
+                "observers": [],
             },
         },
         "error_materializer": "log_error_materializer",

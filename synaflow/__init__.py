@@ -1,4 +1,20 @@
 from .core.definition import include, pipeline, step
+from .core.observers import (
+    PipelineEvent,
+    StepEvent,
+    MaterializationEvent,
+    Observer,
+    BaseObserverContext,
+    PipelineStartedContext,
+    PipelineCompletedContext,
+    PipelineFailedContext,
+    StepStartedContext,
+    StepCompletedContext,
+    StepFailedContext,
+    MaterializationStartedContext,
+    MaterializationCompletedContext,
+    MaterializationFailedContext,
+)
 from .core.types import OnError, StepMode, StepParams, StepResult
 from .execution.async_engine.executor import async_run
 from .execution.sync_engine.executor import run
@@ -30,6 +46,20 @@ __all__ = [
     "StepMode",
     "StepParams",
     "StepResult",
+    "PipelineEvent",
+    "StepEvent",
+    "MaterializationEvent",
+    "Observer",
+    "BaseObserverContext",
+    "PipelineStartedContext",
+    "PipelineCompletedContext",
+    "PipelineFailedContext",
+    "StepStartedContext",
+    "StepCompletedContext",
+    "StepFailedContext",
+    "MaterializationStartedContext",
+    "MaterializationCompletedContext",
+    "MaterializationFailedContext",
     "memory_materializer",
     "disk_materializer",
     "log_error_materializer",

@@ -66,6 +66,7 @@ pack = PipelinePack(
                 "each_mode_deps": [],
                 "pipeline": "complex_parallel",
                 "parent_pipeline": None,
+                "observers": [],
             },
             "step2": {
                 "deps": {"step1": "Stream[int]"},
@@ -79,6 +80,7 @@ pack = PipelinePack(
                 "each_mode_deps": [],
                 "pipeline": "complex_parallel",
                 "parent_pipeline": None,
+                "observers": [],
             },
             "step3": {
                 "deps": {"step2": "Stream[int]"},
@@ -92,6 +94,7 @@ pack = PipelinePack(
                 "each_mode_deps": [],
                 "pipeline": "complex_parallel",
                 "parent_pipeline": None,
+                "observers": [],
             },
             "step4": {
                 "deps": {"step1": "Stream[int]"},
@@ -105,6 +108,7 @@ pack = PipelinePack(
                 "each_mode_deps": [],
                 "pipeline": "complex_parallel",
                 "parent_pipeline": None,
+                "observers": [],
             },
             "step5": {
                 "deps": {"step3": "Stream[int]", "step4": "Stream[int]"},
@@ -118,6 +122,7 @@ pack = PipelinePack(
                 "each_mode_deps": [],
                 "pipeline": "complex_parallel",
                 "parent_pipeline": None,
+                "observers": [],
             },
         },
         "error_materializer": "log_error_materializer",

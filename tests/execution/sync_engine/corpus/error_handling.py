@@ -57,6 +57,7 @@ pack = PipelinePack(
                 "each_mode_deps": [],
                 "pipeline": "error_handling_example",
                 "parent_pipeline": None,
+                "observers": [],
             },
             "consumer": {
                 "deps": {"gen": "Stream[int]"},
@@ -70,6 +71,7 @@ pack = PipelinePack(
                 "each_mode_deps": [],
                 "pipeline": "error_handling_example",
                 "parent_pipeline": None,
+                "observers": [],
             },
         },
         "error_materializer": "custom_err_mat",

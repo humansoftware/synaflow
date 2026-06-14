@@ -1,7 +1,7 @@
 from collections.abc import AsyncGenerator, AsyncIterator
 from typing import NamedTuple
 
-from synaflow import pipeline, step
+from synaflow import pipeline, step, PipelineEvent, StepEvent, Observer
 
 
 class LinearParams(NamedTuple):
@@ -22,13 +22,33 @@ async def consumer(transformer: AsyncIterator[int]) -> None:
         pass
 
 
+def on_pipeline_started(ctx):
+    pass
+
+
+def on_step_failed(ctx):
+    pass
+
+
+def on_step_completed(ctx):
+    pass
+
+
 from tests.common.pipeline_pack import PipelinePack
 
 linear_pipeline = pipeline(
     name="linear_example",
     params=LinearParams,
+    observers=[
+        Observer(PipelineEvent.STARTED, on_pipeline_started),
+        Observer(StepEvent.FAILED, on_step_failed),
+    ],
     steps=[
-        step("gen", fn=gen),
+        step(
+            "gen",
+            fn=gen,
+            observers=[Observer(StepEvent.COMPLETED, on_step_completed)],
+        ),
         step("transformer", fn=transformer),
         step("consumer", fn=consumer),
     ],
@@ -51,6 +71,10 @@ pack = PipelinePack(
                 "each_mode_deps": [],
                 "pipeline": "linear_example",
                 "parent_pipeline": None,
+                "observers": [
+                    {"event": "step_failed", "source": "pipeline"},
+                    {"event": "step_completed", "source": "step"},
+                ],
             },
             "transformer": {
                 "deps": {"gen": "int"},
@@ -64,6 +88,7 @@ pack = PipelinePack(
                 "each_mode_deps": ["gen"],
                 "pipeline": "linear_example",
                 "parent_pipeline": None,
+                "observers": [{"event": "step_failed", "source": "pipeline"}],
             },
             "consumer": {
                 "deps": {"transformer": "Stream[int]"},
@@ -77,6 +102,7 @@ pack = PipelinePack(
                 "each_mode_deps": [],
                 "pipeline": "linear_example",
                 "parent_pipeline": None,
+                "observers": [{"event": "step_failed", "source": "pipeline"}],
             },
         },
         "error_materializer": "log_error_materializer",

@@ -36,6 +36,7 @@ class DagNode:
     pipeline: str | None = None
     parent_pipeline: str | None = None
     error_materializer: Callable | None = None
+    observers: list = field(default_factory=list)
 
     def __getitem__(self, key):
         return getattr(self, key)
@@ -61,6 +62,10 @@ class DagNode:
             "each_mode_deps": self.each_mode_deps,
             "pipeline": self.pipeline,
             "parent_pipeline": self.parent_pipeline,
+            "observers": [
+                {"event": obs.event.value, "source": obs.source}
+                for obs in self.observers
+            ],
         }
         return ret
 
@@ -73,6 +78,7 @@ class Dag:
     requires_sync_runner: bool = False
     requires_async_runner: bool = False
     error_materializer_factory: Any = None
+    observers: list = field(default_factory=list)
 
     def __getitem__(self, key):
         return self.steps[key]

@@ -3,19 +3,78 @@ import inspect
 from typing import Any
 
 from synaflow.core.definition import IncludeStep, Step
+from synaflow.core.observers import (
+    Observer,
+    ResolvedObserver,
+    PipelineEvent,
+    StepEvent,
+    MaterializationEvent,
+)
 from synaflow.core.types import OnError
+
+
+def _resolve_step_observers(
+    step: Step, pipeline_observers_stack: list[Any]
+) -> list[ResolvedObserver]:
+    resolved = []
+    # 1. Pipeline-level observers
+    for obs in pipeline_observers_stack:
+        if isinstance(obs, ResolvedObserver):
+            resolved.append(obs)
+            continue
+        if not isinstance(obs, Observer):
+            raise TypeError(f"Expected Observer instance, got {type(obs).__name__}")
+        if obs.event.__class__ in (StepEvent, MaterializationEvent):
+            resolved.append(
+                ResolvedObserver(
+                    event=obs.event, handler=obs.handler, source="pipeline"
+                )
+            )
+    # 2. Step-level observers
+    for obs in getattr(step, "observers", []):
+        if isinstance(obs, ResolvedObserver):
+            resolved.append(obs)
+            continue
+        if not isinstance(obs, Observer):
+            raise TypeError(f"Expected Observer instance, got {type(obs).__name__}")
+        if obs.event.__class__ is PipelineEvent:
+            raise ValueError(
+                f"Step '{step.name}' cannot register observer for PipelineEvent '{obs.event}'"
+            )
+        if obs.event.__class__ in (StepEvent, MaterializationEvent):
+            resolved.append(
+                ResolvedObserver(event=obs.event, handler=obs.handler, source="step")
+            )
+    return resolved
 
 
 def expand_macros(
     steps: list[Any],
     current_pipeline_name: str | None = None,
     parent_chain: str | None = None,
+    pipeline_observers_stack: list[Any] = None,
+    collected_pipeline_observers: list[Any] = None,
 ) -> list[Step]:
+    if pipeline_observers_stack is None:
+        pipeline_observers_stack = []
+    if collected_pipeline_observers is None:
+        collected_pipeline_observers = []
+
     expanded = []
     for step in steps:
         if isinstance(step, IncludeStep):
-            expanded.extend(_expand_include(step, current_pipeline_name, parent_chain))
+            expanded.extend(
+                _expand_include(
+                    step,
+                    current_pipeline_name,
+                    parent_chain,
+                    pipeline_observers_stack,
+                    collected_pipeline_observers,
+                )
+            )
         else:
+            resolved = _resolve_step_observers(step, pipeline_observers_stack)
+            step.observers = resolved
             expanded.append(step)
     return expanded
 
@@ -24,7 +83,14 @@ def _expand_include(
     include_step: IncludeStep,
     current_pipeline_name: str | None = None,
     parent_chain: str | None = None,
+    pipeline_observers_stack: list[Any] = None,
+    collected_pipeline_observers: list[Any] = None,
 ) -> list[Step]:
+    if pipeline_observers_stack is None:
+        pipeline_observers_stack = []
+    if collected_pipeline_observers is None:
+        collected_pipeline_observers = []
+
     prefix = include_step.name
     sub_pipeline = include_step.pipeline
     adapter_name = f"{prefix}__adapter"
@@ -69,11 +135,30 @@ def _expand_include(
         pipeline=current_pipeline_name,
         parent_pipeline=parent_chain,
     )
+    adapter_step.observers = _resolve_step_observers(
+        adapter_step, pipeline_observers_stack
+    )
 
     expanded = [adapter_step]
 
     sub_pipeline_mat = getattr(sub_pipeline, "materializer", None)
     sub_pipeline_err = getattr(sub_pipeline, "error_materializer", None)
+    sub_pipeline_observers = getattr(sub_pipeline, "observers", [])
+
+    for obs in sub_pipeline_observers:
+        if obs.event.__class__ is PipelineEvent:
+
+            def wrap_handler(handler=obs.handler, name=sub_pipeline.name):
+                def wrapped(ctx):
+                    from dataclasses import replace
+
+                    return handler(replace(ctx, pipeline_name=name))
+
+                return wrapped
+
+            collected_pipeline_observers.append(
+                Observer(event=obs.event, handler=wrap_handler())
+            )
 
     # 2. Extract the sub-pipeline's parameter fields
     if hasattr(sub_pipeline.params, "_fields"):
@@ -86,6 +171,8 @@ def _expand_include(
         sub_pipeline.steps,
         current_pipeline_name=sub_pipeline.name,
         parent_chain=new_parent_chain,
+        pipeline_observers_stack=pipeline_observers_stack,
+        collected_pipeline_observers=collected_pipeline_observers,
     )
 
     for sub_step in sub_steps:
@@ -108,6 +195,7 @@ def _expand_include(
                 materializer=sub_step.materializer or sub_pipeline_mat,
                 error_materializer=getattr(sub_step, "error_materializer", None)
                 or sub_pipeline_err,
+                observers=sub_step.observers,
                 description=sub_step.description,
                 pipeline=sub_pipeline.name,
                 parent_pipeline=new_parent_chain,

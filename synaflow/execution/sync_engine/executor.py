@@ -1,11 +1,89 @@
 import itertools
+import logging
 from collections.abc import Iterator
 from typing import Any
 
 from synaflow.core.dag import Dag
 from synaflow.core.definition import PipelineDef
 from synaflow.core.exceptions import PipelineStopException
-from synaflow.core.types import ErrorMaterializeContext, MaterializeContext, OnError
+from synaflow.core.types import (
+    ErrorMaterializeContext,
+    MaterializeContext,
+    OnError,
+)
+from synaflow.core.observers import (
+    PipelineEvent,
+    StepEvent,
+    MaterializationEvent,
+    PipelineStartedContext,
+    PipelineCompletedContext,
+    PipelineFailedContext,
+    StepStartedContext,
+    StepCompletedContext,
+    StepFailedContext,
+    MaterializationStartedContext,
+    MaterializationCompletedContext,
+    MaterializationFailedContext,
+)
+
+
+def _dispatch_observers(observers: list, event: Any, context: Any) -> None:
+    log = logging.getLogger("synaflow")
+    for obs in observers:
+        if obs.event == event:
+            try:
+                obs.handler(context)
+            except Exception as exc:
+                log.warning(
+                    "Observer failed for event %s: %s", event, exc, exc_info=True
+                )
+
+
+class StepState:
+    def __init__(self):
+        self.success_count = 0
+        self.error_count = 0
+        self.completed_all_inputs = False
+
+
+def _wrap_step_iterator(
+    iterator: Iterator,
+    step_state: StepState,
+    step_name: str,
+    node: Any,
+    pipeline_name: str,
+):
+    try:
+        for item in iterator:
+            yield item
+        step_state.success_count = 1
+        step_state.completed_all_inputs = True
+        ctx = StepCompletedContext(
+            pipeline_name=pipeline_name,
+            event=StepEvent.COMPLETED,
+            step_name=step_name,
+            mode=node.mode,
+            on_error=node.on_error,
+            success_count=step_state.success_count,
+            error_count=step_state.error_count,
+            completed_all_inputs=step_state.completed_all_inputs,
+        )
+        _dispatch_observers(node.observers, StepEvent.COMPLETED, ctx)
+    except Exception as exc:
+        cause = exc.__cause__ or exc if isinstance(exc, PipelineStopException) else exc
+        ctx = StepFailedContext(
+            pipeline_name=pipeline_name,
+            event=StepEvent.FAILED,
+            step_name=step_name,
+            mode=node.mode,
+            on_error=node.on_error,
+            success_count=step_state.success_count,
+            error_count=step_state.error_count,
+            completed_all_inputs=step_state.completed_all_inputs,
+            exception=cause,
+        )
+        _dispatch_observers(node.observers, StepEvent.FAILED, ctx)
+        raise
 
 
 def _output_key(dag: Dag, producer: str, consumer: str) -> str:
@@ -38,29 +116,72 @@ def _apply_materializer(
 ) -> Any:
     node = dag[step_name]
     mat = node.get("materializer")
-    if mat is None:
-        return (
-            _collect_iterator(dag, step_name, value)
-            if isinstance(value, Iterator)
-            else value
-        )
-    concrete_mat = mat(
-        MaterializeContext(
-            pipeline_name=dag.name,
-            dataset_name=step_name,
-            item_type=node.get("output"),
-            consumer_type=consumer_type,
-        )
+    mat_name = getattr(mat, "__name__", str(mat)) if mat else None
+
+    # Emit Materialization STARTED
+    ctx_started = MaterializationStartedContext(
+        pipeline_name=dag.name,
+        event=MaterializationEvent.STARTED,
+        step_name=step_name,
+        dataset_name=step_name,
+        consumer_type=consumer_type,
+        materializer_name=mat_name,
     )
-    if isinstance(value, Iterator) and concrete_mat in (list, tuple, set, dict):
-        items = _collect_iterator(dag, step_name, value)
-        return items if concrete_mat is list else concrete_mat(items)
-    if (
-        isinstance(value, Iterator)
-        and getattr(concrete_mat, "__name__", "") == "_identity"
-    ):
-        return _collect_iterator(dag, step_name, value)
-    return concrete_mat(value)
+    _dispatch_observers(node.observers, MaterializationEvent.STARTED, ctx_started)
+
+    try:
+        if mat is None:
+            res = (
+                _collect_iterator(dag, step_name, value)
+                if isinstance(value, Iterator)
+                else value
+            )
+        else:
+            concrete_mat = mat(
+                MaterializeContext(
+                    pipeline_name=dag.name,
+                    dataset_name=step_name,
+                    item_type=node.get("output"),
+                    consumer_type=consumer_type,
+                )
+            )
+            if isinstance(value, Iterator) and concrete_mat in (list, tuple, set, dict):
+                items = _collect_iterator(dag, step_name, value)
+                res = items if concrete_mat is list else concrete_mat(items)
+            elif (
+                isinstance(value, Iterator)
+                and getattr(concrete_mat, "__name__", "") == "_identity"
+            ):
+                res = _collect_iterator(dag, step_name, value)
+            else:
+                res = concrete_mat(value)
+
+        # Emit Materialization COMPLETED
+        ctx_completed = MaterializationCompletedContext(
+            pipeline_name=dag.name,
+            event=MaterializationEvent.COMPLETED,
+            step_name=step_name,
+            dataset_name=step_name,
+            consumer_type=consumer_type,
+            materializer_name=mat_name,
+        )
+        _dispatch_observers(
+            node.observers, MaterializationEvent.COMPLETED, ctx_completed
+        )
+        return res
+    except Exception as exc:
+        # Emit Materialization FAILED
+        ctx_failed = MaterializationFailedContext(
+            pipeline_name=dag.name,
+            event=MaterializationEvent.FAILED,
+            step_name=step_name,
+            dataset_name=step_name,
+            consumer_type=consumer_type,
+            materializer_name=mat_name,
+            exception=exc,
+        )
+        _dispatch_observers(node.observers, MaterializationEvent.FAILED, ctx_failed)
+        raise
 
 
 def _handle_error(dag: Dag, step_name: str, exc: BaseException) -> None:
@@ -96,12 +217,49 @@ class PipelineExecutor:
         self._step_output_observers = step_output_observers or []
 
     def execute(self, params: Any) -> None:
+        pipeline_observers = self.dag.observers
+
+        # Emit Pipeline STARTED
+        ctx_started = PipelineStartedContext(
+            pipeline_name=self.dag.name, event=PipelineEvent.STARTED
+        )
+        _dispatch_observers(pipeline_observers, PipelineEvent.STARTED, ctx_started)
+
         for field, value in params._asdict().items():
             self.outputs[field] = value
 
-        for level in self.dag.get_execution_levels():
-            for step_name in level:
-                self._run_step(step_name)
+        try:
+            for level in self.dag.get_execution_levels():
+                for step_name in level:
+                    self._run_step(step_name)
+        except PipelineStopException as exc:
+            # Emit Pipeline FAILED
+            ctx_failed = PipelineFailedContext(
+                pipeline_name=self.dag.name,
+                event=PipelineEvent.FAILED,
+                step_name=exc.step_name,
+                exception=exc.__cause__ or exc,
+            )
+            _dispatch_observers(pipeline_observers, PipelineEvent.FAILED, ctx_failed)
+            raise
+        except Exception as exc:
+            # Emit Pipeline FAILED for generic exception
+            ctx_failed = PipelineFailedContext(
+                pipeline_name=self.dag.name,
+                event=PipelineEvent.FAILED,
+                step_name=None,
+                exception=exc,
+            )
+            _dispatch_observers(pipeline_observers, PipelineEvent.FAILED, ctx_failed)
+            raise
+        else:
+            # Emit Pipeline COMPLETED
+            ctx_completed = PipelineCompletedContext(
+                pipeline_name=self.dag.name, event=PipelineEvent.COMPLETED
+            )
+            _dispatch_observers(
+                pipeline_observers, PipelineEvent.COMPLETED, ctx_completed
+            )
 
     def _run_step(self, step_name: str) -> None:
         node = self.dag[step_name]
@@ -110,25 +268,86 @@ class PipelineExecutor:
 
         arguments = self._build_arguments(step_name, node)
         unrolled = self.dag.each_inputs(step_name)
+        step_state = StepState()
+
+        # Emit Step STARTED
+        ctx_started = StepStartedContext(
+            pipeline_name=self.dag.name,
+            event=StepEvent.STARTED,
+            step_name=step_name,
+            mode=node.mode,
+            on_error=node.on_error,
+        )
+        _dispatch_observers(node.observers, StepEvent.STARTED, ctx_started)
 
         try:
             if unrolled:
-                output = self._unroll_step(step_name, node, arguments, unrolled)
+                output = self._unroll_step(
+                    step_name, node, arguments, unrolled, step_state
+                )
             else:
                 output = node.fn(**arguments)
+                # If all-mode returns an iterator, we wrap it
+                if isinstance(output, Iterator):
+                    output = _wrap_step_iterator(
+                        output, step_state, step_name, node, self.dag.name
+                    )
+                else:
+                    step_state.success_count = 1
+                    step_state.completed_all_inputs = True
+                    # Emit Step COMPLETED
+                    ctx_completed = StepCompletedContext(
+                        pipeline_name=self.dag.name,
+                        event=StepEvent.COMPLETED,
+                        step_name=step_name,
+                        mode=node.mode,
+                        on_error=node.on_error,
+                        success_count=step_state.success_count,
+                        error_count=step_state.error_count,
+                        completed_all_inputs=step_state.completed_all_inputs,
+                    )
+                    _dispatch_observers(
+                        node.observers, StepEvent.COMPLETED, ctx_completed
+                    )
 
             if not step_name.startswith("_"):
                 self._publish_output(step_name, output, node)
-        except PipelineStopException:
+        except PipelineStopException as exc:
+            ctx_failed = StepFailedContext(
+                pipeline_name=self.dag.name,
+                event=StepEvent.FAILED,
+                step_name=step_name,
+                mode=node.mode,
+                on_error=node.on_error,
+                success_count=step_state.success_count,
+                error_count=step_state.error_count,
+                completed_all_inputs=step_state.completed_all_inputs,
+                exception=exc.__cause__ or exc,
+            )
+            _dispatch_observers(node.observers, StepEvent.FAILED, ctx_failed)
             raise
         except Exception as exc:
+            ctx_failed = StepFailedContext(
+                pipeline_name=self.dag.name,
+                event=StepEvent.FAILED,
+                step_name=step_name,
+                mode=node.mode,
+                on_error=node.on_error,
+                success_count=step_state.success_count,
+                error_count=step_state.error_count,
+                completed_all_inputs=step_state.completed_all_inputs,
+                exception=exc,
+            )
+            _dispatch_observers(node.observers, StepEvent.FAILED, ctx_failed)
             _handle_error(self.dag, step_name, exc)
             if node.on_error == OnError.STOP:
                 raise PipelineStopException(step_name=step_name, cause=exc) from exc
 
-    def _unroll_step(self, step_name, node, base_args, unrolled):
+    def _unroll_step(self, step_name, node, base_args, unrolled, step_state):
         """Call fn once per item-tuple. Exhausted streams yield None.
-        If terminal (sink), consume eagerly without producing output."""
+
+        If terminal (sink), consume eagerly without producing output.
+        """
         iterators = {}
         for dep in unrolled:
             key = _output_key(self.dag, dep, step_name)
@@ -150,8 +369,11 @@ class PipelineExecutor:
                 if exhausted == len(unrolled):
                     break
                 try:
-                    yield node.fn(**item_args)
+                    res = node.fn(**item_args)
+                    step_state.success_count += 1
+                    yield res
                 except Exception as exc:
+                    step_state.error_count += 1
                     _handle_error(self.dag, step_name, exc)
                     if on_err == OnError.STOP:
                         raise PipelineStopException(
@@ -159,10 +381,27 @@ class PipelineExecutor:
                         ) from exc
 
         if self._is_terminal(step_name):
-            for _ in generate():
-                pass
+            try:
+                for _ in generate():
+                    pass
+                step_state.completed_all_inputs = True
+                ctx_completed = StepCompletedContext(
+                    pipeline_name=self.dag.name,
+                    event=StepEvent.COMPLETED,
+                    step_name=step_name,
+                    mode=node.mode,
+                    on_error=node.on_error,
+                    success_count=step_state.success_count,
+                    error_count=step_state.error_count,
+                    completed_all_inputs=step_state.completed_all_inputs,
+                )
+                _dispatch_observers(node.observers, StepEvent.COMPLETED, ctx_completed)
+            except Exception as exc:
+                raise
             return None
-        return generate()
+        return _wrap_step_iterator(
+            generate(), step_state, step_name, node, self.dag.name
+        )
 
     def _is_terminal(self, step_name):
         return step_name.startswith("_") or not self.dag.consumers_of(step_name)

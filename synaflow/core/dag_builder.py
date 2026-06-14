@@ -38,6 +38,11 @@ from synaflow.core.type_compatibility import (
     is_scalar,
 )
 from synaflow.core.types import ErrorMaterializeContext, MaterializeContext, OnError
+from synaflow.core.observers import (
+    Observer,
+    ResolvedObserver,
+    PipelineEvent,
+)
 
 
 def _identity(x):
@@ -217,9 +222,18 @@ def build_dag(
     memory_materializer_factory: Any = None,
     is_default_factory: bool = False,
     error_materializer_factory: Any = None,
+    pipeline_observers: Any = None,
 ) -> Dag:
     if error_materializer_factory is None:
         error_materializer_factory = log_error_materializer_factory
+    if pipeline_observers is None:
+        pipeline_observers = []
+
+    for obs in pipeline_observers:
+        if not isinstance(obs, Observer):
+            raise TypeError(
+                f"Expected Observer instance in pipeline_observers, got {type(obs).__name__}"
+            )
 
     _validate_params_is_namedtuple(params, pipeline_name)
 
@@ -234,7 +248,13 @@ def build_dag(
         if hasattr(step, "name"):
             validate_unique_step_name(step.name, {}, pipeline_name)
 
-    expanded_steps = expand_macros(steps, current_pipeline_name=pipeline_name)
+    collected_pipeline_observers = []
+    expanded_steps = expand_macros(
+        steps,
+        current_pipeline_name=pipeline_name,
+        pipeline_observers_stack=list(pipeline_observers),
+        collected_pipeline_observers=collected_pipeline_observers,
+    )
 
     produced = initialize_parameters(params)
 
@@ -254,6 +274,24 @@ def build_dag(
     }
     dag_obj.steps = dag
     dag_obj.error_materializer_factory = error_materializer_factory
+
+    # Resolve and compile pipeline-level observers for PipelineEvents
+    resolved_pipeline_observers = []
+    for obs in pipeline_observers:
+        if obs.event.__class__ is PipelineEvent:
+            resolved_pipeline_observers.append(
+                ResolvedObserver(
+                    event=obs.event, handler=obs.handler, source="pipeline"
+                )
+            )
+    for obs in collected_pipeline_observers:
+        if obs.event.__class__ is PipelineEvent:
+            resolved_pipeline_observers.append(
+                ResolvedObserver(
+                    event=obs.event, handler=obs.handler, source="pipeline"
+                )
+            )
+    dag_obj.observers = resolved_pipeline_observers
 
     check_circular_dependencies(dag_obj, pipeline_name)
 

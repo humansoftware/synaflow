@@ -176,6 +176,18 @@ For uneven multi-stream each-mode, exhaustion is modeled with `None` padding rat
 **Decision:** `PipelineStopException` carries `step_name` and `cause` (the original exception). It uses `raise ... from` to preserve the full stack trace.
 **Reason:** When a pipeline stops, callers need to know which step caused the stop and why. An empty exception is useless for debugging.
 
+### 3.15. Unified Lifecycle Observer System
+**Decision:** Introduced a single, unified lifecycle observer system supporting registrations at both `pipeline(observers=[...])` and `step(observers=[...])` levels, mapping onto `PipelineEvent`, `StepEvent`, and `MaterializationEvent` event families.
+**Reason:** Unifies lifecycle monitoring (logging, metrics, tracing, audit trials) under a single architecture, superseding separate error interceptors or telemetry systems.
+
+**Key Architectural Principles:**
+- **Lifecycle vs Data Path:** Observers observe the lifecycle and metadata only; they do not receive or inspect step inputs/outputs or stream items (data tapping is handled separately by `step_output_observers` in tests).
+- **Declarative Only:** Registering observers must not alter runtime semantics (such as forcing materialization or breaking laziness). Materializers remain the sole causative mechanism for data handling.
+- **Fire-and-Forget:** Observers run on an operational side-channel; their failures are caught, logged, and swallowed, preventing observer errors from halting business logic or step execution.
+- **Sync/Async Parity:** Offers transparent síncrono/assíncrono execution. Async handlers (coroutines or awaitables) are automatically awaited in the async executor.
+- **DAG/Runtime Split:** Effective observers for steps (the union of global and step-specific registrations) are resolved at build time and exported to DAG JSON as metadata only (`event` and `source`). The runtime consumes the compiled DagNode list directly.
+- **Progress Metadata:** Step contexts carry `success_count` (number of successful item runs), `error_count` (number of item runs that failed but were skipped due to `OnError.CONTINUE`), and `completed_all_inputs` (whether the stream ran to completion without early termination).
+
 ---
 
 *(This document should be iteratively evolved whenever a new architectural contract is established in the Synaflow codebase).*

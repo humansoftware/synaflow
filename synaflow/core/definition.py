@@ -31,6 +31,7 @@ class Step(BaseStep):
     materializer: Callable | None = None
     error_materializer: Callable | None = None
     force_materialize: bool = False
+    observers: list = field(default_factory=list)
     description: str = ""
     pipeline: str | None = None
     parent_pipeline: str | None = None
@@ -54,6 +55,7 @@ class PipelineDef:
     exports: str | None = None
     materializer: Callable | None = None
     error_materializer: Callable | None = None
+    observers: list = field(default_factory=list)
     dag: Dag = field(default_factory=Dag)
     _compiled: bool = False
     description: str = ""
@@ -68,6 +70,7 @@ class PipelineDef:
             self.materializer,
             is_default_factory=(self.materializer is None),
             error_materializer_factory=self.error_materializer,
+            pipeline_observers=self.observers,
         )
         self.requires_sync_runner = self.dag.requires_sync_runner
         self.requires_async_runner = self.dag.requires_async_runner
