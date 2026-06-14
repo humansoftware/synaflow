@@ -137,6 +137,10 @@ class Dag:
         }
         if self.error_materializer_factory is not None:
             result["error_materializer"] = self.error_materializer_factory.__name__
+        if self.pipeline_observers:
+            result["pipeline_observers"] = _serialize_pipeline_observers(
+                self.pipeline_observers
+            )
         return result
 
     def consumers_of(self, step_name: str) -> list[str]:

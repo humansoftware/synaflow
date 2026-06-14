@@ -159,7 +159,7 @@ def test_given_observers_when_dag_to_dict_then_no_callables_serialized():
         assert "callable" not in str(obs)
 
 
-def test_given_pipeline_observers_when_dag_to_dict_then_effective_per_step_not_top_level():
+def test_given_pipeline_observers_when_dag_to_dict_then_both_levels_reflected():
     h = _make_handler("on_pipe")
     p = pipeline(
         name="p",
@@ -168,7 +168,9 @@ def test_given_pipeline_observers_when_dag_to_dict_then_effective_per_step_not_t
         observers=[Observer(h)],
     )
     d = p.to_dict()
-    assert "pipeline_observers" not in d
+    assert d["pipeline_observers"] == [
+        {"handler_name": "on_pipe", "source": "pipeline"}
+    ]
     step_obs = d["steps"]["a"]["observers"]
     assert step_obs == [{"handler_name": "on_pipe", "source": "pipeline"}]
 
