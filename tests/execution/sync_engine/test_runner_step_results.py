@@ -18,6 +18,7 @@ SYNC_PACK_NAMES = (
     "sync_mixed_fanout",
     "sync_sub_pipelines",
     "sync_deep_sub_pipelines",
+    "sync_error_handling",
 )
 
 
@@ -63,6 +64,11 @@ def test_step_results(pack_name):
     for step_name, expected in pack.step_results.items():
         actual = _read_step_output(recorded, pack.pipeline.dag, step_name)
         assert actual == expected
+
+    if pack_name == "sync_error_handling":
+        from tests.execution.sync_engine.corpus.error_handling import errors_list
+
+        assert errors_list == ["gen failed"]
 
 
 def test_given_mixed_fanout_when_observed_then_producer_observer_sees_stream_values_once():

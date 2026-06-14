@@ -18,6 +18,7 @@ ASYNC_PACK_NAMES = (
     "async_mixed_fanout",
     "async_sub_pipelines",
     "async_deep_sub_pipelines",
+    "async_error_handling",
 )
 
 
@@ -55,6 +56,11 @@ async def test_step_results(pack_name):
     for step_name, expected in pack.step_results.items():
         actual = await _concrete(recorded.get(step_name))
         assert actual == expected
+
+    if pack_name == "async_error_handling":
+        from tests.execution.async_engine.corpus.error_handling import errors_list
+
+        assert errors_list == ["gen failed"]
 
 
 @pytest.mark.asyncio

@@ -1,4 +1,3 @@
-import inspect
 import itertools
 from collections.abc import Iterator
 from typing import Any
@@ -45,40 +44,42 @@ def _apply_materializer(
             if isinstance(value, Iterator)
             else value
         )
-    sig = inspect.signature(mat)
-    if (
-        len(sig.parameters) > 1
-        or "ctx" in sig.parameters
-        or "context" in sig.parameters
-    ):
-        mat = mat(
-            MaterializeContext(
-                pipeline_name=dag.name,
-                dataset_name=step_name,
-                item_type=node.get("output"),
-                consumer_type=consumer_type,
-            )
+    concrete_mat = mat(
+        MaterializeContext(
+            pipeline_name=dag.name,
+            dataset_name=step_name,
+            item_type=node.get("output"),
+            consumer_type=consumer_type,
         )
-    if isinstance(value, Iterator) and mat in (list, tuple, set, dict):
+    )
+    if isinstance(value, Iterator) and concrete_mat in (list, tuple, set, dict):
         items = _collect_iterator(dag, step_name, value)
-        return items if mat is list else mat(items)
-    if isinstance(value, Iterator) and getattr(mat, "__name__", "") == "_identity":
+        return items if concrete_mat is list else concrete_mat(items)
+    if (
+        isinstance(value, Iterator)
+        and getattr(concrete_mat, "__name__", "") == "_identity"
+    ):
         return _collect_iterator(dag, step_name, value)
-    return mat(value)
+    return concrete_mat(value)
 
 
 def _handle_error(dag: Dag, step_name: str, exc: BaseException) -> None:
-    factory = getattr(dag, "error_materializer_factory", None)
-    if factory is None:
+    node = dag.steps.get(step_name)
+    if not node:
         return
 
-    handler = factory(
+    err_mat = getattr(node, "error_materializer", None)
+    if err_mat is None:
+        return
+
+    handler = err_mat(
         ErrorMaterializeContext(
             pipeline_name=dag.name,
             dataset_name=step_name,
             exception_type=type(exc),
         )
     )
+
     if callable(handler):
         handler(exc)
 
@@ -188,6 +189,33 @@ class PipelineExecutor:
         output = self._notify_observers(step_name, output)
         if isinstance(output, Iterator):
             consumers = self.dag.consumers_of(step_name)
+
+            # 1. Step-level materialization required?
+            if (
+                node.on_error == OnError.STOP
+                or node.force_materialize
+                or node.has_step_materializer
+            ):
+                consumer_type = None
+                if consumers:
+                    consumer_type = self.dag[consumers[0]].deps.get(step_name)
+                output = _apply_materializer(
+                    self.dag, step_name, output, consumer_type=consumer_type
+                )
+                for c in consumers:
+                    self.outputs[_output_key(self.dag, step_name, c)] = output
+                return
+
+            # 2. Single consumer requires materialized input?
+            if len(consumers) == 1 and self.dag.needs_materialize(step_name):
+                consumer_type = self.dag[consumers[0]].deps.get(step_name)
+                output = _apply_materializer(
+                    self.dag, step_name, output, consumer_type=consumer_type
+                )
+                self.outputs[_output_key(self.dag, step_name, consumers[0])] = output
+                return
+
+            # 3. Otherwise, keep it lazy / stream-based
             if len(consumers) > 1:
                 branches = itertools.tee(output, len(consumers))
                 for consumer, branch in zip(consumers, branches):
@@ -201,13 +229,6 @@ class PipelineExecutor:
                         )
                     self.outputs[_output_key(self.dag, step_name, consumer)] = branch
                 return
-            if self.dag.needs_materialize(step_name):
-                consumer_type = None
-                if consumers:
-                    consumer_type = self.dag[consumers[0]].deps.get(step_name)
-                output = _apply_materializer(
-                    self.dag, step_name, output, consumer_type=consumer_type
-                )
         elif self.dag.needs_materialize(step_name):
             output = _apply_materializer(
                 self.dag, step_name, output, consumer_type=node.get("output")

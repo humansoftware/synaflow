@@ -72,6 +72,9 @@ def _expand_include(
 
     expanded = [adapter_step]
 
+    sub_pipeline_mat = getattr(sub_pipeline, "materializer", None)
+    sub_pipeline_err = getattr(sub_pipeline, "error_materializer", None)
+
     # 2. Extract the sub-pipeline's parameter fields
     if hasattr(sub_pipeline.params, "_fields"):
         b_params_fields = list(sub_pipeline.params._fields)
@@ -102,7 +105,9 @@ def _expand_include(
                 on_error=sub_step.on_error,
                 mode=sub_step.mode,
                 params=sub_step.params,
-                materializer=sub_step.materializer,
+                materializer=sub_step.materializer or sub_pipeline_mat,
+                error_materializer=getattr(sub_step, "error_materializer", None)
+                or sub_pipeline_err,
                 description=sub_step.description,
                 pipeline=sub_pipeline.name,
                 parent_pipeline=new_parent_chain,

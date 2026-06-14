@@ -42,6 +42,6 @@ def build_minimal_dag(
         ],
     )
     if pipeline_materializer is not None:
-        kwargs["default_materializer_factory"] = pipeline_materializer
+        kwargs["materializer"] = pipeline_materializer
 
     return pipeline(**kwargs)

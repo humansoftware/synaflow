@@ -3,7 +3,7 @@ from typing import Generator, Iterator, NamedTuple
 from unittest.mock import MagicMock
 
 
-from synaflow import pipeline, step
+from synaflow import pipeline, step, to_materializer
 from synaflow.core.types import OnError
 
 
@@ -43,14 +43,17 @@ def test_given_generator_output_and_two_each_consumers_when_run_then_materialize
 
     materialized = []
 
-    def spy_materialize(g):
-        materialized.append("called")
-        return list(g)
+    def spy_materialize(ctx):
+        def concrete(g):
+            materialized.append("called")
+            return list(g)
+
+        return concrete
 
     my_pipeline = pipeline(
         name="test",
         params=P,
-        default_materializer_factory=spy_materialize,
+        materializer=spy_materialize,
         steps=[
             step("items", fn=gen),
             step("a", fn=a),
@@ -84,14 +87,17 @@ def test_given_generator_and_scalar_and_iterator_consumers_when_run_then_no_mate
 
     materialized = []
 
-    def spy_materialize(g):
-        materialized.append("called")
-        return list(g)
+    def spy_materialize(ctx):
+        def concrete(g):
+            materialized.append("called")
+            return list(g)
+
+        return concrete
 
     my_pipeline = pipeline(
         name="test",
         params=P,
-        default_materializer_factory=spy_materialize,
+        materializer=spy_materialize,
         steps=[
             step("items", fn=gen),
             step("a", fn=a),
@@ -126,14 +132,17 @@ def test_given_generator_and_two_iterator_consumers_when_run_then_no_materializa
 
     materialized = []
 
-    def spy_materialize(g):
-        materialized.append("called")
-        return list(g)
+    def spy_materialize(ctx):
+        def concrete(g):
+            materialized.append("called")
+            return list(g)
+
+        return concrete
 
     my_pipeline = pipeline(
         name="test",
         params=P,
-        default_materializer_factory=spy_materialize,
+        materializer=spy_materialize,
         steps=[
             step("items", fn=gen),
             step("a", fn=a),
@@ -167,14 +176,17 @@ def test_given_generator_and_union_scalar_and_union_iterator_consumers_when_run_
 
     materialized = []
 
-    def spy_materialize(g):
-        materialized.append("called")
-        return list(g)
+    def spy_materialize(ctx):
+        def concrete(g):
+            materialized.append("called")
+            return list(g)
+
+        return concrete
 
     my_pipeline = pipeline(
         name="test",
         params=P,
-        default_materializer_factory=spy_materialize,
+        materializer=spy_materialize,
         steps=[
             step("items", fn=gen),
             step("a", fn=a),
@@ -207,14 +219,17 @@ def test_given_generator_of_union_and_union_scalar_consumers_when_run_then_no_ma
 
     materialized = []
 
-    def spy_materialize(g):
-        materialized.append("called")
-        return list(g)
+    def spy_materialize(ctx):
+        def concrete(g):
+            materialized.append("called")
+            return list(g)
+
+        return concrete
 
     my_pipeline = pipeline(
         name="test",
         params=P,
-        default_materializer_factory=spy_materialize,
+        materializer=spy_materialize,
         steps=[
             step("items", fn=gen),
             step("a", fn=a),
@@ -247,14 +262,17 @@ def test_given_generator_and_list_consumer_when_run_then_materialized_once(
 
     materialized = []
 
-    def spy_materialize(g):
-        materialized.append("called")
-        return list(g)
+    def spy_materialize(ctx):
+        def concrete(g):
+            materialized.append("called")
+            return list(g)
+
+        return concrete
 
     my_pipeline = pipeline(
         name="test",
         params=P,
-        default_materializer_factory=spy_materialize,
+        materializer=spy_materialize,
         steps=[
             step("items", fn=gen),
             step("a", fn=a),
@@ -290,14 +308,17 @@ def test_given_generator_and_each_transformer_and_iterator_consumer_when_run_the
 
     materialized = []
 
-    def spy_materialize(g):
-        materialized.append("called")
-        return list(g)
+    def spy_materialize(ctx):
+        def concrete(g):
+            materialized.append("called")
+            return list(g)
+
+        return concrete
 
     my_pipeline = pipeline(
         name="test",
         params=P,
-        default_materializer_factory=spy_materialize,
+        materializer=spy_materialize,
         steps=[
             step("items", fn=gen),
             step("a", fn=a),
@@ -375,14 +396,17 @@ def test_given_two_generators_when_consumed_by_single_step_then_no_materializati
 
     materialized = []
 
-    def spy_materialize(g):
-        materialized.append("called")
-        return list(g)
+    def spy_materialize(ctx):
+        def concrete(g):
+            materialized.append("called")
+            return list(g)
+
+        return concrete
 
     my_pipeline = pipeline(
         name="test",
         params=P,
-        default_materializer_factory=spy_materialize,
+        materializer=spy_materialize,
         steps=[
             step("gen1", fn=gen1),
             step("gen2", fn=gen2),
@@ -419,14 +443,17 @@ def test_given_chain_and_bypass_dependencies_when_run_then_no_materialization(
 
     materialized = []
 
-    def spy_materialize(g):
-        materialized.append("called")
-        return list(g)
+    def spy_materialize(ctx):
+        def concrete(g):
+            materialized.append("called")
+            return list(g)
+
+        return concrete
 
     my_pipeline = pipeline(
         name="test",
         params=P,
-        default_materializer_factory=spy_materialize,
+        materializer=spy_materialize,
         steps=[
             step("items", fn=gen),
             step("a", fn=a),
@@ -462,14 +489,17 @@ def test_given_collection_producer_and_scalar_transformer_and_iterator_consumer_
 
     materialized = []
 
-    def spy_materialize(g):
-        materialized.append("called")
-        return list(g)
+    def spy_materialize(ctx):
+        def concrete(g):
+            materialized.append("called")
+            return list(g)
+
+        return concrete
 
     my_pipeline = pipeline(
         name="test",
         params=P,
-        default_materializer_factory=spy_materialize,
+        materializer=spy_materialize,
         steps=[
             step("items", fn=gen),
             step("s2", fn=s2),
@@ -508,7 +538,7 @@ def test_given_step_materializer_when_run_then_overrides_pipeline_factory(run_pi
     my_pipeline = pipeline(
         name="test_override",
         params=P,
-        default_materializer_factory=pipeline_mat,
+        materializer=pipeline_mat,
         steps=[
             step("items", fn=gen, materializer=step_mat),
             step("consumer", fn=consumer),
@@ -532,9 +562,12 @@ def test_given_generator_and_iterator_and_list_consumers_when_run_then_iterator_
     observations = {}
     materialized = []
 
-    def spy_materialize(g):
-        materialized.append("called")
-        return list(g)
+    def spy_materialize(ctx):
+        def concrete(g):
+            materialized.append("called")
+            return list(g)
+
+        return concrete
 
     def lazy(items: Iterator[int]):
         observations["lazy_is_list"] = isinstance(items, list)
@@ -547,7 +580,7 @@ def test_given_generator_and_iterator_and_list_consumers_when_run_then_iterator_
     my_pipeline = pipeline(
         name="test_mixed_fanout",
         params=P,
-        default_materializer_factory=spy_materialize,
+        materializer=spy_materialize,
         steps=[
             step("items", fn=gen),
             step("lazy", fn=lazy),
@@ -590,7 +623,7 @@ def test_given_scalar_output_with_on_error_stop_when_run_then_scalar_materialize
                 "produce",
                 fn=produce,
                 on_error=OnError.STOP,
-                materializer=scalar_materializer,
+                materializer=to_materializer(scalar_materializer),
             ),
             step("consume", fn=consume),
         ],
@@ -626,7 +659,7 @@ def test_given_scalar_output_with_force_materialize_when_run_then_scalar_materia
             step(
                 "produce",
                 fn=produce,
-                materializer=scalar_materializer,
+                materializer=to_materializer(scalar_materializer),
                 force_materialize=True,
             ),
             step("consume", fn=consume),
@@ -663,7 +696,7 @@ def test_given_factory_with_context_when_run_then_context_is_injected(run_pipeli
     my_pipeline = pipeline(
         name="test_context",
         params=P,
-        default_materializer_factory=factory_with_ctx,
+        materializer=factory_with_ctx,
         steps=[
             step("items", fn=gen),
             step("consumer", fn=consumer),
@@ -703,7 +736,7 @@ def test_given_mixed_fanout_when_materializer_factory_receives_context_then_cons
     my_pipeline = pipeline(
         name="test_mixed_context",
         params=P,
-        default_materializer_factory=factory_with_ctx,
+        materializer=factory_with_ctx,
         steps=[
             step("items", fn=gen),
             step("lazy", fn=lazy),

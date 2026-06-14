@@ -1,0 +1,56 @@
+import traceback
+from pathlib import Path
+from typing import Any
+from synaflow.core.types import ErrorMaterializeContext, ErrorRecord
+
+from synaflow.core.dag_builder import log_error_materializer_factory
+
+
+def log_error_materializer():
+    return log_error_materializer_factory
+
+
+def disk_error_materializer(
+    path: Path | str,
+    serializer: Any,
+    file_name: str | None = None,
+):
+    from synaflow.serializers import json_serializer, csv_serializer
+
+    if serializer in (json_serializer, csv_serializer):
+        raise ValueError(
+            f"disk_error_materializer does not support '{serializer.__class__.__name__}'. "
+            "Please use an append-safe serializer like jsonl_serializer, text_serializer, or pickle_serializer."
+        )
+
+    base_path = Path(path)
+
+    def factory(ctx: ErrorMaterializeContext):
+        ext = getattr(serializer, "extension", "txt")
+        fname = file_name or f"{ctx.dataset_name}.{ext}"
+        target_path = base_path / fname
+
+        def concrete(exc: BaseException) -> None:
+            target_path.parent.mkdir(parents=True, exist_ok=True)
+
+            record = ErrorRecord(
+                pipeline_name=ctx.pipeline_name,
+                dataset_name=ctx.dataset_name,
+                exception_type=type(exc).__name__,
+                exception_message=str(exc),
+                traceback=traceback.format_exc(),
+            )
+
+            is_bin = ext in ("pkl", "pickle") or getattr(serializer, "binary", False)
+            mode = "ab" if is_bin else "a"
+            encoding = None if is_bin else "utf-8"
+
+            with open(target_path, mode, encoding=encoding) as f:
+                if hasattr(serializer, "serialize"):
+                    serializer.serialize(f, record)
+                else:
+                    serializer(f, record)
+
+        return concrete
+
+    return factory

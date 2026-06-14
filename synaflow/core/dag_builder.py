@@ -10,8 +10,8 @@ build_dag() orchestrates the full compilation pipeline:
   6. Validate: circular deps, sync/async consistency
 
 Also exports the global default factories:
-  - default_materializer_factory       (stream → collection)
-  - default_error_materializer_factory (exception → log)
+  - memory_materializer_factory       (stream → collection)
+  - log_error_materializer_factory (exception → log)
 
 All functions are stateless — no classes, no self.
 """
@@ -44,7 +44,7 @@ def _identity(x):
     return x
 
 
-def default_materializer_factory(ctx: MaterializeContext):
+def memory_materializer_factory(ctx: MaterializeContext):
     tp = getattr(ctx.consumer_type, "__origin__", None) or ctx.consumer_type
     if tp is not None:
         for candidate in (
@@ -64,7 +64,10 @@ def default_materializer_factory(ctx: MaterializeContext):
     return list
 
 
-def default_error_materializer_factory(ctx: ErrorMaterializeContext):
+memory_materializer_factory.__name__ = "memory_materializer"
+
+
+def log_error_materializer_factory(ctx: ErrorMaterializeContext):
     log = logging.getLogger("synaflow")
 
     def handle_error(exc: BaseException) -> None:
@@ -78,6 +81,9 @@ def default_error_materializer_factory(ctx: ErrorMaterializeContext):
         log.debug(traceback.format_exc())
 
     return handle_error
+
+
+log_error_materializer_factory.__name__ = "log_error_materializer"
 
 
 _BUILTIN_TYPES = {int, float, str, bool, bytes, type(None), list, set, tuple, dict}
@@ -116,16 +122,64 @@ def _validate_params_is_namedtuple(params: Any, pipeline_name: str) -> None:
         )
 
 
-def _resolve_materializers(dag: dict[str, DagNode], pipeline_factory: Any) -> None:
+import inspect
+
+
+def _validate_materializer_factory(name: str, mat: Any, is_error: bool = False) -> None:
+    if mat is None:
+        return
+    if not callable(mat):
+        raise TypeError(
+            f"Node '{name}': {'error materializer' if is_error else 'materializer'} must be a callable factory, got {type(mat).__name__}"
+        )
+
+    # Built-in collection types are commonly passed by mistake instead of factory
+    if isinstance(mat, type) and mat in (list, set, dict, tuple):
+        label = "error materializer" if is_error else "materializer"
+        helper = "to_error_materializer" if is_error else "to_materializer"
+        raise ValueError(
+            f"Node '{name}': {label} cannot be a direct type/callable '{mat.__name__}'. "
+            f"Please wrap it using {helper}({mat.__name__})."
+        )
+
+    # Let's inspect the signature if possible to detect functions that don't take context
+    try:
+        sig = inspect.signature(mat)
+    except (ValueError, TypeError):
+        return
+
+    # If the parameter list is empty, it's definitely not a factory taking a context
+    if len(sig.parameters) == 0:
+        label = "error materializer" if is_error else "materializer"
+        helper = "to_error_materializer" if is_error else "to_materializer"
+        raise ValueError(
+            f"Node '{name}': {label} factory must accept at least one argument (context). "
+            f"If you want to use a direct callable, wrap it using {helper}(...)."
+        )
+
+
+def _resolve_materializers(
+    dag: dict[str, DagNode],
+    pipeline_materializer: Any,
+    pipeline_error_materializer: Any,
+) -> None:
     for name, node in dag.items():
         if not node.fn:
             node.materializer = None
+            node.error_materializer = None
             continue
 
-        mat = node.materializer or pipeline_factory
-        if mat is None:
-            raise ValueError(f"Node '{name}': no materializer resolved")
+        mat = node.materializer or pipeline_materializer or memory_materializer_factory
+        _validate_materializer_factory(name, mat, is_error=False)
         node.materializer = mat
+
+        err_mat = (
+            node.error_materializer
+            or pipeline_error_materializer
+            or log_error_materializer_factory
+        )
+        _validate_materializer_factory(name, err_mat, is_error=True)
+        node.error_materializer = err_mat
 
         if node.output and is_iterable_type(node.output):
             inner = get_inner_type(node.output)
@@ -133,7 +187,7 @@ def _resolve_materializers(dag: dict[str, DagNode], pipeline_factory: Any) -> No
                 raise ValueError(
                     f"Node '{name}': output item type '{inner}' requires a custom"
                     " materializer. Provide a step-level materializer or a"
-                    " pipeline-level default_materializer_factory."
+                    " pipeline-level materializer."
                 )
 
 
@@ -160,13 +214,13 @@ def build_dag(
     pipeline_name: str,
     params: type[NamedTuple],
     steps: list[Any],
-    default_materializer_factory: Any = None,
+    memory_materializer_factory: Any = None,
     is_default_factory: bool = False,
     error_materializer_factory: Any = None,
 ) -> Dag:
     _validate_params_is_namedtuple(params, pipeline_name)
 
-    factory = default_materializer_factory
+    factory = memory_materializer_factory
 
     dag: dict[str, DagNode] = {}
     dag_obj = Dag(name=pipeline_name)
@@ -189,7 +243,7 @@ def build_dag(
         dag[step.name] = compiled_step
         produced[step.name] = compiled_step
 
-    _resolve_materializers(dag, factory)
+    _resolve_materializers(dag, factory, error_materializer_factory)
     _compute_materialized_deps(dag)
 
     dag_obj.params = {
@@ -204,7 +258,7 @@ def build_dag(
         dag_obj,
         pipeline_name,
         steps,
-        default_materializer_factory,
+        memory_materializer_factory,
         is_default_factory=is_default_factory,
     )
 

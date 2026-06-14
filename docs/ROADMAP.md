@@ -8,7 +8,7 @@ This roadmap outlines the planned features and architectural evolutions for the 
 - **Dict support** — `dict[K,V]` as both producer and consumer; `Iterator[tuple[K,V]]` → `dict`
 - **Sub-Pipelines** — `include()` macro expansion with nested pipeline flattening
 - **Materializer architecture** — step-level → pipeline-level → global default resolution; `force_materialize`; `identity` for scalars; custom type validation; default factory with protocol detection
-- **Error materializer** — `ErrorMaterializeContext` + `default_error_materializer_factory` + pipeline-level config
+- **Error materializer** — `ErrorMaterializeContext` + `log_error_materializer_factory` + pipeline-level config
 - **Explicit step mode** — `StepMode.AUTO | EACH | ALL` with build-time validation and DAG-resolved semantics
 - **No silent wrapping** — scalar producer cannot feed iterable consumer
 - **Executor rewrite** — single-file sync and async executors; `step_output_observers` for test injection; composite key fan-out (no TeeWrapper); zip multi-stream unroll
