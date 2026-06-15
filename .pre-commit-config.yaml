@@ -10,8 +10,10 @@ repos:
     rev: v0.15.17
     hooks:
     -   id: ruff-format
+        exclude: ^boilerplates/
     -   id: ruff-check
         args: ["--fix", "--select", "F401"]
+        exclude: ^boilerplates/
 -   repo: local
     hooks:
     -   id: pytest
