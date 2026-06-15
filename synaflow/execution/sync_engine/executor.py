@@ -276,55 +276,55 @@ class PipelineExecutor:
 
         arguments = self._build_arguments(step_name, node)
         unrolled = self.dag.each_inputs(step_name)
-        is_each = bool(unrolled)
-
         self._dispatch_step_event(node, StepEvent.STARTED, step_name)
 
         try:
-            if unrolled:
-                output = self._unroll_step(step_name, node, arguments, unrolled)
-            else:
-                output = node.fn(**arguments)
-
-            if not is_each and not isinstance(output, (Iterator,)):
-                self._dispatch_step_event(
-                    node,
-                    StepEvent.COMPLETED,
-                    step_name,
-                    success_count=1,
-                    error_count=0,
-                    completed_all_inputs=True,
-                )
-
-            if not step_name.startswith("_"):
+            output = self._execute_step(step_name, node, arguments, unrolled)
+            self._emit_immediate_completion(step_name, node, output, unrolled)
+            if self._should_publish_output(step_name):
                 self._publish_output(step_name, output, node)
         except PipelineStopException as exc:
-            cause = exc.cause or exc
-            if isinstance(cause, PipelineStopException):
-                cause = cause.cause or cause
-            self._dispatch_step_event(
-                node,
-                StepEvent.FAILED,
-                step_name,
-                success_count=0,
-                error_count=1,
-                completed_all_inputs=False,
-                exception=cause,
-            )
+            self._dispatch_step_failure(node, step_name, exc.cause or exc)
             raise
         except Exception as exc:
             _handle_error(self.dag, step_name, exc)
-            self._dispatch_step_event(
-                node,
-                StepEvent.FAILED,
-                step_name,
-                success_count=0,
-                error_count=1,
-                completed_all_inputs=False,
-                exception=exc,
-            )
+            self._dispatch_step_failure(node, step_name, exc)
             if node.on_error == OnError.STOP:
                 raise PipelineStopException(step_name=step_name, cause=exc) from exc
+
+    def _execute_step(self, step_name, node, arguments, unrolled):
+        if unrolled:
+            return self._unroll_step(step_name, node, arguments, unrolled)
+        return node.fn(**arguments)
+
+    def _emit_immediate_completion(self, step_name, node, output, unrolled):
+        if unrolled or isinstance(output, Iterator):
+            return
+        self._dispatch_step_event(
+            node,
+            StepEvent.COMPLETED,
+            step_name,
+            success_count=1,
+            error_count=0,
+            completed_all_inputs=True,
+        )
+
+    def _dispatch_step_failure(self, node, step_name, exception):
+        cause = exception
+        if isinstance(cause, PipelineStopException):
+            cause = cause.cause or cause
+        self._dispatch_step_event(
+            node,
+            StepEvent.FAILED,
+            step_name,
+            success_count=0,
+            error_count=1,
+            completed_all_inputs=False,
+            exception=cause,
+        )
+
+    def _should_publish_output(self, step_name):
+        return not step_name.startswith("_")
 
     def _unroll_step(self, step_name, node, base_args, unrolled):
         """Call fn once per item-tuple. Exhausted streams yield None.
@@ -445,84 +445,114 @@ class PipelineExecutor:
                 completed_all_inputs=True,
             )
 
+    def _emit_deferred_completion(self, node, step_name):
+        self._dispatch_step_event(
+            node,
+            StepEvent.COMPLETED,
+            step_name,
+            success_count=0,
+            error_count=0,
+            completed_all_inputs=True,
+        )
+
+    def _stream_requires_eager_materialization(self, node):
+        return node.on_error == OnError.STOP or node.force_materialize
+
+    def _materialize_stream_output(
+        self,
+        step_name,
+        output,
+        node,
+        consumers,
+        deferred,
+    ):
+        consumer_type = None
+        if consumers:
+            consumer_type = self.dag[consumers[0]].deps.get(step_name)
+        output, had_error, exc = self._materialize_with_events(
+            step_name, output, node, consumer_type=consumer_type
+        )
+        if deferred:
+            self._emit_step_result(node, step_name, output, had_error, exc)
+        for consumer in consumers:
+            self.outputs[_output_key(self.dag, step_name, consumer)] = output
+
+    def _publish_stream_to_single_consumer(
+        self,
+        step_name,
+        output,
+        node,
+        consumer,
+        deferred,
+    ):
+        consumer_type = self.dag[consumer].deps.get(step_name)
+        output, had_error, exc = self._materialize_with_events(
+            step_name, output, node, consumer_type=consumer_type
+        )
+        if deferred:
+            self._emit_step_result(node, step_name, output, had_error, exc)
+        self.outputs[_output_key(self.dag, step_name, consumer)] = output
+
+    def _publish_stream_to_multiple_consumers(self, step_name, output, node, consumers):
+        branches = itertools.tee(output, len(consumers))
+        for consumer, branch in zip(consumers, branches):
+            consumer_node = self.dag[consumer]
+            if step_name in consumer_node.materialized_deps:
+                branch, _, _ = self._materialize_with_events(
+                    step_name,
+                    branch,
+                    node,
+                    consumer_type=consumer_node.deps.get(step_name),
+                )
+            self.outputs[_output_key(self.dag, step_name, consumer)] = branch
+
+    def _publish_scalar_output(self, step_name, output, node, deferred):
+        if self.dag.needs_materialize(step_name):
+            output, _, _ = self._materialize_with_events(
+                step_name, output, node, consumer_type=node.output
+            )
+        self.outputs[step_name] = output
+        if deferred:
+            self._emit_step_result(
+                node, step_name, output, had_error=False, exception=None
+            )
+
     def _publish_output(self, step_name, output, node):
         output = self._notify_observers(step_name, output)
         deferred = node.mode == StepMode.EACH or (
             node.mode == StepMode.ALL and isinstance(output, Iterator)
         )
 
-        if isinstance(output, Iterator):
-            consumers = self.dag.consumers_of(step_name)
+        if not isinstance(output, Iterator):
+            self._publish_scalar_output(step_name, output, node, deferred)
+            return
 
-            # 1. Step-level materialization required?
-            if node.on_error == OnError.STOP or node.force_materialize:
-                consumer_type = None
-                if consumers:
-                    consumer_type = self.dag[consumers[0]].deps.get(step_name)
-                output, had_error, exc = self._materialize_with_events(
-                    step_name, output, node, consumer_type=consumer_type
-                )
-                if deferred:
-                    self._emit_step_result(node, step_name, output, had_error, exc)
-                for c in consumers:
-                    self.outputs[_output_key(self.dag, step_name, c)] = output
-                return
+        consumers = self.dag.consumers_of(step_name)
 
-            # 2. Single consumer requires materialized input?
-            if len(consumers) == 1 and self.dag.needs_materialize(step_name):
-                consumer_type = self.dag[consumers[0]].deps.get(step_name)
-                output, had_error, exc = self._materialize_with_events(
-                    step_name, output, node, consumer_type=consumer_type
-                )
-                if deferred:
-                    self._emit_step_result(node, step_name, output, had_error, exc)
-                self.outputs[_output_key(self.dag, step_name, consumers[0])] = output
-                return
-
-            # 3. Otherwise, keep it lazy / stream-based
-            if len(consumers) > 1:
-                branches = itertools.tee(output, len(consumers))
-                for consumer, branch in zip(consumers, branches):
-                    consumer_node = self.dag[consumer]
-                    if step_name in consumer_node.materialized_deps:
-                        branch, _, _ = self._materialize_with_events(
-                            step_name,
-                            branch,
-                            node,
-                            consumer_type=consumer_node.deps.get(step_name),
-                        )
-                    self.outputs[_output_key(self.dag, step_name, consumer)] = branch
-                if deferred:
-                    self._dispatch_step_event(
-                        node,
-                        StepEvent.COMPLETED,
-                        step_name,
-                        success_count=0,
-                        error_count=0,
-                        completed_all_inputs=True,
-                    )
-                return
-
-            if deferred:
-                self._dispatch_step_event(
-                    node,
-                    StepEvent.COMPLETED,
-                    step_name,
-                    success_count=0,
-                    error_count=0,
-                    completed_all_inputs=True,
-                )
-
-        elif self.dag.needs_materialize(step_name):
-            output, had_error, exc = self._materialize_with_events(
-                step_name, output, node, consumer_type=node.get("output")
+        if self._stream_requires_eager_materialization(node):
+            self._materialize_stream_output(
+                step_name, output, node, consumers, deferred
             )
+            return
+
+        if len(consumers) == 1 and self.dag.needs_materialize(step_name):
+            self._publish_stream_to_single_consumer(
+                step_name, output, node, consumers[0], deferred
+            )
+            return
+
+        if len(consumers) > 1:
+            self._publish_stream_to_multiple_consumers(
+                step_name, output, node, consumers
+            )
+            if deferred:
+                self._emit_deferred_completion(node, step_name)
+            return
+
+        if deferred:
+            self._emit_deferred_completion(node, step_name)
 
         self.outputs[step_name] = output
-        if deferred and not isinstance(output, Iterator):
-            self._emit_step_result(
-                node, step_name, output, had_error=False, exception=None
-            )
 
 
 # ---------------------------------------------------------------------------

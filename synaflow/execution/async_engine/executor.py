@@ -27,6 +27,8 @@ from synaflow.core.types import (
     OnError,
     StepMode,
 )
+from .constants import EOF_MARKER
+from .iterator_utils import queue_to_async_gen
 
 
 def _output_key(dag: Dag, producer: str, consumer: str) -> str:
@@ -34,9 +36,6 @@ def _output_key(dag: Dag, producer: str, consumer: str) -> str:
         return f"{producer}__{consumer}"
     return producer
 
-
-from .constants import EOF_MARKER
-from .iterator_utils import queue_to_async_gen
 
 # ---------------------------------------------------------------------------
 # Runtime helpers
@@ -407,57 +406,57 @@ class AsyncPipelineExecutor:
 
         unrolled = self.dag.each_inputs(step_name)
         arguments = await self._build_arguments(step_name, node, unrolled)
-        is_each = bool(unrolled)
-
         await self._dispatch_step_event(node, StepEvent.STARTED, step_name)
 
         try:
-            if unrolled:
-                output = await self._unroll_step(step_name, node, arguments, unrolled)
-            else:
-                output = await self._call_fn(node.fn, arguments)
-
-            if not is_each and not isinstance(
-                output, (Iterator, Generator, AsyncIterator, AsyncGenerator)
-            ):
-                await self._dispatch_step_event(
-                    node,
-                    StepEvent.COMPLETED,
-                    step_name,
-                    success_count=1,
-                    error_count=0,
-                    completed_all_inputs=True,
-                )
-
-            if not step_name.startswith("_"):
+            output = await self._execute_step(step_name, node, arguments, unrolled)
+            await self._emit_immediate_completion(step_name, node, output, unrolled)
+            if self._should_publish_output(step_name):
                 await self._publish_output(step_name, output, node)
         except PipelineStopException as exc:
-            cause = exc.cause or exc
-            if isinstance(cause, PipelineStopException):
-                cause = cause.cause or cause
-            await self._dispatch_step_event(
-                node,
-                StepEvent.FAILED,
-                step_name,
-                success_count=0,
-                error_count=1,
-                completed_all_inputs=False,
-                exception=cause,
-            )
+            await self._dispatch_step_failure(node, step_name, exc.cause or exc)
             raise
         except Exception as exc:
             await _handle_error(self.dag, step_name, exc)
-            await self._dispatch_step_event(
-                node,
-                StepEvent.FAILED,
-                step_name,
-                success_count=0,
-                error_count=1,
-                completed_all_inputs=False,
-                exception=exc,
-            )
+            await self._dispatch_step_failure(node, step_name, exc)
             if node.on_error == OnError.STOP:
                 raise PipelineStopException(step_name=step_name, cause=exc) from exc
+
+    async def _execute_step(self, step_name, node, arguments, unrolled):
+        if unrolled:
+            return await self._unroll_step(step_name, node, arguments, unrolled)
+        return await self._call_fn(node.fn, arguments)
+
+    async def _emit_immediate_completion(self, step_name, node, output, unrolled):
+        if unrolled or isinstance(
+            output, (Iterator, Generator, AsyncIterator, AsyncGenerator)
+        ):
+            return
+        await self._dispatch_step_event(
+            node,
+            StepEvent.COMPLETED,
+            step_name,
+            success_count=1,
+            error_count=0,
+            completed_all_inputs=True,
+        )
+
+    async def _dispatch_step_failure(self, node, step_name, exception):
+        cause = exception
+        if isinstance(cause, PipelineStopException):
+            cause = cause.cause or cause
+        await self._dispatch_step_event(
+            node,
+            StepEvent.FAILED,
+            step_name,
+            success_count=0,
+            error_count=1,
+            completed_all_inputs=False,
+            exception=cause,
+        )
+
+    def _should_publish_output(self, step_name):
+        return not step_name.startswith("_")
 
     async def _call_fn(self, fn: Any, kwargs: dict) -> Any:
         if inspect.iscoroutinefunction(fn):
@@ -597,126 +596,160 @@ class AsyncPipelineExecutor:
                 completed_all_inputs=True,
             )
 
-    async def _publish_output(self, step_name, output, node):
-        deferred = node.mode == StepMode.EACH or (
-            node.mode == StepMode.ALL
-            and isinstance(output, (Iterator, Generator, AsyncIterator, AsyncGenerator))
+    async def _emit_deferred_completion(self, node, step_name):
+        await self._dispatch_step_event(
+            node,
+            StepEvent.COMPLETED,
+            step_name,
+            success_count=0,
+            error_count=0,
+            completed_all_inputs=True,
         )
 
-        if isinstance(output, (Iterator, Generator, AsyncIterator, AsyncGenerator)):
-            consumers = self.dag.consumers_of(step_name)
+    def _is_stream_output(self, output):
+        return isinstance(output, (Iterator, Generator, AsyncIterator, AsyncGenerator))
 
-            # 1. Step-level materialization required?
-            if node.on_error == OnError.STOP or node.force_materialize:
-                consumer_type = None
-                if consumers:
-                    consumer_type = self.dag[consumers[0]].deps.get(step_name)
-                try:
-                    items, had_error, exc = await self._materialize_with_events(
-                        step_name, output, node, consumer_type=consumer_type
-                    )
-                    for c in consumers:
-                        self.outputs[_output_key(self.dag, step_name, c)] = items
-                    self._notify_observers(step_name, items)
-                    if deferred:
-                        await self._emit_step_result(
-                            node, step_name, items, had_error, exc
-                        )
-                except PipelineStopException:
-                    raise
-                except Exception as exc:
-                    await _handle_error(self.dag, step_name, exc)
-                    if node.on_error == OnError.STOP:
-                        raise PipelineStopException(
-                            step_name=step_name, cause=exc
-                        ) from exc
-                return
+    def _stream_requires_eager_materialization(self, node):
+        return node.on_error == OnError.STOP or node.force_materialize
 
-            # 2. Single consumer requires materialized input?
-            if len(consumers) == 1 and self.dag.needs_materialize(step_name):
-                consumer_type = self.dag[consumers[0]].deps.get(step_name)
-                try:
-                    items, had_error, exc = await self._materialize_with_events(
-                        step_name, output, node, consumer_type=consumer_type
-                    )
-                    self.outputs[_output_key(self.dag, step_name, consumers[0])] = items
-                    self._notify_observers(step_name, items)
-                    if deferred:
-                        await self._emit_step_result(
-                            node, step_name, items, had_error, exc
-                        )
-                except PipelineStopException:
-                    raise
-                except Exception as exc:
-                    await _handle_error(self.dag, step_name, exc)
-                    if node.on_error == OnError.STOP:
-                        raise PipelineStopException(
-                            step_name=step_name, cause=exc
-                        ) from exc
-                return
+    async def _publish_eager_materialized_stream(
+        self,
+        step_name,
+        output,
+        node,
+        consumers,
+        deferred,
+    ):
+        consumer_type = None
+        if consumers:
+            consumer_type = self.dag[consumers[0]].deps.get(step_name)
+        items, had_error, exc = await self._materialize_with_events(
+            step_name, output, node, consumer_type=consumer_type
+        )
+        for consumer in consumers:
+            self.outputs[_output_key(self.dag, step_name, consumer)] = items
+        self._notify_observers(step_name, items)
+        if deferred:
+            await self._emit_step_result(node, step_name, items, had_error, exc)
 
-            # 3. Otherwise, keep it lazy / stream-based
-            if consumers:
-                queues = {c: asyncio.Queue(maxsize=100) for c in consumers}
-                for c, q in queues.items():
-                    self.outputs[_output_key(self.dag, step_name, c)] = q
-                if self._step_output_observers:
-                    for observer in self._step_output_observers:
-                        obs_queue = asyncio.Queue(maxsize=100)
-                        queues[f"__obs"] = obs_queue
-                        self._pump_tasks.append(
-                            asyncio.create_task(
-                                _pump_observer(step_name, obs_queue, observer)
-                            )
-                        )
-                task = asyncio.create_task(
-                    _pump_iterator(
-                        step_name,
-                        output,
-                        queues,
-                        node.on_error,
-                        dag=self.dag,
-                        materialize_before_enqueue=False,
-                    )
-                )
-                self._pump_tasks.append(task)
-                if deferred:
-                    await self._dispatch_step_event(
-                        node,
-                        StepEvent.COMPLETED,
-                        step_name,
-                        success_count=0,
-                        error_count=0,
-                        completed_all_inputs=True,
-                    )
-                return
-            else:
-                if self.dag.needs_materialize(step_name):
-                    output, had_error, exc = await self._materialize_with_events(
-                        step_name, output, node, consumer_type=node.get("output")
-                    )
-                else:
-                    self._notify_observers(step_name, output)
-                    had_error = False
-                    exc = None
-                if deferred:
-                    await self._emit_step_result(
-                        node, step_name, output, had_error, exc
-                    )
-                return
-        elif self.dag.needs_materialize(step_name):
+    async def _publish_single_consumer_stream(
+        self,
+        step_name,
+        output,
+        node,
+        consumer,
+        deferred,
+    ):
+        consumer_type = self.dag[consumer].deps.get(step_name)
+        items, had_error, exc = await self._materialize_with_events(
+            step_name, output, node, consumer_type=consumer_type
+        )
+        self.outputs[_output_key(self.dag, step_name, consumer)] = items
+        self._notify_observers(step_name, items)
+        if deferred:
+            await self._emit_step_result(node, step_name, items, had_error, exc)
+
+    async def _handle_stream_publish_error(self, step_name, node, exc):
+        await _handle_error(self.dag, step_name, exc)
+        if node.on_error == OnError.STOP:
+            raise PipelineStopException(step_name=step_name, cause=exc) from exc
+
+    def _register_observer_pumps(self, step_name, queues):
+        if not self._step_output_observers:
+            return
+        for observer in self._step_output_observers:
+            obs_queue = asyncio.Queue(maxsize=100)
+            queues["__obs"] = obs_queue
+            self._pump_tasks.append(
+                asyncio.create_task(_pump_observer(step_name, obs_queue, observer))
+            )
+
+    async def _publish_stream_to_queues(
+        self, step_name, output, node, consumers, deferred
+    ):
+        queues = {consumer: asyncio.Queue(maxsize=100) for consumer in consumers}
+        for consumer, queue in queues.items():
+            self.outputs[_output_key(self.dag, step_name, consumer)] = queue
+        self._register_observer_pumps(step_name, queues)
+        task = asyncio.create_task(
+            _pump_iterator(
+                step_name,
+                output,
+                queues,
+                node.on_error,
+                dag=self.dag,
+                materialize_before_enqueue=False,
+            )
+        )
+        self._pump_tasks.append(task)
+        if deferred:
+            await self._emit_deferred_completion(node, step_name)
+
+    async def _publish_terminal_stream(self, step_name, output, node, deferred):
+        if self.dag.needs_materialize(step_name):
             output, had_error, exc = await self._materialize_with_events(
-                step_name, output, node, consumer_type=node.get("output")
+                step_name, output, node, consumer_type=node.output
+            )
+        else:
+            self._notify_observers(step_name, output)
+            had_error = False
+            exc = None
+        if deferred:
+            await self._emit_step_result(node, step_name, output, had_error, exc)
+
+    async def _publish_scalar_output(self, step_name, output, node, deferred):
+        if self.dag.needs_materialize(step_name):
+            output, had_error, exc = await self._materialize_with_events(
+                step_name, output, node, consumer_type=node.output
             )
         else:
             had_error = False
             exc = None
         self.outputs[step_name] = output
         self._notify_observers(step_name, output)
-        if deferred and not isinstance(
-            output, (Iterator, Generator, AsyncIterator, AsyncGenerator)
-        ):
+        if deferred:
             await self._emit_step_result(node, step_name, output, had_error, exc)
+
+    async def _publish_output(self, step_name, output, node):
+        deferred = node.mode == StepMode.EACH or (
+            node.mode == StepMode.ALL and self._is_stream_output(output)
+        )
+
+        if not self._is_stream_output(output):
+            await self._publish_scalar_output(step_name, output, node, deferred)
+            return
+
+        consumers = self.dag.consumers_of(step_name)
+
+        if self._stream_requires_eager_materialization(node):
+            try:
+                await self._publish_eager_materialized_stream(
+                    step_name, output, node, consumers, deferred
+                )
+            except PipelineStopException:
+                raise
+            except Exception as exc:
+                await self._handle_stream_publish_error(step_name, node, exc)
+            return
+
+        if len(consumers) == 1 and self.dag.needs_materialize(step_name):
+            try:
+                await self._publish_single_consumer_stream(
+                    step_name, output, node, consumers[0], deferred
+                )
+            except PipelineStopException:
+                raise
+            except Exception as exc:
+                await self._handle_stream_publish_error(step_name, node, exc)
+            return
+
+        if consumers:
+            await self._publish_stream_to_queues(
+                step_name, output, node, consumers, deferred
+            )
+            return
+
+        await self._publish_terminal_stream(step_name, output, node, deferred)
 
 
 # ---------------------------------------------------------------------------
