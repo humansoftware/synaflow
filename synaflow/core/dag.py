@@ -149,6 +149,17 @@ class Dag:
     def consumers_of(self, step_name: str) -> list[str]:
         return [name for name, node in self.steps.items() if step_name in node.deps]
 
+    def output_key(self, producer: str, consumer: str) -> str:
+        if len(self.consumers_of(producer)) > 1:
+            return f"{producer}__{consumer}"
+        return producer
+
+    def is_hidden_step(self, step_name: str) -> bool:
+        return step_name.startswith("_")
+
+    def is_terminal_step(self, step_name: str) -> bool:
+        return self.is_hidden_step(step_name) or not self.consumers_of(step_name)
+
     def each_inputs(self, step_name: str) -> list[str]:
         """Which deps should be unrolled item-by-item (each mode)."""
         node = self.steps.get(step_name)
