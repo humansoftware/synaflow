@@ -1280,6 +1280,12 @@
 <strong>micro-orchestrator</strong> that runs <em>inside</em> a single Python process. Use those tools
 to schedule jobs; use SynaFlow inside the job to route and stream millions of rows
 between Python functions with zero boilerplate.</p>
+<p>But because SynaFlow strictly separates <strong>build-time</strong> (DAG compilation) from
+<strong>run-time</strong> (execution), you are free to write your own runner. The DAG JSON is a
+deterministic execution contract — you can compile a SynaFlow pipeline and
+auto-generate a native DAG for <strong>Airflow</strong>, <strong>Dagster</strong>, or <strong>Prefect</strong>, running
+the same business logic at cluster scale without changing a line of user code.
+See <a href="advanced/export-guidance/">Export Guidance</a> for details.</p>
 <p>For a deeper comparison with Hamilton, see the
 <a href="https://github.com/humansoftware/synaflow/blob/main/docs/DESIGN_PHILOSOPHY.md#25-detailed-comparison-synaflow-vs-hamilton">Design Philosophy</a>.</p>
 <h2 id="next-steps">Next Steps<a class="headerlink" href="#next-steps" title="Permanent link">&para;</a></h2>

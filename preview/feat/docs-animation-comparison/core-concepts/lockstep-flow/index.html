@@ -1306,10 +1306,10 @@ item is produced.</p>
 the key insight: <strong>steps don't wait for each other</strong> — they run concurrently
 like an assembly line.</p>
 <div id="lockstep-animation" style="font-family:monospace;margin:1.5em 0;padding:1em;background:#1a1b26;color:#a9b1d6;border-radius:8px;overflow:hidden">
-<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1em">
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.5em">
   <div>
     <span style="font-size:0.85em;color:#565f89">Step:</span>
-    <span id="anim-step" style="color:#7dcfff">0/10</span>
+    <span id="anim-step" style="color:#7dcfff">0/9</span>
   </div>
   <div>
     <button onclick="animFrame(-1)" style="background:#565f89;color:#fff;border:none;padding:4px 12px;border-radius:4px;cursor:pointer;font-size:0.9em;margin-right:6px" title="Previous frame">◀</button>
@@ -1318,6 +1318,27 @@ like an assembly line.</p>
     <button onclick="animReset()" style="background:#565f89;color:#fff;border:none;padding:4px 12px;border-radius:4px;cursor:pointer;font-size:0.9em">↺ Reset</button>
   </div>
 </div>
+
+<div style="text-align:center;margin-bottom:0.5em">
+<svg id="anim-dag" viewBox="0 0 260 200" style="max-width:260px;width:100%;height:auto">
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M0,0 L10,5 L0,10" fill="#565f89"/>
+    </marker>
+  </defs>
+  <line x1="130" y1="35" x2="130" y2="85" stroke="#565f89" stroke-width="2" marker-end="url(#arrow)"/>
+  <line x1="130" y1="115" x2="130" y2="165" stroke="#565f89" stroke-width="2" marker-end="url(#arrow)"/>
+  <rect x="55" y="5" width="150" height="30" rx="6" fill="#7aa2f7" opacity="0.15" stroke="#7aa2f7" stroke-width="1"/>
+  <text x="130" y="25" text-anchor="middle" fill="#7aa2f7" font-size="13" font-family="monospace">numbers</text>
+  <rect x="55" y="85" width="150" height="30" rx="6" fill="#7aa2f7" opacity="0.15" stroke="#7aa2f7" stroke-width="1"/>
+  <text x="130" y="105" text-anchor="middle" fill="#7aa2f7" font-size="13" font-family="monospace">doubler</text>
+  <rect x="55" y="165" width="150" height="30" rx="6" fill="#7aa2f7" opacity="0.15" stroke="#7aa2f7" stroke-width="1"/>
+  <text x="130" y="185" text-anchor="middle" fill="#7aa2f7" font-size="13" font-family="monospace">printer</text>
+  <g id="anim-values"></g>
+  <g id="anim-dots"></g>
+</svg>
+</div>
+
 <table style="width:100%;border-collapse:collapse;font-size:0.85em;text-align:center">
 <thead>
   <tr style="color:#7aa2f7">
@@ -1335,45 +1356,56 @@ like an assembly line.</p>
 
 <script>
 (function() {
-  // Data: [frame, numbers_state, doubler_state, printer_state, insight]
-  // states: idle, yielding N, computing N, printing N
   var frames = [
-    [0, "idle", "idle", "idle", ""],
-    [1, "yielding <b>0</b>", "idle", "idle", "numbers starts — first item enters the pipeline."],
-    [2, "yielding <b>1</b>", "computing <b>0→0</b>", "idle", "numbers already on item 2 while doubler processes item 1."],
-    [3, "yielding <b>2</b>", "computing <b>1→2</b>", "printing <b>0</b>", "Three items in flight at once — one per step."],
-    [4, "yielding <b>3</b>", "computing <b>2→4</b>", "printing <b>2</b>", "The assembly line is fully saturated."],
-    [5, "yielding <b>4</b>", "computing <b>3→6</b>", "printing <b>4</b>", ""],
-    [6, "done", "computing <b>4→8</b>", "printing <b>6</b>", "numbers finished — downstream steps drain the remaining items."],
-    [7, "done", "done", "printing <b>8</b>", ""],
-    [8, "done", "done", "printing <b>10</b>", "Last item through. Pipeline complete."],
-    [9, "done", "done", "done", "✓ All 5 items processed. Only one item per step in memory at any moment."],
+    [0, "", "", "", "", "", "", ""],
+    [1, "0", "", "", "0", "", "", "numbers starts — first item (0) enters the pipeline."],
+    [2, "1", "0→0", "", "1", "0→0", "", "numbers already on item 2 while doubler processes item 1."],
+    [3, "2", "1→2", "0", "2", "1→2", "0", "Three items in flight — one per step. Assembly line saturated."],
+    [4, "3", "2→4", "2", "3", "2→4", "2", ""],
+    [5, "4", "3→6", "4", "4", "3→6", "4", ""],
+    [6, "", "4→8", "6", "✓", "4→8", "6", "numbers finished — downstream drains remaining items."],
+    [7, "", "", "8", "✓", "✓", "8", ""],
+    [8, "", "", "10", "✓", "✓", "10", "Last item through."],
+    [9, "", "", "", "✓", "✓", "✓", "✓ All 5 items processed. Only one item per step in memory."],
   ];
 
-  var cur = 0;
-  var timer = null;
-  var playing = false;
+  var cur = 0, timer = null, playing = false;
+  var colors = ["#f7768e","#e0af68","#7dcfff","#9ece6a","#bb9af7"];
 
   function stateClass(s) {
-    if (s === "idle") return "#3b4261";
-    if (s === "done") return "#565f89";
+    if (s === "✓") return "#565f89";
+    if (s === "") return "#3b4261";
     return "#24283b";
   }
 
   function renderBody() {
     var html = "";
     for (var i = 0; i < frames.length; i++) {
-      var f = frames[i];
-      var rowLabel = (i === 0) ? "start" : ("&nbsp;&nbsp;t" + i);
-      var isCur = (i === cur);
+      var f = frames[i], isCur = i === cur;
+      var label = i === 0 ? "start" : "&nbsp;&nbsp;t" + i;
       html += '<tr style="' + (isCur ? 'outline:2px solid #7dcfff;outline-offset:-2px' : '') + '">';
-      html += '<td style="padding:4px 8px;color:#565f89;text-align:right;border-right:1px solid #565f89">' + rowLabel + '</td>';
+      html += '<td style="padding:4px 8px;color:#565f89;text-align:right;border-right:1px solid #565f89">' + label + '</td>';
       for (var j = 1; j <= 3; j++) {
-        html += '<td id="cell-' + i + '-' + j + '" style="padding:4px 8px;background:' + stateClass(f[j]) + (isCur ? '' : '') + '">' + f[j] + '</td>';
+        html += '<td style="padding:4px 8px;background:' + stateClass(f[j+3]) + '">' + (f[j] || "—") + '</td>';
       }
       html += '</tr>';
     }
     document.getElementById("anim-body").innerHTML = html;
+  }
+
+  function renderDag() {
+    var f = frames[cur];
+    var vals = "", dots = "";
+
+    if (f[4] && f[4] !== "" && f[4] !== "✓") vals += '<rect x="58" y="8" width="144" height="24" rx="4" fill="#f7768e" opacity="0.2"/><text x="130" y="25" text-anchor="middle" fill="#f7768e" font-size="12" font-family="monospace">' + f[4] + '</text>';
+    if (f[5] && f[5] !== "" && f[5] !== "✓") vals += '<rect x="58" y="88" width="144" height="24" rx="4" fill="#e0af68" opacity="0.2"/><text x="130" y="105" text-anchor="middle" fill="#e0af68" font-size="12" font-family="monospace">' + f[5] + '</text>';
+    if (f[6] && f[6] !== "" && f[6] !== "✓") vals += '<rect x="58" y="168" width="144" height="24" rx="4" fill="#7dcfff" opacity="0.2"/><text x="130" y="185" text-anchor="middle" fill="#7dcfff" font-size="12" font-family="monospace">' + f[6] + '</text>';
+    if (f[4] === "✓") vals += '<text x="195" y="25" fill="#9ece6a" font-size="14" font-family="monospace">✓</text>';
+    if (f[5] === "✓") vals += '<text x="195" y="105" fill="#9ece6a" font-size="14" font-family="monospace">✓</text>';
+    if (f[6] === "✓") vals += '<text x="195" y="185" fill="#9ece6a" font-size="14" font-family="monospace">✓</text>';
+
+    document.getElementById("anim-values").innerHTML = vals;
+    document.getElementById("anim-dots").innerHTML = dots;
   }
 
   window.animFrame = function(d) {
@@ -1381,34 +1413,32 @@ like an assembly line.</p>
     if (next >= 0 && next < frames.length) cur = next;
     update();
   };
-
   window.animToggle = function() {
     if (playing) { clearInterval(timer); playing = false; document.getElementById("anim-play").innerHTML = "▶ Play"; }
     else { playing = true; document.getElementById("anim-play").innerHTML = "⏸ Pause"; timer = setInterval(function(){ window.animFrame(1); if (cur >= frames.length - 1) window.animToggle(); }, 1200); }
   };
-
   window.animReset = function() { cur = 0; update(); };
-  window.animGoto = function(i) { cur = i; update(); };
-
   function update() {
     var f = frames[cur];
     document.getElementById("anim-step").innerHTML = cur + "/" + (frames.length - 1);
-    document.getElementById("anim-insight").innerHTML = f[4];
+    document.getElementById("anim-insight").innerHTML = f[7];
     renderBody();
+    renderDag();
   }
-
   renderBody();
-  update();
+  renderDag();
 })();
 </script>
 
-<p>The animation above shows <strong>count=5</strong>. Watch how <code>numbers</code> yields item 2
-<strong>while</strong> <code>doubler</code> is still processing item 1 <strong>and</strong> <code>printer</code> is printing
-item 0. Three items in flight, one per step — that's lockstep streaming.</p>
-<p>Contrast this with a traditional batch pipeline where <code>numbers</code> would finish
-completely, <em>then</em> <code>doubler</code> starts, <em>then</em> <code>printer</code>. In SynaFlow, all steps
-are alive at the same time, pulling items forward. Only one item per step in
-memory at any moment.</p>
+<p>The animation above shows <strong>count=5</strong>. Three views of the same execution:</p>
+<ul>
+<li><strong>Top:</strong> the DAG — watch items light up inside each node as they're processed.</li>
+<li><strong>Middle:</strong> the timeline table — one row per moment.</li>
+<li><strong>Bottom:</strong> insight text explaining what's happening.</li>
+</ul>
+<p>Key observation: at frame 3, <code>numbers</code> is working on item <strong>2</strong> while <code>doubler</code>
+processes item <strong>1</strong> and <code>printer</code> prints item <strong>0</strong>. Three items in flight,
+one per step — that's lockstep streaming.</p>
 <h2 id="fan-out-multiple-consumers">Fan-Out: Multiple Consumers<a class="headerlink" href="#fan-out-multiple-consumers" title="Permanent link">&para;</a></h2>
 <p>When multiple consumers depend on the same producer, SynaFlow automatically forks
 the stream with <code>itertools.tee</code> and advances them <strong>together</strong>:</p>
