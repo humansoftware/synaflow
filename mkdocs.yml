@@ -1,8 +1,18 @@
 site_name: SynaFlow
-site_description: A lightweight, type-hint driven pipeline engine for streaming DAGs
+site_description: A lightweight, pure-Python pipeline engine that uses type hints to automatically wire and execute Directed Acyclic Graphs with lockstep streaming
 site_url: https://humansoftware.github.io/synaflow/
 repo_url: https://github.com/humansoftware/synaflow
 edit_uri: edit/main/docs/user_docs/
+site_author: humansoftware
+copyright: MIT License
+
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/humansoftware/synaflow
+  analytics:
+    provider: google
+    property: G-XXXXXXXXXX  # replace with your Google Analytics ID
 
 theme:
   name: material
