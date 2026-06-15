@@ -24,6 +24,9 @@ Once you've built something, dive into [**Core Concepts**](../core-concepts/how-
 - [**Lockstep Data Flow**](../core-concepts/lockstep-flow.md) — how one item
   flows entirely through the pipeline before the next is produced, guaranteeing
   extreme memory efficiency.
+- [**Event-Based Processing**](../core-concepts/event-based.md) — how lazy
+  streaming makes the framework idempotent by default and naturally suited for
+  processing events individually or in time windows.
 - [**Materialization & Error Policies**](../core-concepts/materialization.md) —
   when data is collected into memory, how to force materialization, and how
   `on_error=STOP` / `on_error=CONTINUE` affect the data flow.

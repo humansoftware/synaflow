@@ -49,6 +49,7 @@ nav:
   - Core Concepts:
       - How the DAG is Wired: core-concepts/how-dag-is-wired.md
       - Lockstep Data Flow: core-concepts/lockstep-flow.md
+      - Event-Based Processing: core-concepts/event-based.md
       - Materialization & Errors: core-concepts/materialization.md
       - Semantic Naming: core-concepts/semantic-naming.md
       - DAG Construction: core-concepts/dag-construction.md
@@ -58,5 +59,6 @@ nav:
       - Custom Materializers: advanced/custom-materializers.md
       - Custom Observers: advanced/custom-observers.md
       - Export Guidance: advanced/export-guidance.md
+      - Java Streams Comparison: advanced/java-streams.md
 
 docs_dir: docs/user_docs

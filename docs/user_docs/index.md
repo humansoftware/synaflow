@@ -80,12 +80,30 @@ SynaFlow solves both by reading your **Type Hints** and automatically wiring the
 
 ## How It Compares
 
-| | SynaFlow | Hamilton | Airflow / Prefect |
-|---|---|---|---|
-| **Type-hint wiring** | ✅ | ✅ | ❌ |
-| **Lazy streaming** | ✅ (lockstep tee) | ❌ (DataFrame-centric) | ❌ (task-based) |
-| **Scope** | In-process micro-orchestration | Feature engineering | Cluster orchestration |
-| **DAG export** | ✅ (JSON) | ✅ | ✅ |
+| | SynaFlow | Hamilton | Flyte / Metaflow | Dagster / Prefect | Airflow |
+|---|---|---|---|---|---|
+| **Auto wiring** | ✅ type hints + smart binding | ✅ type hints (exact names) | ❌ explicit `A >> B` | ❌ explicit | ❌ explicit |
+| **Lazy streaming** | ✅ lockstep tee | ❌ DataFrame-centric | ❌ | ❌ | ❌ |
+| **Smart binding** | ✅ singular/plural/suffix | ❌ | ❌ | ❌ | ❌ |
+| **Scope** | In-process micro | Feature engineering | Task orchestration | Asset/workflow orchestration | DAG scheduling |
+| **DAG export** | ✅ JSON | ✅ | ✅ | ✅ | ✅ |
+| **Sync/async parity** | ✅ identical | ❌ | ✅ | ✅ | ❌ |
+| **Memory model** | One item per step | Full DataFrame | Task I/O boundary | Task I/O boundary | Task I/O boundary |
+
+**SynaFlow** is not a replacement for Airflow or Dagster — it's a
+**micro-orchestrator** that runs *inside* a single Python process. Use those tools
+to schedule jobs; use SynaFlow inside the job to route and stream millions of rows
+between Python functions with zero boilerplate.
+
+But because SynaFlow strictly separates **build-time** (DAG compilation) from
+**run-time** (execution), you are free to write your own runner. The DAG JSON is a
+deterministic execution contract — you can compile a SynaFlow pipeline and
+auto-generate a native DAG for **Airflow**, **Dagster**, or **Prefect**, running
+the same business logic at cluster scale without changing a line of user code.
+See [Export Guidance](advanced/export-guidance.md) for details.
+
+For a deeper comparison with Hamilton, see the
+[Design Philosophy](https://github.com/humansoftware/synaflow/blob/main/docs/DESIGN_PHILOSOPHY.md#25-detailed-comparison-synaflow-vs-hamilton).
 
 ## Next Steps
 
