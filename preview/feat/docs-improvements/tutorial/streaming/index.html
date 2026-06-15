@@ -1334,6 +1334,14 @@ into memory (<code>lowercase → list[str]</code>). For large datasets, we can r
 <li><strong><code>printer</code></strong> consumes the <strong>lazy iterator</strong> of tuples — no dict materialization.</li>
 <li>No <code>list[str]</code> or <code>dict[str, int]</code> consumer type anywhere downstream of <code>hello</code>.</li>
 </ul>
+<div class="admonition tip">
+<p class="admonition-title">You could also write <code>printer</code> in EACH mode</p>
+<p>Instead of receiving the full <code>Iterator[tuple[str, int]]</code> and looping over
+it manually, <code>printer</code> could declare <code>counter: tuple[str, int]</code>. SynaFlow
+would detect the iterable producer + scalar consumer and run <code>printer</code> in
+<strong>EACH mode</strong> — calling it once per tuple, which is exactly what the manual
+loop does. Same result, less boilerplate.</p>
+</div>
 <pre class="mermaid"><code>flowchart TD
     hello["hello&lt;br/&gt;&lt;i&gt;list[str]&lt;/i&gt;"]
     lowercase["lowercase&lt;br/&gt;&lt;i&gt;ListType(str)&lt;/i&gt;"]
