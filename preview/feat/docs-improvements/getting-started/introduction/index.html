@@ -789,6 +789,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../../core-concepts/materialization/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Materialization & Errors
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../core-concepts/semantic-naming/" class="md-nav__link">
         
   
@@ -1168,6 +1196,9 @@ that builds a real pipeline from scratch across four levels:</p>
 <li><a href="../../core-concepts/lockstep-flow/"><strong>Lockstep Data Flow</strong></a> — how one item
   flows entirely through the pipeline before the next is produced, guaranteeing
   extreme memory efficiency.</li>
+<li><a href="../../core-concepts/materialization/"><strong>Materialization &amp; Error Policies</strong></a> —
+  when data is collected into memory, how to force materialization, and how
+  <code>on_error=STOP</code> / <code>on_error=CONTINUE</code> affect the data flow.</li>
 <li><a href="../../core-concepts/semantic-naming/"><strong>Semantic Naming</strong></a> — smart binding:
   using singular, plural, and suffixes naturally without exact name matching.</li>
 <li><a href="../../core-concepts/dag-construction/"><strong>DAG Construction</strong></a> — the build-time
