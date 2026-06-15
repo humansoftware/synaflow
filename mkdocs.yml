@@ -48,6 +48,7 @@ nav:
       - Level 5 — Streaming: tutorial/streaming.md
   - Core Concepts:
       - How the DAG is Wired: core-concepts/how-dag-is-wired.md
+      - Build vs Run: core-concepts/build-vs-run.md
       - Lockstep Data Flow: core-concepts/lockstep-flow.md
       - Event-Based Processing: core-concepts/event-based.md
       - Materialization & Errors: core-concepts/materialization.md
@@ -59,6 +60,9 @@ nav:
       - Custom Materializers: advanced/custom-materializers.md
       - Custom Observers: advanced/custom-observers.md
       - Export Guidance: advanced/export-guidance.md
-      - Java Streams Comparison: advanced/java-streams.md
+  - Comparisons:
+      - Hamilton: comparisons/hamilton.md
+      - Java Streams: comparisons/java-streams.md
+      - LINQ: comparisons/linq.md
 
 docs_dir: docs/user_docs
