@@ -16,7 +16,7 @@
         <link rel="prev" href="../observers/">
       
       
-        <link rel="next" href="../../core-concepts/semantic-naming/">
+        <link rel="next" href="../streaming/">
       
       
         
@@ -27,7 +27,7 @@
     
     
       
-        <title>Level 4 — Materializers - SynaFlow</title>
+        <title>Level 4 — Print Key-Value Pairs - SynaFlow</title>
       
     
     
@@ -76,7 +76,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#tutorial-level-4-materializers" class="md-skip">
+        <a href="#tutorial-level-4-iterating-a-dictionary" class="md-skip">
           Skip to content
         </a>
       
@@ -112,7 +112,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Level 4 — Materializers
+              Level 4 — Print Key-Value Pairs
             
           </span>
         </div>
@@ -341,14 +341,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../getting-started/lockstep-flow/" class="md-nav__link">
+      <a href="../../getting-started/introduction/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    Lockstep Data Flow
+    Introduction
   
 
     
@@ -465,7 +465,7 @@
   <span class="md-ellipsis">
     
   
-    Level 2 — Multiple Steps
+    Level 2 — Lowercase Transform
   
 
     
@@ -493,7 +493,7 @@
   <span class="md-ellipsis">
     
   
-    Level 3 — Observers
+    Level 3 — Character Counter
   
 
     
@@ -530,7 +530,7 @@
   <span class="md-ellipsis">
     
   
-    Level 4 — Materializers
+    Level 4 — Print Key-Value Pairs
   
 
     
@@ -548,7 +548,7 @@
   <span class="md-ellipsis">
     
   
-    Level 4 — Materializers
+    Level 4 — Print Key-Value Pairs
   
 
     
@@ -574,43 +574,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#default-lazy-streaming" class="md-nav__link">
+  <a href="#the-complete-dag-json" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Default: Lazy Streaming
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#eager-list-set-dict" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Eager: list, set, dict
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#custom-materializer-write-to-disk" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Custom Materializer: Write to Disk
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#force-materialization" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Force Materialization
+        The complete DAG JSON
       
     </span>
   </a>
@@ -632,6 +599,34 @@
   
 </nav>
       
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../streaming/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Level 5 — Streaming
+  
+
+    
+  </span>
+  
+  
+
+      </a>
     </li>
   
 
@@ -697,6 +692,90 @@
 
           </label>
           <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../core-concepts/how-dag-is-wired/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    How the DAG is Wired
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../core-concepts/lockstep-flow/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Lockstep Data Flow
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../core-concepts/materialization/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Materialization & Errors
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
             
               
                 
@@ -989,43 +1068,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#default-lazy-streaming" class="md-nav__link">
+  <a href="#the-complete-dag-json" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Default: Lazy Streaming
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#eager-list-set-dict" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Eager: list, set, dict
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#custom-materializer-write-to-disk" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Custom Materializer: Write to Disk
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#force-materialization" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Force Materialization
+        The complete DAG JSON
       
     </span>
   </a>
@@ -1063,83 +1109,161 @@
   
 
 
-<h1 id="tutorial-level-4-materializers">Tutorial — Level 4: Materializers<a class="headerlink" href="#tutorial-level-4-materializers" title="Permanent link">&para;</a></h1>
-<p>Materializers control how data is collected and stored. By default, SynaFlow streams data lazily, but you can materialize to <code>list</code>, <code>dict</code>, or even disk.</p>
-<h2 id="default-lazy-streaming">Default: Lazy Streaming<a class="headerlink" href="#default-lazy-streaming" title="Permanent link">&para;</a></h2>
-<p>When a consumer asks for <code>Iterator[T]</code>, no materialization happens:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="k">def</span><span class="w"> </span><span class="nf">consumer</span><span class="p">(</span><span class="n">producer</span><span class="p">:</span> <span class="n">Iterator</span><span class="p">[</span><span class="nb">int</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">producer</span><span class="p">:</span>   <span class="c1"># streams one item at a time</span>
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>        <span class="k">pass</span>
-</code></pre></div>
-<h2 id="eager-list-set-dict">Eager: list, set, dict<a class="headerlink" href="#eager-list-set-dict" title="Permanent link">&para;</a></h2>
-<p>When a consumer asks for <code>list[T]</code>, SynaFlow automatically collects the stream:</p>
+<h1 id="tutorial-level-4-iterating-a-dictionary">Tutorial — Level 4: Iterating a Dictionary<a class="headerlink" href="#tutorial-level-4-iterating-a-dictionary" title="Permanent link">&para;</a></h1>
+<p>Finally, we modify the printer to iterate over each key–value pair individually,
+printing one line per character.</p>
 <div class="tabbed-set tabbed-alternate" data-tabs="1:2"><input checked="checked" id="__tabbed_1_1" name="__tabbed_1" type="radio" /><input id="__tabbed_1_2" name="__tabbed_1" type="radio" /><div class="tabbed-labels"><label for="__tabbed_1_1">Sync</label><label for="__tabbed_1_2">Async</label></div>
 <div class="tabbed-content">
 <div class="tabbed-block">
-<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">collections.abc</span><span class="w"> </span><span class="kn">import</span> <span class="n">Generator</span>
-<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">synaflow</span><span class="w"> </span><span class="kn">import</span> <span class="n">pipeline</span><span class="p">,</span> <span class="n">step</span><span class="p">,</span> <span class="n">run</span>
-<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>
-<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="k">def</span><span class="w"> </span><span class="nf">producer</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="n">Generator</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">]:</span>
-<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>    <span class="k">yield from</span> <span class="nb">range</span><span class="p">(</span><span class="mi">100</span><span class="p">)</span>
-<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>
-<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="k">def</span><span class="w"> </span><span class="nf">consumer</span><span class="p">(</span><span class="n">producer</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">int</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a>    <span class="nb">print</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">producer</span><span class="p">))</span>  <span class="c1"># 100 — all items in memory</span>
-<a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a>
-<a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a><span class="n">p</span> <span class="o">=</span> <span class="n">pipeline</span><span class="p">(</span>
-<a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a>    <span class="n">name</span><span class="o">=</span><span class="s2">&quot;eager&quot;</span><span class="p">,</span>
-<a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a>    <span class="n">params</span><span class="o">=</span><span class="nb">type</span><span class="p">(</span><span class="s2">&quot;P&quot;</span><span class="p">,</span> <span class="p">(</span><span class="n">NamedTuple</span><span class="p">,),</span> <span class="p">{}),</span>
-<a id="__codelineno-1-13" name="__codelineno-1-13" href="#__codelineno-1-13"></a>    <span class="n">steps</span><span class="o">=</span><span class="p">[</span>
-<a id="__codelineno-1-14" name="__codelineno-1-14" href="#__codelineno-1-14"></a>        <span class="n">step</span><span class="p">(</span><span class="s2">&quot;producer&quot;</span><span class="p">,</span> <span class="n">fn</span><span class="o">=</span><span class="n">producer</span><span class="p">),</span>
-<a id="__codelineno-1-15" name="__codelineno-1-15" href="#__codelineno-1-15"></a>        <span class="n">step</span><span class="p">(</span><span class="s2">&quot;consumer&quot;</span><span class="p">,</span> <span class="n">fn</span><span class="o">=</span><span class="n">consumer</span><span class="p">),</span>
-<a id="__codelineno-1-16" name="__codelineno-1-16" href="#__codelineno-1-16"></a>    <span class="p">],</span>
-<a id="__codelineno-1-17" name="__codelineno-1-17" href="#__codelineno-1-17"></a><span class="p">)</span>
-<a id="__codelineno-1-18" name="__codelineno-1-18" href="#__codelineno-1-18"></a><span class="n">run</span><span class="p">(</span><span class="n">p</span><span class="p">,</span> <span class="n">p</span><span class="o">.</span><span class="n">params_type</span><span class="p">())</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">collections</span><span class="w"> </span><span class="kn">import</span> <span class="n">Counter</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">NamedTuple</span>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="kn">from</span><span class="w"> </span><span class="nn">synaflow</span><span class="w"> </span><span class="kn">import</span> <span class="n">pipeline</span><span class="p">,</span> <span class="n">step</span><span class="p">,</span> <span class="n">run</span>
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="k">class</span><span class="w"> </span><span class="nc">Params</span><span class="p">(</span><span class="n">NamedTuple</span><span class="p">):</span>
+<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>    <span class="n">message</span><span class="p">:</span> <span class="nb">str</span>
+<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>
+<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="k">def</span><span class="w"> </span><span class="nf">hello</span><span class="p">(</span><span class="n">message</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
+<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>    <span class="k">return</span> <span class="nb">list</span><span class="p">(</span><span class="n">message</span><span class="p">)</span>
+<a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>
+<a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a><span class="k">def</span><span class="w"> </span><span class="nf">lowercase</span><span class="p">(</span><span class="n">hello</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a>    <span class="k">return</span> <span class="n">hello</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span>
+<a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a>
+<a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a><span class="k">def</span><span class="w"> </span><span class="nf">count_chars</span><span class="p">(</span><span class="n">lowercase</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">int</span><span class="p">]:</span>
+<a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a>    <span class="k">return</span> <span class="nb">dict</span><span class="p">(</span><span class="n">Counter</span><span class="p">(</span><span class="n">lowercase</span><span class="p">))</span>
+<a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a>
+<a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a><span class="k">def</span><span class="w"> </span><span class="nf">printer</span><span class="p">(</span><span class="n">count_chars</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">int</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<a id="__codelineno-0-18" name="__codelineno-0-18" href="#__codelineno-0-18"></a>    <span class="k">for</span> <span class="n">char</span><span class="p">,</span> <span class="n">count</span> <span class="ow">in</span> <span class="n">count_chars</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+<a id="__codelineno-0-19" name="__codelineno-0-19" href="#__codelineno-0-19"></a>        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  </span><span class="si">{</span><span class="n">char</span><span class="si">!r}</span><span class="s2"> appears </span><span class="si">{</span><span class="n">count</span><span class="si">}</span><span class="s2"> time(s)&quot;</span><span class="p">)</span>
+<a id="__codelineno-0-20" name="__codelineno-0-20" href="#__codelineno-0-20"></a>
+<a id="__codelineno-0-21" name="__codelineno-0-21" href="#__codelineno-0-21"></a><span class="n">p</span> <span class="o">=</span> <span class="n">pipeline</span><span class="p">(</span>
+<a id="__codelineno-0-22" name="__codelineno-0-22" href="#__codelineno-0-22"></a>    <span class="n">name</span><span class="o">=</span><span class="s2">&quot;tutorial&quot;</span><span class="p">,</span>
+<a id="__codelineno-0-23" name="__codelineno-0-23" href="#__codelineno-0-23"></a>    <span class="n">params</span><span class="o">=</span><span class="n">Params</span><span class="p">,</span>
+<a id="__codelineno-0-24" name="__codelineno-0-24" href="#__codelineno-0-24"></a>    <span class="n">steps</span><span class="o">=</span><span class="p">[</span>
+<a id="__codelineno-0-25" name="__codelineno-0-25" href="#__codelineno-0-25"></a>        <span class="n">step</span><span class="p">(</span><span class="s2">&quot;hello&quot;</span><span class="p">,</span> <span class="n">fn</span><span class="o">=</span><span class="n">hello</span><span class="p">),</span>
+<a id="__codelineno-0-26" name="__codelineno-0-26" href="#__codelineno-0-26"></a>        <span class="n">step</span><span class="p">(</span><span class="s2">&quot;lowercase&quot;</span><span class="p">,</span> <span class="n">fn</span><span class="o">=</span><span class="n">lowercase</span><span class="p">),</span>
+<a id="__codelineno-0-27" name="__codelineno-0-27" href="#__codelineno-0-27"></a>        <span class="n">step</span><span class="p">(</span><span class="s2">&quot;count_chars&quot;</span><span class="p">,</span> <span class="n">fn</span><span class="o">=</span><span class="n">count_chars</span><span class="p">),</span>
+<a id="__codelineno-0-28" name="__codelineno-0-28" href="#__codelineno-0-28"></a>        <span class="n">step</span><span class="p">(</span><span class="s2">&quot;printer&quot;</span><span class="p">,</span> <span class="n">fn</span><span class="o">=</span><span class="n">printer</span><span class="p">),</span>
+<a id="__codelineno-0-29" name="__codelineno-0-29" href="#__codelineno-0-29"></a>    <span class="p">],</span>
+<a id="__codelineno-0-30" name="__codelineno-0-30" href="#__codelineno-0-30"></a><span class="p">)</span>
+<a id="__codelineno-0-31" name="__codelineno-0-31" href="#__codelineno-0-31"></a>
+<a id="__codelineno-0-32" name="__codelineno-0-32" href="#__codelineno-0-32"></a><span class="n">run</span><span class="p">(</span><span class="n">p</span><span class="p">,</span> <span class="n">Params</span><span class="p">(</span><span class="n">message</span><span class="o">=</span><span class="s2">&quot;SynaFlow&quot;</span><span class="p">))</span>
 </code></pre></div>
 </div>
 <div class="tabbed-block">
-<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">collections.abc</span><span class="w"> </span><span class="kn">import</span> <span class="n">AsyncGenerator</span>
-<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">synaflow</span><span class="w"> </span><span class="kn">import</span> <span class="n">pipeline</span><span class="p">,</span> <span class="n">step</span><span class="p">,</span> <span class="n">async_run</span>
-<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>
-<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">producer</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="n">AsyncGenerator</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="kc">None</span><span class="p">]:</span>
-<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">100</span><span class="p">):</span>
-<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>        <span class="k">yield</span> <span class="n">i</span>
-<a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a>
-<a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">consumer</span><span class="p">(</span><span class="n">producer</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">int</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a>    <span class="nb">print</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">producer</span><span class="p">))</span>  <span class="c1"># 100</span>
-<a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a>
-<a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a><span class="n">p</span> <span class="o">=</span> <span class="n">pipeline</span><span class="p">(</span>
-<a id="__codelineno-2-12" name="__codelineno-2-12" href="#__codelineno-2-12"></a>    <span class="n">name</span><span class="o">=</span><span class="s2">&quot;eager&quot;</span><span class="p">,</span>
-<a id="__codelineno-2-13" name="__codelineno-2-13" href="#__codelineno-2-13"></a>    <span class="n">params</span><span class="o">=</span><span class="nb">type</span><span class="p">(</span><span class="s2">&quot;P&quot;</span><span class="p">,</span> <span class="p">(</span><span class="n">NamedTuple</span><span class="p">,),</span> <span class="p">{}),</span>
-<a id="__codelineno-2-14" name="__codelineno-2-14" href="#__codelineno-2-14"></a>    <span class="n">steps</span><span class="o">=</span><span class="p">[</span>
-<a id="__codelineno-2-15" name="__codelineno-2-15" href="#__codelineno-2-15"></a>        <span class="n">step</span><span class="p">(</span><span class="s2">&quot;producer&quot;</span><span class="p">,</span> <span class="n">fn</span><span class="o">=</span><span class="n">producer</span><span class="p">),</span>
-<a id="__codelineno-2-16" name="__codelineno-2-16" href="#__codelineno-2-16"></a>        <span class="n">step</span><span class="p">(</span><span class="s2">&quot;consumer&quot;</span><span class="p">,</span> <span class="n">fn</span><span class="o">=</span><span class="n">consumer</span><span class="p">),</span>
-<a id="__codelineno-2-17" name="__codelineno-2-17" href="#__codelineno-2-17"></a>    <span class="p">],</span>
-<a id="__codelineno-2-18" name="__codelineno-2-18" href="#__codelineno-2-18"></a><span class="p">)</span>
-<a id="__codelineno-2-19" name="__codelineno-2-19" href="#__codelineno-2-19"></a><span class="n">async_run</span><span class="p">(</span><span class="n">p</span><span class="p">,</span> <span class="n">p</span><span class="o">.</span><span class="n">params_type</span><span class="p">())</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">collections</span><span class="w"> </span><span class="kn">import</span> <span class="n">Counter</span>
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">NamedTuple</span>
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="kn">from</span><span class="w"> </span><span class="nn">synaflow</span><span class="w"> </span><span class="kn">import</span> <span class="n">pipeline</span><span class="p">,</span> <span class="n">step</span><span class="p">,</span> <span class="n">async_run</span>
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>
+<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="k">class</span><span class="w"> </span><span class="nc">Params</span><span class="p">(</span><span class="n">NamedTuple</span><span class="p">):</span>
+<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>    <span class="n">message</span><span class="p">:</span> <span class="nb">str</span>
+<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a>
+<a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">hello</span><span class="p">(</span><span class="n">message</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
+<a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a>    <span class="k">return</span> <span class="nb">list</span><span class="p">(</span><span class="n">message</span><span class="p">)</span>
+<a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a>
+<a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">lowercase</span><span class="p">(</span><span class="n">hello</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a>    <span class="k">return</span> <span class="n">hello</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span>
+<a id="__codelineno-1-13" name="__codelineno-1-13" href="#__codelineno-1-13"></a>
+<a id="__codelineno-1-14" name="__codelineno-1-14" href="#__codelineno-1-14"></a><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">count_chars</span><span class="p">(</span><span class="n">lowercase</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">int</span><span class="p">]:</span>
+<a id="__codelineno-1-15" name="__codelineno-1-15" href="#__codelineno-1-15"></a>    <span class="k">return</span> <span class="nb">dict</span><span class="p">(</span><span class="n">Counter</span><span class="p">(</span><span class="n">lowercase</span><span class="p">))</span>
+<a id="__codelineno-1-16" name="__codelineno-1-16" href="#__codelineno-1-16"></a>
+<a id="__codelineno-1-17" name="__codelineno-1-17" href="#__codelineno-1-17"></a><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">printer</span><span class="p">(</span><span class="n">count_chars</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">int</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<a id="__codelineno-1-18" name="__codelineno-1-18" href="#__codelineno-1-18"></a>    <span class="k">for</span> <span class="n">char</span><span class="p">,</span> <span class="n">count</span> <span class="ow">in</span> <span class="n">count_chars</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+<a id="__codelineno-1-19" name="__codelineno-1-19" href="#__codelineno-1-19"></a>        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  </span><span class="si">{</span><span class="n">char</span><span class="si">!r}</span><span class="s2"> appears </span><span class="si">{</span><span class="n">count</span><span class="si">}</span><span class="s2"> time(s)&quot;</span><span class="p">)</span>
+<a id="__codelineno-1-20" name="__codelineno-1-20" href="#__codelineno-1-20"></a>
+<a id="__codelineno-1-21" name="__codelineno-1-21" href="#__codelineno-1-21"></a><span class="n">p</span> <span class="o">=</span> <span class="n">pipeline</span><span class="p">(</span>
+<a id="__codelineno-1-22" name="__codelineno-1-22" href="#__codelineno-1-22"></a>    <span class="n">name</span><span class="o">=</span><span class="s2">&quot;tutorial&quot;</span><span class="p">,</span>
+<a id="__codelineno-1-23" name="__codelineno-1-23" href="#__codelineno-1-23"></a>    <span class="n">params</span><span class="o">=</span><span class="n">Params</span><span class="p">,</span>
+<a id="__codelineno-1-24" name="__codelineno-1-24" href="#__codelineno-1-24"></a>    <span class="n">steps</span><span class="o">=</span><span class="p">[</span>
+<a id="__codelineno-1-25" name="__codelineno-1-25" href="#__codelineno-1-25"></a>        <span class="n">step</span><span class="p">(</span><span class="s2">&quot;hello&quot;</span><span class="p">,</span> <span class="n">fn</span><span class="o">=</span><span class="n">hello</span><span class="p">),</span>
+<a id="__codelineno-1-26" name="__codelineno-1-26" href="#__codelineno-1-26"></a>        <span class="n">step</span><span class="p">(</span><span class="s2">&quot;lowercase&quot;</span><span class="p">,</span> <span class="n">fn</span><span class="o">=</span><span class="n">lowercase</span><span class="p">),</span>
+<a id="__codelineno-1-27" name="__codelineno-1-27" href="#__codelineno-1-27"></a>        <span class="n">step</span><span class="p">(</span><span class="s2">&quot;count_chars&quot;</span><span class="p">,</span> <span class="n">fn</span><span class="o">=</span><span class="n">count_chars</span><span class="p">),</span>
+<a id="__codelineno-1-28" name="__codelineno-1-28" href="#__codelineno-1-28"></a>        <span class="n">step</span><span class="p">(</span><span class="s2">&quot;printer&quot;</span><span class="p">,</span> <span class="n">fn</span><span class="o">=</span><span class="n">printer</span><span class="p">),</span>
+<a id="__codelineno-1-29" name="__codelineno-1-29" href="#__codelineno-1-29"></a>    <span class="p">],</span>
+<a id="__codelineno-1-30" name="__codelineno-1-30" href="#__codelineno-1-30"></a><span class="p">)</span>
+<a id="__codelineno-1-31" name="__codelineno-1-31" href="#__codelineno-1-31"></a>
+<a id="__codelineno-1-32" name="__codelineno-1-32" href="#__codelineno-1-32"></a><span class="n">async_run</span><span class="p">(</span><span class="n">p</span><span class="p">,</span> <span class="n">Params</span><span class="p">(</span><span class="n">message</span><span class="o">=</span><span class="s2">&quot;SynaFlow&quot;</span><span class="p">))</span>
 </code></pre></div>
 </div>
 </div>
 </div>
-<h2 id="custom-materializer-write-to-disk">Custom Materializer: Write to Disk<a class="headerlink" href="#custom-materializer-write-to-disk" title="Permanent link">&para;</a></h2>
-<p>You can replace the default in-memory materializer with a disk-backed one:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">synaflow</span><span class="w"> </span><span class="kn">import</span> <span class="n">pipeline</span><span class="p">,</span> <span class="n">step</span><span class="p">,</span> <span class="n">run</span><span class="p">,</span> <span class="n">disk_materializer</span>
-<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>
-<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="n">p</span> <span class="o">=</span> <span class="n">pipeline</span><span class="p">(</span>
-<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>    <span class="n">name</span><span class="o">=</span><span class="s2">&quot;disk_pipeline&quot;</span><span class="p">,</span>
-<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>    <span class="n">params</span><span class="o">=</span><span class="n">Params</span><span class="p">,</span>
-<a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a>    <span class="n">steps</span><span class="o">=</span><span class="p">[</span>
-<a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a>        <span class="n">step</span><span class="p">(</span><span class="s2">&quot;producer&quot;</span><span class="p">,</span> <span class="n">fn</span><span class="o">=</span><span class="n">producer</span><span class="p">),</span>
-<a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a>        <span class="n">step</span><span class="p">(</span><span class="s2">&quot;consumer&quot;</span><span class="p">,</span> <span class="n">fn</span><span class="o">=</span><span class="n">consumer</span><span class="p">,</span>
-<a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a>             <span class="n">materializer</span><span class="o">=</span><span class="n">disk_materializer</span><span class="p">(</span><span class="n">base_dir</span><span class="o">=</span><span class="s2">&quot;/tmp/data&quot;</span><span class="p">)),</span>
-<a id="__codelineno-3-10" name="__codelineno-3-10" href="#__codelineno-3-10"></a>    <span class="p">],</span>
-<a id="__codelineno-3-11" name="__codelineno-3-11" href="#__codelineno-3-11"></a><span class="p">)</span>
+<p><strong>Output:</strong></p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>  &#39;s&#39; appears 1 time(s)
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>  &#39;y&#39; appears 1 time(s)
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>  &#39;n&#39; appears 1 time(s)
+<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>  &#39;a&#39; appears 1 time(s)
+<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>  &#39;f&#39; appears 1 time(s)
+<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>  &#39;l&#39; appears 1 time(s)
+<a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a>  &#39;o&#39; appears 1 time(s)
+<a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a>  &#39;w&#39; appears 1 time(s)
 </code></pre></div>
-<h2 id="force-materialization">Force Materialization<a class="headerlink" href="#force-materialization" title="Permanent link">&para;</a></h2>
-<p>Use <code>force_materialize=True</code> to materialize a step's output regardless of what consumers ask for:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="n">step</span><span class="p">(</span><span class="s2">&quot;cache&quot;</span><span class="p">,</span> <span class="n">fn</span><span class="o">=</span><span class="n">expensive_computation</span><span class="p">,</span> <span class="n">force_materialize</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<p><strong>The full pipeline in one view:</strong></p>
+<pre class="mermaid"><code>flowchart TD
+    hello["hello&lt;br/&gt;&lt;i&gt;list[str]&lt;/i&gt;"]
+    lowercase["lowercase&lt;br/&gt;&lt;i&gt;ListType(str)&lt;/i&gt;"]
+    count_chars["count_chars&lt;br/&gt;&lt;i&gt;dict[str, int]&lt;/i&gt;"]
+    printer["printer&lt;br/&gt;&lt;i&gt;None&lt;/i&gt;"]
+    message --&gt; hello
+    hello --&gt; lowercase
+    lowercase --&gt; count_chars
+    count_chars --&gt; printer</code></pre>
+<table>
+<thead>
+<tr>
+<th>Step</th>
+<th>Input</th>
+<th>Output</th>
+<th>Mode</th>
+<th>Materializes?</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>hello</code></td>
+<td><code>message: str</code></td>
+<td><code>list[str]</code></td>
+<td>ALL</td>
+<td>No</td>
+</tr>
+<tr>
+<td><code>lowercase</code></td>
+<td><code>hello: str</code></td>
+<td><code>ListType(str)</code></td>
+<td>EACH</td>
+<td>No (auto-collected)</td>
+</tr>
+<tr>
+<td><code>count_chars</code></td>
+<td><code>lowercase: list[str]</code></td>
+<td><code>dict[str, int]</code></td>
+<td>ALL</td>
+<td>Yes (<code>list[str]</code>)</td>
+</tr>
+<tr>
+<td><code>printer</code></td>
+<td><code>count_chars: dict[str, int]</code></td>
+<td><code>None</code></td>
+<td>ALL</td>
+<td>No</td>
+</tr>
+</tbody>
+</table>
+<h3 id="the-complete-dag-json">The complete DAG JSON<a class="headerlink" href="#the-complete-dag-json" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="nb">print</span><span class="p">(</span><span class="n">p</span><span class="o">.</span><span class="n">to_dict</span><span class="p">())</span>
+</code></pre></div>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="p">{</span>
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="w">  </span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;tutorial&quot;</span><span class="p">,</span>
+<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="w">  </span><span class="nt">&quot;params&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">&quot;message&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;str&quot;</span><span class="p">},</span>
+<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="w">  </span><span class="nt">&quot;steps&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="w">    </span><span class="nt">&quot;hello&quot;</span><span class="p">:</span><span class="w">       </span><span class="p">{</span><span class="nt">&quot;deps&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">&quot;message&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;str&quot;</span><span class="p">},</span><span class="w">         </span><span class="nt">&quot;output&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;list[str]&quot;</span><span class="p">},</span>
+<a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a><span class="w">    </span><span class="nt">&quot;lowercase&quot;</span><span class="p">:</span><span class="w">   </span><span class="p">{</span><span class="nt">&quot;deps&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">&quot;hello&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;str&quot;</span><span class="p">},</span><span class="w">           </span><span class="nt">&quot;output&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;ListType(str)&quot;</span><span class="p">},</span>
+<a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a><span class="w">    </span><span class="nt">&quot;count_chars&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">&quot;deps&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">&quot;lowercase&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;list[str]&quot;</span><span class="p">},</span><span class="w"> </span><span class="nt">&quot;output&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;dict[str, int]&quot;</span><span class="p">},</span>
+<a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a><span class="w">    </span><span class="nt">&quot;printer&quot;</span><span class="p">:</span><span class="w">     </span><span class="p">{</span><span class="nt">&quot;deps&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">&quot;count_chars&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;dict[str, int]&quot;</span><span class="p">},</span><span class="w"> </span><span class="nt">&quot;output&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;None&quot;</span><span class="p">}</span>
+<a id="__codelineno-4-9" name="__codelineno-4-9" href="#__codelineno-4-9"></a><span class="w">  </span><span class="p">}</span>
+<a id="__codelineno-4-10" name="__codelineno-4-10" href="#__codelineno-4-10"></a><span class="p">}</span>
 </code></pre></div>
 <h2 id="next">Next<a class="headerlink" href="#next" title="Permanent link">&para;</a></h2>
-<p>Dive deeper into <a href="../../core-concepts/dag-construction/">Core Concepts</a>.</p>
+<p>Dive deeper into <a href="../../core-concepts/dag-construction/">Core Concepts</a>,
+or see the streaming version of this pipeline in <a href="../streaming/">Level 5 — Streaming</a>.</p>
 
 
 
