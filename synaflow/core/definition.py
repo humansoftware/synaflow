@@ -102,7 +102,7 @@ def _validate_no_async_observers(pipeline_def: PipelineDef) -> None:
 
     all_observers: list = list(pipeline_def.dag.pipeline_observers)
     for node in pipeline_def.dag.steps.values():
-        all_observers.extend(getattr(node, "observers", []))
+        all_observers.extend(node.observers)
 
     for obs in all_observers:
         handler = obs.handler

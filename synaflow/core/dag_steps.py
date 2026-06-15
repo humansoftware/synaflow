@@ -62,11 +62,11 @@ def validate_and_compile_step(
         on_error=step.on_error,
         mode=mode,
         materializer=step.materializer,
-        error_materializer=getattr(step, "error_materializer", None),
+        error_materializer=step.error_materializer,
         each_mode_deps=each_mode_deps,
         force_materialize=step.force_materialize,
         pipeline=step.pipeline or pipeline_name,
-        parent_pipeline=getattr(step, "parent_pipeline", None),
+        parent_pipeline=step.parent_pipeline,
         observers=observers or [],
         dataset_param_names=dataset_param_names,
     )

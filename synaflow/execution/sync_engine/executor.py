@@ -122,7 +122,12 @@ class PipelineExecutor:
     # Lifecycle observer dispatch helpers
     # ------------------------------------------------------------------
 
-    def _dispatch_pipeline_event(self, event: PipelineEvent, **kw: Any) -> None:
+    def _dispatch_pipeline_event(
+        self,
+        event: PipelineEvent,
+        step_name: str | None = None,
+        exception: BaseException | None = None,
+    ) -> None:
         registrations = self.dag.pipeline_observers
         if not registrations:
             return
@@ -135,8 +140,8 @@ class PipelineExecutor:
             ctx = PipelineFailedContext(
                 pipeline_name=self.dag.name,
                 event=event,
-                step_name=kw.get("step_name"),
-                exception=kw.get("exception"),
+                step_name=step_name,
+                exception=exception,
             )
         else:
             return
@@ -147,9 +152,12 @@ class PipelineExecutor:
         node: Any,
         event: StepEvent,
         step_name: str,
-        **kw: Any,
+        success_count: int = 0,
+        error_count: int = 0,
+        completed_all_inputs: bool = True,
+        exception: BaseException | None = None,
     ) -> None:
-        registrations = getattr(node, "observers", None) or []
+        registrations = node.observers
         if not registrations:
             return
         ctx: Any
@@ -168,9 +176,9 @@ class PipelineExecutor:
                 step_name=step_name,
                 mode=node.mode,
                 on_error=node.on_error,
-                success_count=kw.get("success_count", 0),
-                error_count=kw.get("error_count", 0),
-                completed_all_inputs=kw.get("completed_all_inputs", True),
+                success_count=success_count,
+                error_count=error_count,
+                completed_all_inputs=completed_all_inputs,
             )
         elif event is StepEvent.FAILED:
             ctx = StepFailedContext(
@@ -179,10 +187,10 @@ class PipelineExecutor:
                 step_name=step_name,
                 mode=node.mode,
                 on_error=node.on_error,
-                success_count=kw.get("success_count", 0),
-                error_count=kw.get("error_count", 0),
-                completed_all_inputs=kw.get("completed_all_inputs", False),
-                exception=kw.get("exception"),
+                success_count=success_count,
+                error_count=error_count,
+                completed_all_inputs=completed_all_inputs,
+                exception=exception,
             )
         else:
             return
@@ -195,9 +203,9 @@ class PipelineExecutor:
         event: MaterializationEvent,
         consumer_type: Any = None,
         materializer_name: str | None = None,
-        **kw: Any,
+        exception: BaseException | None = None,
     ) -> None:
-        registrations = getattr(node, "observers", None) or []
+        registrations = node.observers
         if not registrations:
             return
         ctx: Any
@@ -227,7 +235,7 @@ class PipelineExecutor:
                 dataset_name=step_name,
                 consumer_type=consumer_type,
                 materializer_name=materializer_name,
-                exception=kw.get("exception"),
+                exception=exception,
             )
         else:
             return
