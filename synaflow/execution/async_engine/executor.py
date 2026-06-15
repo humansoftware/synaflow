@@ -27,14 +27,9 @@ from synaflow.core.types import (
     OnError,
     StepMode,
 )
+
 from .constants import EOF_MARKER
 from .iterator_utils import queue_to_async_gen
-
-
-def _output_key(dag: Dag, producer: str, consumer: str) -> str:
-    if len(dag.consumers_of(producer)) > 1:
-        return f"{producer}__{consumer}"
-    return producer
 
 
 # ---------------------------------------------------------------------------
@@ -84,7 +79,7 @@ async def _apply_materializer(
         MaterializeContext(
             pipeline_name=dag.name,
             dataset_name=step_name,
-            item_type=node.get("output"),
+            item_type=node.output,
             consumer_type=consumer_type,
         )
     )
@@ -411,7 +406,7 @@ class AsyncPipelineExecutor:
         try:
             output = await self._execute_step(step_name, node, arguments, unrolled)
             await self._emit_immediate_completion(step_name, node, output, unrolled)
-            if self._should_publish_output(step_name):
+            if not self.dag.is_hidden_step(step_name):
                 await self._publish_output(step_name, output, node)
         except PipelineStopException as exc:
             await self._dispatch_step_failure(node, step_name, exc.cause or exc)
@@ -455,9 +450,6 @@ class AsyncPipelineExecutor:
             exception=cause,
         )
 
-    def _should_publish_output(self, step_name):
-        return not step_name.startswith("_")
-
     async def _call_fn(self, fn: Any, kwargs: dict) -> Any:
         if inspect.iscoroutinefunction(fn):
             return await fn(**kwargs)
@@ -466,7 +458,7 @@ class AsyncPipelineExecutor:
     async def _unroll_step(self, step_name, node, base_args, unrolled):
         queues = {}
         for dep in unrolled:
-            key = _output_key(self.dag, dep, step_name)
+            key = self.dag.output_key(dep, step_name)
             value = self.outputs.get(key, self.outputs.get(dep))
             if isinstance(value, asyncio.Queue):
                 queues[dep] = value
@@ -511,19 +503,16 @@ class AsyncPipelineExecutor:
                             step_name=step_name, cause=exc
                         ) from exc
 
-        if self._is_terminal(step_name):
+        if self.dag.is_terminal_step(step_name):
             async for _ in generate():
                 pass
             return None
         return generate()
 
-    def _is_terminal(self, step_name):
-        return step_name.startswith("_") or not self.dag.consumers_of(step_name)
-
     async def _build_arguments(self, consumer, node, unrolled):
         args = {}
         for dep_name in node.deps:
-            key = _output_key(self.dag, dep_name, consumer)
+            key = self.dag.output_key(dep_name, consumer)
             value = self.outputs.get(key, self.outputs.get(dep_name))
             if isinstance(value, asyncio.Queue) and dep_name not in unrolled:
                 dep_type = node.deps.get(dep_name)
@@ -627,7 +616,7 @@ class AsyncPipelineExecutor:
             step_name, output, node, consumer_type=consumer_type
         )
         for consumer in consumers:
-            self.outputs[_output_key(self.dag, step_name, consumer)] = items
+            self.outputs[self.dag.output_key(step_name, consumer)] = items
         self._notify_observers(step_name, items)
         if deferred:
             await self._emit_step_result(node, step_name, items, had_error, exc)
@@ -644,7 +633,7 @@ class AsyncPipelineExecutor:
         items, had_error, exc = await self._materialize_with_events(
             step_name, output, node, consumer_type=consumer_type
         )
-        self.outputs[_output_key(self.dag, step_name, consumer)] = items
+        self.outputs[self.dag.output_key(step_name, consumer)] = items
         self._notify_observers(step_name, items)
         if deferred:
             await self._emit_step_result(node, step_name, items, had_error, exc)
@@ -669,7 +658,7 @@ class AsyncPipelineExecutor:
     ):
         queues = {consumer: asyncio.Queue(maxsize=100) for consumer in consumers}
         for consumer, queue in queues.items():
-            self.outputs[_output_key(self.dag, step_name, consumer)] = queue
+            self.outputs[self.dag.output_key(step_name, consumer)] = queue
         self._register_observer_pumps(step_name, queues)
         task = asyncio.create_task(
             _pump_iterator(

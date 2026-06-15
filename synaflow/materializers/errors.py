@@ -1,7 +1,9 @@
 import traceback
 from pathlib import Path
 from typing import Any
+
 from synaflow.core.types import ErrorMaterializeContext, ErrorRecord
+from synaflow.serializers import csv_serializer, json_serializer
 
 from synaflow.core.dag_builder import log_error_materializer_factory
 
@@ -15,8 +17,6 @@ def disk_error_materializer(
     serializer: Any,
     file_name: str | None = None,
 ):
-    from synaflow.serializers import json_serializer, csv_serializer
-
     if serializer in (json_serializer, csv_serializer):
         raise ValueError(
             f"disk_error_materializer does not support '{serializer.__class__.__name__}'. "

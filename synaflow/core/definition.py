@@ -1,21 +1,10 @@
+import inspect
 from dataclasses import dataclass, field
 from typing import Any, Callable
 
 from synaflow.core.dag import Dag
 from synaflow.core.observers import Observer
 from synaflow.core.types import OnError, StepMode, StepParams
-
-
-def _get_default_factory():
-    from synaflow.core.dag_builder import memory_materializer_factory
-
-    return memory_materializer_factory
-
-
-def _get_default_error_factory():
-    from synaflow.core.dag_builder import log_error_materializer_factory
-
-    return log_error_materializer_factory
 
 
 @dataclass
@@ -98,8 +87,6 @@ include = IncludeStep
 
 
 def _validate_no_async_observers(pipeline_def: PipelineDef) -> None:
-    import inspect
-
     all_observers: list = list(pipeline_def.dag.pipeline_observers)
     for node in pipeline_def.dag.steps.values():
         all_observers.extend(node.observers)
