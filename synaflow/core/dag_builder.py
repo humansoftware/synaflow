@@ -127,6 +127,7 @@ def _validate_params_is_namedtuple(params: Any, pipeline_name: str) -> None:
             f"Pipeline '{pipeline_name}': 'params' must be a NamedTuple, got {type(params).__name__}"
         )
 
+
 def _validate_materializer_factory(name: str, mat: Any, is_error: bool = False) -> None:
     if mat is None:
         return

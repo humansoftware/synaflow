@@ -50,7 +50,9 @@ def test_step_uses_distinct_observer_lists_by_default():
 
 def test_pipeline_uses_distinct_observer_lists_by_default():
     first = PipelineDef(name="p1", params=Params, steps=[step("a", fn=lambda x: x + 1)])
-    second = PipelineDef(name="p2", params=Params, steps=[step("a", fn=lambda x: x + 1)])
+    second = PipelineDef(
+        name="p2", params=Params, steps=[step("a", fn=lambda x: x + 1)]
+    )
 
     first.observers.append(Observer(_make_handler("first")))
 
