@@ -8,6 +8,7 @@ from synaflow import (
     pipeline,
     step,
 )
+from synaflow.core.definition import PipelineDef, Step
 from synaflow.core.dag import _serialize_observers, _serialize_pipeline_observers
 from synaflow.core.observers import ResolvedObserver
 
@@ -35,6 +36,26 @@ def _make_async_handler(name="async_handler"):
 
     handler.__name__ = name
     return handler
+
+
+def test_step_uses_distinct_observer_lists_by_default():
+    first = Step(name="a", fn=lambda: None)
+    second = Step(name="b", fn=lambda: None)
+
+    first.observers.append(Observer(_make_handler("first")))
+
+    assert len(first.observers) == 1
+    assert second.observers == []
+
+
+def test_pipeline_uses_distinct_observer_lists_by_default():
+    first = PipelineDef(name="p1", params=Params, steps=[step("a", fn=lambda x: x + 1)])
+    second = PipelineDef(name="p2", params=Params, steps=[step("a", fn=lambda x: x + 1)])
+
+    first.observers.append(Observer(_make_handler("first")))
+
+    assert len(first.observers) == 1
+    assert second.observers == []
 
 
 # ---------------------------------------------------------------------------

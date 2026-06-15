@@ -21,6 +21,16 @@ def expand_macros(
     return expanded
 
 
+def _resolve_include_observers(
+    pipeline_observers: list,
+    step_observers: list,
+) -> list[ResolvedObserver]:
+    return [
+        ResolvedObserver(handler=obs.handler, source="pipeline")
+        for obs in pipeline_observers
+    ] + [ResolvedObserver(handler=obs.handler, source="step") for obs in step_observers]
+
+
 def _expand_include(
     include_step: IncludeStep,
     current_pipeline_name: str | None = None,
@@ -73,9 +83,9 @@ def _expand_include(
 
     expanded = [adapter_step]
 
-    sub_pipeline_mat = getattr(sub_pipeline, "materializer", None)
-    sub_pipeline_err = getattr(sub_pipeline, "error_materializer", None)
-    sub_pipeline_obs = getattr(sub_pipeline, "observers", None) or []
+    sub_pipeline_mat = sub_pipeline.materializer
+    sub_pipeline_err = sub_pipeline.error_materializer
+    sub_pipeline_obs = sub_pipeline.observers
 
     # 2. Extract the sub-pipeline's parameter fields
     if hasattr(sub_pipeline.params, "_fields"):
@@ -100,13 +110,10 @@ def _expand_include(
         is_exported = sub_step.name == sub_pipeline.exports
         new_name = prefix if is_exported else f"{prefix}__{sub_step.name}"
 
-        sub_step_obs = getattr(sub_step, "observers", None) or []
-        effective_obs = [
-            ResolvedObserver(handler=obs.handler, source="pipeline")
-            for obs in sub_pipeline_obs
-        ] + [
-            ResolvedObserver(handler=obs.handler, source="step") for obs in sub_step_obs
-        ]
+        effective_obs = _resolve_include_observers(
+            sub_pipeline_obs,
+            sub_step.observers,
+        )
         expanded.append(
             Step(
                 name=new_name,
@@ -115,12 +122,11 @@ def _expand_include(
                 mode=sub_step.mode,
                 params=sub_step.params,
                 materializer=sub_step.materializer or sub_pipeline_mat,
-                error_materializer=getattr(sub_step, "error_materializer", None)
-                or sub_pipeline_err,
+                error_materializer=sub_step.error_materializer or sub_pipeline_err,
                 description=sub_step.description,
                 pipeline=sub_pipeline.name,
                 parent_pipeline=new_parent_chain,
-                observers=effective_obs if effective_obs else None,
+                observers=effective_obs,
             )
         )
 

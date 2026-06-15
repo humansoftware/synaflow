@@ -16,6 +16,7 @@ Also exports the global default factories:
 All functions are stateless — no classes, no self.
 """
 
+import inspect
 import logging
 import traceback
 import types as _types
@@ -126,10 +127,6 @@ def _validate_params_is_namedtuple(params: Any, pipeline_name: str) -> None:
             f"Pipeline '{pipeline_name}': 'params' must be a NamedTuple, got {type(params).__name__}"
         )
 
-
-import inspect
-
-
 def _validate_materializer_factory(name: str, mat: Any, is_error: bool = False) -> None:
     if mat is None:
         return
@@ -161,6 +158,34 @@ def _validate_materializer_factory(name: str, mat: Any, is_error: bool = False) 
             f"Node '{name}': {label} factory must accept at least one argument (context). "
             f"If you want to use a direct callable, wrap it using {helper}(...)."
         )
+
+
+def _validate_declared_step_names(steps: list[Any], pipeline_name: str) -> None:
+    for step in steps:
+        if hasattr(step, "name"):
+            validate_unique_step_name(step.name, {}, pipeline_name)
+
+
+def _resolve_pipeline_observers(
+    pipeline_observers: list[Observer],
+) -> list[ResolvedObserver]:
+    return [
+        ResolvedObserver(handler=observer.handler, source="pipeline")
+        for observer in pipeline_observers
+    ]
+
+
+def _resolve_step_observers(
+    pipeline_observers: list[ResolvedObserver],
+    step_observers: list[Observer | ResolvedObserver],
+) -> list[ResolvedObserver]:
+    resolved = list(pipeline_observers)
+    for observer in step_observers:
+        if isinstance(observer, ResolvedObserver):
+            resolved.append(observer)
+            continue
+        resolved.append(ResolvedObserver(handler=observer.handler, source="step"))
+    return resolved
 
 
 def _resolve_materializers(
@@ -236,18 +261,13 @@ def build_dag(
 
     from synaflow.core.dag_expansion import expand_macros
 
-    for step in steps:
-        if hasattr(step, "name"):
-            validate_unique_step_name(step.name, {}, pipeline_name)
+    _validate_declared_step_names(steps, pipeline_name)
 
     expanded_steps = expand_macros(steps, current_pipeline_name=pipeline_name)
 
     validate_no_duplicate_base_datasets(expanded_steps, pipeline_name)
 
-    pipeline_obs_resolved = [
-        ResolvedObserver(handler=obs.handler, source="pipeline")
-        for obs in (pipeline_observers or [])
-    ]
+    pipeline_obs_resolved = _resolve_pipeline_observers(pipeline_observers or [])
 
     produced = initialize_parameters(params)
 
@@ -255,19 +275,11 @@ def build_dag(
         validate_step_is_callable(step, pipeline_name)
         validate_unique_step_name(step.name, dag, pipeline_name, is_expanded=True)
 
-        effective = list(pipeline_obs_resolved)
-        step_own = step.observers
-        if step_own:
-            for obs in step_own:
-                if isinstance(obs, ResolvedObserver):
-                    effective.append(obs)
-                else:
-                    effective.append(
-                        ResolvedObserver(handler=obs.handler, source="step")
-                    )
-
         compiled_step = validate_and_compile_step(
-            step, produced, pipeline_name, observers=effective
+            step,
+            produced,
+            pipeline_name,
+            observers=_resolve_step_observers(pipeline_obs_resolved, step.observers),
         )
         dag[step.name] = compiled_step
         produced[step.name] = compiled_step
