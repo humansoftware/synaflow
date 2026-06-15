@@ -301,6 +301,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#how-it-fits-together" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        How it fits together
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#the-problems-synaflow-solves" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -384,10 +395,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#next-steps" class="md-nav__link">
+  <a href="#start-building-in-5-minutes" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Next Steps
+        Start building in 5 minutes
       
     </span>
   </a>
@@ -1333,6 +1344,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#how-it-fits-together" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        How it fits together
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#the-problems-synaflow-solves" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1416,10 +1438,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#next-steps" class="md-nav__link">
+  <a href="#start-building-in-5-minutes" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Next Steps
+        Start building in 5 minutes
       
     </span>
   </a>
@@ -1448,6 +1470,9 @@
 
 <h1 id="synaflow">SynaFlow 🌊🧠<a class="headerlink" href="#synaflow" title="Permanent link">&para;</a></h1>
 <p><strong>Write plain Python functions. SynaFlow builds the pipeline for you.</strong></p>
+<p><a href="https://pypi.org/project/synaflow/"><img alt="PyPI" src="https://img.shields.io/pypi/v/synaflow?color=blue" /></a>
+<a href="https://github.com/humansoftware/synaflow/blob/main/LICENSE"><img alt="License" src="https://img.shields.io/github/license/humansoftware/synaflow" /></a>
+<a href="https://pypi.org/project/synaflow/"><img alt="Python" src="https://img.shields.io/pypi/pyversions/synaflow" /></a></p>
 <p>No <code>&gt;&gt;</code> operators. No manual DAG. No <code>tee</code> boilerplate. Just type hints and
 function names — SynaFlow reads your signatures and wires everything
 automatically, streaming data in lockstep with zero memory overhead.</p>
@@ -1636,6 +1661,31 @@ All in under 30 lines of user code.</p>
 <p>No <code>tee</code>, no <code>list()</code> wrapping, no manual wiring. Five steps, six type hints,
 zero boilerplate.</p>
 <hr />
+<h2 id="how-it-fits-together">How it fits together<a class="headerlink" href="#how-it-fits-together" title="Permanent link">&para;</a></h2>
+<pre class="mermaid"><code>flowchart TD
+    subgraph build["Build-time (once)"]
+        direction LR
+        code["Your functions&lt;br/&gt;+ type hints"] --&gt; dag["Compiled DAG&lt;br/&gt;(validated, typed)"]
+        dag --&gt; json["DAG JSON&lt;br/&gt;(exportable contract)"]
+    end
+    subgraph run["Run-time (any runner)"]
+        direction LR
+        sync["Sync runner&lt;br/&gt;(in-process)"]
+        async["Async runner&lt;br/&gt;(asyncio)"]
+        external["Airflow / Prefect&lt;br/&gt;Dagster / Custom"]
+    end
+    json --&gt; sync
+    json --&gt; async
+    json --&gt; external
+    build ~~~ run</code></pre>
+<ol>
+<li><strong>You write plain Python functions</strong> with type hints. That's all.</li>
+<li><strong>SynaFlow compiles a validated DAG</strong> at build time — types checked, modes resolved, materializers assigned.</li>
+<li><strong>The DAG JSON is the contract</strong> — deterministic, serializable, portable.</li>
+<li><strong>Any runner executes it</strong> — in-process sync, in-process async, or export to Airflow/Prefect/Dagster.
+   Same pipeline definition, zero code changes.</li>
+</ol>
+<hr />
 <h2 id="the-problems-synaflow-solves">The problems SynaFlow solves<a class="headerlink" href="#the-problems-synaflow-solves" title="Permanent link">&para;</a></h2>
 <h3 id="1-explicit-wiring">1. Explicit wiring<a class="headerlink" href="#1-explicit-wiring" title="Permanent link">&para;</a></h3>
 <p>Without SynaFlow, you'd write:</p>
@@ -1797,12 +1847,29 @@ See <a href="advanced/export-guidance/">Export Guidance</a>.</p>
 <p>For detailed comparisons: <a href="comparisons/hamilton/">SynaFlow vs Hamilton</a> ·
 <a href="comparisons/java-streams/">Java Streams</a> · <a href="comparisons/linq/">LINQ</a></p>
 <hr />
-<h2 id="next-steps">Next Steps<a class="headerlink" href="#next-steps" title="Permanent link">&para;</a></h2>
-<ul>
-<li><a href="getting-started/installation/">Install</a> and run the example above</li>
-<li>Follow the <a href="tutorial/hello-world/">step-by-step tutorial</a></li>
-<li>Understand <a href="core-concepts/how-dag-is-wired/">how the DAG is wired</a></li>
-</ul>
+<h2 id="start-building-in-5-minutes">Start building in 5 minutes<a class="headerlink" href="#start-building-in-5-minutes" title="Permanent link">&para;</a></h2>
+<div style="display:flex;gap:1em;flex-wrap:wrap;margin:1.5em 0">
+<div style="flex:1;min-width:200px;background:#24283b;border-radius:8px;padding:1.2em;text-align:center">
+<div style="font-size:1.8em;margin-bottom:0.3em">📦</div>
+<div style="font-weight:bold;color:#7dcfff;margin-bottom:0.5em">Install</div>
+<code style="font-size:0.9em">pip install synaflow</code>
+</div>
+<div style="flex:1;min-width:200px;background:#24283b;border-radius:8px;padding:1.2em;text-align:center">
+<div style="font-size:1.8em;margin-bottom:0.3em">📖</div>
+<div style="font-weight:bold;color:#7dcfff;margin-bottom:0.5em">Tutorial</div>
+<a href="tutorial/hello-world/" style="font-size:0.9em">Build your first pipeline</a>
+</div>
+<div style="flex:1;min-width:200px;background:#24283b;border-radius:8px;padding:1.2em;text-align:center">
+<div style="font-size:1.8em;margin-bottom:0.3em">🧠</div>
+<div style="font-weight:bold;color:#7dcfff;margin-bottom:0.5em">Understand</div>
+<a href="core-concepts/how-dag-is-wired/" style="font-size:0.9em">How the DAG is wired</a>
+</div>
+<div style="flex:1;min-width:200px;background:#24283b;border-radius:8px;padding:1.2em;text-align:center">
+<div style="font-size:1.8em;margin-bottom:0.3em">📊</div>
+<div style="font-weight:bold;color:#7dcfff;margin-bottom:0.5em">Examples</div>
+<a href="core-concepts/examples/" style="font-size:0.9em">All corpus pipelines</a>
+</div>
+</div>
 
 
 
