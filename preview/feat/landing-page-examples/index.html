@@ -290,33 +290,22 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#why-synaflow" class="md-nav__link">
+  <a href="#the-two-problems-synaflow-solves" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Why SynaFlow?
+        The two problems SynaFlow solves
       
     </span>
   </a>
   
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#what-makes-it-different" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        What makes it different
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="What makes it different">
+    <nav class="md-nav" aria-label="The two problems SynaFlow solves">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#type-hint-wiring" class="md-nav__link">
+  <a href="#1-explicit-wiring" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Type-hint wiring
+        1. Explicit wiring
       
     </span>
   </a>
@@ -324,10 +313,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#lazy-streaming-with-zero-boilerplate" class="md-nav__link">
+  <a href="#2-memory-explosions" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Lazy streaming with zero boilerplate
+        2. Memory explosions
       
     </span>
   </a>
@@ -336,6 +325,17 @@
         
       </ul>
     </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#who-is-this-for" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Who is this for?
+      
+    </span>
+  </a>
   
 </li>
       
@@ -1289,33 +1289,22 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#why-synaflow" class="md-nav__link">
+  <a href="#the-two-problems-synaflow-solves" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Why SynaFlow?
+        The two problems SynaFlow solves
       
     </span>
   </a>
   
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#what-makes-it-different" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        What makes it different
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="What makes it different">
+    <nav class="md-nav" aria-label="The two problems SynaFlow solves">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#type-hint-wiring" class="md-nav__link">
+  <a href="#1-explicit-wiring" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Type-hint wiring
+        1. Explicit wiring
       
     </span>
   </a>
@@ -1323,10 +1312,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#lazy-streaming-with-zero-boilerplate" class="md-nav__link">
+  <a href="#2-memory-explosions" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Lazy streaming with zero boilerplate
+        2. Memory explosions
       
     </span>
   </a>
@@ -1335,6 +1324,17 @@
         
       </ul>
     </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#who-is-this-for" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Who is this for?
+      
+    </span>
+  </a>
   
 </li>
       
@@ -1381,111 +1381,136 @@
 
 
 <h1 id="synaflow">SynaFlow 🌊🧠<a class="headerlink" href="#synaflow" title="Permanent link">&para;</a></h1>
-<p><strong>SynaFlow</strong> is a lightweight, pure-Python pipeline engine that uses <strong>Type Hints</strong> to magically wire and execute Directed Acyclic Graphs (DAGs).</p>
+<p><strong>Write plain Python functions. SynaFlow builds the pipeline for you.</strong></p>
+<p>No <code>&gt;&gt;</code> operators. No manual DAG. No <code>tee</code> boilerplate. Just type hints and
+function names — SynaFlow reads your signatures and wires everything
+automatically, streaming data in lockstep with zero memory overhead.</p>
+<pre class="mermaid"><code>flowchart LR
+    producer["producer&lt;br/&gt;Stream[int]"]
+    transformer["transformer&lt;br/&gt;Stream[int]"]
+    consumer["consumer&lt;br/&gt;None"]
+    count --&gt; producer
+    producer --&gt; transformer
+    transformer --&gt; consumer</code></pre>
 <div class="tabbed-set tabbed-alternate" data-tabs="1:2"><input checked="checked" id="__tabbed_1_1" name="__tabbed_1" type="radio" /><input id="__tabbed_1_2" name="__tabbed_1" type="radio" /><div class="tabbed-labels"><label for="__tabbed_1_1">Sync</label><label for="__tabbed_1_2">Async</label></div>
 <div class="tabbed-content">
 <div class="tabbed-block">
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">collections.abc</span><span class="w"> </span><span class="kn">import</span> <span class="n">Generator</span><span class="p">,</span> <span class="n">Iterator</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">synaflow</span><span class="w"> </span><span class="kn">import</span> <span class="n">pipeline</span><span class="p">,</span> <span class="n">step</span><span class="p">,</span> <span class="n">run</span>
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>
-<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="k">class</span><span class="w"> </span><span class="nc">Params</span><span class="p">(</span><span class="n">NamedTuple</span><span class="p">):</span>
-<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>    <span class="n">count</span><span class="p">:</span> <span class="nb">int</span>
-<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>
-<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="k">def</span><span class="w"> </span><span class="nf">producer</span><span class="p">(</span><span class="n">count</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Generator</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">]:</span>
-<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>    <span class="k">yield from</span> <span class="nb">range</span><span class="p">(</span><span class="n">count</span><span class="p">)</span>
-<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>
-<a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a><span class="k">def</span><span class="w"> </span><span class="nf">transformer</span><span class="p">(</span><span class="n">producer</span><span class="p">:</span> <span class="n">Iterator</span><span class="p">[</span><span class="nb">int</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">Generator</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">]:</span>
-<a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>    <span class="k">for</span> <span class="n">val</span> <span class="ow">in</span> <span class="n">producer</span><span class="p">:</span>
-<a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a>        <span class="k">yield</span> <span class="n">val</span> <span class="o">*</span> <span class="mi">10</span>
-<a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a>
-<a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a><span class="k">def</span><span class="w"> </span><span class="nf">consumer</span><span class="p">(</span><span class="n">transformer</span><span class="p">:</span> <span class="n">Iterator</span><span class="p">[</span><span class="nb">int</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a>    <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">transformer</span><span class="p">:</span>
-<a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a>        <span class="nb">print</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
-<a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a>
-<a id="__codelineno-0-18" name="__codelineno-0-18" href="#__codelineno-0-18"></a><span class="n">p</span> <span class="o">=</span> <span class="n">pipeline</span><span class="p">(</span>
-<a id="__codelineno-0-19" name="__codelineno-0-19" href="#__codelineno-0-19"></a>    <span class="n">name</span><span class="o">=</span><span class="s2">&quot;example&quot;</span><span class="p">,</span>
-<a id="__codelineno-0-20" name="__codelineno-0-20" href="#__codelineno-0-20"></a>    <span class="n">params</span><span class="o">=</span><span class="n">Params</span><span class="p">,</span>
-<a id="__codelineno-0-21" name="__codelineno-0-21" href="#__codelineno-0-21"></a>    <span class="n">steps</span><span class="o">=</span><span class="p">[</span>
-<a id="__codelineno-0-22" name="__codelineno-0-22" href="#__codelineno-0-22"></a>        <span class="n">step</span><span class="p">(</span><span class="s2">&quot;producer&quot;</span><span class="p">,</span> <span class="n">fn</span><span class="o">=</span><span class="n">producer</span><span class="p">),</span>
-<a id="__codelineno-0-23" name="__codelineno-0-23" href="#__codelineno-0-23"></a>        <span class="n">step</span><span class="p">(</span><span class="s2">&quot;transformer&quot;</span><span class="p">,</span> <span class="n">fn</span><span class="o">=</span><span class="n">transformer</span><span class="p">),</span>
-<a id="__codelineno-0-24" name="__codelineno-0-24" href="#__codelineno-0-24"></a>        <span class="n">step</span><span class="p">(</span><span class="s2">&quot;consumer&quot;</span><span class="p">,</span> <span class="n">fn</span><span class="o">=</span><span class="n">consumer</span><span class="p">),</span>
-<a id="__codelineno-0-25" name="__codelineno-0-25" href="#__codelineno-0-25"></a>    <span class="p">],</span>
-<a id="__codelineno-0-26" name="__codelineno-0-26" href="#__codelineno-0-26"></a><span class="p">)</span>
-<a id="__codelineno-0-27" name="__codelineno-0-27" href="#__codelineno-0-27"></a>
-<a id="__codelineno-0-28" name="__codelineno-0-28" href="#__codelineno-0-28"></a><span class="n">run</span><span class="p">(</span><span class="n">p</span><span class="p">,</span> <span class="n">Params</span><span class="p">(</span><span class="n">count</span><span class="o">=</span><span class="mi">5</span><span class="p">))</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">NamedTuple</span>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="kn">from</span><span class="w"> </span><span class="nn">synaflow</span><span class="w"> </span><span class="kn">import</span> <span class="n">pipeline</span><span class="p">,</span> <span class="n">step</span><span class="p">,</span> <span class="n">run</span>
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="k">class</span><span class="w"> </span><span class="nc">Params</span><span class="p">(</span><span class="n">NamedTuple</span><span class="p">):</span>
+<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>    <span class="n">count</span><span class="p">:</span> <span class="nb">int</span>
+<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>
+<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="k">def</span><span class="w"> </span><span class="nf">producer</span><span class="p">(</span><span class="n">count</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Generator</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">]:</span>
+<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>    <span class="k">yield from</span> <span class="nb">range</span><span class="p">(</span><span class="n">count</span><span class="p">)</span>
+<a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>
+<a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a><span class="k">def</span><span class="w"> </span><span class="nf">transformer</span><span class="p">(</span><span class="n">producer</span><span class="p">:</span> <span class="n">Iterator</span><span class="p">[</span><span class="nb">int</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">Generator</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">]:</span>
+<a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a>    <span class="k">for</span> <span class="n">val</span> <span class="ow">in</span> <span class="n">producer</span><span class="p">:</span>
+<a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a>        <span class="k">yield</span> <span class="n">val</span> <span class="o">*</span> <span class="mi">10</span>
+<a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a>
+<a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a><span class="k">def</span><span class="w"> </span><span class="nf">consumer</span><span class="p">(</span><span class="n">transformer</span><span class="p">:</span> <span class="n">Iterator</span><span class="p">[</span><span class="nb">int</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a>    <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">transformer</span><span class="p">:</span>
+<a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a>        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Consumed: </span><span class="si">{</span><span class="n">x</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<a id="__codelineno-0-18" name="__codelineno-0-18" href="#__codelineno-0-18"></a>
+<a id="__codelineno-0-19" name="__codelineno-0-19" href="#__codelineno-0-19"></a><span class="n">p</span> <span class="o">=</span> <span class="n">pipeline</span><span class="p">(</span>
+<a id="__codelineno-0-20" name="__codelineno-0-20" href="#__codelineno-0-20"></a>    <span class="n">name</span><span class="o">=</span><span class="s2">&quot;example&quot;</span><span class="p">,</span>
+<a id="__codelineno-0-21" name="__codelineno-0-21" href="#__codelineno-0-21"></a>    <span class="n">params</span><span class="o">=</span><span class="n">Params</span><span class="p">,</span>
+<a id="__codelineno-0-22" name="__codelineno-0-22" href="#__codelineno-0-22"></a>    <span class="n">steps</span><span class="o">=</span><span class="p">[</span>
+<a id="__codelineno-0-23" name="__codelineno-0-23" href="#__codelineno-0-23"></a>        <span class="n">step</span><span class="p">(</span><span class="s2">&quot;producer&quot;</span><span class="p">,</span> <span class="n">fn</span><span class="o">=</span><span class="n">producer</span><span class="p">),</span>
+<a id="__codelineno-0-24" name="__codelineno-0-24" href="#__codelineno-0-24"></a>        <span class="n">step</span><span class="p">(</span><span class="s2">&quot;transformer&quot;</span><span class="p">,</span> <span class="n">fn</span><span class="o">=</span><span class="n">transformer</span><span class="p">),</span>
+<a id="__codelineno-0-25" name="__codelineno-0-25" href="#__codelineno-0-25"></a>        <span class="n">step</span><span class="p">(</span><span class="s2">&quot;consumer&quot;</span><span class="p">,</span> <span class="n">fn</span><span class="o">=</span><span class="n">consumer</span><span class="p">),</span>
+<a id="__codelineno-0-26" name="__codelineno-0-26" href="#__codelineno-0-26"></a>    <span class="p">],</span>
+<a id="__codelineno-0-27" name="__codelineno-0-27" href="#__codelineno-0-27"></a><span class="p">)</span>
+<a id="__codelineno-0-28" name="__codelineno-0-28" href="#__codelineno-0-28"></a>
+<a id="__codelineno-0-29" name="__codelineno-0-29" href="#__codelineno-0-29"></a><span class="n">run</span><span class="p">(</span><span class="n">p</span><span class="p">,</span> <span class="n">Params</span><span class="p">(</span><span class="n">count</span><span class="o">=</span><span class="mi">5</span><span class="p">))</span>
 </code></pre></div>
+<p><strong>Output:</strong> <code>Consumed: 0</code> · <code>Consumed: 10</code> · <code>Consumed: 20</code> · <code>Consumed: 30</code> · <code>Consumed: 40</code></p>
 </div>
 <div class="tabbed-block">
 <div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">collections.abc</span><span class="w"> </span><span class="kn">import</span> <span class="n">AsyncGenerator</span><span class="p">,</span> <span class="n">AsyncIterator</span>
-<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">synaflow</span><span class="w"> </span><span class="kn">import</span> <span class="n">pipeline</span><span class="p">,</span> <span class="n">step</span><span class="p">,</span> <span class="n">async_run</span>
-<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>
-<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="k">class</span><span class="w"> </span><span class="nc">Params</span><span class="p">(</span><span class="n">NamedTuple</span><span class="p">):</span>
-<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>    <span class="n">count</span><span class="p">:</span> <span class="nb">int</span>
-<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>
-<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">producer</span><span class="p">(</span><span class="n">count</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">AsyncGenerator</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="kc">None</span><span class="p">]:</span>
-<a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a>    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">count</span><span class="p">):</span>
-<a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a>        <span class="k">yield</span> <span class="n">i</span>
-<a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a>
-<a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">transformer</span><span class="p">(</span><span class="n">producer</span><span class="p">:</span> <span class="n">AsyncIterator</span><span class="p">[</span><span class="nb">int</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">AsyncGenerator</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="kc">None</span><span class="p">]:</span>
-<a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a>    <span class="k">async</span> <span class="k">for</span> <span class="n">val</span> <span class="ow">in</span> <span class="n">producer</span><span class="p">:</span>
-<a id="__codelineno-1-13" name="__codelineno-1-13" href="#__codelineno-1-13"></a>        <span class="k">yield</span> <span class="n">val</span> <span class="o">*</span> <span class="mi">10</span>
-<a id="__codelineno-1-14" name="__codelineno-1-14" href="#__codelineno-1-14"></a>
-<a id="__codelineno-1-15" name="__codelineno-1-15" href="#__codelineno-1-15"></a><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">consumer</span><span class="p">(</span><span class="n">transformer</span><span class="p">:</span> <span class="n">AsyncIterator</span><span class="p">[</span><span class="nb">int</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<a id="__codelineno-1-16" name="__codelineno-1-16" href="#__codelineno-1-16"></a>    <span class="k">async</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">transformer</span><span class="p">:</span>
-<a id="__codelineno-1-17" name="__codelineno-1-17" href="#__codelineno-1-17"></a>        <span class="nb">print</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
-<a id="__codelineno-1-18" name="__codelineno-1-18" href="#__codelineno-1-18"></a>
-<a id="__codelineno-1-19" name="__codelineno-1-19" href="#__codelineno-1-19"></a><span class="n">p</span> <span class="o">=</span> <span class="n">pipeline</span><span class="p">(</span>
-<a id="__codelineno-1-20" name="__codelineno-1-20" href="#__codelineno-1-20"></a>    <span class="n">name</span><span class="o">=</span><span class="s2">&quot;example&quot;</span><span class="p">,</span>
-<a id="__codelineno-1-21" name="__codelineno-1-21" href="#__codelineno-1-21"></a>    <span class="n">params</span><span class="o">=</span><span class="n">Params</span><span class="p">,</span>
-<a id="__codelineno-1-22" name="__codelineno-1-22" href="#__codelineno-1-22"></a>    <span class="n">steps</span><span class="o">=</span><span class="p">[</span>
-<a id="__codelineno-1-23" name="__codelineno-1-23" href="#__codelineno-1-23"></a>        <span class="n">step</span><span class="p">(</span><span class="s2">&quot;producer&quot;</span><span class="p">,</span> <span class="n">fn</span><span class="o">=</span><span class="n">producer</span><span class="p">),</span>
-<a id="__codelineno-1-24" name="__codelineno-1-24" href="#__codelineno-1-24"></a>        <span class="n">step</span><span class="p">(</span><span class="s2">&quot;transformer&quot;</span><span class="p">,</span> <span class="n">fn</span><span class="o">=</span><span class="n">transformer</span><span class="p">),</span>
-<a id="__codelineno-1-25" name="__codelineno-1-25" href="#__codelineno-1-25"></a>        <span class="n">step</span><span class="p">(</span><span class="s2">&quot;consumer&quot;</span><span class="p">,</span> <span class="n">fn</span><span class="o">=</span><span class="n">consumer</span><span class="p">),</span>
-<a id="__codelineno-1-26" name="__codelineno-1-26" href="#__codelineno-1-26"></a>    <span class="p">],</span>
-<a id="__codelineno-1-27" name="__codelineno-1-27" href="#__codelineno-1-27"></a><span class="p">)</span>
-<a id="__codelineno-1-28" name="__codelineno-1-28" href="#__codelineno-1-28"></a>
-<a id="__codelineno-1-29" name="__codelineno-1-29" href="#__codelineno-1-29"></a><span class="n">async_run</span><span class="p">(</span><span class="n">p</span><span class="p">,</span> <span class="n">Params</span><span class="p">(</span><span class="n">count</span><span class="o">=</span><span class="mi">5</span><span class="p">))</span>
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">NamedTuple</span>
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="kn">from</span><span class="w"> </span><span class="nn">synaflow</span><span class="w"> </span><span class="kn">import</span> <span class="n">pipeline</span><span class="p">,</span> <span class="n">step</span><span class="p">,</span> <span class="n">async_run</span>
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>
+<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="k">class</span><span class="w"> </span><span class="nc">Params</span><span class="p">(</span><span class="n">NamedTuple</span><span class="p">):</span>
+<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>    <span class="n">count</span><span class="p">:</span> <span class="nb">int</span>
+<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a>
+<a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">producer</span><span class="p">(</span><span class="n">count</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">AsyncGenerator</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="kc">None</span><span class="p">]:</span>
+<a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a>    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">count</span><span class="p">):</span>
+<a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a>        <span class="k">yield</span> <span class="n">i</span>
+<a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a>
+<a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">transformer</span><span class="p">(</span><span class="n">producer</span><span class="p">:</span> <span class="n">AsyncIterator</span><span class="p">[</span><span class="nb">int</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">AsyncGenerator</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="kc">None</span><span class="p">]:</span>
+<a id="__codelineno-1-13" name="__codelineno-1-13" href="#__codelineno-1-13"></a>    <span class="k">async</span> <span class="k">for</span> <span class="n">val</span> <span class="ow">in</span> <span class="n">producer</span><span class="p">:</span>
+<a id="__codelineno-1-14" name="__codelineno-1-14" href="#__codelineno-1-14"></a>        <span class="k">yield</span> <span class="n">val</span> <span class="o">*</span> <span class="mi">10</span>
+<a id="__codelineno-1-15" name="__codelineno-1-15" href="#__codelineno-1-15"></a>
+<a id="__codelineno-1-16" name="__codelineno-1-16" href="#__codelineno-1-16"></a><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">consumer</span><span class="p">(</span><span class="n">transformer</span><span class="p">:</span> <span class="n">AsyncIterator</span><span class="p">[</span><span class="nb">int</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<a id="__codelineno-1-17" name="__codelineno-1-17" href="#__codelineno-1-17"></a>    <span class="k">async</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">transformer</span><span class="p">:</span>
+<a id="__codelineno-1-18" name="__codelineno-1-18" href="#__codelineno-1-18"></a>        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Consumed: </span><span class="si">{</span><span class="n">x</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<a id="__codelineno-1-19" name="__codelineno-1-19" href="#__codelineno-1-19"></a>
+<a id="__codelineno-1-20" name="__codelineno-1-20" href="#__codelineno-1-20"></a><span class="n">p</span> <span class="o">=</span> <span class="n">pipeline</span><span class="p">(</span>
+<a id="__codelineno-1-21" name="__codelineno-1-21" href="#__codelineno-1-21"></a>    <span class="n">name</span><span class="o">=</span><span class="s2">&quot;example&quot;</span><span class="p">,</span>
+<a id="__codelineno-1-22" name="__codelineno-1-22" href="#__codelineno-1-22"></a>    <span class="n">params</span><span class="o">=</span><span class="n">Params</span><span class="p">,</span>
+<a id="__codelineno-1-23" name="__codelineno-1-23" href="#__codelineno-1-23"></a>    <span class="n">steps</span><span class="o">=</span><span class="p">[</span>
+<a id="__codelineno-1-24" name="__codelineno-1-24" href="#__codelineno-1-24"></a>        <span class="n">step</span><span class="p">(</span><span class="s2">&quot;producer&quot;</span><span class="p">,</span> <span class="n">fn</span><span class="o">=</span><span class="n">producer</span><span class="p">),</span>
+<a id="__codelineno-1-25" name="__codelineno-1-25" href="#__codelineno-1-25"></a>        <span class="n">step</span><span class="p">(</span><span class="s2">&quot;transformer&quot;</span><span class="p">,</span> <span class="n">fn</span><span class="o">=</span><span class="n">transformer</span><span class="p">),</span>
+<a id="__codelineno-1-26" name="__codelineno-1-26" href="#__codelineno-1-26"></a>        <span class="n">step</span><span class="p">(</span><span class="s2">&quot;consumer&quot;</span><span class="p">,</span> <span class="n">fn</span><span class="o">=</span><span class="n">consumer</span><span class="p">),</span>
+<a id="__codelineno-1-27" name="__codelineno-1-27" href="#__codelineno-1-27"></a>    <span class="p">],</span>
+<a id="__codelineno-1-28" name="__codelineno-1-28" href="#__codelineno-1-28"></a><span class="p">)</span>
+<a id="__codelineno-1-29" name="__codelineno-1-29" href="#__codelineno-1-29"></a>
+<a id="__codelineno-1-30" name="__codelineno-1-30" href="#__codelineno-1-30"></a><span class="n">async_run</span><span class="p">(</span><span class="n">p</span><span class="p">,</span> <span class="n">Params</span><span class="p">(</span><span class="n">count</span><span class="o">=</span><span class="mi">5</span><span class="p">))</span>
 </code></pre></div>
+<p><strong>Output:</strong> <code>Consumed: 0</code> · <code>Consumed: 10</code> · <code>Consumed: 20</code> · <code>Consumed: 30</code> · <code>Consumed: 40</code></p>
 </div>
 </div>
 </div>
-<h2 id="why-synaflow">Why SynaFlow?<a class="headerlink" href="#why-synaflow" title="Permanent link">&para;</a></h2>
-<p>Building data pipelines usually involves two headaches:</p>
-<ol>
-<li><strong>Explicit Wiring:</strong> You manually define which function outputs go to which inputs (<code>A &gt;&gt; B &gt;&gt; C</code>), creating verbose architectures.</li>
-<li><strong>Memory Explosions:</strong> Passing large datasets around means holding them entirely in memory or dealing with complex generator management.</li>
-</ol>
-<h2 id="what-makes-it-different">What makes it different<a class="headerlink" href="#what-makes-it-different" title="Permanent link">&para;</a></h2>
-<h3 id="type-hint-wiring">Type-hint wiring<a class="headerlink" href="#type-hint-wiring" title="Permanent link">&para;</a></h3>
-<p>SynaFlow reads your function signatures and connects them automatically:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="k">def</span><span class="w"> </span><span class="nf">producer</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="n">Generator</span><span class="p">[</span><span class="nb">int</span><span class="p">]:</span> <span class="o">...</span>           <span class="c1"># produces Iterator[int]</span>
-<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="k">def</span><span class="w"> </span><span class="nf">transformer</span><span class="p">(</span><span class="n">producer</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span> <span class="o">...</span>      <span class="c1"># name matches → connected</span>
-<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="k">def</span><span class="w"> </span><span class="nf">consumer</span><span class="p">(</span><span class="n">transformer</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">int</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span> <span class="o">...</span> <span class="c1"># name matches → connected</span>
+<p>That's the entire API. Three functions, three <code>step()</code> calls, zero wiring.
+The Mermaid diagram above was auto-generated from the pipeline JSON.</p>
+<hr />
+<h2 id="the-two-problems-synaflow-solves">The two problems SynaFlow solves<a class="headerlink" href="#the-two-problems-synaflow-solves" title="Permanent link">&para;</a></h2>
+<h3 id="1-explicit-wiring">1. Explicit wiring<a class="headerlink" href="#1-explicit-wiring" title="Permanent link">&para;</a></h3>
+<p>Without SynaFlow, you'd write:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="c1"># Manual DAG: fragile, verbose, doesn&#39;t scale</span>
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="n">result_a</span> <span class="o">=</span> <span class="n">step_a</span><span class="p">(</span><span class="n">params</span><span class="p">)</span>
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="n">result_b</span> <span class="o">=</span> <span class="n">step_b</span><span class="p">(</span><span class="n">result_a</span><span class="p">)</span>
+<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="n">result_c</span> <span class="o">=</span> <span class="n">step_c</span><span class="p">(</span><span class="n">result_b</span><span class="p">)</span>
+<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="c1"># Add a new consumer of step_a? Refactor everything.</span>
+<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="c1"># Two consumers need step_a? Write itertools.tee yourself.</span>
 </code></pre></div>
-<p>No <code>&gt;&gt;</code> operators, no manual graph construction. Just name your parameters after
-the steps you depend on and SynaFlow figures out the rest. You can even use
-synonyms — <code>item</code> binds to <code>items</code>, <code>user_list</code> binds to <code>users</code>.</p>
-<h3 id="lazy-streaming-with-zero-boilerplate">Lazy streaming with zero boilerplate<a class="headerlink" href="#lazy-streaming-with-zero-boilerplate" title="Permanent link">&para;</a></h3>
-<p>Multiple consumers of the same producer? SynaFlow automatically forks the stream
-with <code>itertools.tee</code> and advances them in lockstep:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="k">def</span><span class="w"> </span><span class="nf">producer</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="n">Generator</span><span class="p">[</span><span class="nb">int</span><span class="p">]:</span> <span class="o">...</span>        <span class="c1"># produces a stream</span>
-<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>
-<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="k">def</span><span class="w"> </span><span class="nf">live</span><span class="p">(</span><span class="n">producer</span><span class="p">:</span> <span class="n">Iterator</span><span class="p">[</span><span class="nb">int</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>   <span class="c1"># lazy — streams, no memory spike</span>
-<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>    <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">producer</span><span class="p">:</span> <span class="n">process</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
-<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>
-<a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a><span class="k">def</span><span class="w"> </span><span class="nf">batch</span><span class="p">(</span><span class="n">producer</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">int</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>       <span class="c1"># eager — materializes for this branch only</span>
-<a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a>    <span class="k">return</span> <span class="nb">sum</span><span class="p">(</span><span class="n">producer</span><span class="p">)</span>
+<p>With SynaFlow, you just match names:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="k">def</span><span class="w"> </span><span class="nf">step_a</span><span class="p">(</span><span class="n">count</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Generator</span><span class="p">[</span><span class="nb">int</span><span class="p">]:</span> <span class="o">...</span>
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="k">def</span><span class="w"> </span><span class="nf">step_b</span><span class="p">(</span><span class="n">step_a</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span> <span class="o">...</span>        <span class="c1"># name matches → auto-wired</span>
+<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="k">def</span><span class="w"> </span><span class="nf">step_c</span><span class="p">(</span><span class="n">step_b</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">int</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span> <span class="o">...</span>  <span class="c1"># name matches → auto-wired</span>
 </code></pre></div>
-<p>No manual <code>tee</code>, no <code>list()</code> wrapping, no memory management. The lazy consumer
-never holds the full dataset; only the eager branch does.</p>
-<blockquote>
-<p><strong>SynaFlow is a micro-orchestrator.</strong> It runs inside a single Python process.
-Use Airflow or Dagster to schedule jobs; use SynaFlow inside the job to stream
-millions of rows between functions with zero boilerplate.</p>
-</blockquote>
-<p>Read more: <a href="core-concepts/how-dag-is-wired/">How the DAG is Wired</a> ·
-<a href="core-concepts/lockstep-flow/">Lockstep Data Flow</a></p>
-<p>SynaFlow solves both by reading your <strong>Type Hints</strong> and automatically wiring the DAG, with a <strong>lockstep streaming engine</strong> that forks generators lazily — never holding entire datasets in memory unless you explicitly ask for it.</p>
+<p>Add a step, rename a step, add a second consumer — no rewiring. Type hints
+are the graph.</p>
+<h3 id="2-memory-explosions">2. Memory explosions<a class="headerlink" href="#2-memory-explosions" title="Permanent link">&para;</a></h3>
+<p>Without SynaFlow, sharing a generator between two consumers means:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="c1"># Manual tee: easy to get wrong, hard to read</span>
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="n">g1</span><span class="p">,</span> <span class="n">g2</span> <span class="o">=</span> <span class="n">itertools</span><span class="o">.</span><span class="n">tee</span><span class="p">(</span><span class="n">producer</span><span class="p">())</span>
+<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="n">result_a</span> <span class="o">=</span> <span class="p">[</span><span class="n">x</span> <span class="o">*</span> <span class="mi">2</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">g1</span><span class="p">]</span>   <span class="c1"># holds everything in memory</span>
+<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="n">result_b</span> <span class="o">=</span> <span class="p">[</span><span class="n">x</span> <span class="o">+</span> <span class="mi">1</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">g2</span><span class="p">]</span>   <span class="c1"># also holds everything</span>
+</code></pre></div>
+<p>With SynaFlow, the framework handles it:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="k">def</span><span class="w"> </span><span class="nf">producer</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="n">Generator</span><span class="p">[</span><span class="nb">int</span><span class="p">]:</span> <span class="o">...</span>
+<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>
+<a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="k">def</span><span class="w"> </span><span class="nf">live</span><span class="p">(</span><span class="n">producer</span><span class="p">:</span> <span class="n">Iterator</span><span class="p">[</span><span class="nb">int</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>   <span class="c1"># lazy — streams, no memory spike</span>
+<a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a>    <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">producer</span><span class="p">:</span> <span class="n">process</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+<a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a>
+<a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a><span class="k">def</span><span class="w"> </span><span class="nf">batch</span><span class="p">(</span><span class="n">producer</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">int</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>       <span class="c1"># eager — only this branch materializes</span>
+<a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a>    <span class="k">return</span> <span class="nb">sum</span><span class="p">(</span><span class="n">producer</span><span class="p">)</span>
+</code></pre></div>
+<p><strong>One consumer lazy, one eager.</strong> No manual <code>tee</code>. No boilerplate. Memory
+overhead: one item per step, regardless of dataset size.</p>
+<hr />
+<h2 id="who-is-this-for">Who is this for?<a class="headerlink" href="#who-is-this-for" title="Permanent link">&para;</a></h2>
+<ul>
+<li><strong>Data engineers</strong> tired of writing <code>A &gt;&gt; B &gt;&gt; C</code> boilerplate in Airflow/Dagster</li>
+<li><strong>Python developers</strong> who want clean, readable business logic without
+  framework noise</li>
+<li><strong>Anyone processing streams</strong> — events, logs, API responses, database cursors</li>
+<li><strong>Teams that need sync and async</strong> from the same pipeline definition</li>
+</ul>
+<hr />
 <h2 id="how-it-compares">How It Compares<a class="headerlink" href="#how-it-compares" title="Permanent link">&para;</a></h2>
 <table>
 <thead>
@@ -1557,23 +1582,21 @@ millions of rows between functions with zero boilerplate.</p>
 </tr>
 </tbody>
 </table>
-<p><strong>SynaFlow</strong> is not a replacement for Airflow or Dagster — it's a
-<strong>micro-orchestrator</strong> that runs <em>inside</em> a single Python process. Use those tools
-to schedule jobs; use SynaFlow inside the job to route and stream millions of rows
-between Python functions with zero boilerplate.</p>
-<p>But because SynaFlow strictly separates <strong>build-time</strong> (DAG compilation) from
-<strong>run-time</strong> (execution), you are free to write your own runner. The DAG JSON is a
-deterministic execution contract — you can compile a SynaFlow pipeline and
-auto-generate a native DAG for <strong>Airflow</strong>, <strong>Dagster</strong>, or <strong>Prefect</strong>, running
-the same business logic at cluster scale without changing a line of user code.
-See <a href="advanced/export-guidance/">Export Guidance</a> for details.</p>
-<p>For a detailed breakdown, see <a href="comparisons/hamilton/">SynaFlow vs Hamilton</a>,
-<a href="comparisons/java-streams/">Java Streams</a>, and <a href="comparisons/linq/">LINQ</a>.</p>
+<p>SynaFlow is a <strong>micro-orchestrator</strong> — it runs inside a single process. Use
+Airflow or Dagster to schedule jobs; use SynaFlow <em>inside</em> the job to stream
+millions of rows between functions with zero boilerplate.</p>
+<p>Because SynaFlow separates <strong>build-time</strong> (DAG compilation) from <strong>run-time</strong>
+(execution), you can write custom runners or auto-generate native DAGs for
+Airflow, Dagster, or Prefect from the same pipeline definition.
+See <a href="advanced/export-guidance/">Export Guidance</a>.</p>
+<p>For detailed comparisons: <a href="comparisons/hamilton/">SynaFlow vs Hamilton</a> ·
+<a href="comparisons/java-streams/">Java Streams</a> · <a href="comparisons/linq/">LINQ</a></p>
+<hr />
 <h2 id="next-steps">Next Steps<a class="headerlink" href="#next-steps" title="Permanent link">&para;</a></h2>
 <ul>
-<li>Read the <a href="getting-started/installation/">Installation guide</a></li>
-<li>Follow the <a href="tutorial/hello-world/">Step-by-step tutorial</a></li>
-<li>Explore <a href="core-concepts/dag-construction/">Core Concepts</a></li>
+<li><a href="getting-started/installation/">Install</a> and run the example above</li>
+<li>Follow the <a href="tutorial/hello-world/">step-by-step tutorial</a></li>
+<li>Understand <a href="core-concepts/how-dag-is-wired/">how the DAG is wired</a></li>
 </ul>
 
 
