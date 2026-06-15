@@ -1,0 +1,3 @@
+User-agent: *
+Allow: /
+Sitemap: https://humansoftware.github.io/synaflow/sitemap.xml
