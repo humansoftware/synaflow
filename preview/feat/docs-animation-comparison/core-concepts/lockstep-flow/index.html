@@ -1588,7 +1588,7 @@ lockstep, pads the shorter stream with <code>None</code>, and feeds the pairs to
 </div>
 
 <div style="text-align:center;margin-bottom:0.5em">
-<svg id="diam-dag" viewBox="0 0 360 220" style="max-width:360px;width:100%;height:auto">
+<svg id="diam-dag" viewBox="0 0 380 220" style="max-width:380px;width:100%;height:auto">
   <defs>
     <marker id="darrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
       <path d="M0,0 L10,5 L0,10" fill="#565f89"/>
@@ -1675,14 +1675,14 @@ lockstep, pads the shorter stream with <code>None</code>, and feeds the pairs to
   function drenderDag() {
     var f = df[dcur];
     var v = "";
-    if (f[5] && f[5] !== "" && f[5] !== "✓") v += '<rect x="170" y="13" width="32" height="24" rx="4" fill="#f7768e" opacity="0.25"/><text x="186" y="30" text-anchor="middle" fill="#f7768e" font-size="11" font-family="monospace">' + f[5] + '</text>';
-    if (f[6] && f[6] !== "" && f[6] !== "✓") v += '<rect x="52" y="98" width="40" height="24" rx="4" fill="#e0af68" opacity="0.25"/><text x="72" y="115" text-anchor="middle" fill="#e0af68" font-size="10" font-family="monospace">' + f[6] + '</text>';
-    if (f[7] && f[7] !== "" && f[7] !== "✓") v += '<rect x="292" y="98" width="40" height="24" rx="4" fill="#7dcfff" opacity="0.25"/><text x="312" y="115" text-anchor="middle" fill="#7dcfff" font-size="10" font-family="monospace">' + f[7] + '</text>';
-    if (f[8] && f[8] !== "" && f[8] !== "✓") v += '<rect x="146" y="198" width="58" height="22" rx="4" fill="#9ece6a" opacity="0.25"/><text x="175" y="213" text-anchor="middle" fill="#9ece6a" font-size="11" font-family="monospace">' + f[8] + '</text>';
-    if (f[5] === "✓") v += '<text x="202" y="30" fill="#9ece6a" font-size="12">✓</text>';
-    if (f[6] === "✓") v += '<text x="80" y="115" fill="#9ece6a" font-size="12">✓</text>';
-    if (f[7] === "✓") v += '<text x="320" y="115" fill="#9ece6a" font-size="12">✓</text>';
-    if (f[8] === "✓") v += '<text x="205" y="213" fill="#9ece6a" font-size="12">✓</text>';
+    if (f[5] && f[5] !== "" && f[5] !== "✓") v += '<rect x="225" y="13" width="32" height="24" rx="4" fill="#f7768e" opacity="0.25"/><text x="241" y="30" text-anchor="middle" fill="#f7768e" font-size="11" font-family="monospace">' + f[5] + '</text>';
+    if (f[6] && f[6] !== "" && f[6] !== "✓") v += '<rect x="112" y="98" width="40" height="24" rx="4" fill="#e0af68" opacity="0.25"/><text x="132" y="115" text-anchor="middle" fill="#e0af68" font-size="10" font-family="monospace">' + f[6] + '</text>';
+    if (f[7] && f[7] !== "" && f[7] !== "✓") v += '<rect x="352" y="98" width="40" height="24" rx="4" fill="#7dcfff" opacity="0.25"/><text x="372" y="115" text-anchor="middle" fill="#7dcfff" font-size="10" font-family="monospace">' + f[7] + '</text>';
+    if (f[8] && f[8] !== "" && f[8] !== "✓") v += '<rect x="225" y="198" width="58" height="22" rx="4" fill="#9ece6a" opacity="0.25"/><text x="254" y="213" text-anchor="middle" fill="#9ece6a" font-size="11" font-family="monospace">' + f[8] + '</text>';
+    if (f[5] === "✓") v += '<text x="258" y="30" fill="#9ece6a" font-size="12">✓</text>';
+    if (f[6] === "✓") v += '<text x="140" y="115" fill="#9ece6a" font-size="12">✓</text>';
+    if (f[7] === "✓") v += '<text x="375" y="115" fill="#9ece6a" font-size="12">✓</text>';
+    if (f[8] === "✓") v += '<text x="270" y="213" fill="#9ece6a" font-size="12">✓</text>';
     document.getElementById("diam-values").innerHTML = v;
   }
 
