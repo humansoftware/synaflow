@@ -1320,22 +1320,21 @@ like an assembly line.</p>
 </div>
 
 <div style="text-align:center;margin-bottom:0.5em">
-<svg id="anim-dag" viewBox="0 0 260 200" style="max-width:260px;width:100%;height:auto">
+<svg id="anim-dag" viewBox="0 0 300 200" style="max-width:300px;width:100%;height:auto">
   <defs>
     <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
       <path d="M0,0 L10,5 L0,10" fill="#565f89"/>
     </marker>
   </defs>
-  <line x1="130" y1="35" x2="130" y2="85" stroke="#565f89" stroke-width="2" marker-end="url(#arrow)"/>
-  <line x1="130" y1="115" x2="130" y2="165" stroke="#565f89" stroke-width="2" marker-end="url(#arrow)"/>
-  <rect x="55" y="5" width="150" height="30" rx="6" fill="#7aa2f7" opacity="0.15" stroke="#7aa2f7" stroke-width="1"/>
-  <text x="130" y="25" text-anchor="middle" fill="#7aa2f7" font-size="13" font-family="monospace">numbers</text>
-  <rect x="55" y="85" width="150" height="30" rx="6" fill="#7aa2f7" opacity="0.15" stroke="#7aa2f7" stroke-width="1"/>
-  <text x="130" y="105" text-anchor="middle" fill="#7aa2f7" font-size="13" font-family="monospace">doubler</text>
-  <rect x="55" y="165" width="150" height="30" rx="6" fill="#7aa2f7" opacity="0.15" stroke="#7aa2f7" stroke-width="1"/>
-  <text x="130" y="185" text-anchor="middle" fill="#7aa2f7" font-size="13" font-family="monospace">printer</text>
+  <line x1="150" y1="35" x2="150" y2="85" stroke="#565f89" stroke-width="2" marker-end="url(#arrow)"/>
+  <line x1="150" y1="115" x2="150" y2="165" stroke="#565f89" stroke-width="2" marker-end="url(#arrow)"/>
+  <rect x="60" y="5" width="180" height="30" rx="6" fill="#7aa2f7" opacity="0.15" stroke="#7aa2f7" stroke-width="1"/>
+  <text x="150" y="25" text-anchor="middle" fill="#7aa2f7" font-size="13" font-family="monospace">numbers</text>
+  <rect x="60" y="85" width="180" height="30" rx="6" fill="#7aa2f7" opacity="0.15" stroke="#7aa2f7" stroke-width="1"/>
+  <text x="150" y="105" text-anchor="middle" fill="#7aa2f7" font-size="13" font-family="monospace">doubler</text>
+  <rect x="60" y="165" width="180" height="30" rx="6" fill="#7aa2f7" opacity="0.15" stroke="#7aa2f7" stroke-width="1"/>
+  <text x="150" y="185" text-anchor="middle" fill="#7aa2f7" font-size="13" font-family="monospace">printer</text>
   <g id="anim-values"></g>
-  <g id="anim-dots"></g>
 </svg>
 </div>
 
@@ -1395,17 +1394,16 @@ like an assembly line.</p>
 
   function renderDag() {
     var f = frames[cur];
-    var vals = "", dots = "";
+    var vals = "";
 
-    if (f[4] && f[4] !== "" && f[4] !== "✓") vals += '<rect x="58" y="8" width="144" height="24" rx="4" fill="#f7768e" opacity="0.2"/><text x="130" y="25" text-anchor="middle" fill="#f7768e" font-size="12" font-family="monospace">' + f[4] + '</text>';
-    if (f[5] && f[5] !== "" && f[5] !== "✓") vals += '<rect x="58" y="88" width="144" height="24" rx="4" fill="#e0af68" opacity="0.2"/><text x="130" y="105" text-anchor="middle" fill="#e0af68" font-size="12" font-family="monospace">' + f[5] + '</text>';
-    if (f[6] && f[6] !== "" && f[6] !== "✓") vals += '<rect x="58" y="168" width="144" height="24" rx="4" fill="#7dcfff" opacity="0.2"/><text x="130" y="185" text-anchor="middle" fill="#7dcfff" font-size="12" font-family="monospace">' + f[6] + '</text>';
-    if (f[4] === "✓") vals += '<text x="195" y="25" fill="#9ece6a" font-size="14" font-family="monospace">✓</text>';
-    if (f[5] === "✓") vals += '<text x="195" y="105" fill="#9ece6a" font-size="14" font-family="monospace">✓</text>';
-    if (f[6] === "✓") vals += '<text x="195" y="185" fill="#9ece6a" font-size="14" font-family="monospace">✓</text>';
+    if (f[4] && f[4] !== "" && f[4] !== "✓") vals += '<rect x="165" y="8" width="45" height="24" rx="4" fill="#f7768e" opacity="0.2"/><text x="187" y="25" text-anchor="middle" fill="#f7768e" font-size="12" font-family="monospace">' + f[4] + '</text>';
+    if (f[5] && f[5] !== "" && f[5] !== "✓") vals += '<rect x="165" y="88" width="45" height="24" rx="4" fill="#e0af68" opacity="0.2"/><text x="187" y="105" text-anchor="middle" fill="#e0af68" font-size="12" font-family="monospace">' + f[5] + '</text>';
+    if (f[6] && f[6] !== "" && f[6] !== "✓") vals += '<rect x="165" y="168" width="45" height="24" rx="4" fill="#7dcfff" opacity="0.2"/><text x="187" y="185" text-anchor="middle" fill="#7dcfff" font-size="12" font-family="monospace">' + f[6] + '</text>';
+    if (f[4] === "✓") vals += '<text x="225" y="25" fill="#9ece6a" font-size="14" font-family="monospace">✓</text>';
+    if (f[5] === "✓") vals += '<text x="225" y="105" fill="#9ece6a" font-size="14" font-family="monospace">✓</text>';
+    if (f[6] === "✓") vals += '<text x="225" y="185" fill="#9ece6a" font-size="14" font-family="monospace">✓</text>';
 
     document.getElementById("anim-values").innerHTML = vals;
-    document.getElementById("anim-dots").innerHTML = dots;
   }
 
   window.animFrame = function(d) {
