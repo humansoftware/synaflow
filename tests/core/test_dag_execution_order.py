@@ -3,6 +3,8 @@ from typing import NamedTuple
 import pytest
 
 from synaflow import StepMode, pipeline, step
+from tests.execution.async_engine.corpus import PACKS as ASYNC_PACKS
+from tests.execution.sync_engine.corpus import PACKS as SYNC_PACKS
 
 
 def test_given_output_compatible_but_executed_after_when_constructed_then_raises():
@@ -75,9 +77,6 @@ def test_given_fan_out_when_constructed_then_passes():
     )
 
 
-from tests.execution.async_engine.corpus import PACKS as ASYNC_PACKS
-from tests.execution.sync_engine.corpus import PACKS as SYNC_PACKS
-
 PACKS = {**SYNC_PACKS, **ASYNC_PACKS}
 
 
@@ -102,6 +101,76 @@ def test_given_diamond_dag_when_consumers_of_branch_then_returns_merge():
     assert set(dag.consumers_of("start")) == {"branch_a", "branch_b"}
     assert dag.consumers_of("branch_a") == ["merge"]
     assert dag.consumers_of("merge") == []
+
+
+def test_given_single_consumer_when_output_key_then_returns_producer_name():
+    from synaflow.core.dag import Dag, DagNode
+
+    dag = Dag(name="test")
+    dag.steps = {
+        "producer": DagNode(deps={}),
+        "consumer": DagNode(deps={"producer": int}),
+    }
+
+    assert dag.output_key("producer", "consumer") == "producer"
+
+
+def test_given_multiple_consumers_when_output_key_then_scopes_by_consumer():
+    from synaflow.core.dag import Dag, DagNode
+
+    dag = Dag(name="test")
+    dag.steps = {
+        "producer": DagNode(deps={}),
+        "left": DagNode(deps={"producer": int}),
+        "right": DagNode(deps={"producer": int}),
+    }
+
+    assert dag.output_key("producer", "left") == "producer__left"
+    assert dag.output_key("producer", "right") == "producer__right"
+
+
+def test_given_step_name_prefixed_with_underscore_when_is_hidden_step_then_true():
+    from synaflow.core.dag import Dag
+
+    dag = Dag(name="test")
+
+    assert dag.is_hidden_step("_internal") is True
+    assert dag.is_hidden_step("visible") is False
+
+
+def test_given_hidden_step_when_is_terminal_step_then_true_even_with_consumers():
+    from synaflow.core.dag import Dag, DagNode
+
+    dag = Dag(name="test")
+    dag.steps = {
+        "_internal": DagNode(deps={}),
+        "consumer": DagNode(deps={"_internal": int}),
+    }
+
+    assert dag.is_terminal_step("_internal") is True
+
+
+def test_given_visible_step_without_consumers_when_is_terminal_step_then_true():
+    from synaflow.core.dag import Dag, DagNode
+
+    dag = Dag(name="test")
+    dag.steps = {
+        "producer": DagNode(deps={}),
+    }
+
+    assert dag.is_terminal_step("producer") is True
+
+
+def test_given_visible_step_with_consumers_when_is_terminal_step_then_false():
+    from synaflow.core.dag import Dag, DagNode
+
+    dag = Dag(name="test")
+    dag.steps = {
+        "producer": DagNode(deps={}),
+        "consumer": DagNode(deps={"producer": int}),
+    }
+
+    assert dag.is_terminal_step("producer") is False
 
 
 def test_given_each_mode_when_each_inputs_then_returns_correct_deps():
