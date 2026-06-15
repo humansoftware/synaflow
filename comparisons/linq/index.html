@@ -10,13 +10,11 @@
       
       
       
-        <link rel="canonical" href="https://humansoftware.github.io/synaflow/advanced/custom-observers/">
+        <link rel="canonical" href="https://humansoftware.github.io/synaflow/comparisons/linq/">
       
       
-        <link rel="prev" href="../custom-materializers/">
+        <link rel="prev" href="../java-streams/">
       
-      
-        <link rel="next" href="../export-guidance/">
       
       
         
@@ -27,7 +25,7 @@
     
     
       
-        <title>Custom Observers - SynaFlow</title>
+        <title>LINQ - SynaFlow</title>
       
     
     
@@ -76,7 +74,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#custom-observers" class="md-skip">
+        <a href="#synaflow-linq" class="md-skip">
           Skip to content
         </a>
       
@@ -112,7 +110,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Custom Observers
+              LINQ
             
           </span>
         </div>
@@ -887,8 +885,6 @@
       
   
   
-    
-  
   
   
     
@@ -901,11 +897,13 @@
       
     
     
-    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" checked>
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_5" >
         
           
           <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="">
@@ -926,7 +924,7 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="true">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
           <label class="md-nav__title" for="__nav_5">
             <span class="md-nav__icon md-icon"></span>
             
@@ -944,7 +942,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../custom-materializers/" class="md-nav__link">
+      <a href="../../advanced/custom-materializers/" class="md-nav__link">
         
   
   
@@ -952,6 +950,179 @@
     
   
     Custom Materializers
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../advanced/custom-observers/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Custom Observers
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../advanced/export-guidance/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Export Guidance
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Comparisons
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Comparisons
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../hamilton/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Hamilton
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../java-streams/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Java Streams
   
 
     
@@ -988,7 +1159,7 @@
   <span class="md-ellipsis">
     
   
-    Custom Observers
+    LINQ
   
 
     
@@ -1006,7 +1177,7 @@
   <span class="md-ellipsis">
     
   
-    Custom Observers
+    LINQ
   
 
     
@@ -1032,10 +1203,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#observer-api" class="md-nav__link">
+  <a href="#conceptual-mapping" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Observer API
+        Conceptual mapping
       
     </span>
   </a>
@@ -1043,60 +1214,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#event-types" class="md-nav__link">
+  <a href="#side-by-side-example" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Event Types
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Event Types">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#pipeline-events" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Pipeline Events
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#step-events" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Step Events
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#materialization-events" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Materialization Events
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#per-step-observers" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Per-Step Observers
+        Side-by-side example
       
     </span>
   </a>
@@ -1104,10 +1225,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#async-observers" class="md-nav__link">
+  <a href="#key-differences" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Async Observers
+        Key differences
       
     </span>
   </a>
@@ -1115,10 +1236,32 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#failure-isolation" class="md-nav__link">
+  <a href="#deferred-execution" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Failure Isolation
+        Deferred execution
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#grouping-aggregation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Grouping &amp; aggregation
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#when-synaflow-goes-further" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        When SynaFlow goes further
       
     </span>
   </a>
@@ -1129,179 +1272,6 @@
   
 </nav>
       
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../export-guidance/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Export Guidance
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-          </ul>
-        </nav>
-      
-    </li>
-  
-
-    
-      
-      
-  
-  
-  
-  
-    
-    
-    
-    
-      
-        
-        
-      
-    
-    
-    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
-      
-        
-        
-          
-        
-        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_6" >
-        
-          
-          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="">
-            
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Comparisons
-  
-
-    
-  </span>
-  
-  
-
-            <span class="md-nav__icon md-icon"></span>
-          </label>
-        
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_6">
-            <span class="md-nav__icon md-icon"></span>
-            
-  
-    Comparisons
-  
-
-          </label>
-          <ul class="md-nav__list" data-md-scrollfix>
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../comparisons/hamilton/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Hamilton
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../comparisons/java-streams/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Java Streams
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../comparisons/linq/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    LINQ
-  
-
-    
-  </span>
-  
-  
-
-      </a>
     </li>
   
 
@@ -1341,10 +1311,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#observer-api" class="md-nav__link">
+  <a href="#conceptual-mapping" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Observer API
+        Conceptual mapping
       
     </span>
   </a>
@@ -1352,60 +1322,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#event-types" class="md-nav__link">
+  <a href="#side-by-side-example" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Event Types
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Event Types">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#pipeline-events" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Pipeline Events
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#step-events" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Step Events
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#materialization-events" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Materialization Events
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#per-step-observers" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Per-Step Observers
+        Side-by-side example
       
     </span>
   </a>
@@ -1413,10 +1333,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#async-observers" class="md-nav__link">
+  <a href="#key-differences" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Async Observers
+        Key differences
       
     </span>
   </a>
@@ -1424,10 +1344,32 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#failure-isolation" class="md-nav__link">
+  <a href="#deferred-execution" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Failure Isolation
+        Deferred execution
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#grouping-aggregation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Grouping &amp; aggregation
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#when-synaflow-goes-further" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        When SynaFlow goes further
       
     </span>
   </a>
@@ -1454,103 +1396,187 @@
   
 
 
-<h1 id="custom-observers">Custom Observers<a class="headerlink" href="#custom-observers" title="Permanent link">&para;</a></h1>
-<p>Observers receive lifecycle events from pipelines, steps, and materializers.</p>
-<h2 id="observer-api">Observer API<a class="headerlink" href="#observer-api" title="Permanent link">&para;</a></h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">synaflow</span><span class="w"> </span><span class="kn">import</span> <span class="n">Observer</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="k">def</span><span class="w"> </span><span class="nf">my_handler</span><span class="p">(</span><span class="n">ctx</span><span class="p">):</span>
-<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;[</span><span class="si">{</span><span class="n">ctx</span><span class="o">.</span><span class="n">step_name</span><span class="si">}</span><span class="s2">] </span><span class="si">{</span><span class="n">ctx</span><span class="o">.</span><span class="n">event</span><span class="o">.</span><span class="n">value</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>
-<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="n">p</span> <span class="o">=</span> <span class="n">pipeline</span><span class="p">(</span>
-<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>    <span class="n">observers</span><span class="o">=</span><span class="p">[</span><span class="n">Observer</span><span class="p">(</span><span class="n">my_handler</span><span class="p">)],</span>
-<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>    <span class="o">...</span>
-<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="p">)</span>
-</code></pre></div>
-<h2 id="event-types">Event Types<a class="headerlink" href="#event-types" title="Permanent link">&para;</a></h2>
-<h3 id="pipeline-events">Pipeline Events<a class="headerlink" href="#pipeline-events" title="Permanent link">&para;</a></h3>
+<h1 id="synaflow-linq">SynaFlow &amp; LINQ<a class="headerlink" href="#synaflow-linq" title="Permanent link">&para;</a></h1>
+<p><a href="https://learn.microsoft.com/en-us/dotnet/csharp/linq/">LINQ</a> (Language
+Integrated Query) is .NET's functional streaming API. Like Java Streams and
+SynaFlow, it chains transformations over data — <code>Select</code>, <code>Where</code>, <code>GroupBy</code>,
+<code>ToDictionary</code>. The pattern is universal: <strong>MapReduce on typed streams</strong>.</p>
+<h2 id="conceptual-mapping">Conceptual mapping<a class="headerlink" href="#conceptual-mapping" title="Permanent link">&para;</a></h2>
 <table>
 <thead>
 <tr>
-<th>Event</th>
-<th>When</th>
+<th>LINQ</th>
+<th>SynaFlow</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td><code>PipelineEvent.STARTED</code></td>
-<td>Pipeline execution begins</td>
+<td><code>source.Select(x =&gt; f(x))</code></td>
+<td>EACH mode: consumer <code>(T) → U</code> over producer <code>Iterator[T]</code></td>
 </tr>
 <tr>
-<td><code>PipelineEvent.COMPLETED</code></td>
-<td>All steps finished successfully</td>
+<td><code>source.Where(x =&gt; pred(x))</code></td>
+<td>EACH mode with conditional <code>yield</code></td>
 </tr>
 <tr>
-<td><code>PipelineEvent.FAILED</code></td>
-<td>Pipeline stopped due to error</td>
+<td><code>source.ToList()</code></td>
+<td>Consumer <code>list[T]</code> triggers materialization</td>
+</tr>
+<tr>
+<td><code>source.ToDictionary(...)</code></td>
+<td>Consumer <code>dict[K,V]</code> from <code>Iterator[tuple[K,V]]</code></td>
+</tr>
+<tr>
+<td><code>source.GroupBy(x =&gt; key)</code></td>
+<td>EACH mode → dict materializer (MapReduce shuffle)</td>
+</tr>
+<tr>
+<td><code>source.Aggregate(seed, fn)</code></td>
+<td>ALL mode with accumulator</td>
+</tr>
+<tr>
+<td><code>source.SelectMany(x =&gt; col)</code></td>
+<td>EACH mode yielding multiple items — implicitly flattened</td>
+</tr>
+<tr>
+<td>Custom <code>IEnumerable&lt;T&gt;</code> pipeline</td>
+<td><code>Generator[T]</code> → <code>Iterator[T]</code> chain</td>
 </tr>
 </tbody>
 </table>
-<h3 id="step-events">Step Events<a class="headerlink" href="#step-events" title="Permanent link">&para;</a></h3>
+<h2 id="side-by-side-example">Side-by-side example<a class="headerlink" href="#side-by-side-example" title="Permanent link">&para;</a></h2>
+<div class="tabbed-set tabbed-alternate" data-tabs="1:2"><input checked="checked" id="__tabbed_1_1" name="__tabbed_1" type="radio" /><input id="__tabbed_1_2" name="__tabbed_1" type="radio" /><div class="tabbed-labels"><label for="__tabbed_1_1">C# (LINQ)</label><label for="__tabbed_1_2">SynaFlow (Sync)</label></div>
+<div class="tabbed-content">
+<div class="tabbed-block">
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kt">var</span><span class="w"> </span><span class="n">result</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">Enumerable</span><span class="p">.</span><span class="n">Range</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="mi">10</span><span class="p">)</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="w">    </span><span class="p">.</span><span class="n">Select</span><span class="p">(</span><span class="n">n</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="n">n</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="mi">2</span><span class="p">)</span>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="w">    </span><span class="p">.</span><span class="n">Where</span><span class="p">(</span><span class="n">n</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="n">n</span><span class="w"> </span><span class="o">&gt;</span><span class="w"> </span><span class="mi">5</span><span class="p">)</span>
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="w">    </span><span class="p">.</span><span class="n">ToList</span><span class="p">();</span>
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="c1">// result = [6, 8, 10, 12, 14, 16, 18]</span>
+</code></pre></div>
+</div>
+<div class="tabbed-block">
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">collections.abc</span><span class="w"> </span><span class="kn">import</span> <span class="n">Generator</span><span class="p">,</span> <span class="n">Iterator</span>
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">synaflow</span><span class="w"> </span><span class="kn">import</span> <span class="n">pipeline</span><span class="p">,</span> <span class="n">step</span><span class="p">,</span> <span class="n">run</span>
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="k">def</span><span class="w"> </span><span class="nf">producer</span><span class="p">(</span><span class="n">count</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Generator</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">]:</span>
+<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>    <span class="k">yield from</span> <span class="nb">range</span><span class="p">(</span><span class="n">count</span><span class="p">)</span>
+<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>
+<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="k">def</span><span class="w"> </span><span class="nf">doubler</span><span class="p">(</span><span class="n">producer</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>       <span class="c1"># EACH: Select</span>
+<a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a>    <span class="k">return</span> <span class="n">producer</span> <span class="o">*</span> <span class="mi">2</span>
+<a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a>
+<a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a><span class="k">def</span><span class="w"> </span><span class="nf">big_enough</span><span class="p">(</span><span class="n">doubler</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>     <span class="c1"># EACH: Where (with yield)</span>
+<a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a>    <span class="k">if</span> <span class="n">doubler</span> <span class="o">&gt;</span> <span class="mi">5</span><span class="p">:</span>
+<a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a>        <span class="k">yield</span> <span class="n">doubler</span>
+<a id="__codelineno-1-13" name="__codelineno-1-13" href="#__codelineno-1-13"></a>
+<a id="__codelineno-1-14" name="__codelineno-1-14" href="#__codelineno-1-14"></a><span class="k">def</span><span class="w"> </span><span class="nf">collector</span><span class="p">(</span><span class="n">big_enough</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">int</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>  <span class="c1"># ToList</span>
+<a id="__codelineno-1-15" name="__codelineno-1-15" href="#__codelineno-1-15"></a>    <span class="nb">print</span><span class="p">(</span><span class="n">big_enough</span><span class="p">)</span>
+<a id="__codelineno-1-16" name="__codelineno-1-16" href="#__codelineno-1-16"></a>
+<a id="__codelineno-1-17" name="__codelineno-1-17" href="#__codelineno-1-17"></a><span class="n">p</span> <span class="o">=</span> <span class="n">pipeline</span><span class="p">(</span>
+<a id="__codelineno-1-18" name="__codelineno-1-18" href="#__codelineno-1-18"></a>    <span class="n">name</span><span class="o">=</span><span class="s2">&quot;linq_demo&quot;</span><span class="p">,</span>
+<a id="__codelineno-1-19" name="__codelineno-1-19" href="#__codelineno-1-19"></a>    <span class="n">params</span><span class="o">=</span><span class="nb">type</span><span class="p">(</span><span class="s2">&quot;P&quot;</span><span class="p">,</span> <span class="p">(</span><span class="n">NamedTuple</span><span class="p">,),</span> <span class="p">{</span><span class="s2">&quot;count&quot;</span><span class="p">:</span> <span class="mi">10</span><span class="p">}),</span>
+<a id="__codelineno-1-20" name="__codelineno-1-20" href="#__codelineno-1-20"></a>    <span class="n">steps</span><span class="o">=</span><span class="p">[</span>
+<a id="__codelineno-1-21" name="__codelineno-1-21" href="#__codelineno-1-21"></a>        <span class="n">step</span><span class="p">(</span><span class="s2">&quot;producer&quot;</span><span class="p">,</span> <span class="n">fn</span><span class="o">=</span><span class="n">producer</span><span class="p">),</span>
+<a id="__codelineno-1-22" name="__codelineno-1-22" href="#__codelineno-1-22"></a>        <span class="n">step</span><span class="p">(</span><span class="s2">&quot;doubler&quot;</span><span class="p">,</span> <span class="n">fn</span><span class="o">=</span><span class="n">doubler</span><span class="p">),</span>
+<a id="__codelineno-1-23" name="__codelineno-1-23" href="#__codelineno-1-23"></a>        <span class="n">step</span><span class="p">(</span><span class="s2">&quot;big_enough&quot;</span><span class="p">,</span> <span class="n">fn</span><span class="o">=</span><span class="n">big_enough</span><span class="p">),</span>
+<a id="__codelineno-1-24" name="__codelineno-1-24" href="#__codelineno-1-24"></a>        <span class="n">step</span><span class="p">(</span><span class="s2">&quot;collector&quot;</span><span class="p">,</span> <span class="n">fn</span><span class="o">=</span><span class="n">collector</span><span class="p">),</span>
+<a id="__codelineno-1-25" name="__codelineno-1-25" href="#__codelineno-1-25"></a>    <span class="p">],</span>
+<a id="__codelineno-1-26" name="__codelineno-1-26" href="#__codelineno-1-26"></a><span class="p">)</span>
+<a id="__codelineno-1-27" name="__codelineno-1-27" href="#__codelineno-1-27"></a><span class="n">run</span><span class="p">(</span><span class="n">p</span><span class="p">,</span> <span class="n">p</span><span class="o">.</span><span class="n">params_type</span><span class="p">()(</span><span class="n">count</span><span class="o">=</span><span class="mi">10</span><span class="p">))</span>
+<a id="__codelineno-1-28" name="__codelineno-1-28" href="#__codelineno-1-28"></a><span class="c1"># Output: [6, 8, 10, 12, 14, 16, 18]</span>
+</code></pre></div>
+</div>
+</div>
+</div>
+<h2 id="key-differences">Key differences<a class="headerlink" href="#key-differences" title="Permanent link">&para;</a></h2>
 <table>
 <thead>
 <tr>
-<th>Event</th>
-<th>Context fields</th>
+<th></th>
+<th>LINQ</th>
+<th>SynaFlow</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td><code>StepEvent.STARTED</code></td>
-<td><code>step_name</code>, <code>mode</code></td>
+<td><strong>Execution</strong></td>
+<td>Deferred (lazy) by default</td>
+<td>Lazy by default</td>
 </tr>
 <tr>
-<td><code>StepEvent.COMPLETED</code></td>
-<td><code>step_name</code>, <code>success_count</code>, <code>error_count</code></td>
+<td><strong>Auto wiring</strong></td>
+<td>Explicit method chaining</td>
+<td>Type hints wire DAG automatically</td>
 </tr>
 <tr>
-<td><code>StepEvent.FAILED</code></td>
-<td><code>step_name</code>, <code>exception</code></td>
+<td><strong>Parallelism</strong></td>
+<td><code>.AsParallel()</code> / PLINQ</td>
+<td>Sync/async parity, custom runners</td>
+</tr>
+<tr>
+<td><strong>Persistence</strong></td>
+<td>In-memory only</td>
+<td>Disk, S3, Redis, DB via materializers</td>
+</tr>
+<tr>
+<td><strong>Smart binding</strong></td>
+<td>❌</td>
+<td>✅ singular/plural/suffix resolution</td>
+</tr>
+<tr>
+<td><strong>Multi-consumer</strong></td>
+<td>Single pipeline, single consumer</td>
+<td>Auto <code>tee</code> for multiple consumers in lockstep</td>
+</tr>
+<tr>
+<td><strong>Where it runs</strong></td>
+<td>.NET CLR</td>
+<td>Single Python process (or export to Airflow/Prefect)</td>
 </tr>
 </tbody>
 </table>
-<h3 id="materialization-events">Materialization Events<a class="headerlink" href="#materialization-events" title="Permanent link">&para;</a></h3>
-<table>
-<thead>
-<tr>
-<th>Event</th>
-<th>When</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>MaterializationEvent.STARTED</code></td>
-<td>Materializer invoked</td>
-</tr>
-<tr>
-<td><code>MaterializationEvent.COMPLETED</code></td>
-<td>Materialization finished</td>
-</tr>
-<tr>
-<td><code>MaterializationEvent.FAILED</code></td>
-<td>Materializer raised exception</td>
-</tr>
-</tbody>
-</table>
-<h2 id="per-step-observers">Per-Step Observers<a class="headerlink" href="#per-step-observers" title="Permanent link">&para;</a></h2>
-<p>Attach observers to individual steps for targeted monitoring:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="n">step</span><span class="p">(</span><span class="s2">&quot;critical_step&quot;</span><span class="p">,</span> <span class="n">fn</span><span class="o">=</span><span class="n">do_work</span><span class="p">,</span>
-<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>     <span class="n">observers</span><span class="o">=</span><span class="p">[</span><span class="n">Observer</span><span class="p">(</span><span class="n">alert_if_slow</span><span class="p">)])</span>
+<h2 id="deferred-execution">Deferred execution<a class="headerlink" href="#deferred-execution" title="Permanent link">&para;</a></h2>
+<p>Both LINQ and SynaFlow use <strong>lazy evaluation</strong> — nothing runs until you consume
+the result (<code>.ToList()</code> in LINQ, a terminal step or <code>run()</code> in SynaFlow). This
+is the foundation for memory efficiency and composability.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="c1">// LINQ: nothing executes yet</span>
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="kt">var</span><span class="w"> </span><span class="n">query</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">numbers</span><span class="p">.</span><span class="n">Where</span><span class="p">(</span><span class="n">n</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="n">n</span><span class="w"> </span><span class="o">&gt;</span><span class="w"> </span><span class="mi">5</span><span class="p">).</span><span class="n">Select</span><span class="p">(</span><span class="n">n</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="n">n</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="mi">2</span><span class="p">);</span>
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="c1">// Executes now</span>
+<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="kt">var</span><span class="w"> </span><span class="n">result</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">query</span><span class="p">.</span><span class="n">ToList</span><span class="p">();</span>
 </code></pre></div>
-<h2 id="async-observers">Async Observers<a class="headerlink" href="#async-observers" title="Permanent link">&para;</a></h2>
-<p>Async handlers are detected automatically and awaited:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">async_handler</span><span class="p">(</span><span class="n">ctx</span><span class="p">):</span>
-<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>    <span class="k">await</span> <span class="n">metrics</span><span class="o">.</span><span class="n">push</span><span class="p">(</span><span class="n">ctx</span><span class="o">.</span><span class="n">step_name</span><span class="p">,</span> <span class="n">ctx</span><span class="o">.</span><span class="n">event</span><span class="o">.</span><span class="n">value</span><span class="p">)</span>
-<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>
-<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="n">p</span> <span class="o">=</span> <span class="n">pipeline</span><span class="p">(</span><span class="n">observers</span><span class="o">=</span><span class="p">[</span><span class="n">Observer</span><span class="p">(</span><span class="n">async_handler</span><span class="p">)])</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="c1"># SynaFlow: pipeline is defined, not executed</span>
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="n">p</span> <span class="o">=</span> <span class="n">pipeline</span><span class="p">(</span><span class="o">...</span><span class="p">)</span>
+<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="c1"># Executes now</span>
+<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="n">run</span><span class="p">(</span><span class="n">p</span><span class="p">,</span> <span class="n">params</span><span class="p">)</span>
 </code></pre></div>
-<h2 id="failure-isolation">Failure Isolation<a class="headerlink" href="#failure-isolation" title="Permanent link">&para;</a></h2>
-<p>Observer failures are <strong>logged and swallowed</strong> — they never affect pipeline execution. If an observer raises, the pipeline continues normally.</p>
+<h2 id="grouping-aggregation">Grouping &amp; aggregation<a class="headerlink" href="#grouping-aggregation" title="Permanent link">&para;</a></h2>
+<div class="tabbed-set tabbed-alternate" data-tabs="2:2"><input checked="checked" id="__tabbed_2_1" name="__tabbed_2" type="radio" /><input id="__tabbed_2_2" name="__tabbed_2" type="radio" /><div class="tabbed-labels"><label for="__tabbed_2_1">LINQ</label><label for="__tabbed_2_2">SynaFlow</label></div>
+<div class="tabbed-content">
+<div class="tabbed-block">
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="kt">var</span><span class="w"> </span><span class="n">groups</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">items</span>
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="w">    </span><span class="p">.</span><span class="n">GroupBy</span><span class="p">(</span><span class="n">i</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="n">i</span><span class="p">.</span><span class="n">Category</span><span class="p">)</span>
+<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="w">    </span><span class="p">.</span><span class="n">ToDictionary</span><span class="p">(</span><span class="n">g</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="n">g</span><span class="p">.</span><span class="n">Key</span><span class="p">,</span><span class="w"> </span><span class="n">g</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="n">g</span><span class="p">.</span><span class="n">Sum</span><span class="p">(</span><span class="n">i</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="n">i</span><span class="p">.</span><span class="n">Value</span><span class="p">));</span>
+</code></pre></div>
+</div>
+<div class="tabbed-block">
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="k">def</span><span class="w"> </span><span class="nf">group_by_category</span><span class="p">(</span><span class="n">items</span><span class="p">:</span> <span class="n">Iterator</span><span class="p">[</span><span class="n">Item</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">int</span><span class="p">]:</span>
+<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>    <span class="n">result</span> <span class="o">=</span> <span class="p">{}</span>
+<a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>    <span class="k">for</span> <span class="n">item</span> <span class="ow">in</span> <span class="n">items</span><span class="p">:</span>
+<a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a>        <span class="n">result</span><span class="p">[</span><span class="n">item</span><span class="o">.</span><span class="n">category</span><span class="p">]</span> <span class="o">=</span> <span class="n">result</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">item</span><span class="o">.</span><span class="n">category</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span> <span class="o">+</span> <span class="n">item</span><span class="o">.</span><span class="n">value</span>
+<a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a>    <span class="k">return</span> <span class="n">result</span>
+</code></pre></div>
+</div>
+</div>
+</div>
+<p>In SynaFlow, <code>GroupBy</code> is just a step that accumulates in a local dict and
+returns it. No special grouping operator needed — plain Python is the query
+language.</p>
+<h2 id="when-synaflow-goes-further">When SynaFlow goes further<a class="headerlink" href="#when-synaflow-goes-further" title="Permanent link">&para;</a></h2>
+<p>LINQ streams are in-memory by design. SynaFlow's materializers let
+<code>ToList()</code> / <code>ToDictionary()</code> target <strong>disk, S3, Redis, or any backend</strong>
+without changing the consumer code. See
+<a href="../java-streams/">Java Streams comparison</a> for more on the
+protocol-over-concrete-type design.</p>
 
 
 

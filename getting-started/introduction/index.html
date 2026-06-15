@@ -761,6 +761,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../../core-concepts/build-vs-run/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Build vs Run
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../core-concepts/lockstep-flow/" class="md-nav__link">
         
   
@@ -1095,6 +1123,67 @@
 
               
             
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_6" >
+        
+          
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Comparisons
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Comparisons
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
               
                 
   
@@ -1102,14 +1191,70 @@
   
   
     <li class="md-nav__item">
-      <a href="../../advanced/java-streams/" class="md-nav__link">
+      <a href="../../comparisons/hamilton/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    Java Streams Comparison
+    Hamilton
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../comparisons/java-streams/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Java Streams
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../comparisons/linq/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    LINQ
   
 
     
@@ -1249,6 +1394,9 @@ that builds a real pipeline from scratch across four levels:</p>
 <ul>
 <li><a href="../../core-concepts/how-dag-is-wired/"><strong>How the DAG is Wired</strong></a> — step names,
   parameter names, and type hints: the three rules that build the graph.</li>
+<li><a href="../../core-concepts/build-vs-run/"><strong>Build vs Run</strong></a> — the strict separation
+  between DAG compilation and execution that enables custom runners, external
+  orchestrator export, and deterministic behavior.</li>
 <li><a href="../../core-concepts/lockstep-flow/"><strong>Lockstep Data Flow</strong></a> — how one item
   flows entirely through the pipeline before the next is produced, guaranteeing
   extreme memory efficiency.</li>
@@ -1277,6 +1425,8 @@ that builds a real pipeline from scratch across four levels:</p>
 <li><a href="../../advanced/export-guidance/"><strong>Export Guidance</strong></a> — compile SynaFlow DAGs
   into Airflow, Prefect, or custom orchestrators.</li>
 </ul>
+<p>If you're coming from another ecosystem, the <a href="../../comparisons/java-streams/"><strong>Comparisons</strong></a>
+section maps SynaFlow concepts to Java Streams and LINQ.</p>
 <h2 id="quick-reference">Quick reference<a class="headerlink" href="#quick-reference" title="Permanent link">&para;</a></h2>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">collections.abc</span><span class="w"> </span><span class="kn">import</span> <span class="n">Generator</span><span class="p">,</span> <span class="n">Iterator</span>
 <a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">NamedTuple</span>
