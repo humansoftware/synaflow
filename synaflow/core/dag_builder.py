@@ -256,7 +256,7 @@ def build_dag(
         validate_unique_step_name(step.name, dag, pipeline_name, is_expanded=True)
 
         effective = list(pipeline_obs_resolved)
-        step_own = getattr(step, "observers", None)
+        step_own = step.observers
         if step_own:
             for obs in step_own:
                 if isinstance(obs, ResolvedObserver):
