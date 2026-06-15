@@ -1212,27 +1212,27 @@
 <th></th>
 <th>SynaFlow</th>
 <th>Hamilton</th>
-<th>Dagster</th>
-<th>Prefect</th>
+<th>Flyte / Metaflow</th>
+<th>Dagster / Prefect</th>
 <th>Airflow</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td><strong>Type-hint wiring</strong></td>
-<td>✅ auto</td>
-<td>✅</td>
-<td>❌</td>
-<td>❌</td>
-<td>❌</td>
+<td><strong>Auto wiring</strong></td>
+<td>✅ type hints + smart binding</td>
+<td>✅ type hints (exact names)</td>
+<td>❌ explicit <code>A &gt;&gt; B</code></td>
+<td>❌ explicit</td>
+<td>❌ explicit</td>
 </tr>
 <tr>
 <td><strong>Lazy streaming</strong></td>
 <td>✅ lockstep tee</td>
 <td>❌ DataFrame-centric</td>
-<td>❌ task-based</td>
-<td>❌ task-based</td>
-<td>❌ task-based</td>
+<td>❌</td>
+<td>❌</td>
+<td>❌</td>
 </tr>
 <tr>
 <td><strong>Smart binding</strong></td>
@@ -1246,8 +1246,8 @@
 <td><strong>Scope</strong></td>
 <td>In-process micro</td>
 <td>Feature engineering</td>
-<td>Asset orchestration</td>
-<td>Workflow orchestration</td>
+<td>Task orchestration</td>
+<td>Asset/workflow orchestration</td>
 <td>DAG scheduling</td>
 </tr>
 <tr>
@@ -1274,20 +1274,14 @@
 <td>Task I/O boundary</td>
 <td>Task I/O boundary</td>
 </tr>
-<tr>
-<td><strong>Learning curve</strong></td>
-<td>Low (plain functions)</td>
-<td>Medium</td>
-<td>High</td>
-<td>Medium</td>
-<td>High</td>
-</tr>
 </tbody>
 </table>
-<p><strong>SynaFlow</strong> is not a replacement for Dagster or Airflow — it's a
-<strong>micro-orchestrator</strong> that runs <em>inside</em> a single Python process. You'd use
-Airflow to schedule a daily job, then use SynaFlow <em>inside</em> that job to route
-and stream millions of rows between your Python functions with zero boilerplate.</p>
+<p><strong>SynaFlow</strong> is not a replacement for Airflow or Dagster — it's a
+<strong>micro-orchestrator</strong> that runs <em>inside</em> a single Python process. Use those tools
+to schedule jobs; use SynaFlow inside the job to route and stream millions of rows
+between Python functions with zero boilerplate.</p>
+<p>For a deeper comparison with Hamilton, see the
+<a href="https://github.com/humansoftware/synaflow/blob/main/docs/DESIGN_PHILOSOPHY.md#25-detailed-comparison-synaflow-vs-hamilton">Design Philosophy</a>.</p>
 <h2 id="next-steps">Next Steps<a class="headerlink" href="#next-steps" title="Permanent link">&para;</a></h2>
 <ul>
 <li>Read the <a href="getting-started/installation/">Installation guide</a></li>
