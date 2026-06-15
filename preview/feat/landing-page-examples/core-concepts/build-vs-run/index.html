@@ -10,13 +10,13 @@
       
       
       
-        <link rel="canonical" href="https://humansoftware.github.io/synaflow/core-concepts/sync-async/">
+        <link rel="canonical" href="https://humansoftware.github.io/synaflow/core-concepts/build-vs-run/">
       
       
-        <link rel="prev" href="../dag-construction/">
+        <link rel="prev" href="../how-dag-is-wired/">
       
       
-        <link rel="next" href="../examples/">
+        <link rel="next" href="../lockstep-flow/">
       
       
         
@@ -27,7 +27,7 @@
     
     
       
-        <title>Sync & Async Parity - SynaFlow</title>
+        <title>Build vs Run - SynaFlow</title>
       
     
     
@@ -76,7 +76,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#sync-async-parity" class="md-skip">
+        <a href="#build-time-run-time-separation" class="md-skip">
           Skip to content
         </a>
       
@@ -112,7 +112,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Sync & Async Parity
+              Build vs Run
             
           </span>
         </div>
@@ -656,10 +656,37 @@
                 
   
   
+    
   
   
-    <li class="md-nav__item">
-      <a href="../build-vs-run/" class="md-nav__link">
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Build vs Run
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
         
   
   
@@ -675,6 +702,120 @@
   
 
       </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#the-two-phases" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The two phases
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#why-this-matters" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Why this matters
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Why this matters">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#1-the-dag-json-is-the-contract" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. The DAG JSON is the contract
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#2-write-your-own-runner" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. Write your own runner
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#3-deterministic-and-testable" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. Deterministic and testable
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#4-no-runtime-surprises" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4. No runtime surprises
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#architectural-parity" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Architectural parity
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#export-to-external-orchestrators" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Export to external orchestrators
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
     </li>
   
 
@@ -824,37 +965,10 @@
                 
   
   
-    
   
   
-  
-    <li class="md-nav__item md-nav__item--active">
-      
-      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
-      
-      
-        
-      
-      
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Sync & Async Parity
-  
-
-    
-  </span>
-  
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
-      <a href="./" class="md-nav__link md-nav__link--active">
+    <li class="md-nav__item">
+      <a href="../sync-async/" class="md-nav__link">
         
   
   
@@ -870,48 +984,6 @@
   
 
       </a>
-      
-        
-
-<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
-  
-  
-  
-    
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#key-rules" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Key Rules
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#converting-a-sync-pipeline-to-async" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Converting a Sync Pipeline to Async
-      
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
-</nav>
-      
     </li>
   
 
@@ -1269,10 +1341,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#key-rules" class="md-nav__link">
+  <a href="#the-two-phases" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Key Rules
+        The two phases
       
     </span>
   </a>
@@ -1280,10 +1352,82 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#converting-a-sync-pipeline-to-async" class="md-nav__link">
+  <a href="#why-this-matters" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Converting a Sync Pipeline to Async
+        Why this matters
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Why this matters">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#1-the-dag-json-is-the-contract" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. The DAG JSON is the contract
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#2-write-your-own-runner" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. Write your own runner
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#3-deterministic-and-testable" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. Deterministic and testable
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#4-no-runtime-surprises" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4. No runtime surprises
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#architectural-parity" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Architectural parity
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#export-to-external-orchestrators" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Export to external orchestrators
       
     </span>
   </a>
@@ -1310,72 +1454,158 @@
   
 
 
-<h1 id="sync-async-parity">Sync &amp; Async Parity<a class="headerlink" href="#sync-async-parity" title="Permanent link">&para;</a></h1>
-<p>SynaFlow provides identical semantics for synchronous and asynchronous pipelines.</p>
-<div class="tabbed-set tabbed-alternate" data-tabs="1:2"><input checked="checked" id="__tabbed_1_1" name="__tabbed_1" type="radio" /><input id="__tabbed_1_2" name="__tabbed_1" type="radio" /><div class="tabbed-labels"><label for="__tabbed_1_1">Sync</label><label for="__tabbed_1_2">Async</label></div>
-<div class="tabbed-content">
-<div class="tabbed-block">
-<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">collections.abc</span><span class="w"> </span><span class="kn">import</span> <span class="n">Generator</span><span class="p">,</span> <span class="n">Iterator</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">synaflow</span><span class="w"> </span><span class="kn">import</span> <span class="n">pipeline</span><span class="p">,</span> <span class="n">step</span><span class="p">,</span> <span class="n">run</span>
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>
-<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="k">def</span><span class="w"> </span><span class="nf">producer</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="n">Generator</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">]:</span>
-<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>    <span class="k">yield from</span> <span class="nb">range</span><span class="p">(</span><span class="mi">3</span><span class="p">)</span>
-<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>
-<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="k">def</span><span class="w"> </span><span class="nf">consumer</span><span class="p">(</span><span class="n">producer</span><span class="p">:</span> <span class="n">Iterator</span><span class="p">[</span><span class="nb">int</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>    <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">producer</span><span class="p">:</span>
-<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>        <span class="nb">print</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
-<a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>
-<a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a><span class="n">p</span> <span class="o">=</span> <span class="n">pipeline</span><span class="p">(</span>
-<a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a>    <span class="n">name</span><span class="o">=</span><span class="s2">&quot;sync_example&quot;</span><span class="p">,</span>
-<a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a>    <span class="n">params</span><span class="o">=</span><span class="nb">type</span><span class="p">(</span><span class="s2">&quot;P&quot;</span><span class="p">,</span> <span class="p">(</span><span class="n">NamedTuple</span><span class="p">,),</span> <span class="p">{}),</span>
-<a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a>    <span class="n">steps</span><span class="o">=</span><span class="p">[</span>
-<a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a>        <span class="n">step</span><span class="p">(</span><span class="s2">&quot;producer&quot;</span><span class="p">,</span> <span class="n">fn</span><span class="o">=</span><span class="n">producer</span><span class="p">),</span>
-<a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a>        <span class="n">step</span><span class="p">(</span><span class="s2">&quot;consumer&quot;</span><span class="p">,</span> <span class="n">fn</span><span class="o">=</span><span class="n">consumer</span><span class="p">),</span>
-<a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a>    <span class="p">],</span>
-<a id="__codelineno-0-18" name="__codelineno-0-18" href="#__codelineno-0-18"></a><span class="p">)</span>
-<a id="__codelineno-0-19" name="__codelineno-0-19" href="#__codelineno-0-19"></a><span class="n">run</span><span class="p">(</span><span class="n">p</span><span class="p">,</span> <span class="n">p</span><span class="o">.</span><span class="n">params_type</span><span class="p">())</span>
+<h1 id="build-time-run-time-separation">Build-Time &amp; Run-Time Separation<a class="headerlink" href="#build-time-run-time-separation" title="Permanent link">&para;</a></h1>
+<p>SynaFlow enforces a strict separation between <strong>compiling the pipeline</strong> and
+<strong>executing it</strong>. This is not an implementation detail — it's the architectural
+foundation that makes custom runners, cross-orchestrator export, and
+deterministic behavior possible.</p>
+<h2 id="the-two-phases">The two phases<a class="headerlink" href="#the-two-phases" title="Permanent link">&para;</a></h2>
+<pre class="mermaid"><code>flowchart LR
+    subgraph build["🔨 Build-time (once)"]
+        direction LR
+        code["Your functions&lt;br/&gt;+ type hints"] --&gt; validate["Validate&lt;br/&gt;types, modes,&lt;br/&gt;materializers"]
+        validate --&gt; compile["Compile&lt;br/&gt;Dag + DagNodes"]
+        compile --&gt; json["Export&lt;br/&gt;DAG JSON"]
+    end
+    subgraph run["⚡ Run-time (any runner)"]
+        direction TB
+        sync["Sync runner&lt;br/&gt;PipelineExecutor"]
+        async["Async runner&lt;br/&gt;AsyncPipelineExecutor"]
+        external["Airflow · Prefect&lt;br/&gt;Dagster · Custom"]
+    end
+    json --&gt; sync
+    json --&gt; async
+    json --&gt; external</code></pre>
+<table>
+<thead>
+<tr>
+<th>Phase</th>
+<th>What happens</th>
+<th>When</th>
+<th>Output</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Build-time</strong></td>
+<td>Type validation, mode resolution, materializer assignment, circular dependency check, sync/async consistency</td>
+<td><code>pipeline(...)</code> is called</td>
+<td><code>Dag</code> object, serializable JSON</td>
+</tr>
+<tr>
+<td><strong>Run-time</strong></td>
+<td>Topological execution, lockstep streaming, <code>tee</code> forking, observer dispatch, error handling</td>
+<td><code>run()</code> / <code>async_run()</code> is called</td>
+<td>Step outputs, side effects</td>
+</tr>
+</tbody>
+</table>
+<h2 id="why-this-matters">Why this matters<a class="headerlink" href="#why-this-matters" title="Permanent link">&para;</a></h2>
+<h3 id="1-the-dag-json-is-the-contract">1. The DAG JSON is the contract<a class="headerlink" href="#1-the-dag-json-is-the-contract" title="Permanent link">&para;</a></h3>
+<p>Every pipeline exports a deterministic, serializable JSON:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nb">print</span><span class="p">(</span><span class="n">p</span><span class="o">.</span><span class="n">to_dict</span><span class="p">())</span>
 </code></pre></div>
-</div>
-<div class="tabbed-block">
-<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">collections.abc</span><span class="w"> </span><span class="kn">import</span> <span class="n">AsyncGenerator</span><span class="p">,</span> <span class="n">AsyncIterator</span>
-<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">synaflow</span><span class="w"> </span><span class="kn">import</span> <span class="n">pipeline</span><span class="p">,</span> <span class="n">step</span><span class="p">,</span> <span class="n">async_run</span>
-<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>
-<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">producer</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="n">AsyncGenerator</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="kc">None</span><span class="p">]:</span>
-<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">3</span><span class="p">):</span>
-<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>        <span class="k">yield</span> <span class="n">i</span>
-<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a>
-<a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">consumer</span><span class="p">(</span><span class="n">producer</span><span class="p">:</span> <span class="n">AsyncIterator</span><span class="p">[</span><span class="nb">int</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a>    <span class="k">async</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">producer</span><span class="p">:</span>
-<a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a>        <span class="nb">print</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
-<a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a>
-<a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a><span class="n">p</span> <span class="o">=</span> <span class="n">pipeline</span><span class="p">(</span>
-<a id="__codelineno-1-13" name="__codelineno-1-13" href="#__codelineno-1-13"></a>    <span class="n">name</span><span class="o">=</span><span class="s2">&quot;async_example&quot;</span><span class="p">,</span>
-<a id="__codelineno-1-14" name="__codelineno-1-14" href="#__codelineno-1-14"></a>    <span class="n">params</span><span class="o">=</span><span class="nb">type</span><span class="p">(</span><span class="s2">&quot;P&quot;</span><span class="p">,</span> <span class="p">(</span><span class="n">NamedTuple</span><span class="p">,),</span> <span class="p">{}),</span>
-<a id="__codelineno-1-15" name="__codelineno-1-15" href="#__codelineno-1-15"></a>    <span class="n">steps</span><span class="o">=</span><span class="p">[</span>
-<a id="__codelineno-1-16" name="__codelineno-1-16" href="#__codelineno-1-16"></a>        <span class="n">step</span><span class="p">(</span><span class="s2">&quot;producer&quot;</span><span class="p">,</span> <span class="n">fn</span><span class="o">=</span><span class="n">producer</span><span class="p">),</span>
-<a id="__codelineno-1-17" name="__codelineno-1-17" href="#__codelineno-1-17"></a>        <span class="n">step</span><span class="p">(</span><span class="s2">&quot;consumer&quot;</span><span class="p">,</span> <span class="n">fn</span><span class="o">=</span><span class="n">consumer</span><span class="p">),</span>
-<a id="__codelineno-1-18" name="__codelineno-1-18" href="#__codelineno-1-18"></a>    <span class="p">],</span>
-<a id="__codelineno-1-19" name="__codelineno-1-19" href="#__codelineno-1-19"></a><span class="p">)</span>
-<a id="__codelineno-1-20" name="__codelineno-1-20" href="#__codelineno-1-20"></a><span class="n">async_run</span><span class="p">(</span><span class="n">p</span><span class="p">,</span> <span class="n">p</span><span class="o">.</span><span class="n">params_type</span><span class="p">())</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="p">{</span>
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="w">  </span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;example&quot;</span><span class="p">,</span>
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="w">  </span><span class="nt">&quot;params&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">&quot;count&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;int&quot;</span><span class="p">},</span>
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="w">  </span><span class="nt">&quot;steps&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="w">    </span><span class="nt">&quot;producer&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="w">      </span><span class="nt">&quot;deps&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">&quot;count&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;int&quot;</span><span class="p">},</span>
+<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="w">      </span><span class="nt">&quot;output&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Stream[int]&quot;</span><span class="p">,</span>
+<a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a><span class="w">      </span><span class="nt">&quot;fn&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;producer&quot;</span><span class="p">,</span>
+<a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a><span class="w">      </span><span class="nt">&quot;mode&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;all&quot;</span><span class="p">,</span>
+<a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a><span class="w">      </span><span class="nt">&quot;on_error&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;continue&quot;</span><span class="p">,</span>
+<a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a><span class="w">      </span><span class="nt">&quot;materializer&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;memory_materializer&quot;</span><span class="p">,</span>
+<a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a><span class="w">      </span><span class="nt">&quot;materialized_deps&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[],</span>
+<a id="__codelineno-1-13" name="__codelineno-1-13" href="#__codelineno-1-13"></a><span class="w">      </span><span class="nt">&quot;each_mode_deps&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[]</span>
+<a id="__codelineno-1-14" name="__codelineno-1-14" href="#__codelineno-1-14"></a><span class="w">    </span><span class="p">}</span>
+<a id="__codelineno-1-15" name="__codelineno-1-15" href="#__codelineno-1-15"></a><span class="w">  </span><span class="p">}</span>
+<a id="__codelineno-1-16" name="__codelineno-1-16" href="#__codelineno-1-16"></a><span class="p">}</span>
 </code></pre></div>
-</div>
-</div>
-</div>
-<h2 id="key-rules">Key Rules<a class="headerlink" href="#key-rules" title="Permanent link">&para;</a></h2>
-<ul>
-<li>A pipeline is either <strong>fully sync</strong> or <strong>fully async</strong> — mixing <code>Iterator</code> with <code>async def</code> raises an error.</li>
-<li>Both engines share the same DAG representation and execution semantics.</li>
-<li>Observers, materializers, and error handling behave identically.</li>
-<li>Async observers are detected via <code>inspect.isawaitable</code> and awaited automatically.</li>
-</ul>
-<h2 id="converting-a-sync-pipeline-to-async">Converting a Sync Pipeline to Async<a class="headerlink" href="#converting-a-sync-pipeline-to-async" title="Permanent link">&para;</a></h2>
-<ol>
-<li>Replace <code>Generator[T, None, None]</code> with <code>AsyncGenerator[T, None]</code></li>
-<li>Replace <code>Iterator[T]</code> with <code>AsyncIterator[T]</code></li>
-<li>Add <code>async</code> to all step functions</li>
-<li>Use <code>async_run()</code> instead of <code>run()</code></li>
-</ol>
-<p>The pipeline definition and step configuration stay the same.</p>
+<p>All semantic decisions — mode, <code>each_mode_deps</code>, <code>materialized_deps</code> — are
+resolved at build time and frozen in the JSON. Runners don't re-infer
+semantics; they execute the contract.</p>
+<h3 id="2-write-your-own-runner">2. Write your own runner<a class="headerlink" href="#2-write-your-own-runner" title="Permanent link">&para;</a></h3>
+<p>The <code>Dag</code> object is self-contained. Anyone can write a runner:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">synaflow.core.dag</span><span class="w"> </span><span class="kn">import</span> <span class="n">Dag</span>
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="k">class</span><span class="w"> </span><span class="nc">MyRunner</span><span class="p">:</span>
+<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">execute</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">dag</span><span class="p">:</span> <span class="n">Dag</span><span class="p">,</span> <span class="n">params</span><span class="p">):</span>
+<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>        <span class="k">for</span> <span class="n">level</span> <span class="ow">in</span> <span class="n">dag</span><span class="o">.</span><span class="n">get_execution_levels</span><span class="p">():</span>
+<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>            <span class="k">for</span> <span class="n">step_name</span> <span class="ow">in</span> <span class="n">level</span><span class="p">:</span>
+<a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a>                <span class="n">node</span> <span class="o">=</span> <span class="n">dag</span><span class="o">.</span><span class="n">steps</span><span class="p">[</span><span class="n">step_name</span><span class="p">]</span>
+<a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a>                <span class="c1"># resolve dependencies, call node.fn, store output</span>
+<a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a>                <span class="o">...</span>
+</code></pre></div>
+<p>This is how SynaFlow ships two native runners (sync and async) with identical
+semantics, and how you can compile a pipeline into Airflow or Prefect DAGs.</p>
+<h3 id="3-deterministic-and-testable">3. Deterministic and testable<a class="headerlink" href="#3-deterministic-and-testable" title="Permanent link">&para;</a></h3>
+<p>Because the DAG is a pure data structure, you can assert on it directly:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="n">dag</span> <span class="o">=</span> <span class="n">pipeline</span><span class="p">(</span><span class="o">...</span><span class="p">)</span><span class="o">.</span><span class="n">dag</span>
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="k">assert</span> <span class="n">dag</span><span class="o">.</span><span class="n">steps</span><span class="p">[</span><span class="s2">&quot;transformer&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">mode</span> <span class="o">==</span> <span class="n">StepMode</span><span class="o">.</span><span class="n">EACH</span>
+<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="k">assert</span> <span class="n">dag</span><span class="o">.</span><span class="n">get_execution_levels</span><span class="p">()</span> <span class="o">==</span> <span class="p">[[</span><span class="s2">&quot;producer&quot;</span><span class="p">],</span> <span class="p">[</span><span class="s2">&quot;transformer&quot;</span><span class="p">],</span> <span class="p">[</span><span class="s2">&quot;consumer&quot;</span><span class="p">]]</span>
+</code></pre></div>
+<p>The test corpus validates DAG structure and execution output independently —
+build-time correctness is verified without running the pipeline.</p>
+<h3 id="4-no-runtime-surprises">4. No runtime surprises<a class="headerlink" href="#4-no-runtime-surprises" title="Permanent link">&para;</a></h3>
+<p>Type errors, missing dependencies, circular graphs, mode conflicts — all caught
+at build time. If <code>pipeline(...)</code> succeeds, the DAG is valid. The runner never
+needs to check types or resolve ambiguities at runtime.</p>
+<h2 id="architectural-parity">Architectural parity<a class="headerlink" href="#architectural-parity" title="Permanent link">&para;</a></h2>
+<p>Every domain concern has a symmetric representation in both phases:</p>
+<table>
+<thead>
+<tr>
+<th>Concern</th>
+<th>Build-time</th>
+<th>Run-time</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Pipeline/Orchestration</td>
+<td><code>build_dag()</code></td>
+<td><code>PipelineExecutor</code> / <code>AsyncPipelineExecutor</code></td>
+</tr>
+<tr>
+<td>Dependencies</td>
+<td><code>validate_and_resolve_dependencies()</code></td>
+<td>Inlined in executor</td>
+</tr>
+<tr>
+<td>Topology</td>
+<td><code>check_circular_dependencies()</code>, <code>get_execution_levels()</code></td>
+<td>Inlined in executor</td>
+</tr>
+<tr>
+<td>Step compilation</td>
+<td><code>validate_and_compile_step()</code></td>
+<td>Inlined in executor</td>
+</tr>
+<tr>
+<td>Mode resolution</td>
+<td>Resolved at build time → <code>node.mode</code></td>
+<td>Executor reads <code>node.mode</code>, never re-infers</td>
+</tr>
+<tr>
+<td>Materialization</td>
+<td>Resolved at build time → <code>node.materializer</code></td>
+<td>Executor calls the resolved callable</td>
+</tr>
+<tr>
+<td>Observers</td>
+<td>Normalized at build time → <code>node.observers</code></td>
+<td>Executor dispatches events</td>
+</tr>
+</tbody>
+</table>
+<p>This symmetry means sync and async executors can be completely different
+implementations (one uses generators, the other uses <code>asyncio.Queue</code>) but
+guarantee identical behavior — because they both read the same DAG contract.</p>
+<h2 id="export-to-external-orchestrators">Export to external orchestrators<a class="headerlink" href="#export-to-external-orchestrators" title="Permanent link">&para;</a></h2>
+<p>Because the DAG is self-contained, you can compile a SynaFlow pipeline into
+any orchestrator's native format. See <a href="../../advanced/export-guidance/">Export Guidance</a>
+for Airflow, Prefect, and Dagster examples.</p>
 
 
 
