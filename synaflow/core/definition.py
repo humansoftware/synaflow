@@ -35,7 +35,7 @@ class Step(BaseStep):
     description: str = ""
     pipeline: str | None = None
     parent_pipeline: str | None = None
-    observers: list[Observer] | None = None
+    observers: list[Observer] = field(default_factory=list)
 
 
 @dataclass
@@ -56,7 +56,7 @@ class PipelineDef:
     exports: str | None = None
     materializer: Callable | None = None
     error_materializer: Callable | None = None
-    observers: list[Observer] | None = None
+    observers: list[Observer] = field(default_factory=list)
     dag: Dag = field(default_factory=Dag)
     _compiled: bool = False
     description: str = ""

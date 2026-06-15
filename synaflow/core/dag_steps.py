@@ -67,7 +67,7 @@ def validate_and_compile_step(
         force_materialize=step.force_materialize,
         pipeline=step.pipeline or pipeline_name,
         parent_pipeline=step.parent_pipeline,
-        observers=observers or [],
+        observers=list(observers or []),
         dataset_param_names=dataset_param_names,
     )
 
