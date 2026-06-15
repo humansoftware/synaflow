@@ -72,6 +72,66 @@ Like SQL, Synaflow always operates on flat, typed streams — there is no `Itera
 
 The materializer can persist the shuffle phase to disk when datasets are too large for memory.
 
+### 2.4. Framework Comparison
+
+| | SynaFlow | Hamilton | Dagster | Prefect | Airflow |
+|---|---|---|---|---|---|
+| **Type-hint wiring** | ✅ auto | ✅ | ❌ | ❌ | ❌ |
+| **Lazy streaming** | ✅ lockstep tee | ❌ DataFrame-centric | ❌ task-based | ❌ task-based | ❌ task-based |
+| **Smart binding** | ✅ singular/plural/suffix | ❌ | ❌ | ❌ | ❌ |
+| **Scope** | In-process micro | Feature engineering | Asset orchestration | Workflow orchestration | DAG scheduling |
+| **DAG export** | ✅ JSON | ✅ | ✅ | ✅ | ✅ |
+| **Sync/async parity** | ✅ identical | ❌ | ✅ | ✅ | ❌ |
+| **Memory model** | One item per step | Full DataFrame | Task I/O boundary | Task I/O boundary | Task I/O boundary |
+| **Learning curve** | Low (plain functions) | Medium | High | Medium | High |
+
+SynaFlow fills the gap of **in-process streaming micro-orchestration**. It is not
+a replacement for Airflow, Dagster, or Prefect — it runs inside a single Python
+process. Use those tools to schedule and trigger jobs; use SynaFlow inside the
+job to stream millions of rows between functions with zero boilerplate.
+
+### 2.5. Detailed Comparison: SynaFlow vs Hamilton
+
+Hamilton and SynaFlow are the two Python frameworks that use **function signatures
+and type hints** to automatically build DAGs. The similarity ends there — they
+serve fundamentally different data models.
+
+#### Declarative model
+
+| | SynaFlow | Hamilton |
+|---|---|---|
+| **Wiring** | Parameter name matches producer name | Function name becomes output column |
+| **Binding** | Smart: `item` → `items`, `user_list` → `users` | Exact: `user` ≠ `users` |
+| **DRY** | Natural synonyms, no renaming needed | Must align function names meticulously |
+| **Example** | `def transform(item: User)` binds to step `items` | `def transform(items: pd.Series)` — name must match |
+
+#### Data model
+
+| | SynaFlow | Hamilton |
+|---|---|---|
+| **Default flow** | Lazy streaming (`Iterator[T]`) | DataFrame columns (materialized) |
+| **Memory** | One item per step — generators | Entire column in memory |
+| **Multiple consumers** | Auto `tee` in lockstep | Single consumer per column |
+| **Materialization** | Consumer-driven: ask for `list[T]` → materialize | Always materialized |
+| **Generators** | Native: `yield` in any step | Not supported |
+| **Streaming to disk** | Transparent via materializer factories | Manual code in each function |
+
+#### Use cases
+
+| | SynaFlow | Hamilton |
+|---|---|---|
+| **Best for** | Streaming micro-orchestration, event pipelines | Feature engineering, DataFrame transforms |
+| **When to use** | Millions of rows, lazy forks, lockstep consumers | Columnar data, sklearn transforms, notebook-to-production |
+
+#### Other frameworks
+
+**Flyte** and **Metaflow** wire pipelines explicitly (`A >> B >> C`, `self.next()`).
+Type hints are used for validation, not DAG construction. **Dask delayed** builds task
+graphs lazily but requires explicit task declarations — no auto-wiring from signatures.
+
+None of these support smart binding (singular/plural synonyms), lazy lockstep
+streaming with automatic `tee`, or consumer-driven per-branch materialization.
+
 ## 3. Architectural Decisions and Patterns (Decision Log)
 
 ### 3.1. Transparent Parameter Injection
