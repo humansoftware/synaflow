@@ -28,8 +28,8 @@ jobs:
 
     - name: Check Code Formatting
       run: |
-        uvx ruff format --check
-        uvx ruff check --select F401
+        uvx ruff format --check --exclude boilerplates/
+        uvx ruff check --select F401 --exclude boilerplates/
 
     - name: Validate Packing and Installation
       run: |

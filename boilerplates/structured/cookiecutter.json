@@ -1,0 +1,7 @@
+{
+    "project_name": "my_pipeline",
+    "package_name": "pipeline",
+    "author": "Your Name",
+    "description": "A SynaFlow pipeline",
+    "syn_version": ">=0.14"
+}
