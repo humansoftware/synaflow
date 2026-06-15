@@ -765,6 +765,34 @@
   
   
     <li class="md-nav__item">
+      <a href="core-concepts/event-based/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Event-Based Processing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="core-concepts/materialization/" class="md-nav__link">
         
   
@@ -1043,6 +1071,34 @@
 
               
             
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="advanced/java-streams/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Java Streams Comparison
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
           </ul>
         </nav>
       
@@ -1212,36 +1268,82 @@
 <th></th>
 <th>SynaFlow</th>
 <th>Hamilton</th>
-<th>Airflow / Prefect</th>
+<th>Flyte / Metaflow</th>
+<th>Dagster / Prefect</th>
+<th>Airflow</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td><strong>Type-hint wiring</strong></td>
+<td><strong>Auto wiring</strong></td>
+<td>✅ type hints + smart binding</td>
+<td>✅ type hints (exact names)</td>
+<td>❌ explicit <code>A &gt;&gt; B</code></td>
+<td>❌ explicit</td>
+<td>❌ explicit</td>
+</tr>
+<tr>
+<td><strong>Lazy streaming</strong></td>
+<td>✅ lockstep tee</td>
+<td>❌ DataFrame-centric</td>
+<td>❌</td>
+<td>❌</td>
+<td>❌</td>
+</tr>
+<tr>
+<td><strong>Smart binding</strong></td>
+<td>✅ singular/plural/suffix</td>
+<td>❌</td>
+<td>❌</td>
+<td>❌</td>
+<td>❌</td>
+</tr>
+<tr>
+<td><strong>Scope</strong></td>
+<td>In-process micro</td>
+<td>Feature engineering</td>
+<td>Task orchestration</td>
+<td>Asset/workflow orchestration</td>
+<td>DAG scheduling</td>
+</tr>
+<tr>
+<td><strong>DAG export</strong></td>
+<td>✅ JSON</td>
+<td>✅</td>
+<td>✅</td>
+<td>✅</td>
+<td>✅</td>
+</tr>
+<tr>
+<td><strong>Sync/async parity</strong></td>
+<td>✅ identical</td>
+<td>❌</td>
 <td>✅</td>
 <td>✅</td>
 <td>❌</td>
 </tr>
 <tr>
-<td><strong>Lazy streaming</strong></td>
-<td>✅ (lockstep tee)</td>
-<td>❌ (DataFrame-centric)</td>
-<td>❌ (task-based)</td>
-</tr>
-<tr>
-<td><strong>Scope</strong></td>
-<td>In-process micro-orchestration</td>
-<td>Feature engineering</td>
-<td>Cluster orchestration</td>
-</tr>
-<tr>
-<td><strong>DAG export</strong></td>
-<td>✅ (JSON)</td>
-<td>✅</td>
-<td>✅</td>
+<td><strong>Memory model</strong></td>
+<td>One item per step</td>
+<td>Full DataFrame</td>
+<td>Task I/O boundary</td>
+<td>Task I/O boundary</td>
+<td>Task I/O boundary</td>
 </tr>
 </tbody>
 </table>
+<p><strong>SynaFlow</strong> is not a replacement for Airflow or Dagster — it's a
+<strong>micro-orchestrator</strong> that runs <em>inside</em> a single Python process. Use those tools
+to schedule jobs; use SynaFlow inside the job to route and stream millions of rows
+between Python functions with zero boilerplate.</p>
+<p>But because SynaFlow strictly separates <strong>build-time</strong> (DAG compilation) from
+<strong>run-time</strong> (execution), you are free to write your own runner. The DAG JSON is a
+deterministic execution contract — you can compile a SynaFlow pipeline and
+auto-generate a native DAG for <strong>Airflow</strong>, <strong>Dagster</strong>, or <strong>Prefect</strong>, running
+the same business logic at cluster scale without changing a line of user code.
+See <a href="advanced/export-guidance/">Export Guidance</a> for details.</p>
+<p>For a deeper comparison with Hamilton, see the
+<a href="https://github.com/humansoftware/synaflow/blob/main/docs/DESIGN_PHILOSOPHY.md#25-detailed-comparison-synaflow-vs-hamilton">Design Philosophy</a>.</p>
 <h2 id="next-steps">Next Steps<a class="headerlink" href="#next-steps" title="Permanent link">&para;</a></h2>
 <ul>
 <li>Read the <a href="getting-started/installation/">Installation guide</a></li>
