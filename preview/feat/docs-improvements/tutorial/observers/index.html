@@ -1150,6 +1150,14 @@ frequencies, producing a dictionary.</p>
 <p>When <code>count_chars</code> asks for <code>list[str]</code>, only <strong>this branch</strong> materializes.
 If another step consumed <code>lowercase</code> as <code>Iterator[str]</code>, it would still stream
 lazily without holding all items in memory simultaneously.</p>
+<div class="admonition note">
+<p class="admonition-title">Streaming alternative</p>
+<p>You could avoid materialization entirely: have a step produce
+<code>Generator[tuple[str, int], None, None]</code> that yields key–value pairs as it
+counts, and a downstream step consume <code>Iterator[tuple[str, int]]</code> lazily.
+Materialization is always the consumer's choice — ask for a collection type
+(<code>list</code>, <code>dict</code>, <code>set</code>) and it materializes; ask for an iterator and it streams.</p>
+</div>
 <h2 id="next">Next<a class="headerlink" href="#next" title="Permanent link">&para;</a></h2>
 <p>Print each key–value pair individually in <a href="../materializers/">Level 4</a>.</p>
 
