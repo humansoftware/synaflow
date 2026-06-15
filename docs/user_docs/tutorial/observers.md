@@ -1,99 +1,109 @@
-# Tutorial — Level 3: Observers
+# Tutorial — Level 3: Building a Counter
 
-Observers let you monitor pipeline and step lifecycle events — useful for logging, metrics, and tracing.
+Now we add a step that receives the full list of characters and counts their
+frequencies, producing a dictionary.
 
 === "Sync"
 
     ```python
-    from collections.abc import Generator, Iterator
+    from collections import Counter
     from typing import NamedTuple
-    from synaflow import pipeline, step, run, Observer
+    from synaflow import pipeline, step, run
 
     class Params(NamedTuple):
-        count: int = 3
+        message: str
 
-    def gen(count: int) -> Generator[int, None, None]:
-        yield from range(count)
+    def hello(message: str) -> list[str]:
+        return list(message)
 
-    def doubler(gen: int) -> int:
-        return gen * 2
+    def lowercase(hello: str) -> str:
+        return hello.lower()
 
-    def printer(doubler: Iterator[int]) -> None:
-        for x in doubler:
-            pass
+    def count_chars(lowercase: list[str]) -> dict[str, int]:
+        return dict(Counter(lowercase))
 
-    def log_events(ctx):
-        print(f"[{ctx.step_name}] {ctx.event.value}")
+    def printer(count_chars: dict[str, int]) -> None:
+        print(count_chars)
 
     p = pipeline(
         name="tutorial",
         params=Params,
         steps=[
-            step("gen", fn=gen),
-            step("doubler", fn=doubler),
+            step("hello", fn=hello),
+            step("lowercase", fn=lowercase),
+            step("count_chars", fn=count_chars),
             step("printer", fn=printer),
         ],
-        observers=[Observer(log_events)],
     )
 
-    run(p, Params(count=3))
+    run(p, Params(message="SynaFlow"))
+    # Output: {'s': 1, 'y': 1, 'n': 1, 'a': 1, 'f': 1, 'l': 1, 'o': 1, 'w': 1}
     ```
 
 === "Async"
 
     ```python
-    from collections.abc import AsyncGenerator, AsyncIterator
+    from collections import Counter
     from typing import NamedTuple
-    from synaflow import pipeline, step, async_run, Observer
+    from synaflow import pipeline, step, async_run
 
     class Params(NamedTuple):
-        count: int = 3
+        message: str
 
-    async def gen(count: int) -> AsyncGenerator[int, None]:
-        for i in range(count):
-            yield i
+    async def hello(message: str) -> list[str]:
+        return list(message)
 
-    async def doubler(gen: int) -> int:
-        return gen * 2
+    async def lowercase(hello: str) -> str:
+        return hello.lower()
 
-    async def printer(doubler: AsyncIterator[int]) -> None:
-        async for x in doubler:
-            pass
+    async def count_chars(lowercase: list[str]) -> dict[str, int]:
+        return dict(Counter(lowercase))
 
-    async def log_events(ctx):
-        print(f"[{ctx.step_name}] {ctx.event.value}")
+    async def printer(count_chars: dict[str, int]) -> None:
+        print(count_chars)
 
     p = pipeline(
         name="tutorial",
         params=Params,
         steps=[
-            step("gen", fn=gen),
-            step("doubler", fn=doubler),
+            step("hello", fn=hello),
+            step("lowercase", fn=lowercase),
+            step("count_chars", fn=count_chars),
             step("printer", fn=printer),
         ],
-        observers=[Observer(log_events)],
     )
 
-    async_run(p, Params(count=3))
+    async_run(p, Params(message="SynaFlow"))
+    # Output: {'s': 1, 'y': 1, 'n': 1, 'a': 1, 'f': 1, 'l': 1, 'o': 1, 'w': 1}
     ```
 
-**Output:**
+**What changed?**
 
-```
-[gen] step_started
-[gen] step_completed
-[doubler] step_started
-[doubler] step_completed
-[printer] step_started
-[printer] step_completed
+- `count_chars` asks for `list[str]` — this forces SynaFlow to **materialize**
+  the EACH-mode output from `lowercase` into a concrete list (instead of the
+  default lazy stream).
+- `printer` receives the `dict[str, int]` directly in **ALL mode**.
+
+```mermaid
+flowchart TD
+    hello["hello<br/><i>list[str]</i>"]
+    lowercase["lowercase<br/><i>ListType(str)</i>"]
+    count_chars["count_chars<br/><i>dict[str, int]</i>"]
+    printer["printer<br/><i>None</i>"]
+    message --> hello
+    hello --> lowercase
+    lowercase --> count_chars
+    count_chars --> printer
 ```
 
-You can also attach observers to individual steps:
+### Materialization is per-branch
 
-```python
-step("doubler", fn=doubler, observers=[Observer(my_handler)])
-```
+When `count_chars` asks for `list[str]`, only **this branch** materializes.
+If another step consumed `lowercase` as `Iterator[str]`, it would still stream
+lazily without holding all items in memory simultaneously.
 
 ## Next
 
-Upgrade your pipeline with persistent storage in [Level 4](materializers.md).
+Print each key–value pair individually in [Level 4](materializers.md),
+or refactor the pipeline to stream everything in
+[Level 5 — Streaming](streaming.md).

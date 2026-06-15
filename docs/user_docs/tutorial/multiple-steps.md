@@ -1,118 +1,100 @@
-# Tutorial — Level 2: Multiple Steps
+# Tutorial — Level 2: Adding a Transformation
 
-Now let's add more steps and watch SynaFlow wire them together based on type hints.
+Now we insert a step that converts each character to lowercase. This introduces
+**EACH mode** — the step is called once per item.
 
 === "Sync"
 
     ```python
-    from collections.abc import Generator, Iterator
     from typing import NamedTuple
     from synaflow import pipeline, step, run
 
     class Params(NamedTuple):
-        count: int = 3
+        message: str
 
-    def gen(count: int) -> Generator[int, None, None]:
-        yield from range(count)
+    def hello(message: str) -> list[str]:
+        return list(message)
 
-    def doubler(gen: int) -> int:
-        return gen * 2
+    def lowercase(hello: str) -> str:
+        return hello.lower()
 
-    def printer(doubler: Iterator[int]) -> None:
-        for x in doubler:
-            print(x)
+    def printer(lowercase: list[str]) -> None:
+        print(lowercase)
 
     p = pipeline(
         name="tutorial",
         params=Params,
         steps=[
-            step("gen", fn=gen),
-            step("doubler", fn=doubler),
+            step("hello", fn=hello),
+            step("lowercase", fn=lowercase),
             step("printer", fn=printer),
         ],
     )
 
-    run(p, Params(count=5))
+    run(p, Params(message="SynaFlow"))
+    # Output: ['s', 'y', 'n', 'a', 'f', 'l', 'o', 'w']
     ```
 
 === "Async"
 
     ```python
-    from collections.abc import AsyncGenerator, AsyncIterator
     from typing import NamedTuple
     from synaflow import pipeline, step, async_run
 
     class Params(NamedTuple):
-        count: int = 3
+        message: str
 
-    async def gen(count: int) -> AsyncGenerator[int, None]:
-        for i in range(count):
-            yield i
+    async def hello(message: str) -> list[str]:
+        return list(message)
 
-    async def doubler(gen: int) -> int:
-        return gen * 2
+    async def lowercase(hello: str) -> str:
+        return hello.lower()
 
-    async def printer(doubler: AsyncIterator[int]) -> None:
-        async for x in doubler:
-            print(x)
+    async def printer(lowercase: list[str]) -> None:
+        print(lowercase)
 
     p = pipeline(
         name="tutorial",
         params=Params,
         steps=[
-            step("gen", fn=gen),
-            step("doubler", fn=doubler),
+            step("hello", fn=hello),
+            step("lowercase", fn=lowercase),
             step("printer", fn=printer),
         ],
     )
 
-    async_run(p, Params(count=5))
+    async_run(p, Params(message="SynaFlow"))
+    # Output: ['s', 'y', 'n', 'a', 'f', 'l', 'o', 'w']
     ```
 
 **What happened?**
 
-1. `gen` produces `Generator[int]` — SynaFlow sees this is a stream.
-2. `doubler` asks for `int` — SynaFlow auto-selects **EACH mode** (item-by-item). The stream is unrolled.
-3. `printer` asks for `Iterator[int]` — receives the stream lazily.
-
-No `A >> B >> C` wiring. The type hints did all the work.
-
-## Visualizing the DAG
-
-Export the pipeline to JSON and generate a flowchart:
-
-```bash
-python scripts/visualize_dag.py --json pipeline.json
-```
-
-Generated from the tutorial pipeline:
+1. `hello` outputs `list[str]` — a collection of 8 characters.
+2. `lowercase` asks for `str` — a **scalar**. Because `hello` outputs an iterable
+   and `lowercase` expects a scalar, SynaFlow selects **EACH mode** and calls
+   `lowercase` once per character.
+3. EACH-mode outputs are automatically collected into a list. `printer` receives
+   `list[str]` in **ALL mode** and prints it.
 
 ```mermaid
 flowchart TD
-    gen["gen<br/><i>Stream[int, None, None]</i>"]
-    doubler["doubler<br/><i>ListType(<class 'int'>)</i>"]
+    hello["hello<br/><i>list[str]</i>"]
+    lowercase["lowercase<br/><i>ListType(str)</i>"]
     printer["printer<br/><i>None</i>"]
-    count --> gen
-    gen --> doubler
-    doubler --> printer
+    message --> hello
+    hello --> lowercase
+    lowercase --> printer
 ```
 
-## Mode: EACH vs ALL
+> **EACH mode** wraps the output type in `ListType`. `lowercase` returns `str`
+> per item, so its output type is `ListType(str)` — meaning "a list of strings".
 
-SynaFlow automatically picks the execution mode:
-
-| Consumer expects | Producer outputs | Mode |
-|---|---|---|
-| `T` (scalar) | `Iterator[T]` (stream) | **EACH** — called per item |
-| `Iterator[T]` | `Iterator[T]` | **ALL** — receives whole stream |
-| `list[T]` | `Iterator[T]` | **ALL** — stream materialized eagerly |
-
-You can also force the mode explicitly:
+You can force the mode explicitly:
 
 ```python
-step("doubler", fn=doubler, mode=StepMode.EACH)
+step("lowercase", fn=lowercase, mode=StepMode.EACH)
 ```
 
 ## Next
 
-Attach lifecycle observers in [Level 3](observers.md).
+Count the characters in [Level 3](observers.md).
