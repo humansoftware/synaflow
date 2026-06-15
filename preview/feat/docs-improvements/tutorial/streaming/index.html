@@ -635,6 +635,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#how-the-pipeline-actually-runs" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        How the pipeline actually runs
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#next" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1123,6 +1134,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#how-the-pipeline-actually-runs" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        How the pipeline actually runs
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#next" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1326,6 +1348,37 @@ into memory (<code>lowercase → list[str]</code>). For large datasets, we can r
 SynaFlow streams lazily. Ask for <code>list[T]</code>, <code>set[T]</code>, or <code>dict[K,V]</code> and
 SynaFlow materializes — but only for that branch.</p>
 </blockquote>
+<h2 id="how-the-pipeline-actually-runs">How the pipeline actually runs<a class="headerlink" href="#how-the-pipeline-actually-runs" title="Permanent link">&para;</a></h2>
+<p>It's tempting to picture pipeline execution like a batch script: <code>hello</code> runs to
+completion, <em>then</em> <code>lowercase</code> starts, <em>then</em> <code>counter</code>, <em>then</em> <code>printer</code>. That
+is <strong>not</strong> how SynaFlow works.</p>
+<p>Instead, all steps run <strong>continuously and concurrently</strong> — like an assembly
+line. One item flows through every step before the next item is even produced:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>  hello          lowercase       counter         printer
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>    │                │               │               │
+<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>    ├─ &#39;S&#39; ─────────►│ lower(&#39;S&#39;) ──►│               │
+<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>    │                │               │ (buffering)   │
+<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>    ├─ &#39;y&#39; ─────────►│ lower(&#39;y&#39;) ──►│               │
+<a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a>    │                │               │ (buffering)   │
+<a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a>    ├─ &#39;n&#39; ─────────►│ lower(&#39;n&#39;) ──►│               │
+<a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a>    │                │               │  ...          │
+<a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a>    │                │               │ (all chars    │
+<a id="__codelineno-3-10" name="__codelineno-3-10" href="#__codelineno-3-10"></a>    │                │               │  received)    │
+<a id="__codelineno-3-11" name="__codelineno-3-11" href="#__codelineno-3-11"></a>    │                │               ├─ (&#39;s&#39;,1) ────►│ prints
+<a id="__codelineno-3-12" name="__codelineno-3-12" href="#__codelineno-3-12"></a>    │                │               ├─ (&#39;y&#39;,1) ────►│ prints
+<a id="__codelineno-3-13" name="__codelineno-3-13" href="#__codelineno-3-13"></a>    │                │               ├─ (&#39;n&#39;,1) ────►│ prints
+<a id="__codelineno-3-14" name="__codelineno-3-14" href="#__codelineno-3-14"></a>    │                │               │  ...          │
+</code></pre></div>
+<ul>
+<li><code>lowercase</code> starts processing the first character <strong>before</strong> <code>hello</code> finishes.</li>
+<li><code>counter</code> accumulates characters in its local dict <strong>as they arrive</strong>.</li>
+<li><code>printer</code> starts printing <strong>as soon as</strong> <code>counter</code> yields its first tuple.</li>
+<li>At no point is the entire list of characters held in memory by the framework.</li>
+</ul>
+<p>This is the essence of <strong>lockstep streaming</strong> — every step is alive at the same
+time, pulling items forward through the DAG. For fan-out (multiple consumers of
+the same producer), SynaFlow automatically forks the stream with <code>itertools.tee</code>
+and advances all consumers together.</p>
 <h2 id="next">Next<a class="headerlink" href="#next" title="Permanent link">&para;</a></h2>
 <p>Explore more streaming patterns in
 <a href="../../core-concepts/lockstep-flow/">Lockstep Data Flow</a>.</p>
