@@ -774,6 +774,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#diamond-dag-in-action" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Diamond DAG in Action
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#when-materialization-happens" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1206,6 +1217,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#diamond-dag-in-action" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Diamond DAG in Action
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#when-materialization-happens" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1519,6 +1541,150 @@ run in parallel (in an async runner):</p>
 <a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a>
 <a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a>Levels:  [&#39;start&#39;]  →  [&#39;branch_a&#39;, &#39;branch_b&#39;]  →  [&#39;merge&#39;]
 </code></pre></div>
+<h2 id="diamond-dag-in-action">Diamond DAG in Action<a class="headerlink" href="#diamond-dag-in-action" title="Permanent link">&para;</a></h2>
+<p>Here's a more complex example: one producer feeds two branches, and a final step
+joins both streams. Watch how SynaFlow advances <code>doubler</code> and <code>tripler</code> in
+lockstep, pads the shorter stream with <code>None</code>, and feeds the pairs to <code>join</code>.</p>
+<div id="diamond-animation" style="font-family:monospace;margin:1.5em 0;padding:1em;background:#1a1b26;color:#a9b1d6;border-radius:8px;overflow:hidden">
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.5em">
+  <div>
+    <span style="font-size:0.85em;color:#565f89">Step:</span>
+    <span id="diam-step" style="color:#7dcfff">0/10</span>
+  </div>
+  <div>
+    <button onclick="diamFrame(-1)" style="background:#565f89;color:#fff;border:none;padding:4px 12px;border-radius:4px;cursor:pointer;font-size:0.9em;margin-right:6px">◀</button>
+    <button id="diam-play" onclick="diamToggle()" style="background:#7dcfff;color:#1a1b26;border:none;padding:4px 12px;border-radius:4px;cursor:pointer;font-size:0.9em;margin-right:6px">▶ Play</button>
+    <button onclick="diamFrame(1)" style="background:#565f89;color:#fff;border:none;padding:4px 12px;border-radius:4px;cursor:pointer;font-size:0.9em;margin-right:6px">▶</button>
+    <button onclick="diamReset()" style="background:#565f89;color:#fff;border:none;padding:4px 12px;border-radius:4px;cursor:pointer;font-size:0.9em">↺ Reset</button>
+  </div>
+</div>
+
+<div style="text-align:center;margin-bottom:0.5em">
+<svg id="diam-dag" viewBox="0 0 360 220" style="max-width:360px;width:100%;height:auto">
+  <defs>
+    <marker id="darrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M0,0 L10,5 L0,10" fill="#565f89"/>
+    </marker>
+  </defs>
+  <!-- numbers → doubler -->
+  <path d="M150,40 L80,90" stroke="#565f89" stroke-width="2" fill="none" marker-end="url(#darrow)"/>
+  <!-- numbers → tripler -->
+  <path d="M175,40 L250,90" stroke="#565f89" stroke-width="2" fill="none" marker-end="url(#darrow)"/>
+  <!-- doubler → join -->
+  <path d="M95,140 L150,193" stroke="#565f89" stroke-width="2" fill="none" marker-end="url(#darrow)"/>
+  <!-- tripler → join -->
+  <path d="M235,140 L180,193" stroke="#565f89" stroke-width="2" fill="none" marker-end="url(#darrow)"/>
+  <!-- numbers -->
+  <rect x="115" y="10" width="100" height="30" rx="6" fill="#7aa2f7" opacity="0.15" stroke="#7aa2f7" stroke-width="1"/>
+  <text x="165" y="30" text-anchor="middle" fill="#7aa2f7" font-size="12" font-family="monospace">numbers</text>
+  <!-- doubler -->
+  <rect x="15" y="95" width="90" height="30" rx="6" fill="#7aa2f7" opacity="0.15" stroke="#7aa2f7" stroke-width="1"/>
+  <text x="60" y="115" text-anchor="middle" fill="#7aa2f7" font-size="11" font-family="monospace">doubler</text>
+  <!-- tripler -->
+  <rect x="255" y="95" width="90" height="30" rx="6" fill="#7aa2f7" opacity="0.15" stroke="#7aa2f7" stroke-width="1"/>
+  <text x="300" y="115" text-anchor="middle" fill="#7aa2f7" font-size="11" font-family="monospace">tripler</text>
+  <!-- join -->
+  <rect x="115" y="195" width="100" height="25" rx="6" fill="#7aa2f7" opacity="0.15" stroke="#7aa2f7" stroke-width="1"/>
+  <text x="165" y="212" text-anchor="middle" fill="#7aa2f7" font-size="12" font-family="monospace">join</text>
+  <g id="diam-values"></g>
+</svg>
+</div>
+
+<table style="width:100%;border-collapse:collapse;font-size:0.82em;text-align:center">
+<thead>
+  <tr style="color:#7aa2f7">
+    <th style="padding:4px;border-bottom:1px solid #565f89;width:55px"></th>
+    <th style="padding:4px;border-bottom:1px solid #565f89">numbers</th>
+    <th style="padding:4px;border-bottom:1px solid #565f89">doubler</th>
+    <th style="padding:4px;border-bottom:1px solid #565f89">tripler</th>
+    <th style="padding:4px;border-bottom:1px solid #565f89">join (pairs)</th>
+  </tr>
+</thead>
+<tbody id="diam-body">
+</tbody>
+</table>
+<div id="diam-insight" style="margin-top:0.8em;padding:8px 12px;background:#24283b;border-radius:4px;font-size:0.85em;min-height:1.5em;color:#9ece6a"></div>
+</div>
+
+<script>
+(function() {
+  // [frame, numbers_out, doubler_in, tripler_in, join_pair, n_int, d_int, t_int, j_int, insight]
+  var df = [
+    [0, "",   "",   "",   "",   "",   "",   "",   "",   ""],
+    [1, "0",  "",   "",   "",   "0",  "",   "",   "",   "numbers produces 0. Both branches receive it."],
+    [2, "1",  "0→0","0→0","",   "1",  "0→0","0→0","",   "doubler and tripler process item 0 simultaneously (lockstep)."],
+    [3, "2",  "1→2","1→3","",   "2",  "1→2","1→3","",   "numbers already on item 3 while branches process item 2."],
+    [4, "3",  "2→4","2→6","(2,3)","3","2→4","2→6","(2,3)","join receives first pair. Streams are unrolled together."],
+    [5, "4",  "3→6","3→9","(4,6)","4","3→6","3→9","(4,6)",""],
+    [6, "",   "4→8","4→12","(6,9)",  "✓",  "4→8","4→12","(6,9)","numbers finished. Branches drain remaining items."],
+    [7, "",   "",   "",   "(8,12)","✓",  "✓",  "✓",   "(8,12)","doubler and tripler also finished. join prints last pair."],
+    [8, "",   "",   "",   "",   "✓",  "✓",  "✓",   "✓",   "✓ All done. Only one item per step in memory."],
+  ];
+
+  var dcur = 0, dtimer = null, dplaying = false;
+
+  function dstateClass(s) {
+    if (s === "✓") return "#565f89";
+    if (s === "") return "#3b4261";
+    return "#24283b";
+  }
+
+  function drenderBody() {
+    var h = "";
+    for (var i = 0; i < df.length; i++) {
+      var f = df[i], isCur = i === dcur;
+      var label = i === 0 ? "start" : "&nbsp;&nbsp;t" + i;
+      h += '<tr style="' + (isCur ? 'outline:2px solid #7dcfff;outline-offset:-2px' : '') + '">';
+      h += '<td style="padding:2px 6px;color:#565f89;text-align:right;border-right:1px solid #565f89">' + label + '</td>';
+      for (var j = 1; j <= 4; j++) {
+        h += '<td style="padding:2px 6px;background:' + dstateClass(f[j+4]) + '">' + (f[j] || "—") + '</td>';
+      }
+      h += '</tr>';
+    }
+    document.getElementById("diam-body").innerHTML = h;
+  }
+
+  function drenderDag() {
+    var f = df[dcur];
+    var v = "";
+    if (f[5] && f[5] !== "" && f[5] !== "✓") v += '<rect x="170" y="13" width="32" height="24" rx="4" fill="#f7768e" opacity="0.25"/><text x="186" y="30" text-anchor="middle" fill="#f7768e" font-size="11" font-family="monospace">' + f[5] + '</text>';
+    if (f[6] && f[6] !== "" && f[6] !== "✓") v += '<rect x="52" y="98" width="40" height="24" rx="4" fill="#e0af68" opacity="0.25"/><text x="72" y="115" text-anchor="middle" fill="#e0af68" font-size="10" font-family="monospace">' + f[6] + '</text>';
+    if (f[7] && f[7] !== "" && f[7] !== "✓") v += '<rect x="292" y="98" width="40" height="24" rx="4" fill="#7dcfff" opacity="0.25"/><text x="312" y="115" text-anchor="middle" fill="#7dcfff" font-size="10" font-family="monospace">' + f[7] + '</text>';
+    if (f[8] && f[8] !== "" && f[8] !== "✓") v += '<rect x="146" y="198" width="58" height="22" rx="4" fill="#9ece6a" opacity="0.25"/><text x="175" y="213" text-anchor="middle" fill="#9ece6a" font-size="11" font-family="monospace">' + f[8] + '</text>';
+    if (f[5] === "✓") v += '<text x="202" y="30" fill="#9ece6a" font-size="12">✓</text>';
+    if (f[6] === "✓") v += '<text x="80" y="115" fill="#9ece6a" font-size="12">✓</text>';
+    if (f[7] === "✓") v += '<text x="320" y="115" fill="#9ece6a" font-size="12">✓</text>';
+    if (f[8] === "✓") v += '<text x="205" y="213" fill="#9ece6a" font-size="12">✓</text>';
+    document.getElementById("diam-values").innerHTML = v;
+  }
+
+  window.diamFrame = function(d) {
+    var n = dcur + d;
+    if (n >= 0 && n < df.length) dcur = n;
+    dupdate();
+  };
+  window.diamToggle = function() {
+    if (dplaying) { clearInterval(dtimer); dplaying = false; document.getElementById("diam-play").innerHTML = "▶ Play"; }
+    else { dplaying = true; document.getElementById("diam-play").innerHTML = "⏸ Pause"; dtimer = setInterval(function(){ window.diamFrame(1); if (dcur >= df.length - 1) window.diamToggle(); }, 1400); }
+  };
+  window.diamReset = function() { dcur = 0; dupdate(); };
+  function dupdate() {
+    var f = df[dcur];
+    document.getElementById("diam-step").innerHTML = dcur + "/" + (df.length - 1);
+    document.getElementById("diam-insight").innerHTML = f[9];
+    drenderBody();
+    drenderDag();
+  }
+  drenderBody();
+  drenderDag();
+})();
+</script>
+
+<p>The diamond animation shows a key behavior: when <code>doubler</code> and <code>tripler</code> produce
+items at the same time, SynaFlow <strong>unrolls both streams together</strong> — yielding
+pairs like <code>(2, 3)</code>, <code>(4, 6)</code> — before moving to the next item. If one stream
+were shorter, SynaFlow would pad with <code>None</code>. This is the same lockstep
+mechanism, applied to fan-in.</p>
 <h2 id="when-materialization-happens">When Materialization Happens<a class="headerlink" href="#when-materialization-happens" title="Permanent link">&para;</a></h2>
 <table>
 <thead>
