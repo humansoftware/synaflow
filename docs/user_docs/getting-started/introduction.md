@@ -21,6 +21,9 @@ Once you've built something, dive into [**Core Concepts**](../core-concepts/how-
 
 - [**How the DAG is Wired**](../core-concepts/how-dag-is-wired.md) — step names,
   parameter names, and type hints: the three rules that build the graph.
+- [**Build vs Run**](../core-concepts/build-vs-run.md) — the strict separation
+  between DAG compilation and execution that enables custom runners, external
+  orchestrator export, and deterministic behavior.
 - [**Lockstep Data Flow**](../core-concepts/lockstep-flow.md) — how one item
   flows entirely through the pipeline before the next is produced, guaranteeing
   extreme memory efficiency.
@@ -49,6 +52,9 @@ The [**Advanced**](../advanced/custom-materializers.md) section covers:
   and step lifecycle events for logging, metrics, or tracing.
 - [**Export Guidance**](../advanced/export-guidance.md) — compile SynaFlow DAGs
   into Airflow, Prefect, or custom orchestrators.
+
+If you're coming from another ecosystem, the [**Comparisons**](../comparisons/java-streams.md)
+section maps SynaFlow concepts to Java Streams and LINQ.
 
 ## Quick reference
 
