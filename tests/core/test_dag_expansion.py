@@ -195,3 +195,91 @@ def test_sub_pipeline_preserves_explicit_all_mode_after_expansion():
 
     assert parent.dag.steps["child"].mode is StepMode.ALL
     assert parent.dag.steps["child"].each_mode_deps == []
+
+
+def test_include_expansion_preserves_pipeline_metadata_and_materializer_overrides():
+    def pipeline_mat(ctx):
+        return list
+
+    def step_mat(ctx):
+        return tuple
+
+    def step_err(ctx):
+        return lambda exc: None
+
+    class ChildParams(NamedTuple):
+        items: list[int]
+
+    def emit(items: list[int]) -> Iterator[int]:
+        yield from items
+
+    child = pipeline(
+        name="Child",
+        params=ChildParams,
+        exports="emit",
+        materializer=pipeline_mat,
+        steps=[
+            step("emit", fn=emit, materializer=step_mat, error_materializer=step_err)
+        ],
+    )
+
+    class ParentParams(NamedTuple):
+        items: list[int]
+
+    def adapt(items: list[int]) -> ChildParams:
+        return ChildParams(items=items)
+
+    parent = pipeline(
+        name="Parent",
+        params=ParentParams,
+        steps=[include("child", pipeline=child, fn=adapt)],
+    )
+
+    adapter = parent.dag.steps["child__adapter"]
+    exported = parent.dag.steps["child"]
+
+    assert adapter.pipeline == "Parent"
+    assert adapter.parent_pipeline is None
+    assert exported.pipeline == "Child"
+    assert exported.parent_pipeline == "Parent"
+    assert exported.materializer is step_mat
+    assert exported.error_materializer is step_err
+
+
+def test_include_expansion_rewrites_wrapper_signature_to_adapter_and_prefixed_inputs():
+    class ChildParams(NamedTuple):
+        items: list[int]
+        factor: int
+
+    def emit(items: list[int]) -> Iterator[int]:
+        yield from items
+
+    def multiply(emit: int, factor: int) -> int:
+        return emit * factor
+
+    child = pipeline(
+        name="Child",
+        params=ChildParams,
+        exports="multiply",
+        steps=[step("emit", fn=emit), step("multiply", fn=multiply)],
+    )
+
+    class ParentParams(NamedTuple):
+        items: list[int]
+        factor: int
+
+    def adapt(items: list[int], factor: int) -> ChildParams:
+        return ChildParams(items=items, factor=factor)
+
+    parent = pipeline(
+        name="Parent",
+        params=ParentParams,
+        steps=[include("child", pipeline=child, fn=adapt)],
+    )
+
+    wrapped = parent.dag.steps["child"].fn
+    signature = wrapped.__signature__
+
+    assert list(signature.parameters) == ["child__emit", "child__adapter"]
+    assert signature.parameters["child__emit"].annotation is int
+    assert signature.parameters["child__adapter"].annotation is ChildParams

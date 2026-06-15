@@ -241,6 +241,60 @@ def _compute_materialized_deps(dag: dict[str, DagNode]) -> None:
         node.materialized_deps = materialized_deps
 
 
+def _expand_and_validate_steps(
+    steps: list[Any],
+    pipeline_name: str,
+) -> list[Any]:
+    from synaflow.core.dag_expansion import expand_macros
+
+    _validate_declared_step_names(steps, pipeline_name)
+    expanded_steps = expand_macros(steps, current_pipeline_name=pipeline_name)
+    validate_no_duplicate_base_datasets(expanded_steps, pipeline_name)
+    return expanded_steps
+
+
+def _compile_steps(
+    expanded_steps: list[Any],
+    pipeline_name: str,
+    params: type[NamedTuple],
+    pipeline_observers: list[ResolvedObserver],
+) -> tuple[dict[str, DagNode], dict[str, DagNode]]:
+    dag: dict[str, DagNode] = {}
+    produced = initialize_parameters(params)
+
+    for step in expanded_steps:
+        validate_step_is_callable(step, pipeline_name)
+        validate_unique_step_name(step.name, dag, pipeline_name, is_expanded=True)
+
+        compiled_step = validate_and_compile_step(
+            step,
+            produced,
+            pipeline_name,
+            observers=_resolve_step_observers(pipeline_observers, step.observers),
+        )
+        dag[step.name] = compiled_step
+        produced[step.name] = compiled_step
+
+    return dag, produced
+
+
+def _finalize_dag(
+    pipeline_name: str,
+    dag: dict[str, DagNode],
+    produced: dict[str, DagNode],
+    error_materializer_factory: Any,
+    pipeline_observers: list[ResolvedObserver],
+) -> Dag:
+    dag_obj = Dag(name=pipeline_name)
+    dag_obj.params = {
+        name: info.output for name, info in produced.items() if name not in dag
+    }
+    dag_obj.steps = dag
+    dag_obj.error_materializer_factory = error_materializer_factory
+    dag_obj.pipeline_observers = list(pipeline_observers)
+    return dag_obj
+
+
 def build_dag(
     pipeline_name: str,
     params: type[NamedTuple],
@@ -254,46 +308,27 @@ def build_dag(
         error_materializer_factory = log_error_materializer_factory
 
     _validate_params_is_namedtuple(params, pipeline_name)
-
-    factory = memory_materializer_factory
-
-    dag: dict[str, DagNode] = {}
-    dag_obj = Dag(name=pipeline_name)
-
-    from synaflow.core.dag_expansion import expand_macros
-
-    _validate_declared_step_names(steps, pipeline_name)
-
-    expanded_steps = expand_macros(steps, current_pipeline_name=pipeline_name)
-
-    validate_no_duplicate_base_datasets(expanded_steps, pipeline_name)
-
     pipeline_obs_resolved = _resolve_pipeline_observers(pipeline_observers or [])
-
-    produced = initialize_parameters(params)
-
-    for step in expanded_steps:
-        validate_step_is_callable(step, pipeline_name)
-        validate_unique_step_name(step.name, dag, pipeline_name, is_expanded=True)
-
-        compiled_step = validate_and_compile_step(
-            step,
-            produced,
-            pipeline_name,
-            observers=_resolve_step_observers(pipeline_obs_resolved, step.observers),
-        )
-        dag[step.name] = compiled_step
-        produced[step.name] = compiled_step
-
-    _resolve_materializers(dag, factory, error_materializer_factory)
+    expanded_steps = _expand_and_validate_steps(steps, pipeline_name)
+    dag, produced = _compile_steps(
+        expanded_steps,
+        pipeline_name,
+        params,
+        pipeline_obs_resolved,
+    )
+    _resolve_materializers(
+        dag,
+        memory_materializer_factory,
+        error_materializer_factory,
+    )
     _compute_materialized_deps(dag)
-
-    dag_obj.params = {
-        name: info.output for name, info in produced.items() if name not in dag
-    }
-    dag_obj.steps = dag
-    dag_obj.error_materializer_factory = error_materializer_factory
-    dag_obj.pipeline_observers = list(pipeline_obs_resolved)
+    dag_obj = _finalize_dag(
+        pipeline_name,
+        dag,
+        produced,
+        error_materializer_factory,
+        pipeline_obs_resolved,
+    )
 
     check_circular_dependencies(dag_obj, pipeline_name)
 
