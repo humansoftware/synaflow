@@ -25,6 +25,7 @@ from typing import Any, NamedTuple, get_args
 
 from synaflow.core.dag import Dag, DagNode
 from synaflow.core.dag_dependencies import initialize_parameters
+from synaflow.core.dag_expansion import expand_macros
 from synaflow.core.dag_steps import (
     validate_and_compile_step,
     validate_no_duplicate_base_datasets,
@@ -245,8 +246,6 @@ def _expand_and_validate_steps(
     steps: list[Any],
     pipeline_name: str,
 ) -> list[Any]:
-    from synaflow.core.dag_expansion import expand_macros
-
     _validate_declared_step_names(steps, pipeline_name)
     expanded_steps = expand_macros(steps, current_pipeline_name=pipeline_name)
     validate_no_duplicate_base_datasets(expanded_steps, pipeline_name)

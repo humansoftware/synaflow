@@ -26,12 +26,11 @@ from synaflow.core.types import (
     OnError,
     StepMode,
 )
-
-
-def _output_key(dag: Dag, producer: str, consumer: str) -> str:
-    if len(dag.consumers_of(producer)) > 1:
-        return f"{producer}__{consumer}"
-    return producer
+from synaflow.execution.common import (
+    is_terminal_step,
+    output_key,
+    should_publish_output,
+)
 
 
 # ---------------------------------------------------------------------------
@@ -69,7 +68,7 @@ def _apply_materializer(
         MaterializeContext(
             pipeline_name=dag.name,
             dataset_name=step_name,
-            item_type=node.get("output"),
+            item_type=node.output,
             consumer_type=consumer_type,
         )
     )
@@ -281,7 +280,7 @@ class PipelineExecutor:
         try:
             output = self._execute_step(step_name, node, arguments, unrolled)
             self._emit_immediate_completion(step_name, node, output, unrolled)
-            if self._should_publish_output(step_name):
+            if should_publish_output(step_name):
                 self._publish_output(step_name, output, node)
         except PipelineStopException as exc:
             self._dispatch_step_failure(node, step_name, exc.cause or exc)
@@ -323,15 +322,12 @@ class PipelineExecutor:
             exception=cause,
         )
 
-    def _should_publish_output(self, step_name):
-        return not step_name.startswith("_")
-
     def _unroll_step(self, step_name, node, base_args, unrolled):
         """Call fn once per item-tuple. Exhausted streams yield None.
         If terminal (sink), consume eagerly without producing output."""
         iterators = {}
         for dep in unrolled:
-            key = _output_key(self.dag, dep, step_name)
+            key = output_key(self.dag, dep, step_name)
             source = self.outputs.get(key, self.outputs.get(dep))
             iterators[dep] = iter(source if source is not None else [])
 
@@ -360,19 +356,16 @@ class PipelineExecutor:
                             step_name=step_name, cause=exc
                         ) from exc
 
-        if self._is_terminal(step_name):
+        if is_terminal_step(self.dag, step_name):
             for _ in generate():
                 pass
             return None
         return generate()
 
-    def _is_terminal(self, step_name):
-        return step_name.startswith("_") or not self.dag.consumers_of(step_name)
-
     def _build_arguments(self, consumer, node):
         args = {}
         for dep_name in node.deps:
-            key = _output_key(self.dag, dep_name, consumer)
+            key = output_key(self.dag, dep_name, consumer)
             value = self.outputs.get(key, self.outputs.get(dep_name))
             param = node.dataset_param_names.get(dep_name, dep_name)
             args[param] = value
@@ -475,7 +468,7 @@ class PipelineExecutor:
         if deferred:
             self._emit_step_result(node, step_name, output, had_error, exc)
         for consumer in consumers:
-            self.outputs[_output_key(self.dag, step_name, consumer)] = output
+            self.outputs[output_key(self.dag, step_name, consumer)] = output
 
     def _publish_stream_to_single_consumer(
         self,
@@ -491,7 +484,7 @@ class PipelineExecutor:
         )
         if deferred:
             self._emit_step_result(node, step_name, output, had_error, exc)
-        self.outputs[_output_key(self.dag, step_name, consumer)] = output
+        self.outputs[output_key(self.dag, step_name, consumer)] = output
 
     def _publish_stream_to_multiple_consumers(self, step_name, output, node, consumers):
         branches = itertools.tee(output, len(consumers))
@@ -504,7 +497,7 @@ class PipelineExecutor:
                     node,
                     consumer_type=consumer_node.deps.get(step_name),
                 )
-            self.outputs[_output_key(self.dag, step_name, consumer)] = branch
+            self.outputs[output_key(self.dag, step_name, consumer)] = branch
 
     def _publish_scalar_output(self, step_name, output, node, deferred):
         if self.dag.needs_materialize(step_name):
