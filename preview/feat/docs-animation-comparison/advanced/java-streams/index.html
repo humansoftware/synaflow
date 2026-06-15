@@ -1052,6 +1052,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#no-nested-streams-by-design" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        No nested streams — by design
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#the-key-difference-where-data-lives" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1063,10 +1074,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#materializer-collector" class="md-nav__link">
+  <a href="#materializer-collector-but-not-only-at-the-end" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Materializer = Collector
+        Materializer = Collector (but not only at the end)
       
     </span>
   </a>
@@ -1149,6 +1160,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#no-nested-streams-by-design" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        No nested streams — by design
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#the-key-difference-where-data-lives" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1160,10 +1182,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#materializer-collector" class="md-nav__link">
+  <a href="#materializer-collector-but-not-only-at-the-end" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Materializer = Collector
+        Materializer = Collector (but not only at the end)
       
     </span>
   </a>
@@ -1328,6 +1350,47 @@ critical difference: persistence backends.</p>
 </div>
 </div>
 </div>
+<h2 id="no-nested-streams-by-design">No nested streams — by design<a class="headerlink" href="#no-nested-streams-by-design" title="Permanent link">&para;</a></h2>
+<p>In Java, <code>stream.flatMap(...)</code> returns a stream, but you can't accidentally nest
+streams. SynaFlow takes the same position: <strong><code>Iterator[Iterator[T]]</code> does not
+exist in user-facing code.</strong></p>
+<p>When an EACH-mode step produces an iterable, SynaFlow implicitly flattens it.
+When it produces a scalar, outputs are auto-collected into <code>ListType</code>. Two
+consecutive <code>T → Iterator[T]</code> steps still produce a flat <code>Iterator[T]</code>:</p>
+<div class="tabbed-set tabbed-alternate" data-tabs="2:2"><input checked="checked" id="__tabbed_2_1" name="__tabbed_2" type="radio" /><input id="__tabbed_2_2" name="__tabbed_2" type="radio" /><div class="tabbed-labels"><label for="__tabbed_2_1">Sync</label><label for="__tabbed_2_2">Async</label></div>
+<div class="tabbed-content">
+<div class="tabbed-block">
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">collections.abc</span><span class="w"> </span><span class="kn">import</span> <span class="n">Generator</span><span class="p">,</span> <span class="n">Iterator</span>
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>
+<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="k">def</span><span class="w"> </span><span class="nf">step1</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="n">Generator</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">]:</span>
+<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>    <span class="k">yield from</span> <span class="nb">range</span><span class="p">(</span><span class="mi">3</span><span class="p">)</span>       <span class="c1"># produces Iterator[int]</span>
+<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>
+<a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a><span class="k">def</span><span class="w"> </span><span class="nf">step2</span><span class="p">(</span><span class="n">step1</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Generator</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">]:</span>
+<a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a>    <span class="k">yield</span> <span class="nb">str</span><span class="p">(</span><span class="n">step1</span><span class="p">)</span>          <span class="c1"># EACH mode, produces Generator[str]</span>
+<a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a>    <span class="k">yield</span> <span class="nb">str</span><span class="p">(</span><span class="n">step1</span> <span class="o">*</span> <span class="mi">10</span><span class="p">)</span>     <span class="c1">#</span>
+<a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a>
+<a id="__codelineno-3-10" name="__codelineno-3-10" href="#__codelineno-3-10"></a><span class="c1"># step2&#39;s output is ListType(str) → flat list of strings</span>
+<a id="__codelineno-3-11" name="__codelineno-3-11" href="#__codelineno-3-11"></a><span class="c1"># NOT Iterator[Iterator[str]]</span>
+</code></pre></div>
+</div>
+<div class="tabbed-block">
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">collections.abc</span><span class="w"> </span><span class="kn">import</span> <span class="n">AsyncGenerator</span><span class="p">,</span> <span class="n">AsyncIterator</span>
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>
+<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">step1</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="n">AsyncGenerator</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="kc">None</span><span class="p">]:</span>
+<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a>    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">3</span><span class="p">):</span>
+<a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a>        <span class="k">yield</span> <span class="n">i</span>
+<a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a>
+<a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">step2</span><span class="p">(</span><span class="n">step1</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">AsyncGenerator</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="kc">None</span><span class="p">]:</span>
+<a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a>    <span class="k">yield</span> <span class="nb">str</span><span class="p">(</span><span class="n">step1</span><span class="p">)</span>
+<a id="__codelineno-4-9" name="__codelineno-4-9" href="#__codelineno-4-9"></a>    <span class="k">yield</span> <span class="nb">str</span><span class="p">(</span><span class="n">step1</span> <span class="o">*</span> <span class="mi">10</span><span class="p">)</span>
+</code></pre></div>
+</div>
+</div>
+</div>
+<p>This is deliberate. Every SynaFlow pipeline operates on <strong>flat, typed streams</strong>.
+There is no use case that requires nested iterators — if you need grouping, use
+a <code>dict</code> materializer. If you need lateral expansion, yield multiple items from
+an EACH step (as shown above). The framework handles flattening transparently.</p>
 <h2 id="the-key-difference-where-data-lives">The key difference: where data lives<a class="headerlink" href="#the-key-difference-where-data-lives" title="Permanent link">&para;</a></h2>
 <p>Java Streams are <strong>purely in-memory</strong>. A <code>Collector</code> always produces an
 in-memory collection (<code>ArrayList</code>, <code>HashSet</code>, <code>HashMap</code>).</p>
@@ -1343,33 +1406,40 @@ decides the concrete storage:</p>
 </thead>
 <tbody>
 <tr>
-<td><code>Collectors.toList()</code> → <code>ArrayList</code> in memory</td>
-<td><code>list[T]</code> → maybe <code>DiskBackedList</code> on SSD</td>
+<td><code>Collectors.toList()</code> → <code>ArrayList</code> in RAM</td>
+<td><code>list[T]</code> → <code>DiskBackedList</code> on SSD, or S3-backed, or in-memory</td>
 </tr>
 <tr>
-<td><code>Collectors.toSet()</code> → <code>HashSet</code> in memory</td>
-<td><code>set[T]</code> → maybe Redis-backed set</td>
+<td><code>Collectors.toSet()</code> → <code>HashSet</code> in RAM</td>
+<td><code>set[T]</code> → Redis-backed set, or in-memory</td>
 </tr>
 <tr>
-<td><code>Collectors.toMap(...)</code> → <code>HashMap</code> in memory</td>
-<td><code>dict[K,V]</code> → maybe SQLite table with LRU cache</td>
+<td><code>Collectors.toMap(...)</code> → <code>HashMap</code> in RAM</td>
+<td><code>dict[K,V]</code> → SQLite with LRU cache, or in-memory</td>
+</tr>
+<tr>
+<td>Always in-memory</td>
+<td>Disk, network, S3, database — any backend with the right protocol</td>
 </tr>
 </tbody>
 </table>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">synaflow</span><span class="w"> </span><span class="kn">import</span> <span class="n">pipeline</span><span class="p">,</span> <span class="n">step</span><span class="p">,</span> <span class="n">run</span><span class="p">,</span> <span class="n">disk_materializer</span>
-<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>
-<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="c1"># Consumer asks for list[T] — transparently stored on disk</span>
-<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="n">p</span> <span class="o">=</span> <span class="n">pipeline</span><span class="p">(</span>
-<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>    <span class="n">name</span><span class="o">=</span><span class="s2">&quot;big_data&quot;</span><span class="p">,</span>
-<a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a>    <span class="n">params</span><span class="o">=</span><span class="n">Params</span><span class="p">,</span>
-<a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a>    <span class="n">steps</span><span class="o">=</span><span class="p">[</span><span class="o">...</span><span class="p">],</span>
-<a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a>    <span class="n">memory_materializer_factory</span><span class="o">=</span><span class="n">disk_materializer</span><span class="p">(</span><span class="s2">&quot;/mnt/ssd&quot;</span><span class="p">),</span>
-<a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a><span class="p">)</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">synaflow</span><span class="w"> </span><span class="kn">import</span> <span class="n">pipeline</span><span class="p">,</span> <span class="n">step</span><span class="p">,</span> <span class="n">run</span><span class="p">,</span> <span class="n">disk_materializer</span>
+<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>
+<a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="c1"># Consumer asks for list[T] — transparently stored on disk</span>
+<a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="n">p</span> <span class="o">=</span> <span class="n">pipeline</span><span class="p">(</span>
+<a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a>    <span class="n">name</span><span class="o">=</span><span class="s2">&quot;big_data&quot;</span><span class="p">,</span>
+<a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a>    <span class="n">params</span><span class="o">=</span><span class="n">Params</span><span class="p">,</span>
+<a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a>    <span class="n">steps</span><span class="o">=</span><span class="p">[</span><span class="o">...</span><span class="p">],</span>
+<a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a>    <span class="n">memory_materializer_factory</span><span class="o">=</span><span class="n">disk_materializer</span><span class="p">(</span><span class="s2">&quot;/mnt/ssd&quot;</span><span class="p">),</span>
+<a id="__codelineno-5-9" name="__codelineno-5-9" href="#__codelineno-5-9"></a><span class="p">)</span>
 </code></pre></div>
 <p>The consumer code doesn't change — it still says <code>def fn(data: list[int])</code>.
-Whether that list lives in RAM, on disk, or in a database is entirely up to the
-materializer factory configured at the pipeline root.</p>
-<h2 id="materializer-collector">Materializer = Collector<a class="headerlink" href="#materializer-collector" title="Permanent link">&para;</a></h2>
+Whether that list lives in RAM, on SSD, in S3, or in a database is entirely
+up to the materializer factory configured at the pipeline root. This is the
+core of the <strong>protocol-over-concrete-type</strong> design. The consumer only knows
+the <strong>interface</strong> (<code>MutableSequence</code> for <code>list</code>, <code>MutableMapping</code> for <code>dict</code>);
+the factory decides the <strong>backend</strong>.</p>
+<h2 id="materializer-collector-but-not-only-at-the-end">Materializer = Collector (but not only at the end)<a class="headerlink" href="#materializer-collector-but-not-only-at-the-end" title="Permanent link">&para;</a></h2>
 <table>
 <thead>
 <tr>
@@ -1400,6 +1470,17 @@ materializer factory configured at the pipeline root.</p>
 </tr>
 </tbody>
 </table>
+<p>In Java Streams, collectors only apply to <strong>terminal operations</strong> — you collect
+at the end. SynaFlow materializers can appear <strong>anywhere in the pipeline</strong>, not
+just at the end. A step in the middle can materialize to disk, and downstream
+steps read from that persisted data:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="n">step</span><span class="p">(</span><span class="s2">&quot;cache&quot;</span><span class="p">,</span> <span class="n">fn</span><span class="o">=</span><span class="n">expensive_computation</span><span class="p">,</span>
+<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>     <span class="n">materializer</span><span class="o">=</span><span class="n">disk_materializer</span><span class="p">(</span><span class="s2">&quot;/mnt/ssd&quot;</span><span class="p">),</span>
+<a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a>     <span class="n">force_materialize</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="n">step</span><span class="p">(</span><span class="s2">&quot;downstream&quot;</span><span class="p">,</span> <span class="n">fn</span><span class="o">=</span><span class="n">downstream</span><span class="p">)</span>  <span class="c1"># reads from cached data</span>
+</code></pre></div>
+<p>This enables patterns like checkpointing, intermediate persistence, and
+incremental processing that have no equivalent in the Java Streams API.</p>
 <h2 id="when-to-prefer-synaflow-over-java-streams">When to prefer SynaFlow over Java Streams<a class="headerlink" href="#when-to-prefer-synaflow-over-java-streams" title="Permanent link">&para;</a></h2>
 <ul>
 <li>You need <strong>persistence</strong> (disk, database, cloud storage).</li>
