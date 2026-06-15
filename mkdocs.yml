@@ -12,7 +12,7 @@ extra:
       link: https://github.com/humansoftware/synaflow
   analytics:
     provider: google
-    property: G-XXXXXXXXXX  # replace with your Google Analytics ID
+    property: G-BNQQQRWCDB
 
 theme:
   name: material
