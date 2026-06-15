@@ -2,6 +2,83 @@
 
 
 
+## v0.15.0 (2026-06-15)
+
+### Documentation
+
+* docs: rewrite README to reflect current documentation
+
+- Concise quickstart matching landing page
+- Highlights: type-hint wiring, lazy streaming, static validation, custom runners
+- Expanded comparison table with links
+- Links to all documentation sections
+- Badges (PyPI, license, Python) ([`79e63dc`](https://github.com/humansoftware/synaflow/commit/79e63dc7a62159bb5fbe49ea09197f3020fb434f))
+
+* docs: add Google Analytics tracking ID ([`a83a636`](https://github.com/humansoftware/synaflow/commit/a83a636748de18c1998c324a40c5265d0da78cdc))
+
+* docs: improve SEO metadata in mkdocs.yml ([`9b06873`](https://github.com/humansoftware/synaflow/commit/9b06873535b5518873f81881e2a1d9e05e63cdcc))
+
+* docs: add LINQ comparison, concise landing page examples, reorganize comparisons section
+
+- Move java-streams to new Comparisons section
+- Add LINQ comparison page (Select/Where/GroupBy/ToList mapping)
+- Add concise type-hint wiring + lazy streaming examples to homepage
+- Update introduction page to mention Comparisons section ([`1e9fcef`](https://github.com/humansoftware/synaflow/commit/1e9fcef7278427adbd59798e1a2d9d506a9b3365))
+
+* docs: add interactive lockstep animation + expanded framework comparison
+
+- Replace static table/sequence diagram on lockstep-flow with interactive
+  frame-by-frame animation (play/pause, step navigation)
+- Shows pipeline executing concurrently: numbers yielding item 2 while
+  doubler processes item 1 and printer prints item 0
+- Expand How It Compares table on homepage with Dagster, Prefect, Airflow
+- Add framework comparison table to DESIGN_PHILOSOPHY.md section 2.4 ([`09849db`](https://github.com/humansoftware/synaflow/commit/09849db2e0ce3399c2b6b139e9ee8b69fce1bbac))
+
+* docs: rewrite lockstep-flow + enable branch preview deploys
+
+- Rewrite lockstep-flow with pipeline example first, DAG diagram,
+  execution walkthrough table, fan-out section, execution levels
+- Single docs.yml workflow deploys via peaceiris/actions-gh-pages
+  - main branch → root of gh-pages
+  - feat/* branches → preview/&lt;branch&gt;/
+- No environment restrictions — deploys directly to gh-pages branch
+
+IMPORTANT: GitHub Pages must be set to &#39;Deploy from branch&#39;
+  (gh-pages, / root) for this to work. ([`f5eec27`](https://github.com/humansoftware/synaflow/commit/f5eec27f9680d09597c859612b47edfd5129a9ab))
+
+### Feature
+
+* feat: add cookiecutter templates for quick project scaffolding
+
+- boilerplates/minimal: single-file app with pipeline.py
+- boilerplates/structured: multi-file project (steps, pipeline, main)
+- boilerplates/scaffold: single module to drop into existing project
+- Update installation docs with cookiecutter quickstart section
+- Exclude boilerplates/ from ruff in pre-commit config ([`d69bae0`](https://github.com/humansoftware/synaflow/commit/d69bae0374a8f454270d90250288a3a1405a9fb6))
+
+### Unknown
+
+* Merge pull request #26 from humansoftware/feat/cookiecutter-templates
+
+feat: cookiecutter templates for project scaffolding ([`50825eb`](https://github.com/humansoftware/synaflow/commit/50825eb4ff89f5fcf4acbc4d5c1cf5d38c2e85de))
+
+* Merge pull request #25 from humansoftware/feat/readme-update
+
+docs: rewrite README to reflect current documentation ([`2d5be75`](https://github.com/humansoftware/synaflow/commit/2d5be7565fe39fd23baae81b1900bbbdbd0e6315))
+
+* Merge pull request #24 from humansoftware/feat/landing-page-examples
+
+docs: landing page overhaul, comparisons, build-vs-run architecture ([`11e243b`](https://github.com/humansoftware/synaflow/commit/11e243b93a866d8954ea201e4afe08820d84eafe))
+
+* Merge pull request #23 from humansoftware/feat/docs-animation-comparison
+
+docs: interactive lockstep animations, expanded comparisons, Java Streams &amp; event-based processing ([`c920014`](https://github.com/humansoftware/synaflow/commit/c920014adb7e136d50b7cebfc992bc3e6d12ca1b))
+
+* Merge pull request #22 from humansoftware/feat/docs-improvements
+
+docs: improve lockstep-flow page + enable branch preview deploys ([`0e4bda3`](https://github.com/humansoftware/synaflow/commit/0e4bda33cd0d9d377354df361078fe610f96988a))
+
+
 ## v0.14.0 (2026-06-14)
 
 ### Feature
