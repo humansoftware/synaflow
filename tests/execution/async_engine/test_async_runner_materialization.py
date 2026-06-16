@@ -54,7 +54,7 @@ async def test_given_generator_output_and_two_each_consumers_when_run_then_mater
         params=P,
         materializer=spy_materialize,
         steps=[
-            step("items", fn=gen),
+            step("items", fn=gen, max_in_flight=100),
             step("a", fn=a),
             step("b", fn=b),
         ],
@@ -97,7 +97,7 @@ async def test_given_generator_and_scalar_and_iterator_consumers_when_run_then_n
         params=P,
         materializer=spy_materialize,
         steps=[
-            step("items", fn=gen),
+            step("items", fn=gen, max_in_flight=100),
             step("a", fn=a),
             step("b", fn=b),
         ],
@@ -141,7 +141,7 @@ async def test_given_generator_and_two_iterator_consumers_when_run_then_no_mater
         params=P,
         materializer=spy_materialize,
         steps=[
-            step("items", fn=gen),
+            step("items", fn=gen, max_in_flight=100),
             step("a", fn=a),
             step("b", fn=b),
         ],
@@ -184,7 +184,7 @@ async def test_given_generator_and_union_scalar_and_union_iterator_consumers_whe
         params=P,
         materializer=spy_materialize,
         steps=[
-            step("items", fn=gen),
+            step("items", fn=gen, max_in_flight=100),
             step("a", fn=a),
             step("b", fn=b),
         ],
@@ -226,7 +226,7 @@ async def test_given_generator_of_union_and_union_scalar_consumers_when_run_then
         params=P,
         materializer=spy_materialize,
         steps=[
-            step("items", fn=gen),
+            step("items", fn=gen, max_in_flight=100),
             step("a", fn=a),
             step("b", fn=b),
         ],
@@ -268,7 +268,7 @@ async def test_given_generator_and_list_consumer_when_run_then_materialized_once
         params=P,
         materializer=spy_materialize,
         steps=[
-            step("items", fn=gen),
+            step("items", fn=gen, max_in_flight=100),
             step("a", fn=a),
             step("b", fn=b),
         ],
@@ -312,7 +312,7 @@ async def test_given_generator_and_each_transformer_and_iterator_consumer_when_r
         params=P,
         materializer=spy_materialize,
         steps=[
-            step("items", fn=gen),
+            step("items", fn=gen, max_in_flight=100),
             step("a", fn=a),
             step("b", fn=b),
         ],
@@ -353,7 +353,7 @@ async def test_given_generator_and_eager_each_and_eager_iterator_consumers_when_
         name="test",
         params=P,
         steps=[
-            step("items", fn=gen),
+            step("items", fn=gen, max_in_flight=100),
             step("a", fn=a),
             step("b", fn=b),
         ],
@@ -444,7 +444,7 @@ async def test_given_chain_and_bypass_dependencies_when_run_then_no_materializat
         params=P,
         materializer=spy_materialize,
         steps=[
-            step("items", fn=gen),
+            step("items", fn=gen, max_in_flight=3),
             step("a", fn=a),
             step("b", fn=b),
         ],
@@ -489,7 +489,7 @@ async def test_given_collection_producer_and_scalar_transformer_and_iterator_con
         params=P,
         materializer=spy_materialize,
         steps=[
-            step("items", fn=gen),
+            step("items", fn=gen, max_in_flight=100),
             step("s2", fn=s2),
             step("s3", fn=s3),
         ],
@@ -573,7 +573,7 @@ async def test_given_factory_with_context_when_run_then_context_is_injected():
         params=P,
         materializer=factory_with_ctx,
         steps=[
-            step("items", fn=gen),
+            step("items", fn=gen, max_in_flight=100),
             step("consumer", fn=consumer),
         ],
     )
@@ -616,7 +616,7 @@ async def test_given_mixed_fanout_when_materializer_factory_receives_context_the
         params=P,
         materializer=factory_with_ctx,
         steps=[
-            step("items", fn=gen),
+            step("items", fn=gen, max_in_flight=100),
             step("lazy", fn=lazy),
             step("eager", fn=eager),
         ],
@@ -734,7 +734,7 @@ async def test_given_generator_and_iterator_and_list_consumers_when_run_then_ite
         params=P,
         materializer=spy_materialize,
         steps=[
-            step("items", fn=gen),
+            step("items", fn=gen, max_in_flight=100),
             step("lazy", fn=lazy),
             step("eager", fn=eager),
         ],

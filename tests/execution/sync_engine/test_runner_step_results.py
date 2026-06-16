@@ -100,7 +100,7 @@ def test_given_mixed_fanout_when_observed_then_producer_observer_sees_stream_val
         name="observer_mixed_fanout_sync",
         params=P,
         steps=[
-            step("gen", fn=gen),
+            step("gen", fn=gen, max_in_flight=100),
             step("lazy", fn=lazy),
             step("eager", fn=eager),
         ],

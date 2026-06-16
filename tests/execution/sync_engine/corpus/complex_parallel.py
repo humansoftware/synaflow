@@ -41,7 +41,7 @@ pipeline_def = pipeline(
     name="complex_parallel",
     params=ComplexParallelParams,
     steps=[
-        step("step1", fn=step1),
+        step("step1", fn=step1, max_in_flight=100),
         step("step2", fn=step2),
         step("step3", fn=step3),
         step("step4", fn=step4),
@@ -63,7 +63,7 @@ pack = PipelinePack(
                 "materializer": "memory_materializer",
                 "error_materializer": "log_error_materializer",
                 "materialized_deps": [],
-                "each_mode_deps": [], "max_in_flight": 1,
+                "each_mode_deps": [], "max_in_flight": 100,
                 "pipeline": "complex_parallel",
                 "parent_pipeline": None,
             },

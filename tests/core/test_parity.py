@@ -42,7 +42,9 @@ def test_sync_async_test_parity():
 
     # Some tests only make sense in their specific contexts
     expected_sync_only = {
-        "test_given_async_pipeline_when_run_synchronously_then_raises"
+        "test_given_async_pipeline_when_run_synchronously_then_raises",
+        "test_sync_fan_out_exceeds_max_in_flight",
+        "test_sync_single_consumer_max_in_flight",
     }
 
     expected_async_only = {
@@ -54,6 +56,8 @@ def test_sync_async_test_parity():
         "test_given_async_def_handler_when_dispatched_then_awaited",
         "test_given_partial_async_handler_when_dispatched_then_awaited",
         "test_given_callable_object_with_async_call_when_dispatched_then_awaited",
+        "test_async_fan_out_blocks_fast_consumer_gracefully",
+        "test_async_single_consumer_max_in_flight",
     }
 
     # Remove expected differences

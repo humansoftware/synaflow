@@ -25,7 +25,7 @@ mixed_fanout_pipeline = pipeline(
     name="mixed_fanout",
     params=MixedFanoutParams,
     steps=[
-        step("gen", fn=gen),
+        step("gen", fn=gen, max_in_flight=100),
         step("lazy", fn=lazy),
         step("eager", fn=eager),
     ],
@@ -45,7 +45,7 @@ pack = PipelinePack(
                 "materializer": "memory_materializer",
                 "error_materializer": "log_error_materializer",
                 "materialized_deps": [],
-                "each_mode_deps": [], "max_in_flight": 1,
+                "each_mode_deps": [], "max_in_flight": 100,
                 "pipeline": "mixed_fanout",
                 "parent_pipeline": None,
             },
