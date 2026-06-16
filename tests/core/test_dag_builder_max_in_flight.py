@@ -28,7 +28,7 @@ def test_max_in_flight_validation_negative():
 
 
 def test_max_in_flight_validation_type():
-    with pytest.raises(ValueError, match="must be an int"):
+    with pytest.raises(ValueError, match="must be an integer"):
         pipeline(
             name="test",
             params=Params,

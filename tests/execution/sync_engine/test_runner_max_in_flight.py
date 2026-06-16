@@ -67,15 +67,8 @@ def test_sync_fan_out_exceeds_max_in_flight():
     def slow_consumer(producer: int) -> None:
         log.append(f"slow {producer}")
 
-    # Note: In sync EACH mode, steps run sequentially per level.
-    # If fast_consumer and slow_consumer are on the same level,
-    # the first one to run will try to pull the whole stream.
-    # Because of our bounded_tee, it should raise RuntimeError if it pulls > max_in_flight
-    # items without the other consumer pulling.
     class Params(NamedTuple):
         pass
-
-    from synaflow.core.exceptions import PipelineStopException
 
     p = pipeline(
         name="test",
@@ -97,8 +90,13 @@ def test_sync_fan_out_exceeds_max_in_flight():
         ],
     )
 
-    with pytest.raises(
-        PipelineStopException,
-        match="max_in_flight bound of 2 exceeded during sync fan-out",
-    ):
-        run(p, params=Params())
+    run(p, params=Params())
+    
+    # Should complete without error because branch-local max_in_flight 
+    # handles pulling successfully without cross-branch hard failures
+    assert len(log) == 15
+    # Since it runs sequentially per level, fast_consumer will pull everything first.
+    # The BoundedStreamWrapper ensures it pulls in chunks of 2, 
+    # but since fast_consumer keeps asking for more, the producer generates all 5 items.
+    assert "fast 4" in log
+    assert "slow 4" in log

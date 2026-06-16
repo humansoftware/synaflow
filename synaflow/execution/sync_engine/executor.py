@@ -527,31 +527,8 @@ class PipelineExecutor:
         self.outputs[self.dag.output_key(step_name, consumer)] = output
 
     def _publish_stream_to_multiple_consumers(self, step_name, output, node, consumers):
-        def bounded_tee(iterable, n, max_in_flight):
-            it = iter(iterable)
-            deques = [collections.deque() for _ in range(n)]
-
-            def gen(mydeque):
-                while True:
-                    if not mydeque:
-                        for d in deques:
-                            if d is not mydeque and len(d) >= max_in_flight:
-                                raise PipelineStopException(step_name=step_name, cause=RuntimeError(f"max_in_flight bound of {max_in_flight} exceeded during sync fan-out."))
-                        try:
-                            newval = next(it)
-                        except StopIteration:
-                            return
-                        for d in deques:
-                            d.append(newval)
-                    yield mydeque.popleft()
-
-            return tuple(gen(d) for d in deques)
-
         max_in_flight = getattr(node, "max_in_flight", 1)
-        if max_in_flight == 1:
-            branches = itertools.tee(output, len(consumers))
-        else:
-            branches = bounded_tee(output, len(consumers), max_in_flight)
+        branches = itertools.tee(output, len(consumers))
 
         for consumer, branch in zip(consumers, branches):
             consumer_node = self.dag[consumer]

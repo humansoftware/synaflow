@@ -66,6 +66,8 @@ def memory_materializer_factory(ctx: MaterializeContext):
                 continue
         if tp is tuple:
             return tuple
+    if tp is type(None) or tp == "None" or tp == "NoneType" or str(tp) == "None" or str(tp) == "<class 'NoneType'>":
+        return _identity
     if tp is not None and is_scalar(tp):
         return _identity
     return list
