@@ -29,6 +29,7 @@ from synaflow.core.types import (
 
 import collections
 
+
 class BoundedStreamWrapper:
     def __init__(self, source: Iterator, max_in_flight: int):
         self._source = source
@@ -66,7 +67,6 @@ class BoundedStreamWrapper:
         item = self._buffer.popleft()
         self._fill()
         return item
-
 
 
 # ---------------------------------------------------------------------------
@@ -526,12 +526,15 @@ class PipelineExecutor:
         def bounded_tee(iterable, n, max_in_flight):
             it = iter(iterable)
             deques = [collections.deque() for _ in range(n)]
+
             def gen(mydeque):
                 while True:
                     if not mydeque:
                         for d in deques:
                             if d is not mydeque and len(d) >= max_in_flight:
-                                raise RuntimeError(f"max_in_flight bound of {max_in_flight} exceeded during sync fan-out.")
+                                raise RuntimeError(
+                                    f"max_in_flight bound of {max_in_flight} exceeded during sync fan-out."
+                                )
                         try:
                             newval = next(it)
                         except StopIteration:
@@ -539,11 +542,12 @@ class PipelineExecutor:
                         for d in deques:
                             d.append(newval)
                     yield mydeque.popleft()
+
             return tuple(gen(d) for d in deques)
 
         max_in_flight = getattr(node, "max_in_flight", 1)
         branches = bounded_tee(output, len(consumers), max_in_flight)
-        
+
         for consumer, branch in zip(consumers, branches):
             consumer_node = self.dag[consumer]
             if step_name in consumer_node.materialized_deps:
