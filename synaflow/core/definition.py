@@ -21,6 +21,7 @@ class Step(BaseStep):
     materializer: Callable | None = None
     error_materializer: Callable | None = None
     force_materialize: bool = False
+    max_in_flight: int = 1
     description: str = ""
     pipeline: str | None = None
     parent_pipeline: str | None = None

@@ -33,6 +33,7 @@ class DagNode:
     materialized_deps: list[str] = field(default_factory=list)
     each_mode_deps: list[str] = field(default_factory=list)
     force_materialize: bool = False
+    max_in_flight: int = 1
     pipeline: str | None = None
     parent_pipeline: str | None = None
     error_materializer: Callable | None = None
@@ -61,6 +62,7 @@ class DagNode:
             "error_materializer": err_mat.__name__ if callable(err_mat) else None,
             "materialized_deps": self.materialized_deps,
             "each_mode_deps": self.each_mode_deps,
+            "max_in_flight": self.max_in_flight,
             "pipeline": self.pipeline,
             "parent_pipeline": self.parent_pipeline,
         }

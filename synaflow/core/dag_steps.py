@@ -39,12 +39,24 @@ def validate_unique_step_name(
         )
 
 
+def validate_max_in_flight(step: Step, pipeline_name: str) -> None:
+    if not isinstance(step.max_in_flight, int) or isinstance(step.max_in_flight, bool):
+        raise ValueError(
+            f"Pipeline '{pipeline_name}': step '{step.name}' max_in_flight must be an integer, got {type(step.max_in_flight).__name__}"
+        )
+    if step.max_in_flight < 1:
+        raise ValueError(
+            f"Pipeline '{pipeline_name}': step '{step.name}' max_in_flight must be >= 1, got {step.max_in_flight}"
+        )
+
+
 def validate_and_compile_step(
     step: Step,
     produced: dict[str, DagNode],
     pipeline_name: str,
     observers: list | None = None,
 ) -> DagNode:
+    validate_max_in_flight(step, pipeline_name)
     sig = inspect.signature(step.fn)
     hints = get_safe_type_hints(step.fn)
 
@@ -65,6 +77,7 @@ def validate_and_compile_step(
         error_materializer=step.error_materializer,
         each_mode_deps=each_mode_deps,
         force_materialize=step.force_materialize,
+        max_in_flight=step.max_in_flight,
         pipeline=step.pipeline or pipeline_name,
         parent_pipeline=step.parent_pipeline,
         observers=list(observers or []),

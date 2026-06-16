@@ -27,6 +27,47 @@ from synaflow.core.types import (
     StepMode,
 )
 
+import collections
+
+class BoundedStreamWrapper:
+    def __init__(self, source: Iterator, max_in_flight: int):
+        self._source = source
+        self._max_in_flight = max_in_flight
+        self._buffer = collections.deque()
+        self._source_exhausted = False
+        self._exc = None
+        self._fill()
+
+    def __iter__(self):
+        return self
+
+    def _fill(self):
+        if self._exc is not None or self._source_exhausted:
+            return
+        while len(self._buffer) < self._max_in_flight:
+            try:
+                self._buffer.append(next(self._source))
+            except StopIteration:
+                self._source_exhausted = True
+                break
+            except Exception as e:
+                self._exc = e
+                break
+
+    def __next__(self):
+        if not self._buffer:
+            if self._exc is not None:
+                exc = self._exc
+                self._exc = None
+                raise exc
+            if self._source_exhausted:
+                raise StopIteration
+
+        item = self._buffer.popleft()
+        self._fill()
+        return item
+
+
 
 # ---------------------------------------------------------------------------
 # Runtime helpers (no flags needed on DagNode)
@@ -492,6 +533,8 @@ class PipelineExecutor:
                     node,
                     consumer_type=consumer_node.deps.get(step_name),
                 )
+            else:
+                branch = BoundedStreamWrapper(branch, getattr(node, "max_in_flight", 1))
             self.outputs[self.dag.output_key(step_name, consumer)] = branch
 
     def _publish_scalar_output(self, step_name, output, node, deferred):
@@ -528,6 +571,9 @@ class PipelineExecutor:
                 step_name, output, node, consumers[0], deferred
             )
             return
+
+        if len(consumers) == 1:
+            output = BoundedStreamWrapper(output, getattr(node, "max_in_flight", 1))
 
         if len(consumers) > 1:
             self._publish_stream_to_multiple_consumers(
