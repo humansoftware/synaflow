@@ -656,7 +656,8 @@ class AsyncPipelineExecutor:
     async def _publish_stream_to_queues(
         self, step_name, output, node, consumers, deferred
     ):
-        maxsize = getattr(node, "max_in_flight", 1)
+        max_in_flight = getattr(node, "max_in_flight", 1)
+        maxsize = 100 if max_in_flight == 1 else max_in_flight
         queues = {consumer: asyncio.Queue(maxsize=maxsize) for consumer in consumers}
         for consumer, queue in queues.items():
             self.outputs[self.dag.output_key(step_name, consumer)] = queue

@@ -83,6 +83,8 @@ def _collect_iterator(
             items.append(next(value))
         except StopIteration:
             return items, False, None
+        except PipelineStopException:
+            raise
         except Exception as exc:
             _handle_error(dag, step_name, exc)
             if dag[step_name].on_error == OnError.STOP:
@@ -385,6 +387,8 @@ class PipelineExecutor:
                     break
                 try:
                     yield node.fn(**item_args)
+                except PipelineStopException:
+                    raise
                 except Exception as exc:
                     _handle_error(self.dag, step_name, exc)
                     if on_err == OnError.STOP:
@@ -532,9 +536,7 @@ class PipelineExecutor:
                     if not mydeque:
                         for d in deques:
                             if d is not mydeque and len(d) >= max_in_flight:
-                                raise RuntimeError(
-                                    f"max_in_flight bound of {max_in_flight} exceeded during sync fan-out."
-                                )
+                                raise PipelineStopException(step_name=step_name, cause=RuntimeError(f"max_in_flight bound of {max_in_flight} exceeded during sync fan-out."))
                         try:
                             newval = next(it)
                         except StopIteration:
@@ -546,7 +548,10 @@ class PipelineExecutor:
             return tuple(gen(d) for d in deques)
 
         max_in_flight = getattr(node, "max_in_flight", 1)
-        branches = bounded_tee(output, len(consumers), max_in_flight)
+        if max_in_flight == 1:
+            branches = itertools.tee(output, len(consumers))
+        else:
+            branches = bounded_tee(output, len(consumers), max_in_flight)
 
         for consumer, branch in zip(consumers, branches):
             consumer_node = self.dag[consumer]
@@ -558,9 +563,9 @@ class PipelineExecutor:
                     consumer_type=consumer_node.deps.get(step_name),
                 )
             else:
-                branch = BoundedStreamWrapper(branch, max_in_flight)
+                if max_in_flight > 1:
+                    branch = BoundedStreamWrapper(branch, max_in_flight)
             self.outputs[self.dag.output_key(step_name, consumer)] = branch
-
     def _publish_scalar_output(self, step_name, output, node, deferred):
         if self.dag.needs_materialize(step_name):
             output, _, _ = self._materialize_with_events(
@@ -596,7 +601,7 @@ class PipelineExecutor:
             )
             return
 
-        if len(consumers) == 1:
+        if len(consumers) == 1 and getattr(node, "max_in_flight", 1) > 1:
             output = BoundedStreamWrapper(output, getattr(node, "max_in_flight", 1))
 
         if len(consumers) > 1:

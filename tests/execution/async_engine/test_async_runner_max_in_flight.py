@@ -12,7 +12,7 @@ async def test_async_single_consumer_max_in_flight():
     log = []
 
     async def producer() -> AsyncIterator[int]:
-        for i in range(4):
+        for i in range(5):
             log.append(f"prod {i}")
             yield i
 
@@ -35,7 +35,7 @@ async def test_async_single_consumer_max_in_flight():
 
     # We don't assert exact interleaving because asyncio scheduler order may vary,
     # but we can verify that the logs are correct.
-    assert len(log) == 8
+    assert len(log) == 10
     assert log.count("prod 0") == 1
     assert log.count("cons 3") == 1
 
@@ -45,7 +45,7 @@ async def test_async_fan_out_blocks_fast_consumer_gracefully():
     log = []
 
     async def producer() -> AsyncIterator[int]:
-        for i in range(4):
+        for i in range(5):
             log.append(f"prod {i}")
             yield i
 
@@ -64,7 +64,7 @@ async def test_async_fan_out_blocks_fast_consumer_gracefully():
         name="test",
         params=Params,
         steps=[
-            step("producer", fn=producer, max_in_flight=1),
+            step("producer", fn=producer, max_in_flight=2),
             step("fast_consumer", fn=fast_consumer, mode=StepMode.EACH),
             step("slow_consumer", fn=slow_consumer, mode=StepMode.EACH),
         ],
@@ -77,6 +77,6 @@ async def test_async_fan_out_blocks_fast_consumer_gracefully():
     # So "prod 2" CANNOT happen before "slow 0".
 
     slow_0_index = log.index("slow 0")
-    prod_3_index = log.index("prod 3")
+    prod_4_index = log.index("prod 4")
     print(log)
-    assert slow_0_index < prod_3_index
+    assert slow_0_index < prod_4_index

@@ -1,0 +1,2 @@
+from tests.execution.sync_engine.test_runner_max_in_flight import test_sync_fan_out_exceeds_max_in_flight
+test_sync_fan_out_exceeds_max_in_flight()
