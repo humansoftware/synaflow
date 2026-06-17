@@ -27,13 +27,19 @@ class BoundedIterator(Iterator):
         self._maxsize = maxsize
         self._buffer: deque = deque()
         self._exhausted = False
+        self._pending_exception: BaseException | None = None
 
     def __iter__(self):
         return self
 
     def __next__(self):
-        if not self._buffer:
+        if not self._buffer and not self._exhausted:
             self._fill()
+
+        if self._pending_exception is not None and not self._buffer:
+            exc = self._pending_exception
+            self._pending_exception = None
+            raise exc
 
         if not self._buffer:
             raise StopIteration
@@ -47,5 +53,8 @@ class BoundedIterator(Iterator):
                 item = next(self._source)
             except StopIteration:
                 self._exhausted = True
+                break
+            except BaseException as exc:
+                self._pending_exception = exc
                 break
             self._buffer.append(item)
