@@ -463,9 +463,9 @@ class AsyncPipelineExecutor:
             if isinstance(value, asyncio.Queue):
                 queues[dep] = value
             else:
-                q = asyncio.Queue(
-                    maxsize=node.max_in_flight if node.max_in_flight > 1 else 100
-                )
+                producer_node = self.dag.get(dep)
+                mif = getattr(producer_node, 'max_in_flight', None) if producer_node else None
+                q = asyncio.Queue(maxsize=max(100, mif) if mif is not None else 100)
                 if isinstance(value, (list, tuple, set)):
                     for item in value:
                         await q.put(item)
@@ -660,7 +660,7 @@ class AsyncPipelineExecutor:
     ):
         queues = {
             consumer: asyncio.Queue(
-                maxsize=node.max_in_flight if node.max_in_flight > 1 else 100
+                maxsize=max(100, node.max_in_flight)
             )
             for consumer in consumers
         }
