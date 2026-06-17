@@ -52,6 +52,7 @@ pack = PipelinePack(
                 "each_mode_deps": [],
                 "pipeline": "mixed_fanout",
                 "parent_pipeline": None,
+                "max_in_flight": 1,
             },
             "lazy": {
                 "deps": {"gen": "Stream[int]"},
@@ -65,6 +66,7 @@ pack = PipelinePack(
                 "each_mode_deps": [],
                 "pipeline": "mixed_fanout",
                 "parent_pipeline": None,
+                "max_in_flight": 1,
             },
             "eager": {
                 "deps": {"gen": "list[int]"},
@@ -78,6 +80,7 @@ pack = PipelinePack(
                 "each_mode_deps": [],
                 "pipeline": "mixed_fanout",
                 "parent_pipeline": None,
+                "max_in_flight": 1,
             },
         },
         "error_materializer": "log_error_materializer",

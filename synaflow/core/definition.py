@@ -25,6 +25,7 @@ class Step(BaseStep):
     pipeline: str | None = None
     parent_pipeline: str | None = None
     observers: list[Observer] = field(default_factory=list)
+    max_in_flight: int = 1
 
 
 @dataclass

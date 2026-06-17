@@ -54,6 +54,7 @@ pack = PipelinePack(
                 "each_mode_deps": [],
                 "pipeline": "linear_example",
                 "parent_pipeline": None,
+                "max_in_flight": 1,
             },
             "transformer": {
                 "deps": {"numbers": "int"},
@@ -68,6 +69,7 @@ pack = PipelinePack(
                 "dataset_param_names": {"numbers": "number"},
                 "pipeline": "linear_example",
                 "parent_pipeline": None,
+                "max_in_flight": 1,
                 "observers": [{"handler_name": "<lambda>", "source": "step"}],
             },
             "consumer": {
@@ -82,6 +84,7 @@ pack = PipelinePack(
                 "each_mode_deps": [],
                 "pipeline": "linear_example",
                 "parent_pipeline": None,
+                "max_in_flight": 1,
             },
         },
         "error_materializer": "log_error_materializer",

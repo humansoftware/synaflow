@@ -3,6 +3,7 @@ from collections.abc import Iterator
 from typing import Any
 
 from synaflow.core.dag import Dag
+from synaflow.execution.bounded_iterator import BoundedIterator
 from synaflow.core.definition import PipelineDef
 from synaflow.core.exceptions import PipelineStopException
 from synaflow.core.observers import (
@@ -31,6 +32,15 @@ from synaflow.core.types import (
 # ---------------------------------------------------------------------------
 # Runtime helpers (no flags needed on DagNode)
 # ---------------------------------------------------------------------------
+
+
+def _maybe_wrap_stream(output, node):
+    """Wrap a progressive stream output with bounded handoff if needed."""
+    if node.max_in_flight <= 1:
+        return output
+    if not isinstance(output, Iterator):
+        return output
+    return BoundedIterator(output, node.max_in_flight)
 
 
 def _collect_iterator(
@@ -479,6 +489,7 @@ class PipelineExecutor:
         )
         if deferred:
             self._emit_step_result(node, step_name, output, had_error, exc)
+        output = _maybe_wrap_stream(output, node)
         self.outputs[self.dag.output_key(step_name, consumer)] = output
 
     def _publish_stream_to_multiple_consumers(self, step_name, output, node, consumers):
@@ -492,6 +503,7 @@ class PipelineExecutor:
                     node,
                     consumer_type=consumer_node.deps.get(step_name),
                 )
+            branch = _maybe_wrap_stream(branch, node)
             self.outputs[self.dag.output_key(step_name, consumer)] = branch
 
     def _publish_scalar_output(self, step_name, output, node, deferred):

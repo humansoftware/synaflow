@@ -38,6 +38,7 @@ class DagNode:
     error_materializer: Callable | None = None
     observers: list = field(default_factory=list)
     dataset_param_names: dict[str, str] = field(default_factory=dict)
+    max_in_flight: int = 1
 
     def __getitem__(self, key):
         return getattr(self, key)
@@ -63,6 +64,7 @@ class DagNode:
             "each_mode_deps": self.each_mode_deps,
             "pipeline": self.pipeline,
             "parent_pipeline": self.parent_pipeline,
+            "max_in_flight": self.max_in_flight,
         }
         if self.observers:
             ret["observers"] = _serialize_observers(self.observers)

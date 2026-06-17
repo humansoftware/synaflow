@@ -64,6 +64,7 @@ pack = PipelinePack(
                 "each_mode_deps": [],
                 "pipeline": "MainPipeline",
                 "parent_pipeline": None,
+                "max_in_flight": 1,
             },
             "my_text_processor__func_b1": {
                 "deps": {"my_text_processor__adapter": "BParams"},
@@ -77,6 +78,7 @@ pack = PipelinePack(
                 "each_mode_deps": ["my_text_processor__adapter"],
                 "pipeline": "TextProcessor",
                 "parent_pipeline": "MainPipeline",
+                "max_in_flight": 1,
             },
             "my_text_processor": {
                 "deps": {"my_text_processor__func_b1": "str"},
@@ -90,6 +92,7 @@ pack = PipelinePack(
                 "each_mode_deps": ["my_text_processor__func_b1"],
                 "pipeline": "TextProcessor",
                 "parent_pipeline": "MainPipeline",
+                "max_in_flight": 1,
             },
             "consolidate": {
                 "deps": {"my_text_processor": "list[int]"},
@@ -103,6 +106,7 @@ pack = PipelinePack(
                 "each_mode_deps": [],
                 "pipeline": "MainPipeline",
                 "parent_pipeline": None,
+                "max_in_flight": 1,
             },
         },
         "error_materializer": "log_error_materializer",
