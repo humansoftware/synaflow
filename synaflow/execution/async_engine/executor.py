@@ -463,7 +463,9 @@ class AsyncPipelineExecutor:
             if isinstance(value, asyncio.Queue):
                 queues[dep] = value
             else:
-                q = asyncio.Queue(maxsize=max(100, node.max_in_flight))
+                q = asyncio.Queue(
+                    maxsize=node.max_in_flight if node.max_in_flight > 1 else 100
+                )
                 if isinstance(value, (list, tuple, set)):
                     for item in value:
                         await q.put(item)
@@ -657,7 +659,9 @@ class AsyncPipelineExecutor:
         self, step_name, output, node, consumers, deferred
     ):
         queues = {
-            consumer: asyncio.Queue(maxsize=max(100, node.max_in_flight))
+            consumer: asyncio.Queue(
+                maxsize=node.max_in_flight if node.max_in_flight > 1 else 100
+            )
             for consumer in consumers
         }
         for consumer, queue in queues.items():

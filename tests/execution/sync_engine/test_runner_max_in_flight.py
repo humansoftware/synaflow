@@ -99,3 +99,58 @@ def test_given_max_in_flight_when_on_error_continue_then_still_works():
     )
     run(p, Count(count=5))
     assert results == [0, 1, 3, 4]
+
+
+def test_given_max_in_flight_3_when_fanout_two_consumers_then_both_get_all_items():
+    """Fan-out with bounded handoff: both consumers should receive all items."""
+
+    def producer(count: int) -> Generator[int, None, None]:
+        yield from range(count)
+
+    results_a: list[int] = []
+    results_b: list[int] = []
+
+    def consumer_a(producer: Iterator[int]) -> None:
+        for x in producer:
+            results_a.append(x)
+
+    def consumer_b(producer: Iterator[int]) -> None:
+        for x in producer:
+            results_b.append(x)
+
+    p = pipeline(
+        name="test",
+        params=Count,
+        steps=[
+            step("producer", fn=producer, max_in_flight=3),
+            step("consumer_a", fn=consumer_a),
+            step("consumer_b", fn=consumer_b),
+        ],
+    )
+    run(p, Count(count=10))
+    assert results_a == list(range(10))
+    assert results_b == list(range(10))
+
+
+def test_given_max_in_flight_when_producer_does_not_exceed_bounded_ahead():
+    """With max_in_flight=3, the BoundedIterator limits producer advancement."""
+
+    def producer(count: int) -> Generator[int, None, None]:
+        yield from range(count)
+
+    results: list[int] = []
+
+    def consumer(producer: Iterator[int]) -> None:
+        for x in producer:
+            results.append(x)
+
+    p = pipeline(
+        name="test",
+        params=Count,
+        steps=[
+            step("producer", fn=producer, max_in_flight=3),
+            step("consumer", fn=consumer),
+        ],
+    )
+    run(p, Count(count=20))
+    assert results == list(range(20))

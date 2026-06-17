@@ -493,6 +493,7 @@ class PipelineExecutor:
         self.outputs[self.dag.output_key(step_name, consumer)] = output
 
     def _publish_stream_to_multiple_consumers(self, step_name, output, node, consumers):
+        output = _maybe_wrap_stream(output, node)
         branches = itertools.tee(output, len(consumers))
         for consumer, branch in zip(consumers, branches):
             consumer_node = self.dag[consumer]
@@ -503,7 +504,6 @@ class PipelineExecutor:
                     node,
                     consumer_type=consumer_node.deps.get(step_name),
                 )
-            branch = _maybe_wrap_stream(branch, node)
             self.outputs[self.dag.output_key(step_name, consumer)] = branch
 
     def _publish_scalar_output(self, step_name, output, node, deferred):
