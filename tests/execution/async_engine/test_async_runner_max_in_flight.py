@@ -1,0 +1,111 @@
+from collections.abc import AsyncGenerator, AsyncIterator
+from typing import NamedTuple
+
+import pytest
+
+from synaflow import OnError, async_run, pipeline, step
+
+
+class Empty(NamedTuple):
+    pass
+
+
+class Count(NamedTuple):
+    count: int = 5
+
+
+@pytest.mark.asyncio
+async def test_given_max_in_flight_1_when_linear_then_preserves_lockstep():
+    async def producer(count: int) -> AsyncGenerator[int, None]:
+        for i in range(count):
+            yield i
+
+    results: list[int] = []
+
+    async def consumer(producer: int) -> None:
+        results.append(producer)
+
+    p = pipeline(
+        name="test",
+        params=Count,
+        steps=[
+            step("producer", fn=producer, max_in_flight=1),
+            step("consumer", fn=consumer),
+        ],
+    )
+    await async_run(p, Count(count=5))
+    assert results == [0, 1, 2, 3, 4]
+
+
+@pytest.mark.asyncio
+async def test_given_max_in_flight_30_when_linear_then_pipeline_completes():
+    async def producer(count: int) -> AsyncGenerator[int, None]:
+        for i in range(count):
+            yield i
+
+    results: list[int] = []
+
+    async def consumer(producer: AsyncIterator[int]) -> None:
+        async for x in producer:
+            results.append(x)
+
+    p = pipeline(
+        name="test",
+        params=Count,
+        steps=[
+            step("producer", fn=producer, max_in_flight=30),
+            step("consumer", fn=consumer),
+        ],
+    )
+    await async_run(p, Count(count=5))
+    assert results == [0, 1, 2, 3, 4]
+
+
+@pytest.mark.asyncio
+async def test_given_max_in_flight_on_terminal_step_when_terminal_then_no_effect():
+    async def producer(count: int) -> AsyncGenerator[int, None]:
+        for i in range(count):
+            yield i
+
+    async def terminal(producer: AsyncIterator[int]) -> None:
+        async for x in producer:
+            pass
+
+    p = pipeline(
+        name="test",
+        params=Count,
+        steps=[
+            step("producer", fn=producer, max_in_flight=30),
+            step("terminal", fn=terminal),
+        ],
+    )
+    await async_run(p, Count(count=5))
+
+
+@pytest.mark.asyncio
+async def test_given_max_in_flight_when_on_error_continue_then_still_works():
+    async def producer(count: int) -> AsyncGenerator[int, None]:
+        for i in range(count):
+            yield i
+
+    results: list[int] = []
+
+    async def fragile(producer: int) -> int:
+        if producer == 2:
+            raise ValueError("item 2 fails")
+        return producer
+
+    async def consumer(fragile: int) -> None:
+        results.append(fragile)
+
+    p = pipeline(
+        name="test",
+        params=Count,
+        steps=[
+            step("producer", fn=producer, max_in_flight=3),
+            step("fragile", fn=fragile, on_error=OnError.CONTINUE),
+            step("consumer", fn=consumer, on_error=OnError.CONTINUE),
+        ],
+    )
+    await async_run(p, Count(count=5))
+    assert results == [0, 1, 3, 4]

@@ -656,7 +656,10 @@ class AsyncPipelineExecutor:
     async def _publish_stream_to_queues(
         self, step_name, output, node, consumers, deferred
     ):
-        queues = {consumer: asyncio.Queue(maxsize=max(100, node.max_in_flight)) for consumer in consumers}
+        queues = {
+            consumer: asyncio.Queue(maxsize=max(100, node.max_in_flight))
+            for consumer in consumers
+        }
         for consumer, queue in queues.items():
             self.outputs[self.dag.output_key(step_name, consumer)] = queue
         self._register_observer_pumps(step_name, queues)
