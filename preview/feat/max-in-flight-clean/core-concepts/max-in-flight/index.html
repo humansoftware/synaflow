@@ -12,13 +12,13 @@
         <meta name="author" content="humansoftware">
       
       
-        <link rel="canonical" href="https://humansoftware.github.io/synaflow/core-concepts/build-vs-run/">
+        <link rel="canonical" href="https://humansoftware.github.io/synaflow/core-concepts/max-in-flight/">
       
       
-        <link rel="prev" href="../how-dag-is-wired/">
+        <link rel="prev" href="../lockstep-flow/">
       
       
-        <link rel="next" href="../lockstep-flow/">
+        <link rel="next" href="../event-based/">
       
       
         
@@ -29,7 +29,7 @@
     
     
       
-        <title>Build vs Run - SynaFlow</title>
+        <title>Max In Flight - SynaFlow</title>
       
     
     
@@ -88,7 +88,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#build-time-run-time-separation" class="md-skip">
+        <a href="#max-in-flight" class="md-skip">
           Skip to content
         </a>
       
@@ -124,7 +124,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Build vs Run
+              Max In Flight
             
           </span>
         </div>
@@ -668,37 +668,10 @@
                 
   
   
-    
   
   
-  
-    <li class="md-nav__item md-nav__item--active">
-      
-      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
-      
-      
-        
-      
-      
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Build vs Run
-  
-
-    
-  </span>
-  
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
-      <a href="./" class="md-nav__link md-nav__link--active">
+    <li class="md-nav__item">
+      <a href="../build-vs-run/" class="md-nav__link">
         
   
   
@@ -714,120 +687,6 @@
   
 
       </a>
-      
-        
-
-<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
-  
-  
-  
-    
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#the-two-phases" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        The two phases
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#why-this-matters" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Why this matters
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Why this matters">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#1-the-dag-json-is-the-contract" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        1. The DAG JSON is the contract
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#2-write-your-own-runner" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        2. Write your own runner
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#3-deterministic-and-testable" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        3. Deterministic and testable
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#4-no-runtime-surprises" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        4. No runtime surprises
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#architectural-parity" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Architectural parity
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#export-to-external-orchestrators" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Export to external orchestrators
-      
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
-</nav>
-      
     </li>
   
 
@@ -865,10 +724,37 @@
                 
   
   
+    
   
   
-    <li class="md-nav__item">
-      <a href="../max-in-flight/" class="md-nav__link">
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Max In Flight
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
         
   
   
@@ -884,6 +770,114 @@
   
 
       </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#why-it-exists" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Why it exists
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#default-behavior" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Default behavior
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#sync-example" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Sync example
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#async-example" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Async example
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#what-it-does-and-does-not-mean" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What it does and does not mean
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#fan-out" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Fan-out
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#when-it-has-no-effect" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        When it has no effect
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#related-concepts" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Related concepts
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
     </li>
   
 
@@ -1381,10 +1375,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#the-two-phases" class="md-nav__link">
+  <a href="#why-it-exists" class="md-nav__link">
     <span class="md-ellipsis">
       
-        The two phases
+        Why it exists
       
     </span>
   </a>
@@ -1392,71 +1386,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#why-this-matters" class="md-nav__link">
+  <a href="#default-behavior" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Why this matters
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Why this matters">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#1-the-dag-json-is-the-contract" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        1. The DAG JSON is the contract
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#2-write-your-own-runner" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        2. Write your own runner
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#3-deterministic-and-testable" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        3. Deterministic and testable
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#4-no-runtime-surprises" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        4. No runtime surprises
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#architectural-parity" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Architectural parity
+        Default behavior
       
     </span>
   </a>
@@ -1464,10 +1397,65 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#export-to-external-orchestrators" class="md-nav__link">
+  <a href="#sync-example" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Export to external orchestrators
+        Sync example
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#async-example" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Async example
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#what-it-does-and-does-not-mean" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What it does and does not mean
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#fan-out" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Fan-out
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#when-it-has-no-effect" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        When it has no effect
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#related-concepts" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Related concepts
       
     </span>
   </a>
@@ -1494,158 +1482,164 @@
   
 
 
-<h1 id="build-time-run-time-separation">Build-Time &amp; Run-Time Separation<a class="headerlink" href="#build-time-run-time-separation" title="Permanent link">&para;</a></h1>
-<p>SynaFlow enforces a strict separation between <strong>compiling the pipeline</strong> and
-<strong>executing it</strong>. This is not an implementation detail — it's the architectural
-foundation that makes custom runners, cross-orchestrator export, and
-deterministic behavior possible.</p>
-<h2 id="the-two-phases">The two phases<a class="headerlink" href="#the-two-phases" title="Permanent link">&para;</a></h2>
-<pre class="mermaid"><code>flowchart LR
-    subgraph build["🔨 Build-time (once)"]
-        direction LR
-        code["Your functions&lt;br/&gt;+ type hints"] --&gt; validate["Validate&lt;br/&gt;types, modes,&lt;br/&gt;materializers"]
-        validate --&gt; compile["Compile&lt;br/&gt;Dag + DagNodes"]
-        compile --&gt; json["Export&lt;br/&gt;DAG JSON"]
-    end
-    subgraph run["⚡ Run-time (any runner)"]
-        direction TB
-        sync["Sync runner&lt;br/&gt;PipelineExecutor"]
-        async["Async runner&lt;br/&gt;AsyncPipelineExecutor"]
-        external["Airflow · Prefect&lt;br/&gt;Dagster · Custom"]
-    end
-    json --&gt; sync
-    json --&gt; async
-    json --&gt; external</code></pre>
-<table>
-<thead>
-<tr>
-<th>Phase</th>
-<th>What happens</th>
-<th>When</th>
-<th>Output</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><strong>Build-time</strong></td>
-<td>Type validation, mode resolution, materializer assignment, circular dependency check, sync/async consistency</td>
-<td><code>pipeline(...)</code> is called</td>
-<td><code>Dag</code> object, serializable JSON</td>
-</tr>
-<tr>
-<td><strong>Run-time</strong></td>
-<td>Topological execution, lockstep streaming, <code>tee</code> forking, observer dispatch, error handling</td>
-<td><code>run()</code> / <code>async_run()</code> is called</td>
-<td>Step outputs, side effects</td>
-</tr>
-</tbody>
-</table>
-<h2 id="why-this-matters">Why this matters<a class="headerlink" href="#why-this-matters" title="Permanent link">&para;</a></h2>
-<h3 id="1-the-dag-json-is-the-contract">1. The DAG JSON is the contract<a class="headerlink" href="#1-the-dag-json-is-the-contract" title="Permanent link">&para;</a></h3>
-<p>Every pipeline exports a deterministic, serializable JSON:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nb">print</span><span class="p">(</span><span class="n">p</span><span class="o">.</span><span class="n">to_dict</span><span class="p">())</span>
+<h1 id="max-in-flight">Max In Flight<a class="headerlink" href="#max-in-flight" title="Permanent link">&para;</a></h1>
+<p><code>max_in_flight</code> controls how far a producing stream may get ahead of its next
+consumer stage.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="n">step</span><span class="p">(</span><span class="s2">&quot;start_request&quot;</span><span class="p">,</span> <span class="n">fn</span><span class="o">=</span><span class="n">start_request</span><span class="p">,</span> <span class="n">max_in_flight</span><span class="o">=</span><span class="mi">30</span><span class="p">)</span>
 </code></pre></div>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="p">{</span>
-<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="w">  </span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;example&quot;</span><span class="p">,</span>
-<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="w">  </span><span class="nt">&quot;params&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">&quot;count&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;int&quot;</span><span class="p">},</span>
-<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="w">  </span><span class="nt">&quot;steps&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="w">    </span><span class="nt">&quot;producer&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="w">      </span><span class="nt">&quot;deps&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">&quot;count&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;int&quot;</span><span class="p">},</span>
-<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="w">      </span><span class="nt">&quot;output&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Stream[int]&quot;</span><span class="p">,</span>
-<a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a><span class="w">      </span><span class="nt">&quot;fn&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;producer&quot;</span><span class="p">,</span>
-<a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a><span class="w">      </span><span class="nt">&quot;mode&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;all&quot;</span><span class="p">,</span>
-<a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a><span class="w">      </span><span class="nt">&quot;on_error&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;continue&quot;</span><span class="p">,</span>
-<a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a><span class="w">      </span><span class="nt">&quot;materializer&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;memory_materializer&quot;</span><span class="p">,</span>
-<a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a><span class="w">      </span><span class="nt">&quot;materialized_deps&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[],</span>
-<a id="__codelineno-1-13" name="__codelineno-1-13" href="#__codelineno-1-13"></a><span class="w">      </span><span class="nt">&quot;each_mode_deps&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[]</span>
-<a id="__codelineno-1-14" name="__codelineno-1-14" href="#__codelineno-1-14"></a><span class="w">    </span><span class="p">}</span>
-<a id="__codelineno-1-15" name="__codelineno-1-15" href="#__codelineno-1-15"></a><span class="w">  </span><span class="p">}</span>
-<a id="__codelineno-1-16" name="__codelineno-1-16" href="#__codelineno-1-16"></a><span class="p">}</span>
+<p>The contract is:</p>
+<blockquote>
+<p><code>max_in_flight</code> = maximum number of items already emitted by a step and not
+yet delivered to the next consumption stage.</p>
+</blockquote>
+<h2 id="why-it-exists">Why it exists<a class="headerlink" href="#why-it-exists" title="Permanent link">&para;</a></h2>
+<p>SynaFlow is lazy by default. That is ideal for memory efficiency, but some
+pipelines need a small window between two streaming stages.</p>
+<p>Typical example:</p>
+<ul>
+<li>one step starts work and returns a handle, <code>Future</code>, or task</li>
+<li>the next step resolves that handle</li>
+<li>you want up to <code>N</code> handles in flight, not exactly one</li>
+</ul>
+<p><code>max_in_flight</code> adds that bounded handoff without changing your business logic
+into manual queue management.</p>
+<h2 id="default-behavior">Default behavior<a class="headerlink" href="#default-behavior" title="Permanent link">&para;</a></h2>
+<p>Every step has <code>max_in_flight=1</code> unless you set a different value.</p>
+<p>That means:</p>
+<ul>
+<li>default behavior stays lockstep</li>
+<li>one item is handed off at a time</li>
+<li>memory stays tightly bounded</li>
+</ul>
+<h2 id="sync-example">Sync example<a class="headerlink" href="#sync-example" title="Permanent link">&para;</a></h2>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">collections.abc</span><span class="w"> </span><span class="kn">import</span> <span class="n">Generator</span><span class="p">,</span> <span class="n">Iterator</span>
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">concurrent.futures</span><span class="w"> </span><span class="kn">import</span> <span class="n">Future</span><span class="p">,</span> <span class="n">ThreadPoolExecutor</span>
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">NamedTuple</span>
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>
+<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="kn">from</span><span class="w"> </span><span class="nn">synaflow</span><span class="w"> </span><span class="kn">import</span> <span class="n">pipeline</span><span class="p">,</span> <span class="n">run</span><span class="p">,</span> <span class="n">step</span>
+<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>
+<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="n">pool</span> <span class="o">=</span> <span class="n">ThreadPoolExecutor</span><span class="p">(</span><span class="n">max_workers</span><span class="o">=</span><span class="mi">30</span><span class="p">)</span>
+<a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a>
+<a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a>
+<a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a><span class="k">class</span><span class="w"> </span><span class="nc">Params</span><span class="p">(</span><span class="n">NamedTuple</span><span class="p">):</span>
+<a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a>    <span class="n">urls</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span>
+<a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a>
+<a id="__codelineno-1-13" name="__codelineno-1-13" href="#__codelineno-1-13"></a>
+<a id="__codelineno-1-14" name="__codelineno-1-14" href="#__codelineno-1-14"></a><span class="k">def</span><span class="w"> </span><span class="nf">urls</span><span class="p">(</span><span class="n">urls</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">Generator</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">]:</span>
+<a id="__codelineno-1-15" name="__codelineno-1-15" href="#__codelineno-1-15"></a>    <span class="k">yield from</span> <span class="n">urls</span>
+<a id="__codelineno-1-16" name="__codelineno-1-16" href="#__codelineno-1-16"></a>
+<a id="__codelineno-1-17" name="__codelineno-1-17" href="#__codelineno-1-17"></a>
+<a id="__codelineno-1-18" name="__codelineno-1-18" href="#__codelineno-1-18"></a><span class="k">def</span><span class="w"> </span><span class="nf">start_request</span><span class="p">(</span><span class="n">url</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Future</span><span class="p">:</span>
+<a id="__codelineno-1-19" name="__codelineno-1-19" href="#__codelineno-1-19"></a>    <span class="k">return</span> <span class="n">pool</span><span class="o">.</span><span class="n">submit</span><span class="p">(</span><span class="n">fetch</span><span class="p">,</span> <span class="n">url</span><span class="p">)</span>
+<a id="__codelineno-1-20" name="__codelineno-1-20" href="#__codelineno-1-20"></a>
+<a id="__codelineno-1-21" name="__codelineno-1-21" href="#__codelineno-1-21"></a>
+<a id="__codelineno-1-22" name="__codelineno-1-22" href="#__codelineno-1-22"></a><span class="k">def</span><span class="w"> </span><span class="nf">await_response</span><span class="p">(</span><span class="n">start_request</span><span class="p">:</span> <span class="n">Iterator</span><span class="p">[</span><span class="n">Future</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<a id="__codelineno-1-23" name="__codelineno-1-23" href="#__codelineno-1-23"></a>    <span class="k">for</span> <span class="n">future</span> <span class="ow">in</span> <span class="n">start_request</span><span class="p">:</span>
+<a id="__codelineno-1-24" name="__codelineno-1-24" href="#__codelineno-1-24"></a>        <span class="nb">print</span><span class="p">(</span><span class="n">future</span><span class="o">.</span><span class="n">result</span><span class="p">())</span>
+<a id="__codelineno-1-25" name="__codelineno-1-25" href="#__codelineno-1-25"></a>
+<a id="__codelineno-1-26" name="__codelineno-1-26" href="#__codelineno-1-26"></a>
+<a id="__codelineno-1-27" name="__codelineno-1-27" href="#__codelineno-1-27"></a><span class="k">def</span><span class="w"> </span><span class="nf">fetch</span><span class="p">(</span><span class="n">url</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<a id="__codelineno-1-28" name="__codelineno-1-28" href="#__codelineno-1-28"></a>    <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;ok:</span><span class="si">{</span><span class="n">url</span><span class="si">}</span><span class="s2">&quot;</span>
+<a id="__codelineno-1-29" name="__codelineno-1-29" href="#__codelineno-1-29"></a>
+<a id="__codelineno-1-30" name="__codelineno-1-30" href="#__codelineno-1-30"></a>
+<a id="__codelineno-1-31" name="__codelineno-1-31" href="#__codelineno-1-31"></a><span class="n">p</span> <span class="o">=</span> <span class="n">pipeline</span><span class="p">(</span>
+<a id="__codelineno-1-32" name="__codelineno-1-32" href="#__codelineno-1-32"></a>    <span class="n">name</span><span class="o">=</span><span class="s2">&quot;bounded_requests&quot;</span><span class="p">,</span>
+<a id="__codelineno-1-33" name="__codelineno-1-33" href="#__codelineno-1-33"></a>    <span class="n">params</span><span class="o">=</span><span class="n">Params</span><span class="p">,</span>
+<a id="__codelineno-1-34" name="__codelineno-1-34" href="#__codelineno-1-34"></a>    <span class="n">steps</span><span class="o">=</span><span class="p">[</span>
+<a id="__codelineno-1-35" name="__codelineno-1-35" href="#__codelineno-1-35"></a>        <span class="n">step</span><span class="p">(</span><span class="s2">&quot;urls&quot;</span><span class="p">,</span> <span class="n">fn</span><span class="o">=</span><span class="n">urls</span><span class="p">),</span>
+<a id="__codelineno-1-36" name="__codelineno-1-36" href="#__codelineno-1-36"></a>        <span class="n">step</span><span class="p">(</span><span class="s2">&quot;start_request&quot;</span><span class="p">,</span> <span class="n">fn</span><span class="o">=</span><span class="n">start_request</span><span class="p">,</span> <span class="n">max_in_flight</span><span class="o">=</span><span class="mi">30</span><span class="p">),</span>
+<a id="__codelineno-1-37" name="__codelineno-1-37" href="#__codelineno-1-37"></a>        <span class="n">step</span><span class="p">(</span><span class="s2">&quot;await_response&quot;</span><span class="p">,</span> <span class="n">fn</span><span class="o">=</span><span class="n">await_response</span><span class="p">),</span>
+<a id="__codelineno-1-38" name="__codelineno-1-38" href="#__codelineno-1-38"></a>    <span class="p">],</span>
+<a id="__codelineno-1-39" name="__codelineno-1-39" href="#__codelineno-1-39"></a><span class="p">)</span>
+<a id="__codelineno-1-40" name="__codelineno-1-40" href="#__codelineno-1-40"></a>
+<a id="__codelineno-1-41" name="__codelineno-1-41" href="#__codelineno-1-41"></a><span class="n">run</span><span class="p">(</span><span class="n">p</span><span class="p">,</span> <span class="n">Params</span><span class="p">(</span><span class="n">urls</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;a&quot;</span><span class="p">,</span> <span class="s2">&quot;b&quot;</span><span class="p">,</span> <span class="s2">&quot;c&quot;</span><span class="p">]))</span>
+<a id="__codelineno-1-42" name="__codelineno-1-42" href="#__codelineno-1-42"></a><span class="n">pool</span><span class="o">.</span><span class="n">shutdown</span><span class="p">(</span><span class="n">wait</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 </code></pre></div>
-<p>All semantic decisions — mode, <code>each_mode_deps</code>, <code>materialized_deps</code> — are
-resolved at build time and frozen in the JSON. Runners don't re-infer
-semantics; they execute the contract.</p>
-<h3 id="2-write-your-own-runner">2. Write your own runner<a class="headerlink" href="#2-write-your-own-runner" title="Permanent link">&para;</a></h3>
-<p>The <code>Dag</code> object is self-contained. Anyone can write a runner:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">synaflow.core.dag</span><span class="w"> </span><span class="kn">import</span> <span class="n">Dag</span>
-<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>
-<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="k">class</span><span class="w"> </span><span class="nc">MyRunner</span><span class="p">:</span>
-<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">execute</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">dag</span><span class="p">:</span> <span class="n">Dag</span><span class="p">,</span> <span class="n">params</span><span class="p">):</span>
-<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>        <span class="k">for</span> <span class="n">level</span> <span class="ow">in</span> <span class="n">dag</span><span class="o">.</span><span class="n">get_execution_levels</span><span class="p">():</span>
-<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>            <span class="k">for</span> <span class="n">step_name</span> <span class="ow">in</span> <span class="n">level</span><span class="p">:</span>
-<a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a>                <span class="n">node</span> <span class="o">=</span> <span class="n">dag</span><span class="o">.</span><span class="n">steps</span><span class="p">[</span><span class="n">step_name</span><span class="p">]</span>
-<a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a>                <span class="c1"># resolve dependencies, call node.fn, store output</span>
-<a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a>                <span class="o">...</span>
+<p>The application still owns the real concurrency. SynaFlow only bounds the
+handoff between <code>start_request</code> and <code>await_response</code>.</p>
+<h2 id="async-example">Async example<a class="headerlink" href="#async-example" title="Permanent link">&para;</a></h2>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">collections.abc</span><span class="w"> </span><span class="kn">import</span> <span class="n">AsyncGenerator</span><span class="p">,</span> <span class="n">AsyncIterator</span>
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">NamedTuple</span>
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>
+<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="kn">from</span><span class="w"> </span><span class="nn">synaflow</span><span class="w"> </span><span class="kn">import</span> <span class="n">async_run</span><span class="p">,</span> <span class="n">pipeline</span><span class="p">,</span> <span class="n">step</span>
+<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>
+<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>
+<a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="k">class</span><span class="w"> </span><span class="nc">Params</span><span class="p">(</span><span class="n">NamedTuple</span><span class="p">):</span>
+<a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a>    <span class="n">urls</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span>
+<a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a>
+<a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a>
+<a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">urls</span><span class="p">(</span><span class="n">urls</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">AsyncGenerator</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="kc">None</span><span class="p">]:</span>
+<a id="__codelineno-2-12" name="__codelineno-2-12" href="#__codelineno-2-12"></a>    <span class="k">for</span> <span class="n">url</span> <span class="ow">in</span> <span class="n">urls</span><span class="p">:</span>
+<a id="__codelineno-2-13" name="__codelineno-2-13" href="#__codelineno-2-13"></a>        <span class="k">yield</span> <span class="n">url</span>
+<a id="__codelineno-2-14" name="__codelineno-2-14" href="#__codelineno-2-14"></a>
+<a id="__codelineno-2-15" name="__codelineno-2-15" href="#__codelineno-2-15"></a>
+<a id="__codelineno-2-16" name="__codelineno-2-16" href="#__codelineno-2-16"></a><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">start_request</span><span class="p">(</span><span class="n">url</span><span class="p">:</span> <span class="nb">str</span><span class="p">):</span>
+<a id="__codelineno-2-17" name="__codelineno-2-17" href="#__codelineno-2-17"></a>    <span class="k">return</span> <span class="n">fetch_async</span><span class="p">(</span><span class="n">url</span><span class="p">)</span>
+<a id="__codelineno-2-18" name="__codelineno-2-18" href="#__codelineno-2-18"></a>
+<a id="__codelineno-2-19" name="__codelineno-2-19" href="#__codelineno-2-19"></a>
+<a id="__codelineno-2-20" name="__codelineno-2-20" href="#__codelineno-2-20"></a><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">await_response</span><span class="p">(</span><span class="n">start_request</span><span class="p">:</span> <span class="n">AsyncIterator</span><span class="p">):</span>
+<a id="__codelineno-2-21" name="__codelineno-2-21" href="#__codelineno-2-21"></a>    <span class="k">async</span> <span class="k">for</span> <span class="n">task</span> <span class="ow">in</span> <span class="n">start_request</span><span class="p">:</span>
+<a id="__codelineno-2-22" name="__codelineno-2-22" href="#__codelineno-2-22"></a>        <span class="nb">print</span><span class="p">(</span><span class="k">await</span> <span class="n">task</span><span class="p">)</span>
+<a id="__codelineno-2-23" name="__codelineno-2-23" href="#__codelineno-2-23"></a>
+<a id="__codelineno-2-24" name="__codelineno-2-24" href="#__codelineno-2-24"></a>
+<a id="__codelineno-2-25" name="__codelineno-2-25" href="#__codelineno-2-25"></a><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">fetch_async</span><span class="p">(</span><span class="n">url</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<a id="__codelineno-2-26" name="__codelineno-2-26" href="#__codelineno-2-26"></a>    <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;ok:</span><span class="si">{</span><span class="n">url</span><span class="si">}</span><span class="s2">&quot;</span>
+<a id="__codelineno-2-27" name="__codelineno-2-27" href="#__codelineno-2-27"></a>
+<a id="__codelineno-2-28" name="__codelineno-2-28" href="#__codelineno-2-28"></a>
+<a id="__codelineno-2-29" name="__codelineno-2-29" href="#__codelineno-2-29"></a><span class="n">p</span> <span class="o">=</span> <span class="n">pipeline</span><span class="p">(</span>
+<a id="__codelineno-2-30" name="__codelineno-2-30" href="#__codelineno-2-30"></a>    <span class="n">name</span><span class="o">=</span><span class="s2">&quot;bounded_requests_async&quot;</span><span class="p">,</span>
+<a id="__codelineno-2-31" name="__codelineno-2-31" href="#__codelineno-2-31"></a>    <span class="n">params</span><span class="o">=</span><span class="n">Params</span><span class="p">,</span>
+<a id="__codelineno-2-32" name="__codelineno-2-32" href="#__codelineno-2-32"></a>    <span class="n">steps</span><span class="o">=</span><span class="p">[</span>
+<a id="__codelineno-2-33" name="__codelineno-2-33" href="#__codelineno-2-33"></a>        <span class="n">step</span><span class="p">(</span><span class="s2">&quot;urls&quot;</span><span class="p">,</span> <span class="n">fn</span><span class="o">=</span><span class="n">urls</span><span class="p">),</span>
+<a id="__codelineno-2-34" name="__codelineno-2-34" href="#__codelineno-2-34"></a>        <span class="n">step</span><span class="p">(</span><span class="s2">&quot;start_request&quot;</span><span class="p">,</span> <span class="n">fn</span><span class="o">=</span><span class="n">start_request</span><span class="p">,</span> <span class="n">max_in_flight</span><span class="o">=</span><span class="mi">30</span><span class="p">),</span>
+<a id="__codelineno-2-35" name="__codelineno-2-35" href="#__codelineno-2-35"></a>        <span class="n">step</span><span class="p">(</span><span class="s2">&quot;await_response&quot;</span><span class="p">,</span> <span class="n">fn</span><span class="o">=</span><span class="n">await_response</span><span class="p">),</span>
+<a id="__codelineno-2-36" name="__codelineno-2-36" href="#__codelineno-2-36"></a>    <span class="p">],</span>
+<a id="__codelineno-2-37" name="__codelineno-2-37" href="#__codelineno-2-37"></a><span class="p">)</span>
+<a id="__codelineno-2-38" name="__codelineno-2-38" href="#__codelineno-2-38"></a>
+<a id="__codelineno-2-39" name="__codelineno-2-39" href="#__codelineno-2-39"></a><span class="k">await</span> <span class="n">async_run</span><span class="p">(</span><span class="n">p</span><span class="p">,</span> <span class="n">Params</span><span class="p">(</span><span class="n">urls</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;a&quot;</span><span class="p">,</span> <span class="s2">&quot;b&quot;</span><span class="p">,</span> <span class="s2">&quot;c&quot;</span><span class="p">]))</span>
 </code></pre></div>
-<p>This is how SynaFlow ships two native runners (sync and async) with identical
-semantics, and how you can compile a pipeline into Airflow or Prefect DAGs.</p>
-<h3 id="3-deterministic-and-testable">3. Deterministic and testable<a class="headerlink" href="#3-deterministic-and-testable" title="Permanent link">&para;</a></h3>
-<p>Because the DAG is a pure data structure, you can assert on it directly:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="n">dag</span> <span class="o">=</span> <span class="n">pipeline</span><span class="p">(</span><span class="o">...</span><span class="p">)</span><span class="o">.</span><span class="n">dag</span>
-<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="k">assert</span> <span class="n">dag</span><span class="o">.</span><span class="n">steps</span><span class="p">[</span><span class="s2">&quot;transformer&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">mode</span> <span class="o">==</span> <span class="n">StepMode</span><span class="o">.</span><span class="n">EACH</span>
-<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="k">assert</span> <span class="n">dag</span><span class="o">.</span><span class="n">get_execution_levels</span><span class="p">()</span> <span class="o">==</span> <span class="p">[[</span><span class="s2">&quot;producer&quot;</span><span class="p">],</span> <span class="p">[</span><span class="s2">&quot;transformer&quot;</span><span class="p">],</span> <span class="p">[</span><span class="s2">&quot;consumer&quot;</span><span class="p">]]</span>
-</code></pre></div>
-<p>The test corpus validates DAG structure and execution output independently —
-build-time correctness is verified without running the pipeline.</p>
-<h3 id="4-no-runtime-surprises">4. No runtime surprises<a class="headerlink" href="#4-no-runtime-surprises" title="Permanent link">&para;</a></h3>
-<p>Type errors, missing dependencies, circular graphs, mode conflicts — all caught
-at build time. If <code>pipeline(...)</code> succeeds, the DAG is valid. The runner never
-needs to check types or resolve ambiguities at runtime.</p>
-<h2 id="architectural-parity">Architectural parity<a class="headerlink" href="#architectural-parity" title="Permanent link">&para;</a></h2>
-<p>Every domain concern has a symmetric representation in both phases:</p>
-<table>
-<thead>
-<tr>
-<th>Concern</th>
-<th>Build-time</th>
-<th>Run-time</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Pipeline/Orchestration</td>
-<td><code>build_dag()</code></td>
-<td><code>PipelineExecutor</code> / <code>AsyncPipelineExecutor</code></td>
-</tr>
-<tr>
-<td>Dependencies</td>
-<td><code>validate_and_resolve_dependencies()</code></td>
-<td>Inlined in executor</td>
-</tr>
-<tr>
-<td>Topology</td>
-<td><code>check_circular_dependencies()</code>, <code>get_execution_levels()</code></td>
-<td>Inlined in executor</td>
-</tr>
-<tr>
-<td>Step compilation</td>
-<td><code>validate_and_compile_step()</code></td>
-<td>Inlined in executor</td>
-</tr>
-<tr>
-<td>Mode resolution</td>
-<td>Resolved at build time → <code>node.mode</code></td>
-<td>Executor reads <code>node.mode</code>, never re-infers</td>
-</tr>
-<tr>
-<td>Materialization</td>
-<td>Resolved at build time → <code>node.materializer</code></td>
-<td>Executor calls the resolved callable</td>
-</tr>
-<tr>
-<td>Observers</td>
-<td>Normalized at build time → <code>node.observers</code></td>
-<td>Executor dispatches events</td>
-</tr>
-</tbody>
-</table>
-<p>This symmetry means sync and async executors can be completely different
-implementations (one uses generators, the other uses <code>asyncio.Queue</code>) but
-guarantee identical behavior — because they both read the same DAG contract.</p>
-<h2 id="export-to-external-orchestrators">Export to external orchestrators<a class="headerlink" href="#export-to-external-orchestrators" title="Permanent link">&para;</a></h2>
-<p>Because the DAG is self-contained, you can compile a SynaFlow pipeline into
-any orchestrator's native format. See <a href="../../advanced/export-guidance/">Export Guidance</a>
-for Airflow, Prefect, and Dagster examples.</p>
+<h2 id="what-it-does-and-does-not-mean">What it does and does not mean<a class="headerlink" href="#what-it-does-and-does-not-mean" title="Permanent link">&para;</a></h2>
+<p><code>max_in_flight</code> means:</p>
+<ul>
+<li>bounded buffered handoff between producer and next consumer stage</li>
+<li>configured on the producing step</li>
+<li>compiled into the DAG and used by the runner from DAG metadata</li>
+</ul>
+<p>It does <strong>not</strong> mean:</p>
+<ul>
+<li>thread count</li>
+<li>task count</li>
+<li>downstream completion tracking</li>
+<li>guaranteed number of unresolved network requests in every topology</li>
+</ul>
+<p>Delivery is counted when the next stage receives the item, not when it finishes
+processing it.</p>
+<h2 id="fan-out">Fan-out<a class="headerlink" href="#fan-out" title="Permanent link">&para;</a></h2>
+<p>When one producer feeds multiple downstream consumers:</p>
+<ul>
+<li>the limit is enforced per consumer branch</li>
+<li>lazy branches stay lazy</li>
+<li>eager branches keep normal materialization behavior</li>
+</ul>
+<p>This means one branch can stream while another branch materializes.</p>
+<h2 id="when-it-has-no-effect">When it has no effect<a class="headerlink" href="#when-it-has-no-effect" title="Permanent link">&para;</a></h2>
+<p><code>max_in_flight</code> is accepted on every step, but it only matters on progressive
+stream handoff.</p>
+<p>Examples where it becomes a no-op:</p>
+<ul>
+<li>the step returns a scalar</li>
+<li>the step is terminal</li>
+<li>every downstream path materializes eagerly before streaming can matter</li>
+<li>the topology puts the next real consumer stage behind another lazy barrier,
+  so bounded receive-based handoff cannot be enforced safely</li>
+</ul>
+<p>The value still exists in the compiled DAG and exported JSON.</p>
+<h2 id="related-concepts">Related concepts<a class="headerlink" href="#related-concepts" title="Permanent link">&para;</a></h2>
+<ul>
+<li><a href="../lockstep-flow/">Lockstep Data Flow</a></li>
+<li><a href="../materialization/">Materialization &amp; Error Policies</a></li>
+<li><a href="../build-vs-run/">Build vs Run</a></li>
+</ul>
 
 
 

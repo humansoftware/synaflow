@@ -829,6 +829,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../../core-concepts/max-in-flight/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Max In Flight
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../core-concepts/event-based/" class="md-nav__link">
         
   
@@ -1412,6 +1440,9 @@ that builds a real pipeline from scratch across four levels:</p>
 <li><a href="../../core-concepts/lockstep-flow/"><strong>Lockstep Data Flow</strong></a> — how one item
   flows entirely through the pipeline before the next is produced, guaranteeing
   extreme memory efficiency.</li>
+<li><a href="../../core-concepts/max-in-flight/"><strong>Max In Flight</strong></a> — how to let a
+  producing stream get a bounded number of items ahead of the next consumer
+  stage without giving up lazy streaming.</li>
 <li><a href="../../core-concepts/event-based/"><strong>Event-Based Processing</strong></a> — how lazy
   streaming makes the framework idempotent by default and naturally suited for
   processing events individually or in time windows.</li>
