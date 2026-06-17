@@ -268,6 +268,13 @@ class AsyncPipelineExecutor:
             return
         await dispatch_observers_async(registrations, ctx)
 
+    def _consumers_share_execution_level(self, consumers: list[str]) -> bool:
+        level_index = {}
+        for index, level in enumerate(self.dag.get_execution_levels()):
+            for step_name in level:
+                level_index[step_name] = index
+        return len({level_index.get(consumer) for consumer in consumers}) <= 1
+
     async def _dispatch_step_event(
         self,
         node: Any,
@@ -464,8 +471,16 @@ class AsyncPipelineExecutor:
                 queues[dep] = value
             else:
                 producer_node = self.dag.get(dep)
-                mif = getattr(producer_node, 'max_in_flight', None) if producer_node else None
-                q = asyncio.Queue(maxsize=max(100, mif) if mif is not None else 100)
+                # Non-queue inputs are already fully available in memory, so
+                # max_in_flight does not apply here. Size the queue to avoid
+                # deadlocking while preloading eager values for EACH-mode use.
+                if isinstance(value, (list, tuple, set)):
+                    q = asyncio.Queue(maxsize=max(1, len(value)))
+                else:
+                    maxsize = 1
+                    if producer_node is not None:
+                        maxsize = max(1, getattr(producer_node, "max_in_flight", 1))
+                    q = asyncio.Queue(maxsize=maxsize)
                 if isinstance(value, (list, tuple, set)):
                     for item in value:
                         await q.put(item)
@@ -658,10 +673,11 @@ class AsyncPipelineExecutor:
     async def _publish_stream_to_queues(
         self, step_name, output, node, consumers, deferred
     ):
+        queue_maxsize = max(1, node.max_in_flight)
+        if not self._consumers_share_execution_level(consumers):
+            queue_maxsize = 0
         queues = {
-            consumer: asyncio.Queue(
-                maxsize=max(100, node.max_in_flight)
-            )
+            consumer: asyncio.Queue(maxsize=queue_maxsize)
             for consumer in consumers
         }
         for consumer, queue in queues.items():

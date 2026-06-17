@@ -60,6 +60,7 @@ nav:
       - How the DAG is Wired: core-concepts/how-dag-is-wired.md
       - Build vs Run: core-concepts/build-vs-run.md
       - Lockstep Data Flow: core-concepts/lockstep-flow.md
+      - Max In Flight: core-concepts/max-in-flight.md
       - Event-Based Processing: core-concepts/event-based.md
       - Materialization & Errors: core-concepts/materialization.md
       - Semantic Naming: core-concepts/semantic-naming.md

@@ -207,23 +207,27 @@ The default materializer factory maps producer-consumer type pairs to appropriat
 | `T` | `Iterable[T]` | — | **validation error** |
 | `CustomType` | any | — | **validation error** (requires custom factory) |
 
-**Invocation rules:** The materializer is invoked when (a) the consumer demands a materialized protocol (`list`/`set`/`tuple`/`dict`), OR (b) the producer has `on_error=STOP`, OR (c) the step has `force_materialize=True`. For fan-out scenarios, `tee` splits the stream before materialization, so lazy consumers receive the original stream while materialized consumers receive the materialized copy.
+**Invocation rules:** The materializer is invoked when (a) the consumer demands a materialized protocol (`list`/`set`/`tuple`/`dict`), OR (b) the producer has `on_error=STOP`, OR (c) the step has `force_materialize=True`. For fan-out scenarios, materialization stays branch-local: lazy consumers keep progressive delivery while materialized consumers receive a collected branch copy.
 
 For uneven multi-stream each-mode, exhaustion is modeled with `None` padding rather than silent truncation. This is part of the execution contract and must behave identically in sync and async runners.
 
-### 3.10. `force_materialize` Flag
+### 3.10. `max_in_flight`
+**Decision:** Every compiled `DagNode` carries `max_in_flight`, defaulting to `1`, and runners enforce it from DAG metadata rather than step definitions.
+**Reason:** Bounded handoff is part of runtime semantics, not user-code convenience. The contract is "maximum number of items already emitted by a step and not yet delivered to the next consumption stage." Keeping it in the DAG preserves build/run separation, JSON export fidelity, and sync/async parity.
+
+### 3.11. `force_materialize` Flag
 **Decision:** Steps can explicitly declare `force_materialize=True` to trigger materialization of their output regardless of consumer types or error handling configuration.
 **Reason:** Some use cases require materialization as a side effect (e.g., persisting intermediate results for debugging, caching expensive computations, or ensuring data is written to an audit log at a specific pipeline stage). This is orthogonal to `on_error=STOP`.
 
-### 3.11. No Silent Type Wrapping
+### 3.12. No Silent Type Wrapping
 **Decision:** The framework never silently coerces scalar values into iterables. If a producer outputs `str` and a consumer expects `Iterator[str]`, a `ValidationError` is raised at build time. Users must explicitly declare `Iterator[str]` as the output type and `yield` the single item.
 **Reason:** Implicit wrapping hides design errors and breaks the type contract. Explicit yield makes the data flow visible and predictable.
 
-### 3.12. Inline Executors (Single-File Runtime)
+### 3.13. Inline Executors (Single-File Runtime)
 **Decision:** The sync and async execution engines each live in a single file (`executor.py`). The previous sub-components (`SyncStreamManager`, `SyncNodeRunner`, `SyncDependencyResolver`, and their async counterparts) were stateless classes that existed only as namespaces. They were replaced by plain functions and inlined into the executor.
 **Reason:** Simpler dependency graph, no fake "classes" without state, easier to understand the full execution flow in one file.
 
-### 3.13. Observable Execution (`step_output_observers`)
+### 3.14. Observable Execution (`step_output_observers`)
 **Decision:** The executor accepts an optional list of observer callbacks via `step_output_observers`. Each observer is called with `(step_name, output)` every time a step produces an output. For stream outputs, the sync executor tees the stream so the observer receives an independent copy; the async executor creates a dedicated pump task.
 **Reason:** Enables test infrastructure (capturing step outputs for spec compliance tests) without modifying production logic. Follows the Observer pattern — the executor doesn't know what observers do, only that they exist.
 
@@ -232,7 +236,7 @@ For uneven multi-stream each-mode, exhaustion is modeled with `None` padding rat
 - when a stream fails under `OnError.CONTINUE`, observers see the valid prefix that was already produced
 - observer behavior is a public contract and is covered by corpus/spec tests, not only unit tests
 
-### 3.14. PipelineStopException with Context
+### 3.15. PipelineStopException with Context
 **Decision:** `PipelineStopException` carries `step_name` and `cause` (the original exception). It uses `raise ... from` to preserve the full stack trace.
 **Reason:** When a pipeline stops, callers need to know which step caused the stop and why. An empty exception is useless for debugging.
 

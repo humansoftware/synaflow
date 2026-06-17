@@ -56,11 +56,11 @@ type hints and wires the DAG automatically.
 Parameter names match producer names — SynaFlow connects them automatically.
 Singular/plural/suffix synonyms work too (`item` → `items`, `user_list` → `users`).
 
-### Lazy streaming with zero boilerplate
+### Lazy streaming with bounded handoff
 
-Multiple consumers of the same producer? SynaFlow forks the stream with
-`itertools.tee` and advances them in lockstep. One consumer can stream lazily
-while another materializes — no manual `tee`, no memory spikes.
+SynaFlow streams lazily by default. Multiple consumers can stay lockstep, one
+consumer can stay lazy while another materializes, and when you need a bounded
+window between stages you can set `max_in_flight` on the producing step.
 
 ### Static validation at build time
 
@@ -100,7 +100,7 @@ Start here: **[humansoftware.github.io/synaflow](https://humansoftware.github.io
 | Section | Description |
 |---|---|
 | [Tutorial](https://humansoftware.github.io/synaflow/tutorial/hello-world/) | 5-level step-by-step guide building a pipeline from scratch |
-| [Core Concepts](https://humansoftware.github.io/synaflow/core-concepts/how-dag-is-wired/) | How the DAG is wired, lockstep flow, build vs run, event-based processing |
+| [Core Concepts](https://humansoftware.github.io/synaflow/core-concepts/how-dag-is-wired/) | How the DAG is wired, lockstep flow, max in flight, build vs run, event-based processing |
 | [Examples](https://humansoftware.github.io/synaflow/core-concepts/examples/) | Every corpus pipeline with auto-generated diagrams and source code |
 | [Comparisons](https://humansoftware.github.io/synaflow/comparisons/hamilton/) | Detailed comparisons with Hamilton, Java Streams, and LINQ |
 | [Design Philosophy](docs/DESIGN_PHILOSOPHY.md) | Architectural decisions, contracts, and design rationale |

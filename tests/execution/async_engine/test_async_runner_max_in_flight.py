@@ -1,6 +1,7 @@
 from collections.abc import AsyncGenerator, AsyncIterator
 from typing import NamedTuple
 
+import asyncio
 import pytest
 
 from synaflow import OnError, async_run, pipeline, step
@@ -113,15 +114,15 @@ async def test_given_max_in_flight_when_on_error_continue_then_still_works():
 
 @pytest.mark.asyncio
 async def test_given_max_in_flight_when_producer_does_not_exceed_bounded_ahead():
-    """Verify production is bounded: max in-flight items <= max_in_flight."""
-    from collections.abc import AsyncGenerator
-
     produced: list[int] = []
     consumed: list[int] = []
+    max_seen_ahead = 0
 
     async def producer(count: int) -> AsyncGenerator[int, None]:
+        nonlocal max_seen_ahead
         for i in range(count):
             produced.append(i)
+            max_seen_ahead = max(max_seen_ahead, len(produced) - len(consumed))
             yield i
 
     async def consumer(producer: int) -> None:
@@ -138,9 +139,42 @@ async def test_given_max_in_flight_when_producer_does_not_exceed_bounded_ahead()
     await async_run(p, Count(count=20))
     assert produced == list(range(20))
     assert consumed == list(range(20))
-    # With max_in_flight=3 and queue size 3, the producer should be bounded.
-    # The exact ahead count depends on async scheduling, but completion proves
-    # the pipeline does not deadlock.
+    # The producer records "ahead" before yielding the current item, so the
+    # observed gap can include the item being handed off plus the bounded queue.
+    assert max_seen_ahead <= 4
+
+
+@pytest.mark.asyncio
+async def test_given_max_in_flight_1_when_fanout_slow_branch_then_bound_is_exact():
+    log: list[str] = []
+
+    async def producer(count: int) -> AsyncGenerator[int, None]:
+        for i in range(count):
+            log.append(f"prod {i}")
+            yield i
+
+    async def fast(producer: int) -> None:
+        log.append(f"fast {producer}")
+
+    async def slow(producer: int) -> None:
+        log.append(f"slow-recv {producer}")
+        await asyncio.sleep(0.01)
+        log.append(f"slow {producer}")
+
+    p = pipeline(
+        name="test",
+        params=Count,
+        steps=[
+            step("producer", fn=producer, max_in_flight=1),
+            step("fast", fn=fast),
+            step("slow", fn=slow),
+        ],
+    )
+    await async_run(p, Count(count=5))
+
+    slow_0_index = log.index("slow-recv 0")
+    prod_2_index = log.index("prod 2")
+    assert slow_0_index < prod_2_index
 
 
 @pytest.mark.asyncio
@@ -174,3 +208,34 @@ async def test_given_max_in_flight_3_when_fanout_two_consumers_then_both_get_all
     await async_run(p, Count(count=10))
     assert results_a == list(range(10))
     assert results_b == list(range(10))
+
+
+@pytest.mark.asyncio
+async def test_given_max_in_flight_3_when_fanout_lazy_and_eager_then_both_receive_items():
+    async def producer(count: int) -> AsyncGenerator[int, None]:
+        for i in range(count):
+            yield i
+
+    lazy_results: list[int] = []
+    eager_results: list[list[int]] = []
+
+    async def lazy_consumer(producer: AsyncIterator[int]) -> None:
+        async for item in producer:
+            lazy_results.append(item)
+
+    async def eager_consumer(producer: list[int]) -> None:
+        eager_results.append(producer)
+
+    p = pipeline(
+        name="test",
+        params=Count,
+        steps=[
+            step("producer", fn=producer, max_in_flight=3),
+            step("lazy_consumer", fn=lazy_consumer),
+            step("eager_consumer", fn=eager_consumer),
+        ],
+    )
+    await async_run(p, Count(count=10))
+
+    assert lazy_results == list(range(10))
+    assert eager_results == [list(range(10))]

@@ -284,8 +284,9 @@ def batch(producer: list[int]) -> int:       # eager — only this branch materi
     return sum(producer)
 ```
 
-**One consumer lazy, one eager.** No manual `tee`. No boilerplate. Memory
-overhead: one item per step, regardless of dataset size.
+**One consumer lazy, one eager.** No manual `tee`. No boilerplate. By default
+the stream stays lockstep; if you need a bounded window between stages, use
+`max_in_flight`.
 
 ### 3. Fine-grained materialization control
 
@@ -364,6 +365,7 @@ Because SynaFlow separates **build-time** (DAG compilation) from **run-time**
 (execution), you can write custom runners or auto-generate native DAGs for
 Airflow, Dagster, or Prefect from the same pipeline definition.
 Read more: [Build vs Run](core-concepts/build-vs-run.md) ·
+[Max In Flight](core-concepts/max-in-flight.md) ·
 [Export Guidance](advanced/export-guidance.md).
 
 For detailed comparisons: [SynaFlow vs Hamilton](comparisons/hamilton.md) ·
