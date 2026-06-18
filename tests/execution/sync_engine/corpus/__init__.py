@@ -7,6 +7,7 @@ from . import (
     explicit_modes,
     fibonacci,
     linear,
+    max_in_flight_threadpool,
     mixed_fanout,
     sub_pipelines,
 )
@@ -19,6 +20,7 @@ _MODULES = [
     complex_parallel_mixed,
     explicit_modes,
     mixed_fanout,
+    max_in_flight_threadpool,
     sub_pipelines,
     deep_sub_pipelines,
     error_handling,

@@ -1,4 +1,5 @@
 from collections.abc import Generator, Iterator
+from concurrent.futures import Future, ThreadPoolExecutor
 from time import sleep
 import threading
 from typing import NamedTuple
@@ -397,3 +398,74 @@ def test_given_fanout_lazy_and_eager_when_producer_stream_fails_then_pipeline_st
         run(p, Count(count=5))
 
     assert lazy_seen == []
+
+
+def test_given_threadpool_start_and_await_when_max_in_flight_5_then_only_five_tasks_start():
+    class P(NamedTuple):
+        count: int = 10
+
+    pool = ThreadPoolExecutor(max_workers=10)
+    release = threading.Event()
+    started = threading.Event()
+    lock = threading.Lock()
+    futures: dict[int, Future] = {}
+    in_flight = 0
+    max_in_flight_seen = 0
+    started_count = 0
+
+    def numbers(count: int) -> Generator[int, None, None]:
+        yield from range(count)
+
+    def work(value: int) -> int:
+        nonlocal in_flight, max_in_flight_seen, started_count
+        with lock:
+            in_flight += 1
+            started_count += 1
+            max_in_flight_seen = max(max_in_flight_seen, in_flight)
+            if started_count >= 5:
+                started.set()
+        release.wait()
+        with lock:
+            in_flight -= 1
+        return value * 10
+
+    def start(numbers: int) -> int:
+        futures[numbers] = pool.submit(work, numbers)
+        return numbers
+
+    def await_result(start: Iterator[int]) -> list[int]:
+        return [futures[token].result() for token in start]
+
+    p = pipeline(
+        name="test",
+        params=P,
+        steps=[
+            step("numbers", fn=numbers),
+            step("start", fn=start, max_in_flight=5),
+            step("await_result", fn=await_result),
+        ],
+    )
+
+    result_holder = {}
+    error_holder = {}
+
+    def target():
+        try:
+            result_holder["done"] = run(p, P(count=10))
+        except BaseException as exc:  # pragma: no cover - assertion below
+            error_holder["exc"] = exc
+
+    thread = threading.Thread(target=target)
+    thread.start()
+    assert started.wait(timeout=5), "expected five tasks to start"
+    sleep(0.1)
+    with lock:
+        assert started_count == 5
+        assert max_in_flight_seen == 5
+        assert in_flight == 5
+    release.set()
+    thread.join(timeout=5)
+    pool.shutdown(wait=True)
+
+    assert "exc" not in error_holder
+    assert not thread.is_alive()

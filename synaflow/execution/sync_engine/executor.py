@@ -28,7 +28,11 @@ from synaflow.core.types import (
     OnError,
     StepMode,
 )
-from synaflow.execution.sync_handoff import SyncFanout, SyncMaterializedValue, SyncQueueIterator
+from synaflow.execution.sync_handoff import (
+    SyncFanout,
+    SyncMaterializedValue,
+    SyncQueueIterator,
+)
 
 
 # ---------------------------------------------------------------------------
@@ -435,7 +439,9 @@ class PipelineExecutor:
             key = self.dag.output_key(dep_name, consumer)
             value = self.outputs.get(key, self.outputs.get(dep_name))
             if isinstance(value, SyncMaterializedValue):
-                value = self._resolve_materialized_value(dep_name, value, node, consumer)
+                value = self._resolve_materialized_value(
+                    dep_name, value, node, consumer
+                )
             param = node.dataset_param_names.get(dep_name, dep_name)
             args[param] = value
         return args
@@ -634,8 +640,8 @@ class PipelineExecutor:
         )
         self._active_fanouts.append(fanout)
         for consumer in lazy_consumers:
-            self.outputs[self.dag.output_key(step_name, consumer)] = fanout.lazy_iterator(
-                consumer
+            self.outputs[self.dag.output_key(step_name, consumer)] = (
+                fanout.lazy_iterator(consumer)
             )
         for consumer in eager_consumers:
             self.outputs[self.dag.output_key(step_name, consumer)] = fanout.eager_value(
@@ -689,7 +695,7 @@ class PipelineExecutor:
         if deferred:
             self._emit_deferred_completion(node, step_name)
 
-        self.outputs[step_name] = output
+        self.outputs[step_name] = _maybe_wrap_stream(output, node)
 
 
 # ---------------------------------------------------------------------------

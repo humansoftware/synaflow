@@ -1,6 +1,6 @@
 import functools
 import logging
-from collections.abc import Iterator as Iter
+from collections.abc import AsyncIterator, Iterator as Iter
 from typing import Iterator, NamedTuple
 
 import pytest
@@ -370,6 +370,44 @@ async def test_given_step_output_observers_when_run_then_not_affected_by_lifecyc
     assert len(output_records) == 1
     step_name, output = output_records[0]
     assert step_name == "gen"
+
+
+@pytest.mark.asyncio
+async def test_given_step_output_observer_when_branch_stops_early_then_observer_sees_full_stream():
+    output_records = []
+
+    async def gen(values: list[int]):
+        for value in values:
+            yield value
+
+    async def early(gen: AsyncIterator[int]):
+        async for _item in gen:
+            break
+
+    async def full(gen: AsyncIterator[int]):
+        return [item async for item in gen]
+
+    p = pipeline(
+        name="p",
+        params=Params,
+        steps=[
+            step("gen", fn=gen, max_in_flight=3),
+            step("early", fn=early),
+            step("full", fn=full),
+        ],
+    )
+
+    executor = AsyncPipelineExecutor(
+        p.dag,
+        step_output_observers=[lambda n, o: output_records.append((n, o))],
+    )
+    await executor.execute(Params(values=[1, 2, 3]))
+
+    gen_output = next(
+        output for step_name, output in output_records if step_name == "gen"
+    )
+    assert gen_output == [1, 2, 3]
+    assert ("full", [1, 2, 3]) in output_records
 
 
 # ---------------------------------------------------------------------------

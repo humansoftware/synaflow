@@ -358,6 +358,43 @@ def test_given_step_output_observers_when_run_then_not_affected_by_lifecycle_obs
     assert step_name == "gen"
 
 
+def test_given_step_output_observer_when_branch_stops_early_then_observer_sees_full_stream():
+    from synaflow.execution.sync_engine.executor import PipelineExecutor
+
+    output_records = []
+
+    def gen(values: list[int]) -> Iterator[int]:
+        yield from values
+
+    def early(gen: Iterator[int]) -> None:
+        for _item in gen:
+            break
+
+    def full(gen: Iterator[int]) -> list[int]:
+        return list(gen)
+
+    p = pipeline(
+        name="p",
+        params=Params,
+        steps=[
+            step("gen", fn=gen, max_in_flight=3),
+            step("early", fn=early),
+            step("full", fn=full),
+        ],
+    )
+
+    executor = PipelineExecutor(
+        p.dag,
+        step_output_observers=[
+            lambda n, o: output_records.append((n, list(o) if n == "gen" else o))
+        ],
+    )
+    executor.execute(Params(values=[1, 2, 3]))
+
+    assert ("gen", [1, 2, 3]) in output_records
+    assert ("full", [1, 2, 3]) in output_records
+
+
 # ---------------------------------------------------------------------------
 # Materialization events
 # ---------------------------------------------------------------------------
