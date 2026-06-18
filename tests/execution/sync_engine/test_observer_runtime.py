@@ -1,5 +1,6 @@
 import logging
 from collections.abc import Iterator as Iter
+from time import sleep
 from typing import Iterator, NamedTuple
 
 import pytest
@@ -393,6 +394,117 @@ def test_given_step_output_observer_when_branch_stops_early_then_observer_sees_f
 
     assert ("gen", [1, 2, 3]) in output_records
     assert ("full", [1, 2, 3]) in output_records
+
+
+def test_given_step_output_observer_and_bounded_lazy_stream_then_observer_does_not_force_eager():
+    from synaflow.execution.sync_engine.executor import PipelineExecutor
+
+    rec = EventRecorder(MaterializationEvent.STARTED)
+    output_records = []
+
+    def gen(values: list[int]) -> Iterator[int]:
+        yield from values
+
+    def lazy_consumer(gen: Iterator[int]) -> Iterator[int]:
+        yield from gen
+
+    p = pipeline(
+        name="p",
+        params=Params,
+        steps=[
+            step(
+                "gen",
+                fn=gen,
+                max_in_flight=3,
+                observers=[Observer(on_event(MaterializationEvent.STARTED, rec.record))],
+            ),
+            step("lazy_consumer", fn=lazy_consumer),
+        ],
+    )
+
+    executor = PipelineExecutor(
+        p.dag,
+        step_output_observers=[lambda n, o: output_records.append((n, o))],
+    )
+    executor.execute(Params(values=[1, 2, 3]))
+
+    assert len(rec.events) == 0
+    assert any(step_name == "gen" for step_name, _output in output_records)
+
+
+def test_given_step_output_observer_when_bounded_stream_then_observer_does_not_consume_slots():
+    from synaflow.execution.sync_engine.executor import PipelineExecutor
+
+    log: list[str] = []
+
+    def gen(values: list[int]) -> Iterator[int]:
+        for value in values:
+            log.append(f"prod {value}")
+            yield value
+
+    def slow(gen: Iterator[int]) -> None:
+        for item in gen:
+            log.append(f"recv {item}")
+            sleep(0.01)
+
+    p = pipeline(
+        name="p",
+        params=Params,
+        steps=[
+            step("gen", fn=gen, max_in_flight=1),
+            step("slow", fn=slow),
+        ],
+    )
+
+    executor = PipelineExecutor(
+        p.dag,
+        step_output_observers=[
+            lambda n, o: list(o) if n == "gen" else None,
+        ],
+    )
+    executor.execute(Params(values=[0, 1, 2, 3]))
+
+    assert log.index("recv 0") < log.index("prod 2")
+
+
+def test_given_step_output_observer_when_bounded_stream_then_bound_is_unchanged():
+    from synaflow.execution.sync_engine.executor import PipelineExecutor
+
+    output_records = []
+    produced: list[int] = []
+    consumed: list[int] = []
+    max_seen_ahead = 0
+
+    def gen(values: list[int]) -> Iterator[int]:
+        nonlocal max_seen_ahead
+        for value in values:
+            produced.append(value)
+            max_seen_ahead = max(max_seen_ahead, len(produced) - len(consumed))
+            yield value
+
+    def slow(gen: Iterator[int]) -> None:
+        for item in gen:
+            consumed.append(item)
+            sleep(0.01)
+
+    p = pipeline(
+        name="p",
+        params=Params,
+        steps=[
+            step("gen", fn=gen, max_in_flight=3),
+            step("slow", fn=slow),
+        ],
+    )
+
+    executor = PipelineExecutor(
+        p.dag,
+        step_output_observers=[lambda n, o: output_records.append((n, o))],
+    )
+    executor.execute(Params(values=list(range(10))))
+
+    assert consumed == list(range(10))
+    assert max_seen_ahead <= 4
+    assert any(step_name == "gen" for step_name, _output in output_records)
 
 
 # ---------------------------------------------------------------------------

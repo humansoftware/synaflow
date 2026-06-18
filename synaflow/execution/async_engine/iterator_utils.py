@@ -10,6 +10,19 @@ class AsyncQueueBranch:
     queue: asyncio.Queue
     active: bool = True
 
+    def __aiter__(self):
+        return self
+
+    async def __anext__(self):
+        item = await self.queue.get()
+        if isinstance(item, Exception):
+            self.close()
+            raise item
+        if item is EOF_MARKER:
+            self.close()
+            raise StopAsyncIteration
+        return item
+
     async def put(self, item) -> None:
         while self.active:
             try:

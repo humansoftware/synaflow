@@ -146,6 +146,64 @@ async def test_given_max_in_flight_when_producer_does_not_exceed_bounded_ahead()
 
 
 @pytest.mark.asyncio
+async def test_given_max_in_flight_3_when_linear_stream_then_producer_blocks_before_item_4():
+    log: list[str] = []
+
+    async def producer(count: int) -> AsyncGenerator[int, None]:
+        for i in range(count):
+            log.append(f"prod {i}")
+            yield i
+
+    async def consumer(producer: int) -> None:
+        log.append(f"recv {producer}")
+        await asyncio.sleep(0.01)
+
+    p = pipeline(
+        name="test",
+        params=Count,
+        steps=[
+            step("producer", fn=producer, max_in_flight=3),
+            step("consumer", fn=consumer),
+        ],
+    )
+    await async_run(p, Count(count=6))
+
+    assert log.index("recv 0") < log.index("prod 4")
+
+
+@pytest.mark.asyncio
+async def test_given_max_in_flight_3_when_linear_stream_then_ahead_distance_stays_bounded():
+    produced: list[int] = []
+    consumed: list[int] = []
+    max_seen_ahead = 0
+
+    async def producer(count: int) -> AsyncGenerator[int, None]:
+        nonlocal max_seen_ahead
+        for i in range(count):
+            produced.append(i)
+            max_seen_ahead = max(max_seen_ahead, len(produced) - len(consumed))
+            yield i
+
+    async def consumer(producer: int) -> None:
+        consumed.append(producer)
+        await asyncio.sleep(0.01)
+
+    p = pipeline(
+        name="test",
+        params=Count,
+        steps=[
+            step("producer", fn=producer, max_in_flight=3),
+            step("consumer", fn=consumer),
+        ],
+    )
+    await async_run(p, Count(count=20))
+
+    assert produced == list(range(20))
+    assert consumed == list(range(20))
+    assert max_seen_ahead <= 4
+
+
+@pytest.mark.asyncio
 async def test_given_max_in_flight_1_when_fanout_slow_branch_then_bound_is_exact():
     log: list[str] = []
 
@@ -280,6 +338,34 @@ async def test_given_max_in_flight_3_when_cross_level_bypass_then_pipeline_compl
 
 
 @pytest.mark.asyncio
+async def test_given_max_in_flight_3_when_terminal_lazy_consumer_then_stream_drains_fully():
+    produced: list[int] = []
+    consumed: list[int] = []
+
+    async def producer(count: int) -> AsyncGenerator[int, None]:
+        for i in range(count):
+            produced.append(i)
+            yield i
+
+    async def terminal(producer: AsyncIterator[int]) -> None:
+        async for item in producer:
+            consumed.append(item)
+
+    p = pipeline(
+        name="test",
+        params=Count,
+        steps=[
+            step("producer", fn=producer, max_in_flight=3),
+            step("terminal", fn=terminal),
+        ],
+    )
+    await async_run(p, Count(count=10))
+
+    assert produced == list(range(10))
+    assert consumed == list(range(10))
+
+
+@pytest.mark.asyncio
 async def test_given_max_in_flight_3_when_branch_stops_early_then_other_branch_finishes():
     early: list[int] = []
     full: list[int] = []
@@ -339,6 +425,46 @@ async def test_given_two_lazy_deps_with_max_in_flight_when_unrolled_then_pairs_a
     await async_run(p, Count(count=5))
 
     assert pairs == [(0, 10), (1, 11), (2, 12), (3, 13), (4, 14)]
+
+
+@pytest.mark.asyncio
+async def test_given_flattening_stream_step_when_max_in_flight_2_then_internal_items_define_bound():
+    produced: list[int] = []
+    consumed: list[int] = []
+    max_seen_ahead = 0
+
+    async def source(count: int) -> AsyncGenerator[int, None]:
+        for i in range(count):
+            yield i
+
+    async def flatten(source: AsyncIterator[int]) -> AsyncGenerator[int, None]:
+        nonlocal max_seen_ahead
+        async for item in source:
+            produced.append(item)
+            max_seen_ahead = max(max_seen_ahead, len(produced) - len(consumed))
+            yield item
+            produced.append(item + 100)
+            max_seen_ahead = max(max_seen_ahead, len(produced) - len(consumed))
+            yield item + 100
+
+    async def consumer(flatten: AsyncIterator[int]) -> None:
+        async for item in flatten:
+            consumed.append(item)
+            await asyncio.sleep(0.01)
+
+    p = pipeline(
+        name="test",
+        params=Count,
+        steps=[
+            step("source", fn=source),
+            step("flatten", fn=flatten, max_in_flight=2),
+            step("consumer", fn=consumer),
+        ],
+    )
+    await async_run(p, Count(count=3))
+
+    assert consumed == [0, 100, 1, 101, 2, 102]
+    assert max_seen_ahead <= 3
 
 
 @pytest.mark.asyncio

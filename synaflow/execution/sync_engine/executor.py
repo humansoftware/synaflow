@@ -1,4 +1,5 @@
 import itertools
+import threading
 from concurrent.futures import ThreadPoolExecutor
 from collections.abc import Iterator
 from typing import Any
@@ -128,6 +129,7 @@ class PipelineExecutor:
         self.outputs = {}
         self._step_output_observers = step_output_observers or []
         self._active_fanouts: list[SyncFanout] = []
+        self._observer_threads: list[threading.Thread] = []
 
     # ------------------------------------------------------------------
     # Lifecycle observer dispatch helpers
@@ -327,10 +329,11 @@ class PipelineExecutor:
 
     def _cleanup_fanouts(self) -> None:
         for fanout in self._active_fanouts:
-            fanout.abort()
-        for fanout in self._active_fanouts:
             fanout.join()
         self._active_fanouts.clear()
+        for thread in self._observer_threads:
+            thread.join()
+        self._observer_threads.clear()
 
     def _run_step(self, step_name: str) -> None:
         node = self.dag[step_name]
@@ -487,6 +490,34 @@ class PipelineExecutor:
                 observer(step_name, output)
         return output
 
+    def _observer_branch_names(self) -> list[str]:
+        return [f"__obs{i}" for i, _observer in enumerate(self._step_output_observers)]
+
+    def _collect_observer_items(self, branch) -> list[Any]:
+        items = []
+        try:
+            for item in branch:
+                items.append(item)
+        except Exception:
+            pass
+        return items
+
+    def _start_observer_threads(
+        self,
+        step_name: str,
+        fanout: SyncFanout,
+        observer_branch_names: list[str],
+    ) -> None:
+        for branch_name, observer in zip(observer_branch_names, self._step_output_observers):
+            iterator = fanout.lazy_iterator(branch_name)
+
+            def run_observer(obs=observer, branch_iter=iterator):
+                obs(step_name, self._collect_observer_items(branch_iter))
+
+            thread = threading.Thread(target=run_observer, daemon=True)
+            thread.start()
+            self._observer_threads.append(thread)
+
     def _materialize_with_events(self, step_name, output, node, consumer_type=None):
         mat_name = node.materializer.__name__ if callable(node.materializer) else None
         self._dispatch_materialization_event(
@@ -570,6 +601,7 @@ class PipelineExecutor:
         output, had_error, exc = self._materialize_with_events(
             step_name, output, node, consumer_type=consumer_type
         )
+        output = self._notify_observers(step_name, output)
         if deferred:
             self._emit_step_result(node, step_name, output, had_error, exc)
         for consumer in consumers:
@@ -584,9 +616,28 @@ class PipelineExecutor:
         deferred,
     ):
         consumer_type = self.dag[consumer].deps.get(step_name)
+
+        if self._step_output_observers and step_name not in self.dag[consumer].materialized_deps:
+            observer_branches = self._observer_branch_names()
+            fanout = SyncFanout(
+                output,
+                max_in_flight=max(1, node.max_in_flight),
+                lazy_branches=[consumer, *observer_branches],
+                eager_branches=[],
+            )
+            self._active_fanouts.append(fanout)
+            self.outputs[self.dag.output_key(step_name, consumer)] = fanout.lazy_iterator(
+                consumer
+            )
+            self._start_observer_threads(step_name, fanout, observer_branches)
+            fanout.start()
+            if deferred:
+                self._emit_deferred_completion(node, step_name)
+            return
         output, had_error, exc = self._materialize_with_events(
             step_name, output, node, consumer_type=consumer_type
         )
+        output = self._notify_observers(step_name, output)
         if deferred:
             self._emit_step_result(node, step_name, output, had_error, exc)
         output = _maybe_wrap_stream(output, node)
@@ -606,8 +657,11 @@ class PipelineExecutor:
 
         if not self._consumers_share_execution_level(consumers):
             output = _maybe_wrap_stream(output, node)
-            branches = itertools.tee(output, len(consumers))
-            for consumer, branch in zip(consumers, branches):
+            observer_count = len(self._step_output_observers)
+            branches = itertools.tee(output, len(consumers) + observer_count)
+            consumer_branches = branches[: len(consumers)]
+            observer_branches = branches[len(consumers) :]
+            for consumer, branch in zip(consumers, consumer_branches):
                 consumer_node = self.dag[consumer]
                 if step_name in consumer_node.materialized_deps:
                     branch, _, _ = self._materialize_with_events(
@@ -617,11 +671,16 @@ class PipelineExecutor:
                         consumer_type=consumer_node.deps.get(step_name),
                     )
                 self.outputs[self.dag.output_key(step_name, consumer)] = branch
+            for observer, branch in zip(self._step_output_observers, observer_branches):
+                observer(step_name, self._collect_observer_items(branch))
             return
 
         if not lazy_consumers:
-            branches = itertools.tee(output, len(consumers))
-            for consumer, branch in zip(consumers, branches):
+            observer_count = len(self._step_output_observers)
+            branches = itertools.tee(output, len(consumers) + observer_count)
+            consumer_branches = branches[: len(consumers)]
+            observer_branches = branches[len(consumers) :]
+            for consumer, branch in zip(consumers, consumer_branches):
                 consumer_node = self.dag[consumer]
                 branch, _, _ = self._materialize_with_events(
                     step_name,
@@ -630,12 +689,14 @@ class PipelineExecutor:
                     consumer_type=consumer_node.deps.get(step_name),
                 )
                 self.outputs[self.dag.output_key(step_name, consumer)] = branch
+            for observer, branch in zip(self._step_output_observers, observer_branches):
+                observer(step_name, self._collect_observer_items(branch))
             return
 
         fanout = SyncFanout(
             output,
             max_in_flight=max(1, node.max_in_flight),
-            lazy_branches=lazy_consumers,
+            lazy_branches=lazy_consumers + self._observer_branch_names(),
             eager_branches=eager_consumers,
         )
         self._active_fanouts.append(fanout)
@@ -647,6 +708,7 @@ class PipelineExecutor:
             self.outputs[self.dag.output_key(step_name, consumer)] = fanout.eager_value(
                 consumer
             )
+        self._start_observer_threads(step_name, fanout, self._observer_branch_names())
         fanout.start()
 
     def _publish_scalar_output(self, step_name, output, node, deferred):
@@ -661,12 +723,12 @@ class PipelineExecutor:
             )
 
     def _publish_output(self, step_name, output, node):
-        output = self._notify_observers(step_name, output)
         deferred = node.mode == StepMode.EACH or (
             node.mode == StepMode.ALL and isinstance(output, Iterator)
         )
 
         if not isinstance(output, Iterator):
+            output = self._notify_observers(step_name, output)
             self._publish_scalar_output(step_name, output, node, deferred)
             return
 
@@ -684,6 +746,12 @@ class PipelineExecutor:
             )
             return
 
+        if len(consumers) == 1 and self._step_output_observers:
+            self._publish_stream_to_single_consumer(
+                step_name, output, node, consumers[0], deferred
+            )
+            return
+
         if len(consumers) > 1:
             self._publish_stream_to_multiple_consumers(
                 step_name, output, node, consumers
@@ -695,6 +763,7 @@ class PipelineExecutor:
         if deferred:
             self._emit_deferred_completion(node, step_name)
 
+        output = self._notify_observers(step_name, output)
         self.outputs[step_name] = _maybe_wrap_stream(output, node)
 
 

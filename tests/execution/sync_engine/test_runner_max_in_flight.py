@@ -160,6 +160,63 @@ def test_given_max_in_flight_when_producer_does_not_exceed_bounded_ahead():
     assert results == list(range(20))
 
 
+def test_given_max_in_flight_3_when_linear_stream_then_ahead_distance_stays_bounded():
+    produced: list[int] = []
+    consumed: list[int] = []
+    max_seen_ahead = 0
+
+    def producer(count: int) -> Generator[int, None, None]:
+        nonlocal max_seen_ahead
+        for i in range(count):
+            produced.append(i)
+            max_seen_ahead = max(max_seen_ahead, len(produced) - len(consumed))
+            yield i
+
+    def consumer(producer: Iterator[int]) -> None:
+        for item in producer:
+            consumed.append(item)
+
+    p = pipeline(
+        name="test",
+        params=Count,
+        steps=[
+            step("producer", fn=producer, max_in_flight=3),
+            step("consumer", fn=consumer),
+        ],
+    )
+    run(p, Count(count=20))
+
+    assert produced == list(range(20))
+    assert consumed == list(range(20))
+    assert max_seen_ahead <= 3
+
+
+def test_given_max_in_flight_3_when_linear_stream_then_producer_blocks_before_item_4():
+    log: list[str] = []
+
+    def producer(count: int) -> Generator[int, None, None]:
+        for i in range(count):
+            log.append(f"prod {i}")
+            yield i
+
+    def consumer(producer: Iterator[int]) -> None:
+        for item in producer:
+            log.append(f"recv {item}")
+            sleep(0.01)
+
+    p = pipeline(
+        name="test",
+        params=Count,
+        steps=[
+            step("producer", fn=producer, max_in_flight=3),
+            step("consumer", fn=consumer),
+        ],
+    )
+    run(p, Count(count=6))
+
+    assert log.index("recv 0") < log.index("prod 4")
+
+
 def test_given_max_in_flight_1_when_fanout_slow_branch_then_bound_is_exact():
     log: list[str] = []
 
@@ -312,6 +369,33 @@ def test_given_max_in_flight_3_when_cross_level_bypass_then_pipeline_completes()
     assert bypassed == [0, 1, 2, 3, 4]
 
 
+def test_given_max_in_flight_3_when_terminal_lazy_consumer_then_stream_drains_fully():
+    produced: list[int] = []
+    consumed: list[int] = []
+
+    def producer(count: int) -> Generator[int, None, None]:
+        for i in range(count):
+            produced.append(i)
+            yield i
+
+    def terminal(producer: Iterator[int]) -> None:
+        for item in producer:
+            consumed.append(item)
+
+    p = pipeline(
+        name="test",
+        params=Count,
+        steps=[
+            step("producer", fn=producer, max_in_flight=3),
+            step("terminal", fn=terminal),
+        ],
+    )
+    run(p, Count(count=10))
+
+    assert produced == list(range(10))
+    assert consumed == list(range(10))
+
+
 def test_given_max_in_flight_3_when_branch_stops_early_then_other_branch_finishes():
     early: list[int] = []
     full: list[int] = []
@@ -367,6 +451,41 @@ def test_given_two_lazy_deps_with_max_in_flight_when_unrolled_then_pairs_are_pre
     run(p, Count(count=5))
 
     assert pairs == [(0, 10), (1, 11), (2, 12), (3, 13), (4, 14)]
+
+
+def test_given_flattening_stream_step_when_max_in_flight_2_then_internal_items_define_bound():
+    log: list[str] = []
+    seen: list[int] = []
+
+    def source(count: int) -> Generator[int, None, None]:
+        yield from range(count)
+
+    def flatten(source: Iterator[int]) -> Iterator[int]:
+        for item in source:
+            log.append(f"emit {item}")
+            yield item
+            log.append(f"emit {item + 100}")
+            yield item + 100
+
+    def consumer(flatten: Iterator[int]) -> None:
+        for item in flatten:
+            log.append(f"recv {item}")
+            seen.append(item)
+            sleep(0.01)
+
+    p = pipeline(
+        name="test",
+        params=Count,
+        steps=[
+            step("source", fn=source),
+            step("flatten", fn=flatten, max_in_flight=2),
+            step("consumer", fn=consumer),
+        ],
+    )
+    run(p, Count(count=3))
+
+    assert seen == [0, 100, 1, 101, 2, 102]
+    assert log.index("recv 0") < log.index("emit 1")
 
 
 def test_given_fanout_lazy_and_eager_when_producer_stream_fails_then_pipeline_stops():

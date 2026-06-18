@@ -229,9 +229,13 @@ async def _resolve_queue(
     dag: Dag, producer: str, queue: asyncio.Queue, consumer_type: Any
 ) -> Any:
     if consumer_type in (AsyncIterator, AsyncGenerator):
+        if isinstance(queue, AsyncQueueBranch):
+            return queue
         return queue_to_async_gen(queue)
     origin = getattr(consumer_type, "__origin__", consumer_type)
     if origin in (AsyncIterator, AsyncGenerator):
+        if isinstance(queue, AsyncQueueBranch):
+            return queue
         return queue_to_async_gen(queue)
     result, _, _ = await _apply_materializer(
         dag, producer, queue_to_async_gen(queue), consumer_type=consumer_type
@@ -424,6 +428,7 @@ class AsyncPipelineExecutor:
 
         try:
             output = await self._execute_step(step_name, node, arguments, unrolled)
+            output = self._attach_argument_cleanup(output, arguments)
             await self._emit_immediate_completion(step_name, node, output, unrolled)
             if not self.dag.is_hidden_step(step_name):
                 await self._publish_output(step_name, output, node)
@@ -435,6 +440,9 @@ class AsyncPipelineExecutor:
             await self._dispatch_step_failure(node, step_name, exc)
             if node.on_error == OnError.STOP:
                 raise PipelineStopException(step_name=step_name, cause=exc) from exc
+        finally:
+            if "output" not in locals() or not self._is_stream_output(output):
+                await self._close_stream_arguments(arguments)
 
     async def _execute_step(self, step_name, node, arguments, unrolled):
         if unrolled:
@@ -487,11 +495,13 @@ class AsyncPipelineExecutor:
                 # max_in_flight does not apply here. Size the queue to avoid
                 # deadlocking while preloading eager values for EACH-mode use.
                 if isinstance(value, (list, tuple, set)):
-                    q = asyncio.Queue(maxsize=max(1, len(value)))
+                    q = asyncio.Queue(maxsize=max(1, len(value)) + 1)
                 else:
-                    maxsize = 1
+                    maxsize = 2
                     if producer_node is not None:
-                        maxsize = max(1, getattr(producer_node, "max_in_flight", 1))
+                        maxsize = max(
+                            2, getattr(producer_node, "max_in_flight", 1) + 1
+                        )
                     q = asyncio.Queue(maxsize=maxsize)
                 if isinstance(value, (list, tuple, set)):
                     for item in value:
@@ -552,6 +562,30 @@ class AsyncPipelineExecutor:
             param = node.dataset_param_names.get(dep_name, dep_name)
             args[param] = value
         return args
+
+    def _attach_argument_cleanup(self, output, arguments):
+        if not isinstance(output, (AsyncIterator, AsyncGenerator)):
+            return output
+
+        async def wrapped():
+            try:
+                async for item in output:
+                    yield item
+            finally:
+                await self._close_stream_arguments(arguments)
+
+        return wrapped()
+
+    async def _close_stream_arguments(self, arguments):
+        for value in arguments.values():
+            if isinstance(value, AsyncQueueBranch):
+                value.close()
+                continue
+            if inspect.isasyncgen(value):
+                try:
+                    await value.aclose()
+                except Exception:
+                    pass
 
     def _notify_observers(self, step_name, output):
         for observer in self._step_output_observers:
@@ -717,10 +751,16 @@ class AsyncPipelineExecutor:
             output, had_error, exc = await self._materialize_with_events(
                 step_name, output, node, consumer_type=node.output
             )
+        elif self._step_output_observers:
+            output, had_error, exc = await _collect_async_iterator(
+                self.dag, step_name, output
+            )
         else:
             self._notify_observers(step_name, output)
             had_error = False
             exc = None
+        if self._step_output_observers:
+            self._notify_observers(step_name, output)
         if deferred:
             await self._emit_step_result(node, step_name, output, had_error, exc)
 
