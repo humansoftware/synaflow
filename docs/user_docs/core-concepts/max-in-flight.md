@@ -150,7 +150,7 @@ To understand how `max_in_flight` bounds the producer progress, let's look at an
 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.5em">
   <div>
     <span style="font-size:0.85em;color:#565f89">Step:</span>
-    <span id="mif-anim-step" style="color:#7dcfff">0/10</span>
+    <span id="mif-anim-step" style="color:#7dcfff">0/11</span>
   </div>
   <div>
     <button onclick="mifAnimFrame(-1)" style="background:#565f89;color:#fff;border:none;padding:4px 12px;border-radius:4px;cursor:pointer;font-size:0.9em;margin-right:6px" title="Previous frame">◀</button>
@@ -214,7 +214,8 @@ To understand how `max_in_flight` bounds the producer progress, let's look at an
     [7, "Submit url4", ["Fut2", "Fut3", "Fut4"], "Idle", "start_request submits url4 (the final URL). Producer is finished. Buffer size: 3/3."],
     [8, "Finished", ["Fut3", "Fut4", "-"], "Awaiting Fut2", "await_response resolves Fut2. Buffer size: 2/3."],
     [9, "Finished", ["Fut4", "-", "-"], "Awaiting Fut3", "await_response resolves Fut3. Buffer size: 1/3."],
-    [10, "Finished", ["-", "-", "-"], "Awaiting Fut4", "await_response resolves the final Fut4. Buffer is empty. Pipeline complete!"]
+    [10, "Finished", ["-", "-", "-"], "Awaiting Fut4", "await_response pulls the final Fut4 from the buffer. Buffer is empty."],
+    [11, "Finished", ["-", "-", "-"], "Finished", "await_response resolves Fut4. All futures resolved, both producer and consumer finished. Pipeline complete!"]
   ];
 
   var cur = 0, timer = null, playing = false;
@@ -253,6 +254,8 @@ To understand how `max_in_flight` bounds the producer progress, let's look at an
     consEl.textContent = f[3];
     if (f[3].indexOf("Awaiting") !== -1) {
       consEl.setAttribute("fill", "#7dcfff");
+    } else if (f[3].indexOf("Finished") !== -1) {
+      consEl.setAttribute("fill", "#565f89");
     } else {
       consEl.setAttribute("fill", "#a9b1d6");
     }
