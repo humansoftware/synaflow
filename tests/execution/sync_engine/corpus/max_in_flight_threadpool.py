@@ -1,10 +1,18 @@
 from collections.abc import Generator, Iterator
+from concurrent.futures import Future, ThreadPoolExecutor
+from threading import Event
 from typing import NamedTuple
 
-from synaflow import Observer, pipeline, step
+from synaflow import pipeline, step
+from tests.common.pipeline_pack import PipelinePack
+
+_POOL = ThreadPoolExecutor(max_workers=10)
+_RELEASE = Event()
+_RELEASE.set()
+_FUTURES: dict[int, Future] = {}
 
 
-class LinearParams(NamedTuple):
+class ThreadpoolParams(NamedTuple):
     count: int = 3
 
 
@@ -12,34 +20,33 @@ def numbers(count: int) -> Generator[int, None, None]:
     yield from range(count)
 
 
-def transformer(number: int) -> int:
-    return number * 2
+def _resolve(value: int) -> int:
+    _RELEASE.wait()
+    return value * 10
 
 
-def consumer(transformer: Iterator[int]) -> None:
-    for x in transformer:
-        pass
+def start(numbers: int) -> int:
+    _FUTURES[numbers] = _POOL.submit(_resolve, numbers)
+    return numbers
 
 
-from tests.common.pipeline_pack import PipelinePack
+def await_result(start: Iterator[int]) -> list[int]:
+    return [_FUTURES[token].result() for token in start]
 
-linear_pipeline = pipeline(
-    name="linear_example",
-    params=LinearParams,
+
+threadpool_pipeline = pipeline(
+    name="max_in_flight_threadpool",
+    params=ThreadpoolParams,
     steps=[
         step("numbers", fn=numbers),
-        step(
-            "transformer",
-            fn=transformer,
-            observers=[Observer(lambda ctx: None)],
-        ),
-        step("consumer", fn=consumer),
+        step("start", fn=start, max_in_flight=5),
+        step("await_result", fn=await_result),
     ],
 )
 
 pack = PipelinePack(
     json_dag={
-        "name": "linear_example",
+        "name": "max_in_flight_threadpool",
         "params": {"count": "int"},
         "steps": {
             "numbers": {
@@ -52,54 +59,46 @@ pack = PipelinePack(
                 "error_materializer": "log_error_materializer",
                 "materialized_deps": [],
                 "each_mode_deps": [],
-                "pipeline": "linear_example",
+                "pipeline": "max_in_flight_threadpool",
                 "parent_pipeline": None,
                 "max_in_flight": 1,
             },
-            "transformer": {
+            "start": {
                 "deps": {"numbers": "int"},
                 "output": "ListType(<class 'int'>)",
-                "fn": "transformer",
+                "fn": "start",
                 "on_error": "continue",
                 "mode": "each",
                 "materializer": "memory_materializer",
                 "error_materializer": "log_error_materializer",
                 "materialized_deps": [],
                 "each_mode_deps": ["numbers"],
-                "dataset_param_names": {"numbers": "number"},
-                "pipeline": "linear_example",
+                "pipeline": "max_in_flight_threadpool",
                 "parent_pipeline": None,
-                "max_in_flight": 1,
-                "observers": [{"handler_name": "<lambda>", "source": "step"}],
+                "max_in_flight": 5,
             },
-            "consumer": {
-                "deps": {"transformer": "Stream[int]"},
-                "output": "None",
-                "fn": "consumer",
+            "await_result": {
+                "deps": {"start": "Stream[int]"},
+                "output": "list[int]",
+                "fn": "await_result",
                 "on_error": "continue",
                 "mode": "all",
                 "materializer": "memory_materializer",
                 "error_materializer": "log_error_materializer",
                 "materialized_deps": [],
                 "each_mode_deps": [],
-                "pipeline": "linear_example",
+                "pipeline": "max_in_flight_threadpool",
                 "parent_pipeline": None,
                 "max_in_flight": 1,
             },
         },
         "error_materializer": "log_error_materializer",
     },
-    pipeline=linear_pipeline,
-    input_params=LinearParams(count=3),
+    pipeline=threadpool_pipeline,
+    input_params=ThreadpoolParams(count=3),
     step_results={
         "numbers": [0, 1, 2],
-        "transformer": [0, 2, 4],
-        "consumer": None,
+        "await_result": [0, 10, 20],
     },
-    expected_call_order=["numbers", "transformer", "consumer"],
-    expected_execution_levels=[
-        ["numbers"],
-        ["transformer"],
-        ["consumer"],
-    ],
+    expected_execution_levels=[["numbers"], ["start"], ["await_result"]],
 )

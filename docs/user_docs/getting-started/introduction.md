@@ -27,6 +27,10 @@ Once you've built something, dive into [**Core Concepts**](../core-concepts/how-
 - [**Lockstep Data Flow**](../core-concepts/lockstep-flow.md) — how one item
   flows entirely through the pipeline before the next is produced, guaranteeing
   extreme memory efficiency.
+- [**Max In Flight**](../core-concepts/max-in-flight.md) — how to let a
+  producing stream get a bounded number of items ahead of the next consumer
+  stage without giving up lazy streaming, including real sync and async HTTP
+  examples for I/O-bound workloads.
 - [**Event-Based Processing**](../core-concepts/event-based.md) — how lazy
   streaming makes the framework idempotent by default and naturally suited for
   processing events individually or in time windows.

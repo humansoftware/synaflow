@@ -283,3 +283,62 @@ def test_include_expansion_rewrites_wrapper_signature_to_adapter_and_prefixed_in
     assert list(signature.parameters) == ["child__emit", "child__adapter"]
     assert signature.parameters["child__emit"].annotation is int
     assert signature.parameters["child__adapter"].annotation is ChildParams
+
+
+def test_sub_pipeline_preserves_max_in_flight_after_expansion():
+    class ChildParams(NamedTuple):
+        items: list[int]
+
+    def emit(items: list[int]) -> Iterator[int]:
+        yield from items
+
+    child = pipeline(
+        name="Child",
+        params=ChildParams,
+        exports="emit",
+        steps=[step("emit", fn=emit, max_in_flight=30)],
+    )
+
+    class ParentParams(NamedTuple):
+        items: list[int]
+
+    def adapt(items: list[int]) -> ChildParams:
+        return ChildParams(items=items)
+
+    parent = pipeline(
+        name="Parent",
+        params=ParentParams,
+        steps=[include("child", pipeline=child, fn=adapt)],
+    )
+
+    assert parent.dag.steps["child"].max_in_flight == 30
+
+
+def test_adapter_step_serializes_default_max_in_flight():
+    class ChildParams(NamedTuple):
+        items: list[int]
+
+    def emit(items: list[int]) -> Iterator[int]:
+        yield from items
+
+    child = pipeline(
+        name="Child",
+        params=ChildParams,
+        exports="emit",
+        steps=[step("emit", fn=emit)],
+    )
+
+    class ParentParams(NamedTuple):
+        items: list[int]
+
+    def adapt(items: list[int]) -> ChildParams:
+        return ChildParams(items=items)
+
+    parent = pipeline(
+        name="Parent",
+        params=ParentParams,
+        steps=[include("child", pipeline=child, fn=adapt)],
+    )
+
+    d = parent.to_dict()
+    assert d["steps"]["child__adapter"]["max_in_flight"] == 1

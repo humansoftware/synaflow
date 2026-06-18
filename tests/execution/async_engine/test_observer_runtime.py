@@ -1,6 +1,7 @@
+import asyncio
 import functools
 import logging
-from collections.abc import Iterator as Iter
+from collections.abc import AsyncIterator, Iterator as Iter
 from typing import Iterator, NamedTuple
 
 import pytest
@@ -372,6 +373,113 @@ async def test_given_step_output_observers_when_run_then_not_affected_by_lifecyc
     assert step_name == "gen"
 
 
+@pytest.mark.asyncio
+async def test_given_step_output_observer_when_branch_stops_early_then_observer_sees_full_stream():
+    output_records = []
+
+    async def gen(values: list[int]):
+        for value in values:
+            yield value
+
+    async def early(gen: AsyncIterator[int]):
+        async for _item in gen:
+            break
+
+    async def full(gen: AsyncIterator[int]):
+        return [item async for item in gen]
+
+    p = pipeline(
+        name="p",
+        params=Params,
+        steps=[
+            step("gen", fn=gen, max_in_flight=3),
+            step("early", fn=early),
+            step("full", fn=full),
+        ],
+    )
+
+    executor = AsyncPipelineExecutor(
+        p.dag,
+        step_output_observers=[lambda n, o: output_records.append((n, o))],
+    )
+    await executor.execute(Params(values=[1, 2, 3]))
+
+    gen_output = next(
+        output for step_name, output in output_records if step_name == "gen"
+    )
+    assert gen_output == [1, 2, 3]
+    assert ("full", [1, 2, 3]) in output_records
+
+
+@pytest.mark.asyncio
+async def test_given_step_output_observer_when_bounded_stream_then_bound_is_unchanged():
+    output_records = []
+    produced: list[int] = []
+    consumed: list[int] = []
+    max_seen_ahead = 0
+
+    async def gen(values: list[int]) -> AsyncIterator[int]:
+        nonlocal max_seen_ahead
+        for value in values:
+            produced.append(value)
+            max_seen_ahead = max(max_seen_ahead, len(produced) - len(consumed))
+            yield value
+
+    async def slow(gen: int):
+        consumed.append(gen)
+        await asyncio.sleep(0.01)
+
+    p = pipeline(
+        name="p",
+        params=Params,
+        steps=[
+            step("gen", fn=gen, max_in_flight=3),
+            step("slow", fn=slow),
+        ],
+    )
+
+    executor = AsyncPipelineExecutor(
+        p.dag,
+        step_output_observers=[lambda n, o: output_records.append((n, o))],
+    )
+    await executor.execute(Params(values=list(range(10))))
+
+    assert consumed == list(range(10))
+    assert max_seen_ahead <= 4
+    assert any(step_name == "gen" for step_name, _output in output_records)
+
+
+@pytest.mark.asyncio
+async def test_given_step_output_observer_when_bounded_stream_then_observer_does_not_consume_slots():
+    log: list[str] = []
+
+    async def gen(values: list[int]) -> AsyncIterator[int]:
+        for value in values:
+            log.append(f"prod {value}")
+            yield value
+
+    async def slow(gen: int) -> None:
+        log.append(f"recv {gen}")
+        await asyncio.sleep(0.01)
+
+    p = pipeline(
+        name="p",
+        params=Params,
+        steps=[
+            step("gen", fn=gen, max_in_flight=1),
+            step("slow", fn=slow),
+        ],
+    )
+
+    executor = AsyncPipelineExecutor(
+        p.dag,
+        step_output_observers=[lambda n, o: None],
+    )
+    await executor.execute(Params(values=[0, 1, 2, 3]))
+
+    assert log.index("recv 0") < log.index("prod 2")
+
+
 # ---------------------------------------------------------------------------
 # Materialization events
 # ---------------------------------------------------------------------------
@@ -609,6 +717,43 @@ async def test_given_materialization_observer_when_lazy_step_then_materializatio
     )
     await AsyncPipelineExecutor(p.dag).execute(Params(values=[1, 2]))
     assert len(rec.events) == 0
+
+
+@pytest.mark.asyncio
+async def test_given_step_output_observer_and_bounded_lazy_stream_then_observer_does_not_force_eager():
+    rec = EventRecorder(MaterializationEvent.STARTED)
+    output_records = []
+
+    def gen(values: list[int]) -> Iterator[int]:
+        yield from values
+
+    def lazy_consumer(gen: Iterator[int]) -> Iterator[int]:
+        yield from gen
+
+    p = pipeline(
+        name="p",
+        params=Params,
+        steps=[
+            step(
+                "gen",
+                fn=gen,
+                max_in_flight=3,
+                observers=[
+                    Observer(on_event(MaterializationEvent.STARTED, rec.record))
+                ],
+            ),
+            step("lazy_consumer", fn=lazy_consumer),
+        ],
+    )
+
+    executor = AsyncPipelineExecutor(
+        p.dag,
+        step_output_observers=[lambda n, o: output_records.append((n, o))],
+    )
+    await executor.execute(Params(values=[1, 2, 3]))
+
+    assert len(rec.events) == 0
+    assert any(step_name == "gen" for step_name, _output in output_records)
 
 
 # ---------------------------------------------------------------------------

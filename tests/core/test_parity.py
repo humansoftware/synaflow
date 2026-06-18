@@ -42,7 +42,10 @@ def test_sync_async_test_parity():
 
     # Some tests only make sense in their specific contexts
     expected_sync_only = {
-        "test_given_async_pipeline_when_run_synchronously_then_raises"
+        "test_given_async_pipeline_when_run_synchronously_then_raises",
+        "test_given_handoff_and_unrelated_sibling_when_run_then_unrelated_step_stays_on_main_thread",
+        "test_given_threadpool_start_and_await_when_max_in_flight_5_then_only_five_tasks_start",
+        "test_given_user_resource_with_close_when_used_as_param_then_executor_does_not_close_it",
     }
 
     expected_async_only = {

@@ -17,6 +17,10 @@ uvx cookiecutter gh:humansoftware/synaflow --directory=boilerplates/structured
 Each template creates a ready-to-run project with `pyproject.toml`, example
 steps, and a working pipeline. Answer a few prompts and you're done.
 
+If you expect I/O-bound stages such as HTTP requests or RPC calls, the next
+concept to read after generating a template is
+[Max In Flight](../core-concepts/max-in-flight.md).
+
 If you already have a project and just want to scaffold a new pipeline module:
 
 ```bash

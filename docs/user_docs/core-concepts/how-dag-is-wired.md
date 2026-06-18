@@ -235,4 +235,6 @@ SynaFlow builds the entire DAG without a single line of manual wiring.
 ## Next
 
 Now that you understand the wiring, see how [Lockstep Data Flow](lockstep-flow.md)
-uses this structure to achieve extreme memory efficiency.
+uses this structure to achieve extreme memory efficiency, and how
+[Max In Flight](max-in-flight.md) adds a bounded ahead window for I/O-bound
+streaming patterns.

@@ -49,6 +49,7 @@ pack = PipelinePack(
                 "each_mode_deps": [],
                 "pipeline": "explicit_modes",
                 "parent_pipeline": None,
+                "max_in_flight": 1,
             },
             "double": {
                 "deps": {"emit": "int"},
@@ -62,6 +63,7 @@ pack = PipelinePack(
                 "each_mode_deps": ["emit"],
                 "pipeline": "explicit_modes",
                 "parent_pipeline": None,
+                "max_in_flight": 1,
             },
             "summarize": {
                 "deps": {"double": "list[int]"},
@@ -75,6 +77,7 @@ pack = PipelinePack(
                 "each_mode_deps": [],
                 "pipeline": "explicit_modes",
                 "parent_pipeline": None,
+                "max_in_flight": 1,
             },
         },
         "error_materializer": "log_error_materializer",

@@ -29,7 +29,7 @@ from synaflow.core.types import (
 )
 
 from .constants import EOF_MARKER
-from .iterator_utils import queue_to_async_gen
+from .iterator_utils import AsyncQueueBranch, queue_to_async_gen
 
 
 # ---------------------------------------------------------------------------
@@ -145,7 +145,7 @@ async def _handle_error(dag: Dag, step_name: str, exc: BaseException) -> None:
 async def _pump_iterator(
     name: str,
     iterator: Any,
-    queues: dict[str, asyncio.Queue],
+    queues: dict[str, Any],
     on_error: Any,
     dag: Dag | None = None,
     materialize_before_enqueue: bool = False,
@@ -159,20 +159,32 @@ async def _pump_iterator(
             )
             async for item in _safe_iterate(name, items):
                 for q in queues.values():
-                    await q.put(item)
+                    if isinstance(q, AsyncQueueBranch):
+                        await q.put(item)
+                    else:
+                        await q.put(item)
         else:
             async for item in safe:
                 for q in queues.values():
-                    await q.put(item)
+                    if isinstance(q, AsyncQueueBranch):
+                        await q.put(item)
+                    else:
+                        await q.put(item)
     except StepExecutionError as e:
         await _handle_error(dag, name, e.__cause__ or e)
         if on_error == OnError.STOP:
             for q in queues.values():
-                await q.put(PipelineStopException(step_name=name))
+                if isinstance(q, AsyncQueueBranch):
+                    await q.put_terminal(PipelineStopException(step_name=name))
+                else:
+                    await q.put(PipelineStopException(step_name=name))
             raise PipelineStopException(step_name=name) from e
     finally:
         for q in queues.values():
-            await q.put(EOF_MARKER)
+            if isinstance(q, AsyncQueueBranch):
+                await q.put_terminal(EOF_MARKER)
+            else:
+                await q.put(EOF_MARKER)
 
 
 async def _pump_observer(name: str, queue: asyncio.Queue, observer: Any) -> None:
@@ -217,9 +229,13 @@ async def _resolve_queue(
     dag: Dag, producer: str, queue: asyncio.Queue, consumer_type: Any
 ) -> Any:
     if consumer_type in (AsyncIterator, AsyncGenerator):
+        if isinstance(queue, AsyncQueueBranch):
+            return queue
         return queue_to_async_gen(queue)
     origin = getattr(consumer_type, "__origin__", consumer_type)
     if origin in (AsyncIterator, AsyncGenerator):
+        if isinstance(queue, AsyncQueueBranch):
+            return queue
         return queue_to_async_gen(queue)
     result, _, _ = await _apply_materializer(
         dag, producer, queue_to_async_gen(queue), consumer_type=consumer_type
@@ -267,6 +283,13 @@ class AsyncPipelineExecutor:
         else:
             return
         await dispatch_observers_async(registrations, ctx)
+
+    def _consumers_share_execution_level(self, consumers: list[str]) -> bool:
+        level_index = {}
+        for index, level in enumerate(self.dag.get_execution_levels()):
+            for step_name in level:
+                level_index[step_name] = index
+        return len({level_index.get(consumer) for consumer in consumers}) <= 1
 
     async def _dispatch_step_event(
         self,
@@ -405,6 +428,7 @@ class AsyncPipelineExecutor:
 
         try:
             output = await self._execute_step(step_name, node, arguments, unrolled)
+            output = self._attach_argument_cleanup(output, arguments)
             await self._emit_immediate_completion(step_name, node, output, unrolled)
             if not self.dag.is_hidden_step(step_name):
                 await self._publish_output(step_name, output, node)
@@ -416,6 +440,9 @@ class AsyncPipelineExecutor:
             await self._dispatch_step_failure(node, step_name, exc)
             if node.on_error == OnError.STOP:
                 raise PipelineStopException(step_name=step_name, cause=exc) from exc
+        finally:
+            if "output" not in locals() or not self._is_stream_output(output):
+                await self._close_stream_arguments(arguments)
 
     async def _execute_step(self, step_name, node, arguments, unrolled):
         if unrolled:
@@ -460,10 +487,20 @@ class AsyncPipelineExecutor:
         for dep in unrolled:
             key = self.dag.output_key(dep, step_name)
             value = self.outputs.get(key, self.outputs.get(dep))
-            if isinstance(value, asyncio.Queue):
+            if isinstance(value, (asyncio.Queue, AsyncQueueBranch)):
                 queues[dep] = value
             else:
-                q = asyncio.Queue()
+                producer_node = self.dag.get(dep)
+                # Non-queue inputs are already fully available in memory, so
+                # max_in_flight does not apply here. Size the queue to avoid
+                # deadlocking while preloading eager values for EACH-mode use.
+                if isinstance(value, (list, tuple, set)):
+                    q = asyncio.Queue(maxsize=max(1, len(value)) + 1)
+                else:
+                    maxsize = 2
+                    if producer_node is not None:
+                        maxsize = max(2, getattr(producer_node, "max_in_flight", 1) + 1)
+                    q = asyncio.Queue(maxsize=maxsize)
                 if isinstance(value, (list, tuple, set)):
                     for item in value:
                         await q.put(item)
@@ -514,12 +551,39 @@ class AsyncPipelineExecutor:
         for dep_name in node.deps:
             key = self.dag.output_key(dep_name, consumer)
             value = self.outputs.get(key, self.outputs.get(dep_name))
-            if isinstance(value, asyncio.Queue) and dep_name not in unrolled:
+            if (
+                isinstance(value, (asyncio.Queue, AsyncQueueBranch))
+                and dep_name not in unrolled
+            ):
                 dep_type = node.deps.get(dep_name)
                 value = await _resolve_queue(self.dag, dep_name, value, dep_type)
             param = node.dataset_param_names.get(dep_name, dep_name)
             args[param] = value
         return args
+
+    def _attach_argument_cleanup(self, output, arguments):
+        if not isinstance(output, (AsyncIterator, AsyncGenerator)):
+            return output
+
+        async def wrapped():
+            try:
+                async for item in output:
+                    yield item
+            finally:
+                await self._close_stream_arguments(arguments)
+
+        return wrapped()
+
+    async def _close_stream_arguments(self, arguments):
+        for value in arguments.values():
+            if isinstance(value, AsyncQueueBranch):
+                value.close()
+                continue
+            if inspect.isasyncgen(value):
+                try:
+                    await value.aclose()
+                except Exception:
+                    pass
 
     def _notify_observers(self, step_name, output):
         for observer in self._step_output_observers:
@@ -656,7 +720,13 @@ class AsyncPipelineExecutor:
     async def _publish_stream_to_queues(
         self, step_name, output, node, consumers, deferred
     ):
-        queues = {consumer: asyncio.Queue(maxsize=100) for consumer in consumers}
+        queue_maxsize = max(1, node.max_in_flight)
+        if not self._consumers_share_execution_level(consumers):
+            queue_maxsize = 0
+        queues = {
+            consumer: AsyncQueueBranch(asyncio.Queue(maxsize=queue_maxsize))
+            for consumer in consumers
+        }
         for consumer, queue in queues.items():
             self.outputs[self.dag.output_key(step_name, consumer)] = queue
         self._register_observer_pumps(step_name, queues)
@@ -679,10 +749,16 @@ class AsyncPipelineExecutor:
             output, had_error, exc = await self._materialize_with_events(
                 step_name, output, node, consumer_type=node.output
             )
+        elif self._step_output_observers:
+            output, had_error, exc = await _collect_async_iterator(
+                self.dag, step_name, output
+            )
         else:
             self._notify_observers(step_name, output)
             had_error = False
             exc = None
+        if self._step_output_observers:
+            self._notify_observers(step_name, output)
         if deferred:
             await self._emit_step_result(node, step_name, output, had_error, exc)
 

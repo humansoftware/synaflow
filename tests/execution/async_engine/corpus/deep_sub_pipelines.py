@@ -91,6 +91,7 @@ pack = PipelinePack(
                 "each_mode_deps": [],
                 "pipeline": "DeepSubPipelines",
                 "parent_pipeline": None,
+                "max_in_flight": 1,
             },
             "l2_each__l3_res__adapter": {
                 "deps": {"l2_each__adapter": "Level2Params"},
@@ -105,6 +106,7 @@ pack = PipelinePack(
                 "each_mode_deps": ["l2_each__adapter"],
                 "pipeline": "Level2",
                 "parent_pipeline": "DeepSubPipelines",
+                "max_in_flight": 1,
             },
             "l2_each__l3_res": {
                 "deps": {"l2_each__l3_res__adapter": "Level3Params"},
@@ -118,6 +120,7 @@ pack = PipelinePack(
                 "each_mode_deps": ["l2_each__l3_res__adapter"],
                 "pipeline": "Level2",
                 "parent_pipeline": "DeepSubPipelines",
+                "max_in_flight": 1,
             },
             "l2_each": {
                 "deps": {"l2_each__l3_res": "int"},
@@ -131,6 +134,7 @@ pack = PipelinePack(
                 "each_mode_deps": ["l2_each__l3_res"],
                 "pipeline": "Level2",
                 "parent_pipeline": "DeepSubPipelines",
+                "max_in_flight": 1,
             },
             "l2_single__adapter": {
                 "deps": {"values": "list[int]"},
@@ -144,6 +148,7 @@ pack = PipelinePack(
                 "each_mode_deps": [],
                 "pipeline": "DeepSubPipelines",
                 "parent_pipeline": None,
+                "max_in_flight": 1,
             },
             "l2_single__l3_res__adapter": {
                 "deps": {"l2_single__adapter": "Level2Params"},
@@ -157,6 +162,7 @@ pack = PipelinePack(
                 "each_mode_deps": [],
                 "pipeline": "Level2",
                 "parent_pipeline": "DeepSubPipelines",
+                "max_in_flight": 1,
             },
             "l2_single__l3_res": {
                 "deps": {"l2_single__l3_res__adapter": "Level3Params"},
@@ -170,6 +176,7 @@ pack = PipelinePack(
                 "each_mode_deps": [],
                 "pipeline": "Level2",
                 "parent_pipeline": "DeepSubPipelines",
+                "max_in_flight": 1,
             },
             "l2_single": {
                 "deps": {"l2_single__l3_res": "int"},
@@ -183,6 +190,7 @@ pack = PipelinePack(
                 "each_mode_deps": [],
                 "pipeline": "Level2",
                 "parent_pipeline": "DeepSubPipelines",
+                "max_in_flight": 1,
             },
             "consolidate": {
                 "deps": {"l2_each": "list[int]", "l2_single": "int"},
@@ -196,6 +204,7 @@ pack = PipelinePack(
                 "each_mode_deps": [],
                 "pipeline": "DeepSubPipelines",
                 "parent_pipeline": None,
+                "max_in_flight": 1,
             },
         },
         "error_materializer": "log_error_materializer",

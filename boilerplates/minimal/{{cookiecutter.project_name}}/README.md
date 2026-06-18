@@ -20,6 +20,13 @@ Edit `pipeline.py`:
 2. Replace `producer`, `transformer`, `consumer` with your own functions
 3. Add or remove `step()` calls in the `pipeline()` definition
 
+## Next concepts
+
+If your pipeline is I/O-bound and one step starts work while the next step
+waits for the result, read the `max_in_flight` docs:
+
+- https://humansoftware.github.io/synaflow/core-concepts/max-in-flight/
+
 For more complex projects, see the `structured` template:
 ```bash
 uvx cookiecutter gh:humansoftware/synaflow --directory=boilerplates/structured

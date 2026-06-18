@@ -1,5 +1,5 @@
 site_name: SynaFlow
-site_description: A lightweight, pure-Python pipeline engine that uses type hints to automatically wire and execute Directed Acyclic Graphs with lockstep streaming
+site_description: A lightweight, pure-Python pipeline engine that uses type hints to automatically wire and execute Directed Acyclic Graphs with lockstep streaming and optional bounded handoff
 site_url: https://humansoftware.github.io/synaflow/
 repo_url: https://github.com/humansoftware/synaflow
 edit_uri: edit/main/docs/user_docs/
@@ -60,6 +60,7 @@ nav:
       - How the DAG is Wired: core-concepts/how-dag-is-wired.md
       - Build vs Run: core-concepts/build-vs-run.md
       - Lockstep Data Flow: core-concepts/lockstep-flow.md
+      - Max In Flight: core-concepts/max-in-flight.md
       - Event-Based Processing: core-concepts/event-based.md
       - Materialization & Errors: core-concepts/materialization.md
       - Semantic Naming: core-concepts/semantic-naming.md

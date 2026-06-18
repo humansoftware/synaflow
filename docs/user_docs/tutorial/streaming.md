@@ -201,6 +201,11 @@ time, pulling items forward through the DAG. For fan-out (multiple consumers of
 the same producer), SynaFlow automatically forks the stream with `itertools.tee`
 and advances all consumers together.
 
+If you need a small bounded window instead of strict lockstep, use
+[`max_in_flight`](../core-concepts/max-in-flight.md). That is especially useful
+for I/O-bound shapes where one step starts work and the next step waits for the
+result.
+
 ## Next
 
 Explore more streaming patterns in

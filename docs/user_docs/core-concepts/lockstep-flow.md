@@ -4,6 +4,11 @@ SynaFlow's streaming engine guarantees **extreme memory efficiency** by processi
 pipelines in lockstep — one item flows entirely through the DAG before the next
 item is produced.
 
+This is the default behavior because every step starts with
+`max_in_flight=1`. If you need a bounded window between two stages, see
+[Max In Flight](max-in-flight.md), which includes real sync and async HTTP
+examples for I/O-bound pipelines.
+
 ## A Streaming Pipeline
 
 === "Sync"

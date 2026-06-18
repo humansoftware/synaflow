@@ -48,6 +48,8 @@ def validate_and_compile_step(
     sig = inspect.signature(step.fn)
     hints = get_safe_type_hints(step.fn)
 
+    _validate_max_in_flight(step, pipeline_name)
+
     deps, dataset_param_names = validate_and_resolve_dependencies(
         step, sig, hints, produced, pipeline_name
     )
@@ -69,6 +71,7 @@ def validate_and_compile_step(
         parent_pipeline=step.parent_pipeline,
         observers=list(observers or []),
         dataset_param_names=dataset_param_names,
+        max_in_flight=step.max_in_flight,
     )
 
 
@@ -210,3 +213,17 @@ def validate_no_duplicate_base_datasets(
             )
         if base not in seen:
             seen[base] = s.name
+
+
+def _validate_max_in_flight(step: Step, pipeline_name: str) -> None:
+    value = step.max_in_flight
+    if not isinstance(value, int) or isinstance(value, bool):
+        raise ValueError(
+            f"Pipeline '{pipeline_name}': step '{step.name}' "
+            f"max_in_flight must be an integer, got {type(value).__name__}"
+        )
+    if value < 1:
+        raise ValueError(
+            f"Pipeline '{pipeline_name}': step '{step.name}' "
+            f"max_in_flight must be >= 1, got {value}"
+        )

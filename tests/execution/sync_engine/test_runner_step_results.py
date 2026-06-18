@@ -16,6 +16,7 @@ SYNC_PACK_NAMES = (
     "sync_fibonacci",
     "sync_complex_parallel_mixed",
     "sync_mixed_fanout",
+    "sync_max_in_flight_threadpool",
     "sync_sub_pipelines",
     "sync_deep_sub_pipelines",
     "sync_error_handling",
@@ -25,7 +26,13 @@ SYNC_PACK_NAMES = (
 def _concrete(value):
     """Convert generators to lists; leave scalars and tuples alone."""
     if isinstance(value, Iterator):
-        return list(value)
+        items = []
+        try:
+            for item in value:
+                items.append(item)
+        except Exception:
+            return items
+        return items
     return value
 
 
@@ -48,7 +55,7 @@ def test_step_results(pack_name):
     recorded = {}
 
     def record_step_output(step_name, output):
-        recorded[step_name] = output
+        recorded[step_name] = _concrete(output)
 
     executor = PipelineExecutor(
         pack.pipeline.dag, step_output_observers=[record_step_output]

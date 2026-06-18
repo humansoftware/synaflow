@@ -53,6 +53,7 @@ pack = PipelinePack(
                 "each_mode_deps": [],
                 "pipeline": "fibonacci",
                 "parent_pipeline": None,
+                "max_in_flight": 1,
             },
             "square_numbers": {
                 "deps": {"fibonacci_generator": "Stream[int]"},
@@ -66,6 +67,7 @@ pack = PipelinePack(
                 "each_mode_deps": [],
                 "pipeline": "fibonacci",
                 "parent_pipeline": None,
+                "max_in_flight": 1,
             },
             "consumer": {
                 "deps": {"square_numbers": "Stream[int]"},
@@ -79,6 +81,7 @@ pack = PipelinePack(
                 "each_mode_deps": [],
                 "pipeline": "fibonacci",
                 "parent_pipeline": None,
+                "max_in_flight": 1,
             },
         },
         "error_materializer": "log_error_materializer",

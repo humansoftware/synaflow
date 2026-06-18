@@ -72,7 +72,7 @@ SynaFlow, it chains transformations over data — `Select`, `Where`, `GroupBy`,
 | **Parallelism** | `.AsParallel()` / PLINQ | Sync/async parity, custom runners |
 | **Persistence** | In-memory only | Disk, S3, Redis, DB via materializers |
 | **Smart binding** | ❌ | ✅ singular/plural/suffix resolution |
-| **Multi-consumer** | Single pipeline, single consumer | Auto `tee` for multiple consumers in lockstep |
+| **Multi-consumer** | Single pipeline, single consumer | Auto `tee` for multiple consumers in lockstep, with bounded `max_in_flight` when needed |
 | **Where it runs** | .NET CLR | Single Python process (or export to Airflow/Prefect) |
 
 ## Deferred execution
@@ -121,8 +121,21 @@ language.
 
 ## When SynaFlow goes further
 
+### Persistence
+
 LINQ streams are in-memory by design. SynaFlow's materializers let
 `ToList()` / `ToDictionary()` target **disk, S3, Redis, or any backend**
 without changing the consumer code. See
 [Java Streams comparison](java-streams.md) for more on the
 protocol-over-concrete-type design.
+
+### Bounded streams (vs. standard LINQ / TPL)
+
+Standard LINQ (`IEnumerable`) executes purely pull-based in lockstep on a single thread. It has no concept of a "bounded ahead" buffer between streaming steps.
+
+In C#, when you need to let a producer task run ahead of a consumer task up to a specific limit (e.g. for I/O-bound operations), you typically transition to:
+*   **`System.Threading.Channels`** (using a bounded channel `Channel.CreateBounded<T>(N)`).
+*   **TPL Dataflow blocks** (using `BoundedCapacity` on blocks like `TransformBlock`).
+
+SynaFlow embeds this capability directly into your DAG definition via `max_in_flight=N` on the step without requiring you to write channel or queue plumbing.
+

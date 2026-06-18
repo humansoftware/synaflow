@@ -8,7 +8,7 @@
 [![License](https://img.shields.io/github/license/humansoftware/synaflow)](https://github.com/humansoftware/synaflow/blob/main/LICENSE)
 [![Python](https://img.shields.io/pypi/pyversions/synaflow)](https://pypi.org/project/synaflow/)
 
-**SynaFlow** is a lightweight, pure-Python pipeline engine that uses **Type Hints** to automatically wire and execute Directed Acyclic Graphs (DAGs) with lockstep streaming.
+**SynaFlow** is a lightweight, pure-Python pipeline engine that uses **Type Hints** to automatically wire and execute Directed Acyclic Graphs (DAGs) with lockstep streaming and optional bounded handoff.
 
 **Why the name?** **Synapse** + **Flow**. Just like synapses automatically wire neurons together, SynaFlow automatically wires your functions together based on their types. "Flow" represents the lazy, streaming nature of how data moves through those connections.
 
@@ -56,11 +56,15 @@ type hints and wires the DAG automatically.
 Parameter names match producer names — SynaFlow connects them automatically.
 Singular/plural/suffix synonyms work too (`item` → `items`, `user_list` → `users`).
 
-### Lazy streaming with zero boilerplate
+### Lazy streaming with bounded handoff
 
-Multiple consumers of the same producer? SynaFlow forks the stream with
-`itertools.tee` and advances them in lockstep. One consumer can stream lazily
-while another materializes — no manual `tee`, no memory spikes.
+SynaFlow streams lazily by default. Multiple consumers can stay lockstep, one
+consumer can stay lazy while another materializes, and when you need a bounded
+window between stages you can set `max_in_flight` on the producing step.
+
+This is especially useful for I/O-bound pipelines where one step starts work
+and the next resolves it, such as HTTP requests, RPC calls, or object-store
+reads.
 
 ### Static validation at build time
 
@@ -77,7 +81,7 @@ auto-generate native DAGs for Airflow, Prefect, or Dagster.
 | | SynaFlow | Hamilton | Airflow / Prefect / Dagster |
 |---|---|---|---|
 | **Auto wiring** | ✅ type hints + smart binding | ✅ type hints (exact names) | ❌ explicit `A >> B` |
-| **Lazy streaming** | ✅ lockstep tee | ❌ DataFrame-centric | ❌ task-based |
+| **Lazy streaming** | ✅ lockstep + bounded handoff | ❌ DataFrame-centric | ❌ task-based |
 | **Smart binding** | ✅ singular/plural/suffix | ❌ | ❌ |
 | **Scope** | In-process micro | Feature engineering | Cluster orchestration |
 | **DAG export** | ✅ JSON | ✅ | ✅ |
@@ -100,7 +104,7 @@ Start here: **[humansoftware.github.io/synaflow](https://humansoftware.github.io
 | Section | Description |
 |---|---|
 | [Tutorial](https://humansoftware.github.io/synaflow/tutorial/hello-world/) | 5-level step-by-step guide building a pipeline from scratch |
-| [Core Concepts](https://humansoftware.github.io/synaflow/core-concepts/how-dag-is-wired/) | How the DAG is wired, lockstep flow, build vs run, event-based processing |
+| [Core Concepts](https://humansoftware.github.io/synaflow/core-concepts/how-dag-is-wired/) | How the DAG is wired, lockstep flow, max in flight, build vs run, event-based processing |
 | [Examples](https://humansoftware.github.io/synaflow/core-concepts/examples/) | Every corpus pipeline with auto-generated diagrams and source code |
 | [Comparisons](https://humansoftware.github.io/synaflow/comparisons/hamilton/) | Detailed comparisons with Hamilton, Java Streams, and LINQ |
 | [Design Philosophy](docs/DESIGN_PHILOSOPHY.md) | Architectural decisions, contracts, and design rationale |
