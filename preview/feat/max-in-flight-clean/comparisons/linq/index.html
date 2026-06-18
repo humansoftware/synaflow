@@ -6,7 +6,7 @@
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width,initial-scale=1">
       
-        <meta name="description" content="A lightweight, pure-Python pipeline engine that uses type hints to automatically wire and execute Directed Acyclic Graphs with lockstep streaming">
+        <meta name="description" content="A lightweight, pure-Python pipeline engine that uses type hints to automatically wire and execute Directed Acyclic Graphs with lockstep streaming and optional bounded handoff">
       
       
         <meta name="author" content="humansoftware">
@@ -1566,7 +1566,7 @@ SynaFlow, it chains transformations over data — <code>Select</code>, <code>Whe
 <tr>
 <td><strong>Multi-consumer</strong></td>
 <td>Single pipeline, single consumer</td>
-<td>Auto <code>tee</code> for multiple consumers in lockstep</td>
+<td>Auto <code>tee</code> for multiple consumers in lockstep, with bounded <code>max_in_flight</code> when needed</td>
 </tr>
 <tr>
 <td><strong>Where it runs</strong></td>

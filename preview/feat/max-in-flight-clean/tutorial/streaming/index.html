@@ -6,7 +6,7 @@
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width,initial-scale=1">
       
-        <meta name="description" content="A lightweight, pure-Python pipeline engine that uses type hints to automatically wire and execute Directed Acyclic Graphs with lockstep streaming">
+        <meta name="description" content="A lightweight, pure-Python pipeline engine that uses type hints to automatically wire and execute Directed Acyclic Graphs with lockstep streaming and optional bounded handoff">
       
       
         <meta name="author" content="humansoftware">
@@ -1628,6 +1628,10 @@ line. One item flows through every step before the next item is even produced:</
 time, pulling items forward through the DAG. For fan-out (multiple consumers of
 the same producer), SynaFlow automatically forks the stream with <code>itertools.tee</code>
 and advances all consumers together.</p>
+<p>If you need a small bounded window instead of strict lockstep, use
+<a href="../../core-concepts/max-in-flight/"><code>max_in_flight</code></a>. That is especially useful
+for I/O-bound shapes where one step starts work and the next step waits for the
+result.</p>
 <h2 id="next">Next<a class="headerlink" href="#next" title="Permanent link">&para;</a></h2>
 <p>Explore more streaming patterns in
 <a href="../../core-concepts/lockstep-flow/">Lockstep Data Flow</a>.</p>
