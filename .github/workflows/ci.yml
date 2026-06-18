@@ -7,6 +7,26 @@ on:
     branches: [ "main" ]
 
 jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Install uv
+      uses: astral-sh/setup-uv@v3
+      with:
+        enable-cache: true
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: "3.12"
+
+    - name: Check Code Formatting
+      run: |
+        uvx ruff format --check --exclude boilerplates/
+        uvx ruff check --select F401 --exclude boilerplates/
+
   test:
     runs-on: ubuntu-latest
     steps:
@@ -24,12 +44,7 @@ jobs:
 
     - name: Install dependencies
       run: |
-        uv pip install --system hatchling pytest pre-commit
-
-    - name: Check Code Formatting
-      run: |
-        uvx ruff format --check --exclude boilerplates/
-        uvx ruff check --select F401 --exclude boilerplates/
+        uv pip install --system hatchling
 
     - name: Validate Packing and Installation
       run: |
@@ -40,3 +55,40 @@ jobs:
       run: |
         # Runs pytest, verifying that the installed package works
         uv run pytest tests/
+
+  total-coverage:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Install uv
+      uses: astral-sh/setup-uv@v3
+      with:
+        enable-cache: true
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: "3.12"
+
+    - name: Install dependencies
+      run: |
+        uv pip install --system hatchling
+
+    - name: Install package
+      run: |
+        uv pip install --system .
+
+    - name: Run tests with coverage
+      run: |
+        uv run pytest --cov=synaflow --cov-report=json --cov-report=term
+
+    - name: Report coverage to GitHub
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+      run: |
+        python .github/scripts/coverage_report.py
