@@ -31,16 +31,6 @@ class AsyncQueueBranch:
             except asyncio.QueueFull:
                 await asyncio.sleep(0.001)
 
-    async def put_terminal(self, item) -> None:
-        if not self.active:
-            return
-        while self.active:
-            try:
-                self.queue.put_nowait(item)
-                return
-            except asyncio.QueueFull:
-                await asyncio.sleep(0.001)
-
     async def get(self):
         return await self.queue.get()
 
