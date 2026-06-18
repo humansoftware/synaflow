@@ -12,6 +12,7 @@ import subprocess
 import sys
 
 PATCH_THRESHOLD = 80
+TOTAL_THRESHOLD = 80
 
 
 def get_total_coverage(coverage_json_path="coverage.json"):
@@ -175,9 +176,12 @@ def run_ci():
 
     create_check_run(
         name="Total Coverage",
-        conclusion="success",
+        conclusion="success" if total_pct >= TOTAL_THRESHOLD else "failure",
         title=f"Total Coverage: {total_pct:.1f}%",
-        summary=f"Overall project test coverage is **{total_pct:.1f}%**.",
+        summary=(
+            f"Overall project test coverage is **{total_pct:.1f}%** "
+            f"(threshold: {TOTAL_THRESHOLD}%)."
+        ),
     )
 
     patch_conclusion = "success" if patch_pct >= PATCH_THRESHOLD else "failure"
