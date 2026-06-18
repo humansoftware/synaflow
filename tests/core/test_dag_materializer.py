@@ -24,7 +24,7 @@ def test_sync_pipeline_rejects_async_materializer():
             name="test",
             params=P,
             materializer=factory,
-            steps=[step("items", fn=gen)],
+            steps=[step("items", fn=gen, force_materialize=True)],
         )
 
 
@@ -43,7 +43,7 @@ def test_async_pipeline_rejects_sync_materializer():
             name="test",
             params=P,
             materializer=factory,
-            steps=[step("items", fn=async_gen)],
+            steps=[step("items", fn=async_gen, force_materialize=True)],
         )
 
 
@@ -58,5 +58,12 @@ def test_step_materializer_rejects_incompatible():
         pipeline(
             name="test",
             params=P,
-            steps=[step("items", fn=async_gen, materializer=to_materializer(sync_mat))],
+            steps=[
+                step(
+                    "items",
+                    fn=async_gen,
+                    materializer=to_materializer(sync_mat),
+                    force_materialize=True,
+                )
+            ],
         )

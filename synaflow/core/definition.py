@@ -62,6 +62,7 @@ class PipelineDef:
             is_default_factory=(self.materializer is None),
             error_materializer_factory=self.error_materializer,
             pipeline_observers=self.observers,
+            exports=self.exports,
         )
         self.requires_sync_runner = self.dag.requires_sync_runner
         self.requires_async_runner = self.dag.requires_async_runner

@@ -237,6 +237,7 @@ For uneven multi-stream each-mode, exhaustion is modeled with `None` padding rat
 - in mixed lazy/eager fan-out, observing the producer must not force all consumers eager
 - when a stream fails under `OnError.CONTINUE`, observers see the valid prefix that was already produced
 - observer behavior is a public contract and is covered by corpus/spec tests, not only unit tests
+- when the output is an `Iterator`/`AsyncIterator`, the observer receives the iterator directly (via `tee`) and **must consume it fully**; an unconsumed iterator causes memory growth (the `tee` buffer retains all items) and the observed data is silently lost. This is application responsibility, not framework responsibility.
 
 ### 3.15. PipelineStopException with Context
 **Decision:** `PipelineStopException` carries `step_name` and `cause` (the original exception). It uses `raise ... from` to preserve the full stack trace.

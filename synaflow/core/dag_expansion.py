@@ -146,6 +146,7 @@ def _expand_sub_pipeline_steps(
                 params=sub_step.params,
                 materializer=materializer,
                 error_materializer=error_materializer,
+                force_materialize=sub_step.force_materialize,
                 description=sub_step.description,
                 pipeline=sub_pipeline.name,
                 parent_pipeline=new_parent_chain,

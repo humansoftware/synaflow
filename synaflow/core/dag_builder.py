@@ -29,6 +29,7 @@ from synaflow.core.dag_expansion import expand_macros
 from synaflow.core.dag_steps import (
     validate_and_compile_step,
     validate_no_duplicate_base_datasets,
+    validate_no_unmaterialized_terminal_streams,
     validate_step_is_callable,
     validate_sync_async_consistency,
     validate_unique_step_name,
@@ -302,6 +303,7 @@ def build_dag(
     is_default_factory: bool = False,
     error_materializer_factory: Any = None,
     pipeline_observers: list[Observer] | None = None,
+    exports: str | None = None,
 ) -> Dag:
     if error_materializer_factory is None:
         error_materializer_factory = log_error_materializer_factory
@@ -330,6 +332,8 @@ def build_dag(
     )
 
     check_circular_dependencies(dag_obj, pipeline_name)
+
+    validate_no_unmaterialized_terminal_streams(dag_obj, pipeline_name, exports)
 
     validate_sync_async_consistency(
         dag_obj,

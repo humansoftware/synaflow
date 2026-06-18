@@ -188,3 +188,129 @@ def test_given_smart_binding_with_singular_when_dag_built_then_resolves():
     assert "items" in p.dag.steps["transform"].deps
     assert p.dag.steps["transform"].dataset_param_names == {"items": "item"}
     assert p.dag.consumers_of("items") == ["transform"]
+
+
+# ---------------------------------------------------------------------------
+# Terminal stream validation
+# ---------------------------------------------------------------------------
+
+
+def test_given_terminal_step_returning_iterator_when_not_materialized_then_raises():
+    from collections.abc import Iterator
+
+    class P(NamedTuple):
+        items: list[int]
+
+    def gen(items: list[int]) -> Iterator[int]:
+        yield from items
+
+    with pytest.raises(ValueError, match="terminal step 'gen' returns a stream type"):
+        pipeline(
+            name="test",
+            params=P,
+            steps=[step("gen", fn=gen)],
+        )
+
+
+def test_given_terminal_step_returning_async_iterator_when_not_materialized_then_raises():
+    from collections.abc import AsyncIterator
+
+    class P(NamedTuple):
+        items: list[int]
+
+    async def gen(items: list[int]) -> AsyncIterator[int]:
+        for item in items:
+            yield item
+
+    with pytest.raises(ValueError, match="terminal step 'gen' returns a stream type"):
+        pipeline(
+            name="test",
+            params=P,
+            steps=[step("gen", fn=gen)],
+        )
+
+
+def test_given_terminal_step_returning_iterator_when_force_materialize_then_builds():
+    from collections.abc import Iterator
+
+    class P(NamedTuple):
+        items: list[int]
+
+    def gen(items: list[int]) -> Iterator[int]:
+        yield from items
+
+    p = pipeline(
+        name="test",
+        params=P,
+        steps=[step("gen", fn=gen, force_materialize=True)],
+    )
+
+    assert "gen" in p.dag.steps
+
+
+def test_given_terminal_step_returning_none_when_not_materialized_then_builds():
+    from collections.abc import Iterator
+
+    class P(NamedTuple):
+        items: list[int]
+
+    def gen(items: list[int]) -> Iterator[int]:
+        yield from items
+
+    def consume(gen: Iterator[int]) -> None:
+        for _item in gen:
+            pass
+
+    p = pipeline(
+        name="test",
+        params=P,
+        steps=[
+            step("gen", fn=gen),
+            step("consume", fn=consume),
+        ],
+    )
+
+    assert "consume" in p.dag.steps
+
+
+def test_given_non_terminal_step_returning_iterator_when_not_materialized_then_builds():
+    from collections.abc import Iterator
+
+    class P(NamedTuple):
+        items: list[int]
+
+    def gen(items: list[int]) -> Iterator[int]:
+        yield from items
+
+    def transform(gen: Iterator[int]) -> list[int]:
+        return list(gen)
+
+    p = pipeline(
+        name="test",
+        params=P,
+        steps=[
+            step("gen", fn=gen),
+            step("transform", fn=transform),
+        ],
+    )
+
+    assert "gen" in p.dag.steps
+
+
+def test_given_exported_step_returning_iterator_when_in_child_pipeline_then_builds():
+    from collections.abc import Iterator
+
+    class ChildParams(NamedTuple):
+        items: list[int]
+
+    def emit(items: list[int]) -> Iterator[int]:
+        yield from items
+
+    child = pipeline(
+        name="Child",
+        params=ChildParams,
+        exports="emit",
+        steps=[step("emit", fn=emit)],
+    )
+
+    assert "emit" in child.dag.steps

@@ -18,9 +18,8 @@ async def step2(step1: AsyncIterator[int]) -> AsyncGenerator[int, None, None]:
         yield x * 10
 
 
-async def step3(step2: AsyncIterator[int]) -> AsyncGenerator[int, None, None]:
-    async for x in step2:
-        yield x + 1
+async def step3(step2: AsyncIterator[int]) -> list[int]:
+    return [x + 1 async for x in step2]
 
 
 async def step4(step1: AsyncIterator[int]) -> AsyncGenerator[int, None, None]:
@@ -86,7 +85,7 @@ pack = PipelinePack(
             },
             "step3": {
                 "deps": {"step2": "Stream[int]"},
-                "output": "Stream[int, None, None]",
+                "output": "list[int]",
                 "fn": "step3",
                 "on_error": "continue",
                 "mode": "all",

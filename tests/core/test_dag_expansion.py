@@ -219,7 +219,13 @@ def test_include_expansion_preserves_pipeline_metadata_and_materializer_override
         exports="emit",
         materializer=pipeline_mat,
         steps=[
-            step("emit", fn=emit, materializer=step_mat, error_materializer=step_err)
+            step(
+                "emit",
+                fn=emit,
+                materializer=step_mat,
+                error_materializer=step_err,
+                force_materialize=True,
+            )
         ],
     )
 
@@ -296,7 +302,7 @@ def test_sub_pipeline_preserves_max_in_flight_after_expansion():
         name="Child",
         params=ChildParams,
         exports="emit",
-        steps=[step("emit", fn=emit, max_in_flight=30)],
+        steps=[step("emit", fn=emit, max_in_flight=30, force_materialize=True)],
     )
 
     class ParentParams(NamedTuple):
@@ -325,7 +331,7 @@ def test_adapter_step_serializes_default_max_in_flight():
         name="Child",
         params=ChildParams,
         exports="emit",
-        steps=[step("emit", fn=emit)],
+        steps=[step("emit", fn=emit, force_materialize=True)],
     )
 
     class ParentParams(NamedTuple):
