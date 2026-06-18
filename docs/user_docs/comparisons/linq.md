@@ -72,7 +72,7 @@ SynaFlow, it chains transformations over data — `Select`, `Where`, `GroupBy`,
 | **Parallelism** | `.AsParallel()` / PLINQ | Sync/async parity, custom runners |
 | **Persistence** | In-memory only | Disk, S3, Redis, DB via materializers |
 | **Smart binding** | ❌ | ✅ singular/plural/suffix resolution |
-| **Multi-consumer** | Single pipeline, single consumer | Auto `tee` for multiple consumers in lockstep |
+| **Multi-consumer** | Single pipeline, single consumer | Auto `tee` for multiple consumers in lockstep, with bounded `max_in_flight` when needed |
 | **Where it runs** | .NET CLR | Single Python process (or export to Airflow/Prefect) |
 
 ## Deferred execution

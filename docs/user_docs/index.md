@@ -8,7 +8,8 @@
 
 No `>>` operators. No manual DAG. No `tee` boilerplate. Just type hints and
 function names — SynaFlow reads your signatures and wires everything
-automatically, streaming data in lockstep with zero memory overhead.
+automatically, streaming data in lockstep with zero memory overhead and an
+optional bounded `max_in_flight` window for I/O-bound stages.
 
 ```mermaid
 flowchart LR
@@ -286,7 +287,8 @@ def batch(producer: list[int]) -> int:       # eager — only this branch materi
 
 **One consumer lazy, one eager.** No manual `tee`. No boilerplate. By default
 the stream stays lockstep; if you need a bounded window between stages, use
-`max_in_flight`.
+`max_in_flight`. It is especially powerful for I/O-bound pipelines like
+`start_request -> await_response`.
 
 ### 3. Fine-grained materialization control
 
@@ -350,7 +352,7 @@ infrastructure needed.
 | | SynaFlow | Hamilton | Flyte / Metaflow | Dagster / Prefect | Airflow |
 |---|---|---|---|---|---|
 | **Auto wiring** | ✅ type hints + smart binding | ✅ type hints (exact names) | ❌ explicit `A >> B` | ❌ explicit | ❌ explicit |
-| **Lazy streaming** | ✅ lockstep tee | ❌ DataFrame-centric | ❌ | ❌ | ❌ |
+| **Lazy streaming** | ✅ lockstep + bounded handoff | ❌ DataFrame-centric | ❌ | ❌ | ❌ |
 | **Smart binding** | ✅ singular/plural/suffix | ❌ | ❌ | ❌ | ❌ |
 | **Scope** | In-process micro | Feature engineering | Task orchestration | Asset/workflow orchestration | DAG scheduling |
 | **DAG export** | ✅ JSON | ✅ | ✅ | ✅ | ✅ |

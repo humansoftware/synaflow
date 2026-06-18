@@ -8,7 +8,7 @@
 [![License](https://img.shields.io/github/license/humansoftware/synaflow)](https://github.com/humansoftware/synaflow/blob/main/LICENSE)
 [![Python](https://img.shields.io/pypi/pyversions/synaflow)](https://pypi.org/project/synaflow/)
 
-**SynaFlow** is a lightweight, pure-Python pipeline engine that uses **Type Hints** to automatically wire and execute Directed Acyclic Graphs (DAGs) with lockstep streaming.
+**SynaFlow** is a lightweight, pure-Python pipeline engine that uses **Type Hints** to automatically wire and execute Directed Acyclic Graphs (DAGs) with lockstep streaming and optional bounded handoff.
 
 **Why the name?** **Synapse** + **Flow**. Just like synapses automatically wire neurons together, SynaFlow automatically wires your functions together based on their types. "Flow" represents the lazy, streaming nature of how data moves through those connections.
 
@@ -62,6 +62,10 @@ SynaFlow streams lazily by default. Multiple consumers can stay lockstep, one
 consumer can stay lazy while another materializes, and when you need a bounded
 window between stages you can set `max_in_flight` on the producing step.
 
+This is especially useful for I/O-bound pipelines where one step starts work
+and the next resolves it, such as HTTP requests, RPC calls, or object-store
+reads.
+
 ### Static validation at build time
 
 Type errors, missing dependencies, circular graphs, mode conflicts — all caught
@@ -77,7 +81,7 @@ auto-generate native DAGs for Airflow, Prefect, or Dagster.
 | | SynaFlow | Hamilton | Airflow / Prefect / Dagster |
 |---|---|---|---|
 | **Auto wiring** | ✅ type hints + smart binding | ✅ type hints (exact names) | ❌ explicit `A >> B` |
-| **Lazy streaming** | ✅ lockstep tee | ❌ DataFrame-centric | ❌ task-based |
+| **Lazy streaming** | ✅ lockstep + bounded handoff | ❌ DataFrame-centric | ❌ task-based |
 | **Smart binding** | ✅ singular/plural/suffix | ❌ | ❌ |
 | **Scope** | In-process micro | Feature engineering | Cluster orchestration |
 | **DAG export** | ✅ JSON | ✅ | ✅ |

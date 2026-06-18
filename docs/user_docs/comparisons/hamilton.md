@@ -56,7 +56,7 @@ the data model underneath is fundamentally different.
 |---|---|---|
 | **Default flow** | Lazy streaming (`Iterator[T]`) | DataFrame columns (materialized) |
 | **Memory** | One item per step — generators | Entire column in memory |
-| **Multiple consumers** | Auto `tee` in lockstep | Single consumer per column |
+| **Multiple consumers** | Auto `tee` in lockstep, bounded handoff when configured | Single consumer per column |
 | **Materialization** | Consumer-driven: ask for `list[T]` → materialize | Always materialized |
 | **Generators** | Native: `yield` in any step | Not supported at user level |
 | **Streaming to disk** | Transparent via materializer factories | Manual code in each function |
@@ -102,11 +102,11 @@ the data model underneath is fundamentally different.
 
 | Use case | SynaFlow | Hamilton |
 |---|---|---|
-| **Streaming millions of rows** | ✅ lockstep tee, one item at a time | ❌ full DataFrame in memory |
+| **Streaming millions of rows** | ✅ lockstep + bounded handoff, one item at a time | ❌ full DataFrame in memory |
 | **Feature engineering** | Possible but not specialized | ✅ purpose-built |
 | **Notebook to production** | ✅ plain Python functions | ✅ `@parameterize` decorators |
 | **Event-based processing** | ✅ lazy by default, idempotent | ❌ batch-oriented |
-| **Multiple consumers, one producer** | ✅ auto `tee` | ❌ single consumer per column |
+| **Multiple consumers, one producer** | ✅ auto `tee` + `max_in_flight` window | ❌ single consumer per column |
 | **Persistence to disk/S3/DB** | ✅ materializer factories | ❌ manual code |
 | **Sync + async from same definition** | ✅ identical DAG | ❌ sync only |
 | **Export to Airflow/Prefect** | ✅ DAG JSON contract | ✅ via Hamilton UI |

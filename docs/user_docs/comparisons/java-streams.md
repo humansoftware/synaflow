@@ -207,5 +207,7 @@ incremental processing that have no equivalent in the Java Streams API.
 - You need **persistence** (disk, database, cloud storage).
 - You need **lazy lockstep** consumption across multiple consumers without
   manual `tee` management.
+- You need a **bounded ahead window** like `max_in_flight` for I/O-bound
+  patterns such as `start_request -> await_response`.
 - You need **sync/async parity** — the same pipeline definition runs in both.
 - Your data doesn't fit in memory but you still want the Streams-like API.

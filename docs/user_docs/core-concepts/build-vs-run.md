@@ -29,7 +29,7 @@ flowchart LR
 | Phase | What happens | When | Output |
 |---|---|---|---|
 | **Build-time** | Type validation, mode resolution, materializer assignment, circular dependency check, sync/async consistency | `pipeline(...)` is called | `Dag` object, serializable JSON |
-| **Run-time** | Topological execution, lockstep streaming, `tee` forking, observer dispatch, error handling | `run()` / `async_run()` is called | Step outputs, side effects |
+| **Run-time** | Topological execution, lockstep streaming, bounded handoff via `max_in_flight`, `tee` forking, observer dispatch, error handling | `run()` / `async_run()` is called | Step outputs, side effects |
 
 ## Why this matters
 
@@ -52,6 +52,7 @@ print(p.to_dict())
       "fn": "producer",
       "mode": "all",
       "on_error": "continue",
+      "max_in_flight": 1,
       "materializer": "memory_materializer",
       "materialized_deps": [],
       "each_mode_deps": []
@@ -60,7 +61,8 @@ print(p.to_dict())
 }
 ```
 
-All semantic decisions — mode, `each_mode_deps`, `materialized_deps` — are
+All semantic decisions — mode, `max_in_flight`, `each_mode_deps`,
+`materialized_deps` — are
 resolved at build time and frozen in the JSON. Runners don't re-infer
 semantics; they execute the contract.
 

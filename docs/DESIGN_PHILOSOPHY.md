@@ -77,7 +77,7 @@ The materializer can persist the shuffle phase to disk when datasets are too lar
 | | SynaFlow | Hamilton | Dagster | Prefect | Airflow |
 |---|---|---|---|---|---|
 | **Type-hint wiring** | ✅ auto | ✅ | ❌ | ❌ | ❌ |
-| **Lazy streaming** | ✅ lockstep tee | ❌ DataFrame-centric | ❌ task-based | ❌ task-based | ❌ task-based |
+| **Lazy streaming** | ✅ lockstep + bounded handoff | ❌ DataFrame-centric | ❌ task-based | ❌ task-based | ❌ task-based |
 | **Smart binding** | ✅ singular/plural/suffix | ❌ | ❌ | ❌ | ❌ |
 | **Scope** | In-process micro | Feature engineering | Asset orchestration | Workflow orchestration | DAG scheduling |
 | **DAG export** | ✅ JSON | ✅ | ✅ | ✅ | ✅ |
@@ -111,7 +111,7 @@ serve fundamentally different data models.
 |---|---|---|
 | **Default flow** | Lazy streaming (`Iterator[T]`) | DataFrame columns (materialized) |
 | **Memory** | One item per step — generators | Entire column in memory |
-| **Multiple consumers** | Auto `tee` in lockstep | Single consumer per column |
+| **Multiple consumers** | Auto `tee` in lockstep, bounded handoff when configured | Single consumer per column |
 | **Materialization** | Consumer-driven: ask for `list[T]` → materialize | Always materialized |
 | **Generators** | Native: `yield` in any step | Not supported |
 | **Streaming to disk** | Transparent via materializer factories | Manual code in each function |
@@ -130,7 +130,8 @@ Type hints are used for validation, not DAG construction. **Dask delayed** build
 graphs lazily but requires explicit task declarations — no auto-wiring from signatures.
 
 None of these support smart binding (singular/plural synonyms), lazy lockstep
-streaming with automatic `tee`, or consumer-driven per-branch materialization.
+streaming with automatic `tee`, bounded `max_in_flight` handoff, or
+consumer-driven per-branch materialization.
 
 ## 3. Architectural Decisions and Patterns (Decision Log)
 
@@ -214,6 +215,7 @@ For uneven multi-stream each-mode, exhaustion is modeled with `None` padding rat
 ### 3.10. `max_in_flight`
 **Decision:** Every compiled `DagNode` carries `max_in_flight`, defaulting to `1`, and runners enforce it from DAG metadata rather than step definitions.
 **Reason:** Bounded handoff is part of runtime semantics, not user-code convenience. The contract is "maximum number of items already emitted by a step and not yet delivered to the next consumption stage." Keeping it in the DAG preserves build/run separation, JSON export fidelity, and sync/async parity.
+**Operational motivation:** This is primarily for I/O-bound pipelines where one step starts work and the next resolves it, such as request submission followed by response awaiting. It gives the runtime a small, explicit ahead window without changing the programming model into manual queues or semaphores.
 
 ### 3.11. `force_materialize` Flag
 **Decision:** Steps can explicitly declare `force_materialize=True` to trigger materialization of their output regardless of consumer types or error handling configuration.
