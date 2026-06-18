@@ -731,7 +731,7 @@ def test_given_include_with_explicit_pipeline_error_materializer_then_propagates
     sub_pipe = pipeline(
         name="sub_pipe",
         params=P,
-        steps=[step("gen", fn=sub_gen)],
+        steps=[step("gen", fn=sub_gen, force_materialize=True)],
         exports="gen",
         error_materializer=my_pipeline_err,
     )
@@ -768,7 +768,14 @@ def test_given_include_with_step_error_materializer_overriding_pipeline_error_ma
     sub_pipe = pipeline(
         name="sub_pipe",
         params=P,
-        steps=[step("gen", fn=sub_gen, error_materializer=my_step_err)],
+        steps=[
+            step(
+                "gen",
+                fn=sub_gen,
+                error_materializer=my_step_err,
+                force_materialize=True,
+            )
+        ],
         exports="gen",
         error_materializer=my_pipeline_err,
     )

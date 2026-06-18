@@ -103,7 +103,9 @@ async def test_given_sync_stream_pipeline_when_run_asynchronously_then_raises():
         for i in items:
             yield i
 
-    my_pipeline = pipeline(name="t", params=P, steps=[step("s1", fn=s1)])
+    my_pipeline = pipeline(
+        name="t", params=P, steps=[step("s1", fn=s1, force_materialize=True)]
+    )
 
     with pytest.raises(RuntimeError, match="must be executed with run"):
         await async_run(my_pipeline, params=P())

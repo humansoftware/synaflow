@@ -18,9 +18,8 @@ def step2(step1: Iterator[int]) -> Generator[int, None, None]:
         yield x * 10
 
 
-def step3(step2: Iterator[int]) -> Generator[int, None, None]:
-    for x in step2:
-        yield x + 1
+def step3(step2: Iterator[int]) -> list[int]:
+    return [x + 1 for x in step2]
 
 
 def step4(step1: Iterator[int]) -> Generator[int, None, None]:
@@ -86,7 +85,7 @@ pack = PipelinePack(
             },
             "step3": {
                 "deps": {"step2": "Stream[int]"},
-                "output": "Stream[int, None, None]",
+                "output": "list[int]",
                 "fn": "step3",
                 "on_error": "continue",
                 "mode": "all",

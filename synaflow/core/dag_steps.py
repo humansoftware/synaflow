@@ -227,3 +227,41 @@ def _validate_max_in_flight(step: Step, pipeline_name: str) -> None:
             f"Pipeline '{pipeline_name}': step '{step.name}' "
             f"max_in_flight must be >= 1, got {value}"
         )
+
+
+def validate_no_unmaterialized_terminal_streams(
+    dag: Dag, pipeline_name: str, exports: str | None = None
+) -> None:
+    """Reject terminal steps whose output is a stream that will never be consumed.
+
+    A terminal step (no consumers, not hidden) whose output type is
+    ``Iterator``/``Generator`` (sync) or ``AsyncIterator``/``AsyncGenerator``
+    (async) and whose output is not materialized (``needs_materialize`` is
+    False) produces a stream that nobody drains.  At runtime this causes
+    either a deadlock (bounded handoff pump blocks forever) or silent data
+    loss (the pump discards items to deliver the EOF marker).
+
+    The fix is to set ``force_materialize=True`` on the step, return a
+    materialized type (``list``, ``None``, etc.), or add a downstream
+    consumer.
+
+    The ``exports`` step is skipped because it will have a consumer when the
+    pipeline is included in a parent.
+    """
+    for step_name, node in dag.steps.items():
+        if not dag.is_terminal_step(step_name):
+            continue
+        if step_name == exports:
+            continue
+        if node.output is None:
+            continue
+        if not (is_sync_stream_type(node.output) or is_async_stream_type(node.output)):
+            continue
+        if dag.needs_materialize(step_name):
+            continue
+        raise ValueError(
+            f"Pipeline '{pipeline_name}': terminal step '{step_name}' "
+            f"returns a stream type ({node.output}) but its output is never "
+            f"materialized. Use force_materialize=True, return a materialized "
+            f"type (e.g. list), or add a downstream consumer."
+        )

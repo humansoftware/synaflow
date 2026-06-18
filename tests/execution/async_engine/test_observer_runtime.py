@@ -359,7 +359,7 @@ async def test_given_step_output_observers_when_run_then_not_affected_by_lifecyc
     p = pipeline(
         name="p",
         params=Params,
-        steps=[step("gen", fn=gen)],
+        steps=[step("gen", fn=gen, force_materialize=True)],
     )
 
     executor = AsyncPipelineExecutor(
@@ -594,8 +594,9 @@ async def test_given_lazy_consumer_when_no_materialization_then_no_materializati
     def gen(values: list[int]) -> Iterator[int]:
         yield from values
 
-    def passthrough(gen: Iterator[int]) -> Iterator[int]:
-        yield from gen
+    def passthrough(gen: Iterator[int]) -> None:
+        for _item in gen:
+            pass
 
     p = pipeline(
         name="p",
@@ -677,8 +678,9 @@ async def test_given_observers_when_lazy_step_then_output_remains_iterator():
     def gen(values: list[int]) -> Iter[int]:
         yield from values
 
-    def lazy_consumer(gen: Iter[int]) -> Iter[int]:
-        yield from gen
+    def lazy_consumer(gen: Iter[int]) -> None:
+        for _item in gen:
+            pass
 
     p = pipeline(
         name="p",
@@ -698,8 +700,9 @@ async def test_given_materialization_observer_when_lazy_step_then_materializatio
     def gen(values: list[int]) -> Iterator[int]:
         yield from values
 
-    def lazy_consumer(gen: Iterator[int]) -> Iterator[int]:
-        yield from gen
+    def lazy_consumer(gen: Iterator[int]) -> None:
+        for _item in gen:
+            pass
 
     p = pipeline(
         name="p",
@@ -727,8 +730,9 @@ async def test_given_step_output_observer_and_bounded_lazy_stream_then_observer_
     def gen(values: list[int]) -> Iterator[int]:
         yield from values
 
-    def lazy_consumer(gen: Iterator[int]) -> Iterator[int]:
-        yield from gen
+    def lazy_consumer(gen: Iterator[int]) -> None:
+        for _item in gen:
+            pass
 
     p = pipeline(
         name="p",
