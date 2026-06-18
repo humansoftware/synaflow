@@ -588,3 +588,38 @@ def test_given_threadpool_start_and_await_when_max_in_flight_5_then_only_five_ta
 
     assert "exc" not in error_holder
     assert not thread.is_alive()
+
+
+def test_runner_contract_uses_dag_node_max_in_flight_not_step_max_in_flight():
+    produced: list[int] = []
+    consumed: list[int] = []
+    max_seen_ahead = 0
+
+    def producer(count: int) -> Generator[int, None, None]:
+        nonlocal max_seen_ahead
+        for i in range(count):
+            produced.append(i)
+            max_seen_ahead = max(max_seen_ahead, len(produced) - len(consumed))
+            yield i
+
+    def consumer(producer: Iterator[int]) -> None:
+        for item in producer:
+            consumed.append(item)
+
+    p = pipeline(
+        name="test",
+        params=Count,
+        steps=[
+            step("producer", fn=producer, max_in_flight=1),
+            step("consumer", fn=consumer),
+        ],
+    )
+
+    # Mutate Step.max_in_flight. The executor should ignore this and use DagNode.max_in_flight (1).
+    p.steps[0].max_in_flight = 10
+
+    run(p, Count(count=20))
+
+    assert produced == list(range(20))
+    assert consumed == list(range(20))
+    assert max_seen_ahead <= 1

@@ -497,3 +497,38 @@ async def test_given_fanout_lazy_and_eager_when_producer_stream_fails_then_pipel
         await async_run(p, Count(count=5))
 
     assert lazy_seen == []
+
+
+@pytest.mark.asyncio
+async def test_runner_contract_uses_dag_node_max_in_flight_not_step_max_in_flight():
+    produced: list[int] = []
+    consumed: list[int] = []
+    max_seen_ahead = 0
+
+    async def producer(count: int) -> AsyncGenerator[int, None]:
+        nonlocal max_seen_ahead
+        for i in range(count):
+            produced.append(i)
+            max_seen_ahead = max(max_seen_ahead, len(produced) - len(consumed))
+            yield i
+
+    async def consumer(producer: int) -> None:
+        consumed.append(producer)
+
+    p = pipeline(
+        name="test",
+        params=Count,
+        steps=[
+            step("producer", fn=producer, max_in_flight=1),
+            step("consumer", fn=consumer),
+        ],
+    )
+
+    # Mutate Step.max_in_flight. The executor should ignore this and use DagNode.max_in_flight (1).
+    p.steps[0].max_in_flight = 10
+
+    await async_run(p, Count(count=20))
+
+    assert produced == list(range(20))
+    assert consumed == list(range(20))
+    assert max_seen_ahead <= 3

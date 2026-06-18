@@ -65,7 +65,7 @@ pack = PipelinePack(
             },
             "start": {
                 "deps": {"numbers": "int"},
-                "output": "int",
+                "output": "ListType(<class 'int'>)",
                 "fn": "start",
                 "on_error": "continue",
                 "mode": "each",
