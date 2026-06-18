@@ -6,7 +6,7 @@
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width,initial-scale=1">
       
-        <meta name="description" content="A lightweight, pure-Python pipeline engine that uses type hints to automatically wire and execute Directed Acyclic Graphs with lockstep streaming">
+        <meta name="description" content="A lightweight, pure-Python pipeline engine that uses type hints to automatically wire and execute Directed Acyclic Graphs with lockstep streaming and optional bounded handoff">
       
       
         <meta name="author" content="humansoftware">
@@ -707,6 +707,34 @@
     
   
     Lockstep Data Flow
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../core-concepts/max-in-flight/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Max In Flight
   
 
     
@@ -1673,6 +1701,10 @@ incremental processing that have no equivalent in the Java Streams API.</p>
 <li>You need <strong>persistence</strong> (disk, database, cloud storage).</li>
 <li>You need <strong>lazy lockstep</strong> consumption across multiple consumers without
   manual <code>tee</code> management.</li>
+<li>You need a <strong>bounded ahead window</strong> (like <code>max_in_flight</code>) for I/O-bound
+  patterns. In Java, this pattern requires moving to Project Reactor, RxJava,
+  or JDK 9+ <code>java.util.concurrent.Flow</code> to use reactive backpressure / <code>prefetch</code>
+  buffers. Standard Java Streams are synchronous and lockstep-only.</li>
 <li>You need <strong>sync/async parity</strong> — the same pipeline definition runs in both.</li>
 <li>Your data doesn't fit in memory but you still want the Streams-like API.</li>
 </ul>

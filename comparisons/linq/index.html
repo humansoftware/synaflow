@@ -6,7 +6,7 @@
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width,initial-scale=1">
       
-        <meta name="description" content="A lightweight, pure-Python pipeline engine that uses type hints to automatically wire and execute Directed Acyclic Graphs with lockstep streaming">
+        <meta name="description" content="A lightweight, pure-Python pipeline engine that uses type hints to automatically wire and execute Directed Acyclic Graphs with lockstep streaming and optional bounded handoff">
       
       
         <meta name="author" content="humansoftware">
@@ -725,6 +725,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../../core-concepts/max-in-flight/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Max In Flight
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../core-concepts/event-based/" class="md-nav__link">
         
   
@@ -1278,6 +1306,34 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="When SynaFlow goes further">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#persistence" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Persistence
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#bounded-streams-vs-standard-linq-tpl" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Bounded streams (vs. standard LINQ / TPL)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
     </ul>
@@ -1385,6 +1441,34 @@
       
     </span>
   </a>
+  
+    <nav class="md-nav" aria-label="When SynaFlow goes further">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#persistence" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Persistence
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#bounded-streams-vs-standard-linq-tpl" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Bounded streams (vs. standard LINQ / TPL)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
   
 </li>
       
@@ -1538,7 +1622,7 @@ SynaFlow, it chains transformations over data — <code>Select</code>, <code>Whe
 <tr>
 <td><strong>Multi-consumer</strong></td>
 <td>Single pipeline, single consumer</td>
-<td>Auto <code>tee</code> for multiple consumers in lockstep</td>
+<td>Auto <code>tee</code> for multiple consumers in lockstep, with bounded <code>max_in_flight</code> when needed</td>
 </tr>
 <tr>
 <td><strong>Where it runs</strong></td>
@@ -1584,11 +1668,18 @@ is the foundation for memory efficiency and composability.</p>
 returns it. No special grouping operator needed — plain Python is the query
 language.</p>
 <h2 id="when-synaflow-goes-further">When SynaFlow goes further<a class="headerlink" href="#when-synaflow-goes-further" title="Permanent link">&para;</a></h2>
+<h3 id="persistence">Persistence<a class="headerlink" href="#persistence" title="Permanent link">&para;</a></h3>
 <p>LINQ streams are in-memory by design. SynaFlow's materializers let
 <code>ToList()</code> / <code>ToDictionary()</code> target <strong>disk, S3, Redis, or any backend</strong>
 without changing the consumer code. See
 <a href="../java-streams/">Java Streams comparison</a> for more on the
 protocol-over-concrete-type design.</p>
+<h3 id="bounded-streams-vs-standard-linq-tpl">Bounded streams (vs. standard LINQ / TPL)<a class="headerlink" href="#bounded-streams-vs-standard-linq-tpl" title="Permanent link">&para;</a></h3>
+<p>Standard LINQ (<code>IEnumerable</code>) executes purely pull-based in lockstep on a single thread. It has no concept of a "bounded ahead" buffer between streaming steps.</p>
+<p>In C#, when you need to let a producer task run ahead of a consumer task up to a specific limit (e.g. for I/O-bound operations), you typically transition to:
+*   <strong><code>System.Threading.Channels</code></strong> (using a bounded channel <code>Channel.CreateBounded&lt;T&gt;(N)</code>).
+*   <strong>TPL Dataflow blocks</strong> (using <code>BoundedCapacity</code> on blocks like <code>TransformBlock</code>).</p>
+<p>SynaFlow embeds this capability directly into your DAG definition via <code>max_in_flight=N</code> on the step without requiring you to write channel or queue plumbing.</p>
 
 
 

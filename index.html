@@ -6,7 +6,7 @@
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width,initial-scale=1">
       
-        <meta name="description" content="A lightweight, pure-Python pipeline engine that uses type hints to automatically wire and execute Directed Acyclic Graphs with lockstep streaming">
+        <meta name="description" content="A lightweight, pure-Python pipeline engine that uses type hints to automatically wire and execute Directed Acyclic Graphs with lockstep streaming and optional bounded handoff">
       
       
         <meta name="author" content="humansoftware">
@@ -888,6 +888,34 @@
   
   
     <li class="md-nav__item">
+      <a href="core-concepts/max-in-flight/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Max In Flight
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="core-concepts/event-based/" class="md-nav__link">
         
   
@@ -1515,7 +1543,8 @@
 <a href="https://pypi.org/project/synaflow/"><img alt="Python" src="https://img.shields.io/pypi/pyversions/synaflow" /></a></p>
 <p>No <code>&gt;&gt;</code> operators. No manual DAG. No <code>tee</code> boilerplate. Just type hints and
 function names — SynaFlow reads your signatures and wires everything
-automatically, streaming data in lockstep with zero memory overhead.</p>
+automatically, streaming data in lockstep with zero memory overhead and an
+optional bounded <code>max_in_flight</code> window for I/O-bound stages.</p>
 <pre class="mermaid"><code>flowchart LR
     producer["producer&lt;br/&gt;Stream[int]"]
     transformer["transformer&lt;br/&gt;Stream[int]"]
@@ -1759,8 +1788,10 @@ are the graph.</p>
 <a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a><span class="k">def</span><span class="w"> </span><span class="nf">batch</span><span class="p">(</span><span class="n">producer</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">int</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>       <span class="c1"># eager — only this branch materializes</span>
 <a id="__codelineno-7-7" name="__codelineno-7-7" href="#__codelineno-7-7"></a>    <span class="k">return</span> <span class="nb">sum</span><span class="p">(</span><span class="n">producer</span><span class="p">)</span>
 </code></pre></div>
-<p><strong>One consumer lazy, one eager.</strong> No manual <code>tee</code>. No boilerplate. Memory
-overhead: one item per step, regardless of dataset size.</p>
+<p><strong>One consumer lazy, one eager.</strong> No manual <code>tee</code>. No boilerplate. By default
+the stream stays lockstep; if you need a bounded window between stages, use
+<code>max_in_flight</code>. It is especially powerful for I/O-bound pipelines like
+<code>start_request -&gt; await_response</code>.</p>
 <h3 id="3-fine-grained-materialization-control">3. Fine-grained materialization control<a class="headerlink" href="#3-fine-grained-materialization-control" title="Permanent link">&para;</a></h3>
 <p>Knowing <em>when</em> and <em>where</em> to persist data mid-pipeline usually means writing
 manual I/O inside every function. SynaFlow lets the <strong>consumer decide</strong>:</p>
@@ -1829,7 +1860,7 @@ infrastructure needed.</p>
 </tr>
 <tr>
 <td><strong>Lazy streaming</strong></td>
-<td>✅ lockstep tee</td>
+<td>✅ lockstep + bounded handoff</td>
 <td>❌ DataFrame-centric</td>
 <td>❌</td>
 <td>❌</td>
@@ -1884,6 +1915,7 @@ millions of rows between functions with zero boilerplate.</p>
 (execution), you can write custom runners or auto-generate native DAGs for
 Airflow, Dagster, or Prefect from the same pipeline definition.
 Read more: <a href="core-concepts/build-vs-run/">Build vs Run</a> ·
+<a href="core-concepts/max-in-flight/">Max In Flight</a> ·
 <a href="advanced/export-guidance/">Export Guidance</a>.</p>
 <p>For detailed comparisons: <a href="comparisons/hamilton/">SynaFlow vs Hamilton</a> ·
 <a href="comparisons/java-streams/">Java Streams</a> · <a href="comparisons/linq/">LINQ</a></p>

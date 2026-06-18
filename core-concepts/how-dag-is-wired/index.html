@@ -6,7 +6,7 @@
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width,initial-scale=1">
       
-        <meta name="description" content="A lightweight, pure-Python pipeline engine that uses type hints to automatically wire and execute Directed Acyclic Graphs with lockstep streaming">
+        <meta name="description" content="A lightweight, pure-Python pipeline engine that uses type hints to automatically wire and execute Directed Acyclic Graphs with lockstep streaming and optional bounded handoff">
       
       
         <meta name="author" content="humansoftware">
@@ -879,6 +879,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../max-in-flight/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Max In Flight
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../event-based/" class="md-nav__link">
         
   
@@ -1693,7 +1721,9 @@ Steps at the same level have no dependencies on each other and could run in para
 SynaFlow builds the entire DAG without a single line of manual wiring.</p>
 <h2 id="next">Next<a class="headerlink" href="#next" title="Permanent link">&para;</a></h2>
 <p>Now that you understand the wiring, see how <a href="../lockstep-flow/">Lockstep Data Flow</a>
-uses this structure to achieve extreme memory efficiency.</p>
+uses this structure to achieve extreme memory efficiency, and how
+<a href="../max-in-flight/">Max In Flight</a> adds a bounded ahead window for I/O-bound
+streaming patterns.</p>
 
 
 

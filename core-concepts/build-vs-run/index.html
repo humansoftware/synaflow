@@ -6,7 +6,7 @@
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width,initial-scale=1">
       
-        <meta name="description" content="A lightweight, pure-Python pipeline engine that uses type hints to automatically wire and execute Directed Acyclic Graphs with lockstep streaming">
+        <meta name="description" content="A lightweight, pure-Python pipeline engine that uses type hints to automatically wire and execute Directed Acyclic Graphs with lockstep streaming and optional bounded handoff">
       
       
         <meta name="author" content="humansoftware">
@@ -868,6 +868,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../max-in-flight/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Max In Flight
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../event-based/" class="md-nav__link">
         
   
@@ -1506,7 +1534,7 @@ deterministic behavior possible.</p>
 </tr>
 <tr>
 <td><strong>Run-time</strong></td>
-<td>Topological execution, lockstep streaming, <code>tee</code> forking, observer dispatch, error handling</td>
+<td>Topological execution, lockstep streaming, bounded handoff via <code>max_in_flight</code>, <code>tee</code> forking, observer dispatch, error handling</td>
 <td><code>run()</code> / <code>async_run()</code> is called</td>
 <td>Step outputs, side effects</td>
 </tr>
@@ -1527,14 +1555,16 @@ deterministic behavior possible.</p>
 <a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a><span class="w">      </span><span class="nt">&quot;fn&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;producer&quot;</span><span class="p">,</span>
 <a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a><span class="w">      </span><span class="nt">&quot;mode&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;all&quot;</span><span class="p">,</span>
 <a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a><span class="w">      </span><span class="nt">&quot;on_error&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;continue&quot;</span><span class="p">,</span>
-<a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a><span class="w">      </span><span class="nt">&quot;materializer&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;memory_materializer&quot;</span><span class="p">,</span>
-<a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a><span class="w">      </span><span class="nt">&quot;materialized_deps&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[],</span>
-<a id="__codelineno-1-13" name="__codelineno-1-13" href="#__codelineno-1-13"></a><span class="w">      </span><span class="nt">&quot;each_mode_deps&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[]</span>
-<a id="__codelineno-1-14" name="__codelineno-1-14" href="#__codelineno-1-14"></a><span class="w">    </span><span class="p">}</span>
-<a id="__codelineno-1-15" name="__codelineno-1-15" href="#__codelineno-1-15"></a><span class="w">  </span><span class="p">}</span>
-<a id="__codelineno-1-16" name="__codelineno-1-16" href="#__codelineno-1-16"></a><span class="p">}</span>
+<a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a><span class="w">      </span><span class="nt">&quot;max_in_flight&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span>
+<a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a><span class="w">      </span><span class="nt">&quot;materializer&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;memory_materializer&quot;</span><span class="p">,</span>
+<a id="__codelineno-1-13" name="__codelineno-1-13" href="#__codelineno-1-13"></a><span class="w">      </span><span class="nt">&quot;materialized_deps&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[],</span>
+<a id="__codelineno-1-14" name="__codelineno-1-14" href="#__codelineno-1-14"></a><span class="w">      </span><span class="nt">&quot;each_mode_deps&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[]</span>
+<a id="__codelineno-1-15" name="__codelineno-1-15" href="#__codelineno-1-15"></a><span class="w">    </span><span class="p">}</span>
+<a id="__codelineno-1-16" name="__codelineno-1-16" href="#__codelineno-1-16"></a><span class="w">  </span><span class="p">}</span>
+<a id="__codelineno-1-17" name="__codelineno-1-17" href="#__codelineno-1-17"></a><span class="p">}</span>
 </code></pre></div>
-<p>All semantic decisions — mode, <code>each_mode_deps</code>, <code>materialized_deps</code> — are
+<p>All semantic decisions — mode, <code>max_in_flight</code>, <code>each_mode_deps</code>,
+<code>materialized_deps</code> — are
 resolved at build time and frozen in the JSON. Runners don't re-infer
 semantics; they execute the contract.</p>
 <h3 id="2-write-your-own-runner">2. Write your own runner<a class="headerlink" href="#2-write-your-own-runner" title="Permanent link">&para;</a></h3>

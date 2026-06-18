@@ -6,7 +6,7 @@
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width,initial-scale=1">
       
-        <meta name="description" content="A lightweight, pure-Python pipeline engine that uses type hints to automatically wire and execute Directed Acyclic Graphs with lockstep streaming">
+        <meta name="description" content="A lightweight, pure-Python pipeline engine that uses type hints to automatically wire and execute Directed Acyclic Graphs with lockstep streaming and optional bounded handoff">
       
       
         <meta name="author" content="humansoftware">
@@ -707,6 +707,34 @@
     
   
     Lockstep Data Flow
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../core-concepts/max-in-flight/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Max In Flight
   
 
     
@@ -1483,7 +1511,7 @@ the data model underneath is fundamentally different.</p>
 </tr>
 <tr>
 <td><strong>Multiple consumers</strong></td>
-<td>Auto <code>tee</code> in lockstep</td>
+<td>Auto <code>tee</code> in lockstep, bounded handoff when configured</td>
 <td>Single consumer per column</td>
 </tr>
 <tr>
@@ -1555,7 +1583,7 @@ the data model underneath is fundamentally different.</p>
 <tbody>
 <tr>
 <td><strong>Streaming millions of rows</strong></td>
-<td>✅ lockstep tee, one item at a time</td>
+<td>✅ lockstep + bounded handoff, one item at a time</td>
 <td>❌ full DataFrame in memory</td>
 </tr>
 <tr>
@@ -1575,7 +1603,7 @@ the data model underneath is fundamentally different.</p>
 </tr>
 <tr>
 <td><strong>Multiple consumers, one producer</strong></td>
-<td>✅ auto <code>tee</code></td>
+<td>✅ auto <code>tee</code> + <code>max_in_flight</code> window</td>
 <td>❌ single consumer per column</td>
 </tr>
 <tr>
