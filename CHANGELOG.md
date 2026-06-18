@@ -2,6 +2,154 @@
 
 
 
+## v0.16.0 (2026-06-18)
+
+### Documentation
+
+* docs: add final finished state t11 to interactive animation ([`a12d697`](https://github.com/humansoftware/synaflow/commit/a12d6974a4cfe47de8b856095b88c093d4759472))
+
+* docs: add interactive visualization for max_in_flight ([`c9ca483`](https://github.com/humansoftware/synaflow/commit/c9ca48372f647871795ca545cd911818b893203b))
+
+* docs: add max_in_flight parallels to java-streams and linq comparison pages ([`830636b`](https://github.com/humansoftware/synaflow/commit/830636bace08990714906e65abc49cd5156d8a04))
+
+* docs: restructure max-in-flight page with Sync/Async tabs ([`917e367`](https://github.com/humansoftware/synaflow/commit/917e36790a35e462f62db341a748b02f09f1f2d9))
+
+* docs: expand max_in_flight documentation ([`c4059a6`](https://github.com/humansoftware/synaflow/commit/c4059a68e342a61a1644c9af86413d897e679b7b))
+
+### Feature
+
+* feat: complete max_in_flight runtime and docs ([`c3f54d5`](https://github.com/humansoftware/synaflow/commit/c3f54d5d713392598b6f25211d6960ed9f58a1c0))
+
+* feat: add max_in_flight tests and fix bounded iterator
+
+- Add test_dag_builder_max_in_flight.py (8 build-time validation tests)
+- Add test_runner_max_in_flight.py for sync and async (4 tests each)
+- Fix BoundedIterator: propagate exceptions immediately, don&#39;t buffer
+- Fix test parity by using identical test function names in sync and async ([`27c0fdd`](https://github.com/humansoftware/synaflow/commit/27c0fdd96b6489417504a51a1bd93c3463874a31))
+
+* feat: add max_in_flight with bounded handoff for sync and async
+
+- Add max_in_flight: int = 1 to Step and DagNode
+- Validate max_in_flight &gt;= 1 and integer at build time
+- Serialize max_in_flight in DAG JSON (always present)
+- Sync: BoundedIterator deque-backed wrapper for max_in_flight &gt; 1
+  (max_in_flight=1 preserves exact current behavior)
+- Async: use max(max_in_flight, 100) for queue sizing
+- Update all 18 corpus snapshots with max_in_flight: 1 ([`c838678`](https://github.com/humansoftware/synaflow/commit/c83867804d379ca10c056a855dc627e19d1734b0))
+
+### Fix
+
+* fix: async queue sizing, observer threads, bounded handoff tests
+
+Codex changes:
+- AsyncQueueBranch: implement __aiter__/__anext__ for direct async iteration
+- Async executor: _attach_argument_cleanup, _close_stream_arguments
+- Async executor: queue sizing uses max(2, max_in_flight+1) for EOF
+- Async executor: _resolve_queue handles AsyncQueueBranch type
+- Sync executor: observer threads via SyncFanout branches
+- Sync executor: _observer_threads with cleanup on pipeline finish
+- Sync executor: _notify_observers in publish stream paths
+- 12 new tests: ahead_distance_bounded, producer_blocks,
+  terminal_lazy_drains, flattening_stream_internal_items (sync+async)
+- 3 new observer tests: does_not_force_eager, does_not_consume_slots,
+  bound_is_unchanged (sync+async) ([`73e92a9`](https://github.com/humansoftware/synaflow/commit/73e92a958b397cd009e41bf16fd79b6f3577a0b4))
+
+* fix: use producer&#39;s max_in_flight for async unroll queue sizing
+
+- Async _unroll_step: look up producer node&#39;s max_in_flight instead
+  of using consumer node&#39;s (fixes reviewer issue #1)
+- Keep 100 minimum queue size for publish/unroll to prevent pump
+  deadlock (v1 limitation — reviewer issue #2 acknowledged)
+- Sync tee fan-out limitation documented as v1 constraint ([`0d8b75b`](https://github.com/humansoftware/synaflow/commit/0d8b75bbb5e2a96efdb486fae7ba14673d202476))
+
+* fix: honor max_in_flight contract for sync fan-out and async queue sizing
+
+- Sync fan-out: apply BoundedIterator to source BEFORE itertools.tee
+  so producer advancement is bounded at the source level
+- Async queue sizing: use node.max_in_flight directly when &gt; 1,
+  keep 100 for default=1 (backward compatible)
+- Add tests: sync fan-out bounded, async bounded ahead verification,
+  parity between sync and async test names ([`5d8059d`](https://github.com/humansoftware/synaflow/commit/5d8059dbf81a0a918b70999af627a93b04107e07))
+
+### Refactor
+
+* refactor: move execution graph helpers onto Dag ([`7601b76`](https://github.com/humansoftware/synaflow/commit/7601b76ed13c583fa8b9e257a17a96a514af7293))
+
+* refactor: clean residual imports and shared executor helpers ([`dcb9408`](https://github.com/humansoftware/synaflow/commit/dcb9408cae5041bdad5703a590e7a73d9e389164))
+
+* refactor: structure pipeline executors ([`15fb065`](https://github.com/humansoftware/synaflow/commit/15fb0654642ee0022dec35566a0a62a180b535cd))
+
+* refactor: structure DAG builder and include expansion ([`a9deeab`](https://github.com/humansoftware/synaflow/commit/a9deeab4661fee41ff23e1e4e663356f92d142bc))
+
+* refactor: stabilize observer defaults and build helpers ([`07711b4`](https://github.com/humansoftware/synaflow/commit/07711b4c5d57132088ce2ec96b63c1d9224cb019))
+
+* refactor: replace **kw with explicit params in observer dispatch, direct attribute access
+
+- Sync and async executors: replace **kw in _dispatch_pipeline_event,
+  _dispatch_step_event, _dispatch_materialization_event with explicit
+  parameters (step_name, exception, success_count, error_count,
+  completed_all_inputs)
+- Replace getattr(node, &#39;observers&#39;, None) with node.observers (DagNode
+  always has observers as a list)
+- Replace getattr(step, &#39;error_materializer&#39;) → step.error_materializer
+- Replace getattr(step, &#39;parent_pipeline&#39;) → step.parent_pipeline
+- Replace getattr(step, &#39;observers&#39;) → step.observers in dag_builder
+- Replace getattr(node, &#39;observers&#39;, []) → node.observers in definition
+- Keep getattr for IncludeStep (lacks Step attributes) in dag_expansion
+  and dag_steps validate_sync_async_consistency ([`5b6467d`](https://github.com/humansoftware/synaflow/commit/5b6467d1c663ab05653bc8ef26732816d1bf9651))
+
+### Style
+
+* style: ruff format codex changes ([`205afba`](https://github.com/humansoftware/synaflow/commit/205afba8cbf404ae41ce6b66827175386c170420))
+
+* style: format PR1 changes ([`a95f620`](https://github.com/humansoftware/synaflow/commit/a95f62012f8baa5f994cf3a6e68e09f9a01db2cf))
+
+### Test
+
+* test: add runner contract, adapter serialization tests and fix threadpool corpus output type ([`c16170d`](https://github.com/humansoftware/synaflow/commit/c16170d1aaf9a2c9a126b9e26740d8b5df5d7bb3))
+
+* test: add max_in_flight runtime coverage ([`4d44897`](https://github.com/humansoftware/synaflow/commit/4d44897f5f335263a883c31dbfd975cb7341d4b3))
+
+* test: expand max_in_flight coverage ([`c4b58ba`](https://github.com/humansoftware/synaflow/commit/c4b58ba1ec2ea63f1d99343ea4bfb647e5a197de))
+
+* test: add BoundedIterator unit tests, fix exception deferral
+
+- Add 10 unit tests for BoundedIterator edge cases
+- Fix exception handling: buffer items before raising, only raise
+  pending exception when buffer is empty
+- maxsize validation, empty source, partial iteration covered ([`269a7d8`](https://github.com/humansoftware/synaflow/commit/269a7d8a0a9835ec5000983db6d1635599737d84))
+
+* test: cover Dag execution helper methods ([`344a64d`](https://github.com/humansoftware/synaflow/commit/344a64d8fa9c9555080ae953c11c4f96c15a55a3))
+
+### Unknown
+
+* Merge pull request #33 from humansoftware/feat/max-in-flight-clean
+
+feat: max_in_flight — bounded stream handoff ([`4879c70`](https://github.com/humansoftware/synaflow/commit/4879c702ffc82956d724ef5e6ffaab4b1884a22a))
+
+* fix max_in_flight expansion and docs ([`0bfc670`](https://github.com/humansoftware/synaflow/commit/0bfc670b10935dcc5c47ee944e1c67f7eea969a6))
+
+* Merge pull request #31 from humansoftware/refactor/pr4-residual-cleanup
+
+[codex] Refactor PR4: residual cleanup and shared executor helpers ([`e2d8787`](https://github.com/humansoftware/synaflow/commit/e2d878763b4d7c0e3ec482ba3a4336e0aeea7cc9))
+
+* Merge pull request #30 from humansoftware/refactor/pr3-executor-structure
+
+[codex] Refactor PR3: structure pipeline executors ([`b7a355a`](https://github.com/humansoftware/synaflow/commit/b7a355a56b154c89695192f6ea2379044cd03858))
+
+* Merge pull request #29 from humansoftware/refactor/pr2-builder-expansion-structure
+
+[codex] Refactor PR2: structure DAG builder and include expansion ([`bac95d6`](https://github.com/humansoftware/synaflow/commit/bac95d6bba8e8a8f4d62ed11df234358d85106a5))
+
+* Merge pull request #28 from humansoftware/refactor/pr1-internal-contracts
+
+[codex] Refactor PR1: stabilize observer defaults and build helpers ([`c240e4a`](https://github.com/humansoftware/synaflow/commit/c240e4a908500fe0f20636224ad0614c8e06605b))
+
+* Merge pull request #27 from humansoftware/refactor/observer-dispatch-cleanup
+
+refactor: explicit observer dispatch params, direct attribute access ([`f20fd3c`](https://github.com/humansoftware/synaflow/commit/f20fd3cb05fd63c238a800f839cab2413556b495))
+
+
 ## v0.15.0 (2026-06-15)
 
 ### Documentation
