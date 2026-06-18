@@ -1428,6 +1428,9 @@
 </code></pre></div>
 <p>Each template creates a ready-to-run project with <code>pyproject.toml</code>, example
 steps, and a working pipeline. Answer a few prompts and you're done.</p>
+<p>If you expect I/O-bound stages such as HTTP requests or RPC calls, the next
+concept to read after generating a template is
+<a href="../../core-concepts/max-in-flight/">Max In Flight</a>.</p>
 <p>If you already have a project and just want to scaffold a new pipeline module:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>uvx<span class="w"> </span>cookiecutter<span class="w"> </span>gh:humansoftware/synaflow<span class="w"> </span>--directory<span class="o">=</span>boilerplates/scaffold
 </code></pre></div>
