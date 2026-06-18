@@ -820,6 +820,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#how-bounded-handoff-works" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        How Bounded Handoff Works
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#real-http-example" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1408,6 +1419,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#how-bounded-handoff-works" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        How Bounded Handoff Works
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#real-http-example" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1614,6 +1636,174 @@ responses, without turning your DAG into manual queue or semaphore code.</p>
 </div>
 </div>
 <p>The application still owns the real concurrency. SynaFlow only bounds the handoff between <code>start_request</code> and <code>await_response</code>.</p>
+<h2 id="how-bounded-handoff-works">How Bounded Handoff Works<a class="headerlink" href="#how-bounded-handoff-works" title="Permanent link">&para;</a></h2>
+<p>To understand how <code>max_in_flight</code> bounds the producer progress, let's look at an interactive simulation of the basic example with <code>max_in_flight=3</code> and <code>count=5</code>:</p>
+<div id="mif-animation" style="font-family:monospace;margin:1.5em 0;padding:1em;background:#1a1b26;color:#a9b1d6;border-radius:8px;overflow:hidden">
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.5em">
+  <div>
+    <span style="font-size:0.85em;color:#565f89">Step:</span>
+    <span id="mif-anim-step" style="color:#7dcfff">0/10</span>
+  </div>
+  <div>
+    <button onclick="mifAnimFrame(-1)" style="background:#565f89;color:#fff;border:none;padding:4px 12px;border-radius:4px;cursor:pointer;font-size:0.9em;margin-right:6px" title="Previous frame">◀</button>
+    <button id="mif-anim-play" onclick="mifAnimToggle()" style="background:#7dcfff;color:#1a1b26;border:none;padding:4px 12px;border-radius:4px;cursor:pointer;font-size:0.9em;margin-right:6px">▶ Play</button>
+    <button onclick="mifAnimFrame(1)" style="background:#565f89;color:#fff;border:none;padding:4px 12px;border-radius:4px;cursor:pointer;font-size:0.9em;margin-right:6px" title="Next frame">▶</button>
+    <button onclick="mifAnimReset()" style="background:#565f89;color:#fff;border:none;padding:4px 12px;border-radius:4px;cursor:pointer;font-size:0.9em">↺ Reset</button>
+  </div>
+</div>
+
+<div style="text-align:center;margin-bottom:0.5em">
+<svg id="mif-anim-dag" viewBox="0 0 500 120" style="max-width:500px;width:100%;height:auto;margin:0 auto">
+  <defs>
+    <marker id="mif-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M0,0 L10,5 L0,10" fill="#565f89"/>
+    </marker>
+  </defs>
+  <line x1="120" y1="60" x2="160" y2="60" stroke="#565f89" stroke-width="2" marker-end="url(#mif-arrow)"/>
+  <line x1="330" y1="60" x2="370" y2="60" stroke="#565f89" stroke-width="2" marker-end="url(#mif-arrow)"/>
+  <rect x="10" y="30" width="110" height="60" rx="6" fill="#7aa2f7" opacity="0.15" stroke="#7aa2f7" stroke-width="1.5"/>
+  <text x="65" y="48" text-anchor="middle" fill="#7aa2f7" font-size="11" font-weight="bold">start_request</text>
+  <text id="svg-prod-state" x="65" y="72" text-anchor="middle" fill="#a9b1d6" font-size="10" font-family="monospace">Idle</text>
+  <rect x="170" y="20" width="160" height="80" rx="6" fill="none" stroke="#565f89" stroke-width="1.5" stroke-dasharray="3 3"/>
+  <text x="250" y="38" text-anchor="middle" fill="#bb9af7" font-size="11" font-weight="bold">Buffer (max=3)</text>
+  <rect id="slot-0" x="185" y="50" width="40" height="36" rx="4" fill="#3b4261" stroke="#565f89" stroke-width="1"/>
+  <text id="slot-0-text" x="205" y="72" text-anchor="middle" fill="#a9b1d6" font-size="9" font-family="monospace">-</text>
+  <rect id="slot-1" x="230" y="50" width="40" height="36" rx="4" fill="#3b4261" stroke="#565f89" stroke-width="1"/>
+  <text id="slot-1-text" x="250" y="72" text-anchor="middle" fill="#a9b1d6" font-size="9" font-family="monospace">-</text>
+  <rect id="slot-2" x="275" y="50" width="40" height="36" rx="4" fill="#3b4261" stroke="#565f89" stroke-width="1"/>
+  <text id="slot-2-text" x="295" y="72" text-anchor="middle" fill="#a9b1d6" font-size="9" font-family="monospace">-</text>
+  <rect x="380" y="30" width="110" height="60" rx="6" fill="#7aa2f7" opacity="0.15" stroke="#7aa2f7" stroke-width="1.5"/>
+  <text x="435" y="48" text-anchor="middle" fill="#7aa2f7" font-size="11" font-weight="bold">await_response</text>
+  <text id="svg-cons-state" x="435" y="72" text-anchor="middle" fill="#a9b1d6" font-size="10" font-family="monospace">Idle</text>
+</svg>
+</div>
+
+<table style="width:100%;border-collapse:collapse;font-size:0.85em;text-align:center">
+<thead>
+  <tr style="color:#7aa2f7">
+    <th style="padding:6px;border-bottom:1px solid #565f89;width:65px"></th>
+    <th style="padding:6px;border-bottom:1px solid #565f89">start_request</th>
+    <th style="padding:6px;border-bottom:1px solid #565f89">Buffer Items</th>
+    <th style="padding:6px;border-bottom:1px solid #565f89">await_response</th>
+  </tr>
+</thead>
+<tbody id="mif-anim-body">
+</tbody>
+</table>
+<div id="mif-anim-insight" style="margin-top:0.8em;padding:8px 12px;background:#24283b;border-radius:4px;font-size:0.85em;min-height:2.8em;color:#9ece6a"></div>
+</div>
+
+<script>
+(function() {
+  var frames = [
+    [0, "Idle", ["-", "-", "-"], "Idle", "Pipeline starts. Both steps are idle. Buffer is empty."],
+    [1, "Submit url0", ["Fut0", "-", "-"], "Idle", "start_request submits url0 (returns Fut0) and places it in the buffer. Buffer size: 1/3."],
+    [2, "Submit url1", ["Fut0", "Fut1", "-"], "Idle", "start_request submits url1 (returns Fut1). Buffer size: 2/3."],
+    [3, "Submit url2", ["Fut0", "Fut1", "Fut2"], "Idle", "start_request submits url2 (returns Fut2). Buffer is now full (3/3) and start_request blocks!"],
+    [4, "Blocked", ["Fut1", "Fut2", "-"], "Awaiting Fut0", "await_response pulls and resolves Fut0. Buffer drops to 2/3, unblocking producer."],
+    [5, "Submit url3", ["Fut1", "Fut2", "Fut3"], "Idle", "start_request immediately submits url3 (returns Fut3). Buffer becomes full again (3/3) and producer blocks."],
+    [6, "Blocked", ["Fut2", "Fut3", "-"], "Awaiting Fut1", "await_response resolves Fut1. Buffer drops to 2/3, unblocking producer."],
+    [7, "Submit url4", ["Fut2", "Fut3", "Fut4"], "Idle", "start_request submits url4 (the final URL). Producer is finished. Buffer size: 3/3."],
+    [8, "Finished", ["Fut3", "Fut4", "-"], "Awaiting Fut2", "await_response resolves Fut2. Buffer size: 2/3."],
+    [9, "Finished", ["Fut4", "-", "-"], "Awaiting Fut3", "await_response resolves Fut3. Buffer size: 1/3."],
+    [10, "Finished", ["-", "-", "-"], "Awaiting Fut4", "await_response resolves the final Fut4. Buffer is empty. Pipeline complete!"]
+  ];
+
+  var cur = 0, timer = null, playing = false;
+
+  function renderTable() {
+    var html = "";
+    for (var i = 0; i < frames.length; i++) {
+      var f = frames[i], isCur = i === cur;
+      var label = i === 0 ? "start" : "&nbsp;&nbsp;t" + i;
+      html += '<tr style="' + (isCur ? 'outline:2px solid #7dcfff;outline-offset:-2px' : '') + '">';
+      html += '<td style="padding:4px 8px;color:#565f89;text-align:right;border-right:1px solid #565f89">' + label + '</td>';
+      html += '<td style="padding:4px 8px;">' + f[1] + '</td>';
+      html += '<td style="padding:4px 8px;font-family:monospace;">[' + f[2].join(', ') + ']</td>';
+      html += '<td style="padding:4px 8px;">' + f[3] + '</td>';
+      html += '</tr>';
+    }
+    document.getElementById("mif-anim-body").innerHTML = html;
+  }
+
+  function renderDag() {
+    var f = frames[cur];
+
+    var prodEl = document.getElementById("svg-prod-state");
+    prodEl.textContent = f[1];
+    if (f[1].indexOf("Blocked") !== -1) {
+      prodEl.setAttribute("fill", "#f7768e");
+    } else if (f[1].indexOf("Finished") !== -1) {
+      prodEl.setAttribute("fill", "#565f89");
+    } else if (f[1].indexOf("Submit") !== -1) {
+      prodEl.setAttribute("fill", "#e0af68");
+    } else {
+      prodEl.setAttribute("fill", "#a9b1d6");
+    }
+
+    var consEl = document.getElementById("svg-cons-state");
+    consEl.textContent = f[3];
+    if (f[3].indexOf("Awaiting") !== -1) {
+      consEl.setAttribute("fill", "#7dcfff");
+    } else {
+      consEl.setAttribute("fill", "#a9b1d6");
+    }
+
+    for (var j = 0; j < 3; j++) {
+      var val = f[2][j];
+      var slotEl = document.getElementById("slot-" + j);
+      var textEl = document.getElementById("slot-" + j + "-text");
+      textEl.textContent = val;
+      if (val !== "-") {
+        slotEl.setAttribute("fill", "#bb9af7");
+        slotEl.setAttribute("opacity", "0.4");
+        textEl.setAttribute("fill", "#ffffff");
+      } else {
+        slotEl.setAttribute("fill", "#3b4261");
+        slotEl.setAttribute("opacity", "1");
+        textEl.setAttribute("fill", "#a9b1d6");
+      }
+    }
+  }
+
+  window.mifAnimFrame = function(d) {
+    var next = cur + d;
+    if (next >= 0 && next < frames.length) cur = next;
+    update();
+  };
+
+  window.mifAnimToggle = function() {
+    if (playing) {
+      clearInterval(timer);
+      playing = false;
+      document.getElementById("mif-anim-play").innerHTML = "▶ Play";
+    } else {
+      playing = true;
+      document.getElementById("mif-anim-play").innerHTML = "⏸ Pause";
+      timer = setInterval(function(){
+        window.mifAnimFrame(1);
+        if (cur >= frames.length - 1) window.mifAnimToggle();
+      }, 1500);
+    }
+  };
+
+  window.mifAnimReset = function() {
+    cur = 0;
+    update();
+  };
+
+  function update() {
+    var f = frames[cur];
+    document.getElementById("mif-anim-step").innerHTML = cur + "/" + (frames.length - 1);
+    document.getElementById("mif-anim-insight").innerHTML = f[4];
+    renderTable();
+    renderDag();
+  }
+
+  update();
+})();
+</script>
+
 <h2 id="real-http-example">Real HTTP Example<a class="headerlink" href="#real-http-example" title="Permanent link">&para;</a></h2>
 <p>If you use an HTTP client (like <code>requests</code> for sync or <code>httpx</code> for async), the clean pattern is:
 * One step submits/creates the async task or submits to a thread pool
