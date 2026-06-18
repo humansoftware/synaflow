@@ -416,7 +416,9 @@ def test_given_step_output_observer_and_bounded_lazy_stream_then_observer_does_n
                 "gen",
                 fn=gen,
                 max_in_flight=3,
-                observers=[Observer(on_event(MaterializationEvent.STARTED, rec.record))],
+                observers=[
+                    Observer(on_event(MaterializationEvent.STARTED, rec.record))
+                ],
             ),
             step("lazy_consumer", fn=lazy_consumer),
         ],

@@ -508,7 +508,9 @@ class PipelineExecutor:
         fanout: SyncFanout,
         observer_branch_names: list[str],
     ) -> None:
-        for branch_name, observer in zip(observer_branch_names, self._step_output_observers):
+        for branch_name, observer in zip(
+            observer_branch_names, self._step_output_observers
+        ):
             iterator = fanout.lazy_iterator(branch_name)
 
             def run_observer(obs=observer, branch_iter=iterator):
@@ -617,7 +619,10 @@ class PipelineExecutor:
     ):
         consumer_type = self.dag[consumer].deps.get(step_name)
 
-        if self._step_output_observers and step_name not in self.dag[consumer].materialized_deps:
+        if (
+            self._step_output_observers
+            and step_name not in self.dag[consumer].materialized_deps
+        ):
             observer_branches = self._observer_branch_names()
             fanout = SyncFanout(
                 output,
@@ -626,8 +631,8 @@ class PipelineExecutor:
                 eager_branches=[],
             )
             self._active_fanouts.append(fanout)
-            self.outputs[self.dag.output_key(step_name, consumer)] = fanout.lazy_iterator(
-                consumer
+            self.outputs[self.dag.output_key(step_name, consumer)] = (
+                fanout.lazy_iterator(consumer)
             )
             self._start_observer_threads(step_name, fanout, observer_branches)
             fanout.start()

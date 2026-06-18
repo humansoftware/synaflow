@@ -499,9 +499,7 @@ class AsyncPipelineExecutor:
                 else:
                     maxsize = 2
                     if producer_node is not None:
-                        maxsize = max(
-                            2, getattr(producer_node, "max_in_flight", 1) + 1
-                        )
+                        maxsize = max(2, getattr(producer_node, "max_in_flight", 1) + 1)
                     q = asyncio.Queue(maxsize=maxsize)
                 if isinstance(value, (list, tuple, set)):
                     for item in value:
