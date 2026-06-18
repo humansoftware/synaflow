@@ -2,6 +2,96 @@
 
 
 
+## v0.17.0 (2026-06-18)
+
+### Ci
+
+* ci: separate lint, test, and coverage into parallel jobs
+
+Split the single test job in ci.yml (which ran lint + install + tests
+sequentially) into three independent parallel jobs:
+
+- lint — only needs ruff via uvx, skips package installation (faster)
+- test — builds/installs the wheel and runs pytest
+- total-coverage — runs pytest --cov, posts Total Coverage and Patch
+  Coverage checks to GitHub (gated on pull_request events)
+
+The Total Coverage check now enforces an 80% threshold (previously
+always success) and includes a per-file coverage report table in its
+summary, so the full report is visible directly on the PR checks
+without digging into job logs. Patch Coverage keeps its 80% threshold.
+
+Consolidated the standalone test-coverage.yml workflow into the
+total-coverage job and deleted the old file. Pre-commit behavior is
+unchanged locally — everything still runs together via the pytest hook. ([`2441ba3`](https://github.com/humansoftware/synaflow/commit/2441ba3b019ae99b94ffa3bfc1c83a140dc780a6))
+
+### Feature
+
+* feat: validate terminal steps with unmaterialized stream output at build time
+
+A terminal step (no consumers) whose output is Iterator/Generator or
+AsyncIterator/AsyncGenerator and whose output is not materialized
+(needs_materialize is False) produces a stream that nobody drains. At
+runtime this causes either a deadlock (bounded handoff pump blocks
+forever) or silent data loss (the pump discards items to deliver the
+EOF marker).
+
+Add validate_no_unmaterialized_terminal_streams in dag_steps.py, called
+from build_dag after materialized_deps are computed. Uses the existing
+needs_materialize flag -- no new materialization logic. Steps exported
+via sub-pipeline exports are skipped because they will have consumers
+in the parent. Also propagate force_materialize through sub-pipeline
+expansion (was missing).
+
+Fix existing tests with latent terminal Iterator-returning steps:
+- corpus complex_parallel_mixed: step3 -&gt; list[int]
+- observer runtime: lazy_consumer/passthrough -&gt; None (drain input)
+- dag_materializer: add force_materialize=True (test targets UNRUNNABLE)
+- dag_expansion: add force_materialize=True (test targets DAG structure)
+- materializers_ergonomics: add force_materialize=True on sub-pipeline gen
+- async_runner_basic: add force_materialize=True (test targets RuntimeError)
+
+Document in DESIGN_PHILOSOPHY that observers receiving an Iterator must
+consume it fully (application responsibility, causes tee buffer growth
+otherwise). ([`26b999f`](https://github.com/humansoftware/synaflow/commit/26b999f21c218635ac2480ced6dee93ee84949e4))
+
+### Refactor
+
+* refactor: remove dead branches in async _pump_iterator and drop put_terminal
+
+- Collapse the two isinstance(q, AsyncQueueBranch): await q.put(item)
+  else: await q.put(item) blocks in async _pump_iterator (both arms
+  were byte-for-byte identical) into a single await q.put(item), and
+  unify the materialize_before_enqueue / plain paths under one async
+  for loop.
+- Remove AsyncQueueBranch.put_terminal: it was functionally identical
+  to put (same active-gated put_nowait loop), so collapse callers in
+  _pump_iterator to use put for terminal markers too.
+- Add pytest-timeout dev dependency and a per-test timeout=10s in
+  pyproject.toml so a hung streaming test fails loudly instead of
+  stalling the suite.
+
+The sync SyncFanout._put_terminal busy-wait + get_nowait() drop is
+intentionally left untouched here: removing the drop without a full
+shutdown redesign of SyncFanout (terminal consumer that never drains
+its SyncQueueIterator deadlocks the pump) turns it into a hard hang.
+That belongs in its own PR. ([`dc8bebf`](https://github.com/humansoftware/synaflow/commit/dc8bebf6b488e22fe9d9b4b8c09a7ca509e7d835))
+
+### Unknown
+
+* Merge pull request #37 from humansoftware/feat/validate-terminal-stream-output
+
+feat: validate terminal steps with unmaterialized stream output at build time ([`43e5787`](https://github.com/humansoftware/synaflow/commit/43e5787e4b31e8abc2d868f9991a32cc7f8804e3))
+
+* Merge pull request #35 from humansoftware/ci/separate-lint-test-coverage
+
+ci: separate lint, test, and coverage into parallel jobs ([`2377af9`](https://github.com/humansoftware/synaflow/commit/2377af95e6d0a62fe4e36bb3cb2df0bc36c5c6fc))
+
+* Merge pull request #34 from humansoftware/refactor/max-in-flight-cleanup
+
+refactor: remove dead branches in async _pump_iterator and drop put_terminal ([`9d9a325`](https://github.com/humansoftware/synaflow/commit/9d9a325ab9619cb656a28a12f060f8c1537d47ef))
+
+
 ## v0.16.0 (2026-06-18)
 
 ### Documentation
