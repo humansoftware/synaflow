@@ -73,3 +73,12 @@ def test_given_max_in_flight_string_when_compiled_then_raises():
             params=Empty,
             steps=[step("s", fn=lambda: None, max_in_flight="30")],
         )
+
+
+def test_given_max_in_flight_bool_when_compiled_then_raises():
+    with pytest.raises(ValueError, match="max_in_flight must be an integer"):
+        pipeline(
+            name="test",
+            params=Empty,
+            steps=[step("s", fn=lambda: None, max_in_flight=True)],
+        )

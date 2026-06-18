@@ -150,6 +150,7 @@ def _expand_sub_pipeline_steps(
                 pipeline=sub_pipeline.name,
                 parent_pipeline=new_parent_chain,
                 observers=observers,
+                max_in_flight=sub_step.max_in_flight,
             )
         )
 

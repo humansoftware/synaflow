@@ -24,6 +24,13 @@ src/{{ cookiecutter.package_name }}/
 2. Wire them in `pipeline.py`
 3. Run from `main.py`
 
+## Next concepts
+
+If your pipeline needs a bounded ahead window between two streaming stages,
+especially for I/O-bound work, read the `max_in_flight` docs:
+
+- https://humansoftware.github.io/synaflow/core-concepts/max-in-flight/
+
 Need a simpler single-file project? Use the `minimal` template:
 ```bash
 uvx cookiecutter gh:humansoftware/synaflow --directory=boilerplates/minimal
