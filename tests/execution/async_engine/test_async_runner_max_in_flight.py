@@ -5,6 +5,7 @@ import asyncio
 import pytest
 
 from synaflow import OnError, async_run, pipeline, step
+from synaflow.core.exceptions import PipelineStopException
 
 
 class Empty(NamedTuple):
@@ -239,3 +240,134 @@ async def test_given_max_in_flight_3_when_fanout_lazy_and_eager_then_both_receiv
 
     assert lazy_results == list(range(10))
     assert eager_results == [list(range(10))]
+
+
+@pytest.mark.asyncio
+async def test_given_max_in_flight_3_when_cross_level_bypass_then_pipeline_completes():
+    transformed: list[int] = []
+    bypassed: list[int] = []
+
+    async def producer(count: int) -> AsyncGenerator[int, None]:
+        for i in range(count):
+            yield i
+
+    async def first_consumer(producer: AsyncIterator[int]) -> int:
+        total = 0
+        async for item in producer:
+            total += item
+        return total
+
+    async def second_consumer(
+        first_consumer: int, producer: AsyncIterator[int]
+    ) -> None:
+        transformed.append(first_consumer)
+        async for item in producer:
+            bypassed.append(item)
+
+    p = pipeline(
+        name="test",
+        params=Count,
+        steps=[
+            step("producer", fn=producer, max_in_flight=3),
+            step("first_consumer", fn=first_consumer),
+            step("second_consumer", fn=second_consumer),
+        ],
+    )
+    await async_run(p, Count(count=5))
+
+    assert transformed == [10]
+    assert bypassed == [0, 1, 2, 3, 4]
+
+
+@pytest.mark.asyncio
+async def test_given_max_in_flight_3_when_branch_stops_early_then_other_branch_finishes():
+    early: list[int] = []
+    full: list[int] = []
+
+    async def producer(count: int) -> AsyncGenerator[int, None]:
+        for i in range(count):
+            yield i
+
+    async def early_consumer(producer: AsyncIterator[int]) -> None:
+        async for item in producer:
+            early.append(item)
+            break
+
+    async def full_consumer(producer: AsyncIterator[int]) -> None:
+        async for item in producer:
+            full.append(item)
+
+    p = pipeline(
+        name="test",
+        params=Count,
+        steps=[
+            step("producer", fn=producer, max_in_flight=3),
+            step("early_consumer", fn=early_consumer),
+            step("full_consumer", fn=full_consumer),
+        ],
+    )
+    await async_run(p, Count(count=5))
+
+    assert early == [0]
+    assert full == [0, 1, 2, 3, 4]
+
+
+@pytest.mark.asyncio
+async def test_given_two_lazy_deps_with_max_in_flight_when_unrolled_then_pairs_are_preserved():
+    pairs: list[tuple[int, int]] = []
+
+    async def left(count: int) -> AsyncGenerator[int, None]:
+        for i in range(count):
+            yield i
+
+    async def right(count: int) -> AsyncGenerator[int, None]:
+        for i in range(10, 10 + count):
+            yield i
+
+    async def join(left: int, right: int) -> None:
+        pairs.append((left, right))
+
+    p = pipeline(
+        name="test",
+        params=Count,
+        steps=[
+            step("left", fn=left, max_in_flight=3),
+            step("right", fn=right, max_in_flight=3),
+            step("join", fn=join),
+        ],
+    )
+    await async_run(p, Count(count=5))
+
+    assert pairs == [(0, 10), (1, 11), (2, 12), (3, 13), (4, 14)]
+
+
+@pytest.mark.asyncio
+async def test_given_fanout_lazy_and_eager_when_producer_stream_fails_then_pipeline_stops():
+    lazy_seen: list[int] = []
+
+    async def producer(count: int) -> AsyncGenerator[int, None]:
+        yield 0
+        yield 1
+        raise ValueError("boom")
+
+    async def lazy_consumer(producer: AsyncIterator[int]) -> None:
+        async for item in producer:
+            lazy_seen.append(item)
+
+    async def eager_consumer(producer: list[int]) -> None:
+        pass
+
+    p = pipeline(
+        name="test",
+        params=Count,
+        steps=[
+            step("producer", fn=producer, max_in_flight=3, on_error=OnError.STOP),
+            step("lazy_consumer", fn=lazy_consumer, on_error=OnError.STOP),
+            step("eager_consumer", fn=eager_consumer, on_error=OnError.STOP),
+        ],
+    )
+
+    with pytest.raises(PipelineStopException):
+        await async_run(p, Count(count=5))
+
+    assert lazy_seen == []

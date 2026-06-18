@@ -3,7 +3,10 @@ from time import sleep
 import threading
 from typing import NamedTuple
 
+import pytest
+
 from synaflow import OnError, pipeline, run, step
+from synaflow.core.exceptions import PipelineStopException
 
 
 class Empty(NamedTuple):
@@ -276,3 +279,121 @@ def test_given_user_resource_with_close_when_used_as_param_then_executor_does_no
 
     assert seen == [resource]
     assert resource.closed is False
+
+
+def test_given_max_in_flight_3_when_cross_level_bypass_then_pipeline_completes():
+    transformed: list[int] = []
+    bypassed: list[int] = []
+
+    def producer(count: int) -> Generator[int, None, None]:
+        yield from range(count)
+
+    def first_consumer(producer: Iterator[int]) -> int:
+        return sum(producer)
+
+    def second_consumer(first_consumer: int, producer: Iterator[int]) -> None:
+        transformed.append(first_consumer)
+        for item in producer:
+            bypassed.append(item)
+
+    p = pipeline(
+        name="test",
+        params=Count,
+        steps=[
+            step("producer", fn=producer, max_in_flight=3),
+            step("first_consumer", fn=first_consumer),
+            step("second_consumer", fn=second_consumer),
+        ],
+    )
+    run(p, Count(count=5))
+
+    assert transformed == [10]
+    assert bypassed == [0, 1, 2, 3, 4]
+
+
+def test_given_max_in_flight_3_when_branch_stops_early_then_other_branch_finishes():
+    early: list[int] = []
+    full: list[int] = []
+
+    def producer(count: int) -> Generator[int, None, None]:
+        yield from range(count)
+
+    def early_consumer(producer: Iterator[int]) -> None:
+        for item in producer:
+            early.append(item)
+            break
+
+    def full_consumer(producer: Iterator[int]) -> None:
+        for item in producer:
+            full.append(item)
+
+    p = pipeline(
+        name="test",
+        params=Count,
+        steps=[
+            step("producer", fn=producer, max_in_flight=3),
+            step("early_consumer", fn=early_consumer),
+            step("full_consumer", fn=full_consumer),
+        ],
+    )
+    run(p, Count(count=5))
+
+    assert early == [0]
+    assert full == [0, 1, 2, 3, 4]
+
+
+def test_given_two_lazy_deps_with_max_in_flight_when_unrolled_then_pairs_are_preserved():
+    pairs: list[tuple[int, int]] = []
+
+    def left(count: int) -> Generator[int, None, None]:
+        yield from range(count)
+
+    def right(count: int) -> Generator[int, None, None]:
+        yield from range(10, 10 + count)
+
+    def join(left: int, right: int) -> None:
+        pairs.append((left, right))
+
+    p = pipeline(
+        name="test",
+        params=Count,
+        steps=[
+            step("left", fn=left, max_in_flight=3),
+            step("right", fn=right, max_in_flight=3),
+            step("join", fn=join),
+        ],
+    )
+    run(p, Count(count=5))
+
+    assert pairs == [(0, 10), (1, 11), (2, 12), (3, 13), (4, 14)]
+
+
+def test_given_fanout_lazy_and_eager_when_producer_stream_fails_then_pipeline_stops():
+    lazy_seen: list[int] = []
+
+    def producer(count: int) -> Generator[int, None, None]:
+        yield 0
+        yield 1
+        raise ValueError("boom")
+
+    def lazy_consumer(producer: Iterator[int]) -> None:
+        for item in producer:
+            lazy_seen.append(item)
+
+    def eager_consumer(producer: list[int]) -> None:
+        pass
+
+    p = pipeline(
+        name="test",
+        params=Count,
+        steps=[
+            step("producer", fn=producer, max_in_flight=3, on_error=OnError.STOP),
+            step("lazy_consumer", fn=lazy_consumer, on_error=OnError.STOP),
+            step("eager_consumer", fn=eager_consumer, on_error=OnError.STOP),
+        ],
+    )
+
+    with pytest.raises(PipelineStopException):
+        run(p, Count(count=5))
+
+    assert lazy_seen == []
