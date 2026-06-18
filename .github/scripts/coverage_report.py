@@ -12,6 +12,7 @@ import subprocess
 import sys
 
 PATCH_THRESHOLD = 80
+TOTAL_THRESHOLD = 80
 
 
 def get_total_coverage(coverage_json_path="coverage.json"):
@@ -23,6 +24,27 @@ def get_total_coverage(coverage_json_path="coverage.json"):
     if num_statements == 0:
         return 100.0
     return (totals["covered_lines"] / num_statements) * 100
+
+
+def format_coverage_report(coverage_json_path="coverage.json"):
+    """Build a markdown table of per-file coverage from coverage.json."""
+    with open(coverage_json_path) as f:
+        data = json.load(f)
+
+    rows = []
+    for file_path, file_info in sorted(data["files"].items()):
+        totals = file_info["summary"]
+        num_statements = totals["num_statements"]
+        if num_statements == 0:
+            continue
+        pct = (totals["covered_lines"] / num_statements) * 100
+        missing = totals["missing_lines"]
+        rows.append(f"| {file_path} | {num_statements} | {missing} | {pct:.1f}% |")
+
+    if not rows:
+        return "No tracked files."
+    header = "| File | Stmts | Miss | Cover |\n| --- | --- | --- | --- |"
+    return header + "\n" + "\n".join(rows)
 
 
 def get_changed_lines_pr():
@@ -158,7 +180,7 @@ def create_check_run(name, conclusion, title, summary):
 
 
 def run_ci():
-    """CI mode: report total and patch coverage as GitHub Check Runs."""
+    """CI mode: report total coverage via the job summary and patch coverage as a Check Run."""
     coverage_path = "coverage.json"
     if not os.path.exists(coverage_path):
         print("Error: coverage.json not found. Tests may have failed.")
@@ -173,12 +195,13 @@ def run_ci():
         f"Patch coverage: {patch_pct:.1f}% ({trackable_count} trackable lines changed)"
     )
 
-    create_check_run(
-        name="Total Coverage",
-        conclusion="success",
-        title=f"Total Coverage: {total_pct:.1f}%",
-        summary=f"Overall project test coverage is **{total_pct:.1f}%**.",
-    )
+    summary_path = os.environ.get("GITHUB_STEP_SUMMARY")
+    if summary_path:
+        with open(summary_path, "a") as f:
+            f.write(f"## Total Coverage: {total_pct:.1f}%\n")
+            f.write(f"(threshold: {TOTAL_THRESHOLD}%)\n\n")
+            f.write(format_coverage_report(coverage_path))
+            f.write("\n")
 
     patch_conclusion = "success" if patch_pct >= PATCH_THRESHOLD else "failure"
     patch_summary = (
@@ -191,6 +214,12 @@ def run_ci():
         title=f"Patch Coverage: {patch_pct:.1f}%",
         summary=patch_summary,
     )
+
+    if total_pct < TOTAL_THRESHOLD:
+        print(
+            f"FAIL: total coverage {total_pct:.1f}% is below {TOTAL_THRESHOLD}% threshold"
+        )
+        sys.exit(1)
 
 
 def run_precommit():
