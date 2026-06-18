@@ -148,43 +148,20 @@ async def _pump_iterator(
     queues: dict[str, Any],
     on_error: Any,
     dag: Dag | None = None,
-    materialize_before_enqueue: bool = False,
-    consumer_type: Any = None,
 ) -> None:
     try:
-        safe = _safe_iterate(name, iterator)
-        if materialize_before_enqueue:
-            items, _, _ = await _apply_materializer(
-                dag, name, safe, consumer_type=consumer_type
-            )
-            async for item in _safe_iterate(name, items):
-                for q in queues.values():
-                    if isinstance(q, AsyncQueueBranch):
-                        await q.put(item)
-                    else:
-                        await q.put(item)
-        else:
-            async for item in safe:
-                for q in queues.values():
-                    if isinstance(q, AsyncQueueBranch):
-                        await q.put(item)
-                    else:
-                        await q.put(item)
+        async for item in _safe_iterate(name, iterator):
+            for q in queues.values():
+                await q.put(item)
     except StepExecutionError as e:
         await _handle_error(dag, name, e.__cause__ or e)
         if on_error == OnError.STOP:
             for q in queues.values():
-                if isinstance(q, AsyncQueueBranch):
-                    await q.put_terminal(PipelineStopException(step_name=name))
-                else:
-                    await q.put(PipelineStopException(step_name=name))
+                await q.put(PipelineStopException(step_name=name))
             raise PipelineStopException(step_name=name) from e
     finally:
         for q in queues.values():
-            if isinstance(q, AsyncQueueBranch):
-                await q.put_terminal(EOF_MARKER)
-            else:
-                await q.put(EOF_MARKER)
+            await q.put(EOF_MARKER)
 
 
 async def _pump_observer(name: str, queue: asyncio.Queue, observer: Any) -> None:
@@ -737,7 +714,6 @@ class AsyncPipelineExecutor:
                 queues,
                 node.on_error,
                 dag=self.dag,
-                materialize_before_enqueue=False,
             )
         )
         self._pump_tasks.append(task)
