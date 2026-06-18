@@ -47,255 +47,241 @@ That means:
 - one item is handed off at a time
 - memory stays tightly bounded
 
-## Sync example
+## Basic Example
 
-```python
-from collections.abc import Generator, Iterator
-from concurrent.futures import Future, ThreadPoolExecutor
-from typing import NamedTuple
+=== "Sync"
 
-from synaflow import pipeline, run, step
+    ```python
+    from collections.abc import Generator, Iterator
+    from concurrent.futures import Future, ThreadPoolExecutor
+    from typing import NamedTuple
 
-pool = ThreadPoolExecutor(max_workers=30)
+    from synaflow import pipeline, run, step
 
-
-class Params(NamedTuple):
-    urls: list[str]
+    pool = ThreadPoolExecutor(max_workers=30)
 
 
-def urls(urls: list[str]) -> Generator[str, None, None]:
-    yield from urls
+    class Params(NamedTuple):
+        urls: list[str]
 
 
-def start_request(url: str) -> Future:
-    return pool.submit(fetch, url)
+    def urls(urls: list[str]) -> Generator[str, None, None]:
+        yield from urls
 
 
-def await_response(start_request: Iterator[Future]) -> None:
-    for future in start_request:
-        print(future.result())
+    def start_request(url: str) -> Future:
+        return pool.submit(fetch, url)
 
 
-def fetch(url: str) -> str:
-    return f"ok:{url}"
+    def await_response(start_request: Iterator[Future]) -> None:
+        for future in start_request:
+            print(future.result())
 
 
-p = pipeline(
-    name="bounded_requests",
-    params=Params,
-    steps=[
-        step("urls", fn=urls),
-        step("start_request", fn=start_request, max_in_flight=30),
-        step("await_response", fn=await_response),
-    ],
-)
-
-run(p, Params(urls=["a", "b", "c"]))
-pool.shutdown(wait=True)
-```
-
-The application still owns the real concurrency. SynaFlow only bounds the
-handoff between `start_request` and `await_response`.
-
-## Real sync HTTP example
-
-If you use a blocking HTTP client such as `requests`, the clean pattern is:
-
-- one step submits the request work to your own thread pool
-- the next step consumes the returned `Future`s
-- `max_in_flight` keeps only a bounded number of pending requests ahead
-
-```python
-from collections.abc import Generator, Iterator
-from concurrent.futures import Future, ThreadPoolExecutor
-from typing import NamedTuple
-
-import requests
-
-from synaflow import pipeline, run, step
-
-pool = ThreadPoolExecutor(max_workers=30)
+    def fetch(url: str) -> str:
+        return f"ok:{url}"
 
 
-class Params(NamedTuple):
-    urls: list[str]
+    p = pipeline(
+        name="bounded_requests",
+        params=Params,
+        steps=[
+            step("urls", fn=urls),
+            step("start_request", fn=start_request, max_in_flight=30),
+            step("await_response", fn=await_response),
+        ],
+    )
+
+    run(p, Params(urls=["a", "b", "c"]))
+    pool.shutdown(wait=True)
+    ```
+
+=== "Async"
+
+    ```python
+    from collections.abc import AsyncGenerator, AsyncIterator
+    from typing import NamedTuple
+
+    from synaflow import async_run, pipeline, step
 
 
-def urls(urls: list[str]) -> Generator[str, None, None]:
-    yield from urls
+    class Params(NamedTuple):
+        urls: list[str]
 
 
-def fetch(url: str) -> dict:
-    response = requests.get(url, timeout=10)
-    return {
-        "url": url,
-        "status": response.status_code,
-        "size": len(response.text),
-    }
+    async def urls(urls: list[str]) -> AsyncGenerator[str, None]:
+        for url in urls:
+            yield url
 
 
-def start_request(urls: str) -> Future:
-    return pool.submit(fetch, urls)
+    async def start_request(url: str):
+        return fetch_async(url)
 
 
-def await_response(start_request: Iterator[Future]) -> None:
-    for future in start_request:
-        data = future.result()
-        print(data["url"], data["status"], data["size"])
+    async def await_response(start_request: AsyncIterator):
+        async for task in start_request:
+            print(await task)
 
 
-p = pipeline(
-    name="bounded_http_sync",
-    params=Params,
-    steps=[
-        step("urls", fn=urls),
-        step("start_request", fn=start_request, max_in_flight=5),
-        step("await_response", fn=await_response),
-    ],
-)
+    async def fetch_async(url: str) -> str:
+        return f"ok:{url}"
 
-run(
-    p,
-    Params(
-        urls=[
-            "https://example.com",
-            "https://example.com",
-            "https://example.com",
-        ]
-    ),
-)
-pool.shutdown(wait=True)
-```
+
+    p = pipeline(
+        name="bounded_requests_async",
+        params=Params,
+        steps=[
+            step("urls", fn=urls),
+            step("start_request", fn=start_request, max_in_flight=30),
+            step("await_response", fn=await_response),
+        ],
+    )
+
+    await async_run(p, Params(urls=["a", "b", "c"]))
+    ```
+
+The application still owns the real concurrency. SynaFlow only bounds the handoff between `start_request` and `await_response`.
+
+## Real HTTP Example
+
+If you use an HTTP client (like `requests` for sync or `httpx` for async), the clean pattern is:
+* One step submits/creates the async task or submits to a thread pool
+* The next step consumes/awaits the task or future
+* `max_in_flight` bounds the number of pending requests ahead, preserving memory and scheduling control
+
+=== "Sync"
+
+    ```python
+    from collections.abc import Generator, Iterator
+    from concurrent.futures import Future, ThreadPoolExecutor
+    from typing import NamedTuple
+
+    import requests
+
+    from synaflow import pipeline, run, step
+
+    pool = ThreadPoolExecutor(max_workers=30)
+
+
+    class Params(NamedTuple):
+        urls: list[str]
+
+
+    def urls(urls: list[str]) -> Generator[str, None, None]:
+        yield from urls
+
+
+    def fetch(url: str) -> dict:
+        response = requests.get(url, timeout=10)
+        return {
+            "url": url,
+            "status": response.status_code,
+            "size": len(response.text),
+        }
+
+
+    def start_request(urls: str) -> Future:
+        return pool.submit(fetch, urls)
+
+
+    def await_response(start_request: Iterator[Future]) -> None:
+        for future in start_request:
+            data = future.result()
+            print(data["url"], data["status"], data["size"])
+
+
+    p = pipeline(
+        name="bounded_http_sync",
+        params=Params,
+        steps=[
+            step("urls", fn=urls),
+            step("start_request", fn=start_request, max_in_flight=5),
+            step("await_response", fn=await_response),
+        ],
+    )
+
+    run(
+        p,
+        Params(
+            urls=[
+                "https://example.com",
+                "https://example.com",
+                "https://example.com",
+            ]
+        ),
+    )
+    pool.shutdown(wait=True)
+    ```
+
+=== "Async"
+
+    ```python
+    import asyncio
+    from collections.abc import AsyncGenerator, AsyncIterator
+    from typing import NamedTuple
+
+    import httpx
+
+    from synaflow import async_run, pipeline, step
+
+
+    class Params(NamedTuple):
+        urls: list[str]
+
+
+    async def main() -> None:
+        async with httpx.AsyncClient() as client:
+            async def urls(urls: list[str]) -> AsyncGenerator[str, None]:
+                for url in urls:
+                    yield url
+
+            async def fetch(url: str) -> dict:
+                response = await client.get(url, timeout=10)
+                return {
+                    "url": url,
+                    "status": response.status_code,
+                    "size": len(response.text),
+                }
+
+            async def start_request(url: str) -> asyncio.Task[dict]:
+                return asyncio.create_task(fetch(url))
+
+            async def await_response(
+                start_request: AsyncIterator[asyncio.Task[dict]],
+            ) -> None:
+                async for task in start_request:
+                    data = await task
+                    print(data["url"], data["status"], data["size"])
+
+            p = pipeline(
+                name="bounded_http_async",
+                params=Params,
+                steps=[
+                    step("urls", fn=urls),
+                    step("start_request", fn=start_request, max_in_flight=30),
+                    step("await_response", fn=await_response),
+                ],
+            )
+
+            await async_run(
+                p,
+                Params(
+                    urls=[
+                        "https://example.com",
+                        "https://example.com",
+                        "https://example.com",
+                    ]
+                ),
+            )
+
+
+    asyncio.run(main())
+    ```
 
 Why this is good:
-
-- without `max_in_flight`, the pipeline stays strict lockstep
-- with `max_in_flight=5`, the `start_request` step may get up to five URLs
-  ahead
-- your application still controls the real concurrency through the pool
-- memory stays bounded because SynaFlow never lets the producer run away
-
-## Async example
-
-```python
-from collections.abc import AsyncGenerator, AsyncIterator
-from typing import NamedTuple
-
-from synaflow import async_run, pipeline, step
-
-
-class Params(NamedTuple):
-    urls: list[str]
-
-
-async def urls(urls: list[str]) -> AsyncGenerator[str, None]:
-    for url in urls:
-        yield url
-
-
-async def start_request(url: str):
-    return fetch_async(url)
-
-
-async def await_response(start_request: AsyncIterator):
-    async for task in start_request:
-        print(await task)
-
-
-async def fetch_async(url: str) -> str:
-    return f"ok:{url}"
-
-
-p = pipeline(
-    name="bounded_requests_async",
-    params=Params,
-    steps=[
-        step("urls", fn=urls),
-        step("start_request", fn=start_request, max_in_flight=30),
-        step("await_response", fn=await_response),
-    ],
-)
-
-await async_run(p, Params(urls=["a", "b", "c"]))
-```
-
-## Real async HTTP example
-
-In async pipelines, the same shape becomes even lighter because the application
-can return tasks directly.
-
-```python
-import asyncio
-from collections.abc import AsyncGenerator, AsyncIterator
-from typing import NamedTuple
-
-import httpx
-
-from synaflow import async_run, pipeline, step
-
-
-class Params(NamedTuple):
-    urls: list[str]
-
-
-async def main() -> None:
-    async with httpx.AsyncClient() as client:
-        async def urls(urls: list[str]) -> AsyncGenerator[str, None]:
-            for url in urls:
-                yield url
-
-        async def fetch(url: str) -> dict:
-            response = await client.get(url, timeout=10)
-            return {
-                "url": url,
-                "status": response.status_code,
-                "size": len(response.text),
-            }
-
-        async def start_request(url: str) -> asyncio.Task[dict]:
-            return asyncio.create_task(fetch(url))
-
-        async def await_response(
-            start_request: AsyncIterator[asyncio.Task[dict]],
-        ) -> None:
-            async for task in start_request:
-                data = await task
-                print(data["url"], data["status"], data["size"])
-
-        p = pipeline(
-            name="bounded_http_async",
-            params=Params,
-            steps=[
-                step("urls", fn=urls),
-                step("start_request", fn=start_request, max_in_flight=30),
-                step("await_response", fn=await_response),
-            ],
-        )
-
-        await async_run(
-            p,
-            Params(
-                urls=[
-                    "https://example.com",
-                    "https://example.com",
-                    "https://example.com",
-                ]
-            ),
-        )
-
-
-asyncio.run(main())
-```
-
-Why this is good:
-
-- the producer can keep a bounded set of tasks in motion
-- the consumer still reads naturally with `async for`
-- no custom semaphore is needed in application code just to keep the pipeline
-  from getting too far ahead
-- for I/O-bound work, this is often the lightest way to increase throughput
-  without giving up streaming
-
+* **Bounded Advancement:** Without `max_in_flight`, the pipeline stays in strict lockstep (1 item at a time). With `max_in_flight=5` (or 30), the producing step may get ahead without running away.
+* **Natural Consumption:** The consumer still reads naturally using standard iteration (`for` or `async for`). No manual semaphores or queue logic are needed in application code.
+* **Controlled Concurrency:** Concurrency is still managed by your own thread pool or event loop, keeping the code shaped as a normal SynaFlow DAG.
 ## What it does and does not mean
 
 `max_in_flight` means:
