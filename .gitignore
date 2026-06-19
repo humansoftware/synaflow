@@ -10,3 +10,4 @@ coverage.xml
 dist/
 build/
 __pycache__/
+site/
