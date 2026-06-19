@@ -16,6 +16,19 @@ class OtherDataclass:
     x: int
 
 
+from typing import NamedTuple
+
+
+class MyNamedTuple(NamedTuple):
+    id: int
+    name: str
+
+
+class OtherNamedTuple(NamedTuple):
+    id: int
+    name: str
+
+
 @pytest.mark.parametrize(
     "producer, consumer, expected",
     [
@@ -43,6 +56,17 @@ class OtherDataclass:
         (Iterator[MyDataclass], Iterator[MyDataclass], True),
         (Iterator[MyDataclass], Iterator[OtherDataclass], False),
         (Generator[MyDataclass, None, None], Iterator[MyDataclass], True),
+        # NamedTuple cases
+        (MyNamedTuple, MyNamedTuple, True),
+        (MyNamedTuple, OtherNamedTuple, False),
+        (list[MyNamedTuple], list[MyNamedTuple], True),
+        (list[MyNamedTuple], list[OtherNamedTuple], False),
+        (Iterator[MyNamedTuple], Iterator[MyNamedTuple], True),
+        (Iterator[MyNamedTuple], Iterator[OtherNamedTuple], False),
+        (Generator[MyNamedTuple, None, None], Iterator[MyNamedTuple], True),
+        # Future cases
+        (Iterator[Future], Iterator[Future], True),
+        (Iterator[Future], Iterator[int], False),
         (tuple[int, str], tuple[int, str], True),
         (tuple[int, str], tuple[str, int], False),
         (Future, Future, True),
