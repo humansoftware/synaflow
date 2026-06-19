@@ -219,13 +219,19 @@ def _resolve_materializers(
             and is_iterable_type(node.output)
             and node.materializer is memory_materializer_factory
         ):
-            inner = get_inner_type(node.output)
-            if inner is not None and not _is_builtin_type(inner):
-                raise ValueError(
-                    f"Node '{name}': output item type '{inner}' requires a custom"
-                    " materializer. Provide a step-level materializer or a"
-                    " pipeline-level materializer."
-                )
+            needs_materialize = (
+                node.on_error == OnError.STOP
+                or node.force_materialize
+                or any(name in consumer.materialized_deps for consumer in dag.values())
+            )
+            if needs_materialize:
+                inner = get_inner_type(node.output)
+                if inner is not None and not _is_builtin_type(inner):
+                    raise ValueError(
+                        f"Node '{name}': output item type '{inner}' requires a custom"
+                        " materializer. Provide a step-level materializer or a"
+                        " pipeline-level materializer."
+                    )
 
 
 def _compute_materialized_deps(dag: dict[str, DagNode]) -> None:
@@ -321,12 +327,12 @@ def build_dag(
         params,
         pipeline_obs_resolved,
     )
+    _compute_materialized_deps(dag)
     _resolve_materializers(
         dag,
         memory_materializer_factory,
         error_materializer_factory,
     )
-    _compute_materialized_deps(dag)
     dag_obj = _finalize_dag(
         pipeline_name,
         dag,

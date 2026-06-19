@@ -858,3 +858,39 @@ async def test_given_step_custom_materializer_and_non_builtin_type_when_run_then
 
     await async_run(my_pipeline, params=P())
     assert seen == [Row(id=1, name="alice"), Row(id=2, name="bob")]
+
+
+async def test_given_no_custom_materializer_and_non_builtin_type_when_not_materialized_then_executes_successfully():
+    from dataclasses import dataclass
+    from collections.abc import AsyncGenerator
+    from synaflow import async_run
+
+    @dataclass
+    class Row:
+        id: int
+        name: str
+
+    class P(NamedTuple):
+        pass
+
+    async def producer() -> AsyncGenerator[Row, None]:
+        yield Row(id=1, name="alice")
+        yield Row(id=2, name="bob")
+
+    seen = []
+
+    # Consumed as a scalar (EACH mode) so needs_materialize is False
+    async def consumer(producer: Row):
+        seen.append(producer)
+
+    my_pipeline = pipeline(
+        name="test_no_materializer_custom_type_not_materialized",
+        params=P,
+        steps=[
+            step("producer", fn=producer),
+            step("consumer", fn=consumer),
+        ],
+    )
+
+    await async_run(my_pipeline, params=P())
+    assert seen == [Row(id=1, name="alice"), Row(id=2, name="bob")]
