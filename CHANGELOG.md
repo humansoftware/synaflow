@@ -2,6 +2,17 @@
 
 
 
+## v0.17.2 (2026-06-19)
+
+### Fix
+
+* fix(core): evaluate pep 563 annotations using typing.get_type_hints (#42)
+
+* fix(core): evaluate pep 563 annotations using typing.get_type_hints
+
+* test(core): add coverage tests for pep 563 annotation fallback paths ([`4e58181`](https://github.com/humansoftware/synaflow/commit/4e581814dd0fb6b802ce086daf45272d38349913))
+
+
 ## v0.17.1 (2026-06-19)
 
 ### Chore
