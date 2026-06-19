@@ -23,7 +23,7 @@ def initialize_parameters(params: type[NamedTuple]) -> dict[str, DagNode]:
     hints = {}
     try:
         hints = typing.get_type_hints(params)
-    except Exception:
+    except (NameError, TypeError):
         hints = getattr(params, "__annotations__", {})
     for field in getattr(params, "_fields", []):
         tp = hints.get(field)
@@ -34,7 +34,7 @@ def initialize_parameters(params: type[NamedTuple]) -> dict[str, DagNode]:
 def get_safe_type_hints(fn: Any) -> dict[str, Any]:
     try:
         return typing.get_type_hints(fn, include_extras=True)
-    except Exception:
+    except (NameError, TypeError):
         return {}
 
 
