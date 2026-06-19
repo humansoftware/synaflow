@@ -1,7 +1,32 @@
 from collections.abc import Generator, Iterator
+from dataclasses import dataclass
+from concurrent.futures import Future
 from typing import Any
 import pytest
 from synaflow.core.type_compatibility import is_type_compatible
+
+
+@dataclass
+class MyDataclass:
+    x: int
+
+
+@dataclass
+class OtherDataclass:
+    x: int
+
+
+from typing import NamedTuple
+
+
+class MyNamedTuple(NamedTuple):
+    id: int
+    name: str
+
+
+class OtherNamedTuple(NamedTuple):
+    id: int
+    name: str
 
 
 @pytest.mark.parametrize(
@@ -23,6 +48,29 @@ from synaflow.core.type_compatibility import is_type_compatible
         # Mismatched types should still fail
         (list[int], list[str], False),
         (list[dict], list[int], True),
+        # Custom/specific type compatibility tests
+        (MyDataclass, MyDataclass, True),
+        (MyDataclass, OtherDataclass, False),
+        (list[MyDataclass], list[MyDataclass], True),
+        (list[MyDataclass], list[OtherDataclass], False),
+        (Iterator[MyDataclass], Iterator[MyDataclass], True),
+        (Iterator[MyDataclass], Iterator[OtherDataclass], False),
+        (Generator[MyDataclass, None, None], Iterator[MyDataclass], True),
+        # NamedTuple cases
+        (MyNamedTuple, MyNamedTuple, True),
+        (MyNamedTuple, OtherNamedTuple, False),
+        (list[MyNamedTuple], list[MyNamedTuple], True),
+        (list[MyNamedTuple], list[OtherNamedTuple], False),
+        (Iterator[MyNamedTuple], Iterator[MyNamedTuple], True),
+        (Iterator[MyNamedTuple], Iterator[OtherNamedTuple], False),
+        (Generator[MyNamedTuple, None, None], Iterator[MyNamedTuple], True),
+        # Future cases
+        (Iterator[Future], Iterator[Future], True),
+        (Iterator[Future], Iterator[int], False),
+        (tuple[int, str], tuple[int, str], True),
+        (tuple[int, str], tuple[str, int], False),
+        (Future, Future, True),
+        (list[Future], list[Future], True),
     ],
 )
 def test_given_bare_containers_when_checking_compatibility_then_returns_expected(

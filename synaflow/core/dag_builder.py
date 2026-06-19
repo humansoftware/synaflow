@@ -192,11 +192,11 @@ def _resolve_step_observers(
 
 
 def _resolve_materializers(
-    dag: dict[str, DagNode],
+    dag: Dag,
     pipeline_materializer: Any,
     pipeline_error_materializer: Any,
 ) -> None:
-    for name, node in dag.items():
+    for name, node in dag.steps.items():
         if not node.fn:
             node.materializer = None
             node.error_materializer = None
@@ -219,13 +219,14 @@ def _resolve_materializers(
             and is_iterable_type(node.output)
             and node.materializer is memory_materializer_factory
         ):
-            inner = get_inner_type(node.output)
-            if inner is not None and not _is_builtin_type(inner):
-                raise ValueError(
-                    f"Node '{name}': output item type '{inner}' requires a custom"
-                    " materializer. Provide a step-level materializer or a"
-                    " pipeline-level materializer."
-                )
+            if dag.needs_materialize(name):
+                inner = get_inner_type(node.output)
+                if inner is not None and not _is_builtin_type(inner):
+                    raise ValueError(
+                        f"Node '{name}': output item type '{inner}' requires a custom"
+                        " materializer. Provide a step-level materializer or a"
+                        " pipeline-level materializer."
+                    )
 
 
 def _compute_materialized_deps(dag: dict[str, DagNode]) -> None:
@@ -321,11 +322,6 @@ def build_dag(
         params,
         pipeline_obs_resolved,
     )
-    _resolve_materializers(
-        dag,
-        memory_materializer_factory,
-        error_materializer_factory,
-    )
     _compute_materialized_deps(dag)
     dag_obj = _finalize_dag(
         pipeline_name,
@@ -333,6 +329,11 @@ def build_dag(
         produced,
         error_materializer_factory,
         pipeline_obs_resolved,
+    )
+    _resolve_materializers(
+        dag_obj,
+        memory_materializer_factory,
+        error_materializer_factory,
     )
 
     check_circular_dependencies(dag_obj, pipeline_name)

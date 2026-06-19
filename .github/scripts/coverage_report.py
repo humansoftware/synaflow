@@ -215,6 +215,18 @@ def run_ci():
         summary=patch_summary,
     )
 
+    total_conclusion = "success" if total_pct >= TOTAL_THRESHOLD else "failure"
+    total_summary = (
+        f"Overall package coverage: **{total_pct:.1f}%** "
+        f"(threshold: {TOTAL_THRESHOLD}%)."
+    )
+    create_check_run(
+        name="Total Coverage",
+        conclusion=total_conclusion,
+        title=f"Total Coverage: {total_pct:.1f}%",
+        summary=total_summary,
+    )
+
     if total_pct < TOTAL_THRESHOLD:
         print(
             f"FAIL: total coverage {total_pct:.1f}% is below {TOTAL_THRESHOLD}% threshold"
