@@ -214,7 +214,11 @@ def _resolve_materializers(
         _validate_materializer_factory(name, err_mat, is_error=True)
         node.error_materializer = err_mat
 
-        if node.output and is_iterable_type(node.output):
+        if (
+            node.output
+            and is_iterable_type(node.output)
+            and node.materializer is memory_materializer_factory
+        ):
             inner = get_inner_type(node.output)
             if inner is not None and not _is_builtin_type(inner):
                 raise ValueError(
