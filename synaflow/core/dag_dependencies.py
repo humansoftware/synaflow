@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import inspect
 import types
+import typing
 from typing import Any, NamedTuple, Union
 
 from synaflow.core.dag import DagNode
@@ -19,15 +20,20 @@ from synaflow.core.type_compatibility import (
 
 def initialize_parameters(params: type[NamedTuple]) -> dict[str, DagNode]:
     produced: dict[str, DagNode] = {}
+    hints = {}
+    try:
+        hints = typing.get_type_hints(params)
+    except Exception:
+        hints = getattr(params, "__annotations__", {})
     for field in getattr(params, "_fields", []):
-        tp = getattr(params, "__annotations__", {}).get(field)
+        tp = hints.get(field)
         produced[field] = DagNode(output=tp)
     return produced
 
 
 def get_safe_type_hints(fn: Any) -> dict[str, Any]:
     try:
-        return getattr(fn, "__annotations__", {})
+        return typing.get_type_hints(fn, include_extras=True)
     except Exception:
         return {}
 
