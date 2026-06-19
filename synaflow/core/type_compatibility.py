@@ -31,6 +31,9 @@ def is_type_compatible(producer_type: Any, consumer_type: Any) -> bool:
     if producer_type is None or consumer_type is None:
         return True
 
+    if producer_type == consumer_type:
+        return True
+
     producer_origin = get_origin(producer_type)
     consumer_origin = get_origin(consumer_type)
 
@@ -102,7 +105,8 @@ def _check_iterable_producer_compatibility(
 ) -> bool:
     producer_inner = get_inner_type(producer_type)
     if producer_inner is None:
-        return False
+        if producer_type not in COLLECTION_ORIGINS:
+            return False
 
     consumer_origin = get_origin(consumer_type)
 
