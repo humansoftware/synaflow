@@ -1,4 +1,4 @@
-from collections.abc import Generator, Iterator
+from collections.abc import Generator
 from typing import NamedTuple
 from dataclasses import dataclass
 
