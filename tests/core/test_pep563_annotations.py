@@ -19,3 +19,36 @@ def test_given_future_annotations_when_pipeline_built_then_types_resolve_correct
         ],
     )
     assert p.dag is not None
+
+
+def test_given_undefined_type_annotation_when_get_safe_type_hints_called_then_returns_empty_dict():
+    def fn_with_undefined(x: "SomeUndefinedType") -> None:
+        pass
+
+    from synaflow.core.dag_dependencies import get_safe_type_hints
+
+    assert get_safe_type_hints(fn_with_undefined) == {}
+
+
+def test_given_undefined_type_annotation_in_params_when_initialize_parameters_called_then_falls_back():
+    class ParamsWithUndefined(NamedTuple):
+        x: "SomeUndefinedType"
+
+    import typing
+
+    try:
+        print("GET HINTS:", typing.get_type_hints(ParamsWithUndefined))
+    except Exception as e:
+        print("GET HINTS EXCEPTION:", type(e), e)
+
+    from synaflow.core.dag_dependencies import initialize_parameters
+
+    nodes = initialize_parameters(ParamsWithUndefined)
+    assert "x" in nodes
+    from typing import ForwardRef
+
+    print("OUTPUT TYPE:", type(nodes["x"].output), nodes["x"].output)
+    assert (
+        isinstance(nodes["x"].output, ForwardRef)
+        or nodes["x"].output == "SomeUndefinedType"
+    )
