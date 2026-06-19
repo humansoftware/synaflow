@@ -826,7 +826,7 @@ def test_given_two_unrolled_streams_with_one_empty_when_run_then_non_empty_side_
     assert seen == [(None, 10), (None, 20)]
 
 
-def test_given_step_custom_materializer_and_non_builtin_type_when_run_then_executes_successfully(
+def test_given_step_non_builtin_type_and_iterator_consumer_when_run_then_executes_successfully(
     run_pipeline,
 ):
     from dataclasses import dataclass
@@ -845,14 +845,14 @@ def test_given_step_custom_materializer_and_non_builtin_type_when_run_then_execu
 
     seen = []
 
-    def consumer(producer: list[Row]):
-        seen.extend(producer)
+    def consumer(producer: Iterator[Row]):
+        seen.extend(list(producer))
 
     my_pipeline = pipeline(
-        name="test_custom_materializer_custom_type",
+        name="test_custom_type_iterator_no_mat",
         params=P,
         steps=[
-            step("producer", fn=producer, materializer=to_materializer(list)),
+            step("producer", fn=producer),
             step("consumer", fn=consumer),
         ],
     )
