@@ -2,7 +2,7 @@ from typing import AsyncGenerator, Generator, NamedTuple
 
 import pytest
 
-from synaflow import pipeline, step, to_materializer
+from synaflow import pipeline, step
 
 
 class P(NamedTuple):
@@ -62,7 +62,7 @@ def test_step_materializer_rejects_incompatible():
                 step(
                     "items",
                     fn=async_gen,
-                    materializer=to_materializer(sync_mat),
+                    materializer=sync_mat,
                     force_materialize=True,
                 )
             ],

@@ -3,7 +3,7 @@ from typing import Generator, Iterator, NamedTuple
 from unittest.mock import MagicMock
 
 
-from synaflow import pipeline, step, to_materializer
+from synaflow import pipeline, step
 from synaflow.core.types import OnError
 
 
@@ -623,7 +623,7 @@ def test_given_scalar_output_with_on_error_stop_when_run_then_scalar_materialize
                 "produce",
                 fn=produce,
                 on_error=OnError.STOP,
-                materializer=to_materializer(scalar_materializer),
+                materializer=scalar_materializer,
             ),
             step("consume", fn=consume),
         ],
@@ -659,7 +659,7 @@ def test_given_scalar_output_with_force_materialize_when_run_then_scalar_materia
             step(
                 "produce",
                 fn=produce,
-                materializer=to_materializer(scalar_materializer),
+                materializer=scalar_materializer,
                 force_materialize=True,
             ),
             step("consume", fn=consume),

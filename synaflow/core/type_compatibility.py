@@ -1,6 +1,20 @@
 import types
+import inspect
 from collections.abc import AsyncGenerator, AsyncIterator, Generator, Iterable, Iterator
-from typing import Any, Tuple, Union, get_args, get_origin
+from typing import Any, Callable, Tuple, Union, get_args, get_origin
+
+
+def is_factory(func: Callable) -> bool:
+    if not callable(func):
+        return False
+    sig = inspect.signature(func)
+    for param in sig.parameters.values():
+        if param.name in ("ctx", "context") or "MaterializeContext" in str(
+            param.annotation
+        ):
+            return True
+    return False
+
 
 SCALAR_TYPES = {int, float, str, bool, bytes, type(None)}
 COLLECTION_ORIGINS = {

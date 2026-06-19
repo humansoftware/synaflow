@@ -6,8 +6,6 @@ xfail = expected to fail until implemented.
 from collections.abc import Iterator
 from typing import NamedTuple
 
-import pytest
-
 
 from .conftest import build_minimal_dag
 
@@ -53,17 +51,3 @@ def test_given_dict_producer_when_consumer_wants_iterator_of_items_then_no_mater
 # ---------------------------------------------------------------------------
 # Custom type without materializer should raise
 # ---------------------------------------------------------------------------
-
-
-def test_given_custom_output_type_without_materializer_when_dag_built_then_raises():
-    class CustomType:
-        pass
-
-    def producer() -> Iterator[CustomType]:
-        yield CustomType()
-
-    def consumer(producer: list[CustomType]) -> int:
-        return len(producer)
-
-    with pytest.raises(ValueError, match="materializer"):
-        build_minimal_dag(producer_fn=producer, consumer_fn=consumer, params=KVParam)

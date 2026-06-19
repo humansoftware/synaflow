@@ -11,6 +11,7 @@ from synaflow.core.definition import Step
 from synaflow.core.naming import get_base_dataset_name
 from synaflow.core.type_compatibility import (
     is_async_stream_type,
+    is_factory,
     is_iterable_type,
     is_scalar,
     is_sync_stream_type,
@@ -150,12 +151,7 @@ def validate_sync_async_consistency(
     has_sync_materializer = False
 
     def _is_async_mat(m: Any) -> bool:
-        sig = inspect.signature(m)
-        if (
-            len(sig.parameters) > 1
-            or "ctx" in sig.parameters
-            or "context" in sig.parameters
-        ):
+        if is_factory(m):
             ctx = MaterializeContext(
                 pipeline_name=pipeline_name, dataset_name="validator", item_type=Any
             )

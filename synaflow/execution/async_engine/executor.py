@@ -22,8 +22,6 @@ from synaflow.core.observers import (
     dispatch_observers_async,
 )
 from synaflow.core.types import (
-    ErrorMaterializeContext,
-    MaterializeContext,
     OnError,
     StepMode,
 )
@@ -75,33 +73,19 @@ async def _apply_materializer(
             items, had_error, exc = await _collect_async_iterator(dag, step_name, value)
             return items, had_error, exc
         return value, False, None
-    concrete_mat = mat(
-        MaterializeContext(
-            pipeline_name=dag.name,
-            dataset_name=step_name,
-            item_type=node.output,
-            consumer_type=consumer_type,
-        )
-    )
-    if inspect.iscoroutinefunction(concrete_mat):
-        result = await concrete_mat(value)
+
+    if inspect.iscoroutinefunction(mat):
+        result = await mat(value)
         return result, False, None
+
     if isinstance(value, (AsyncIterator, AsyncGenerator, Iterator, Generator)):
-        if (
-            concrete_mat in (list, tuple, set, dict)
-            or getattr(concrete_mat, "__name__", "") == "_identity"
-        ):
-            items, had_error, exc = await _collect_async_iterator(dag, step_name, value)
-            res = items if concrete_mat is list else concrete_mat(items)
-            if inspect.iscoroutine(res):
-                return await res, had_error, exc
-            return res, had_error, exc
         items, had_error, exc = await _collect_async_iterator(dag, step_name, value)
-        res = concrete_mat(items)
+        res = mat(items)
         if inspect.iscoroutine(res):
             return await res, had_error, exc
         return res, had_error, exc
-    res = concrete_mat(value)
+
+    res = mat(value)
     if inspect.iscoroutine(res):
         return await res, False, None
     return res, False, None
@@ -117,29 +101,13 @@ async def _handle_error(dag: Dag, step_name: str, exc: BaseException) -> None:
         return
 
     if inspect.iscoroutinefunction(err_mat):
-        handler = await err_mat(
-            ErrorMaterializeContext(
-                pipeline_name=dag.name,
-                dataset_name=step_name,
-                exception_type=type(exc),
-            )
-        )
+        await err_mat(exc)
+    elif callable(err_mat):
+        res = err_mat(exc)
+        if inspect.iscoroutine(res):
+            await res
     else:
-        handler = err_mat(
-            ErrorMaterializeContext(
-                pipeline_name=dag.name,
-                dataset_name=step_name,
-                exception_type=type(exc),
-            )
-        )
-
-    if handler is not None:
-        if inspect.iscoroutinefunction(handler):
-            await handler(exc)
-        else:
-            res = handler(exc)
-            if inspect.iscoroutine(res):
-                await res
+        raise TypeError(f"Error materializer for step '{step_name}' is not callable.")
 
 
 async def _pump_iterator(

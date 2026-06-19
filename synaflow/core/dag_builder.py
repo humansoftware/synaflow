@@ -16,12 +16,27 @@ Also exports the global default factories:
 All functions are stateless — no classes, no self.
 """
 
-import inspect
 import logging
 import traceback
 import types as _types
-from collections.abc import MutableMapping, MutableSequence, MutableSet
-from typing import Any, NamedTuple, get_args
+from collections.abc import (
+    AsyncIterable as AbcAsyncIterable,
+    AsyncIterator as AbcAsyncIterator,
+    Iterable as AbcIterable,
+    Iterator as AbcIterator,
+    MutableMapping,
+    MutableSequence,
+    MutableSet,
+)
+from typing import (
+    Any,
+    AsyncIterable,
+    AsyncIterator,
+    Iterable,
+    Iterator,
+    NamedTuple,
+    get_args,
+)
 
 from synaflow.core.dag import Dag, DagNode
 from synaflow.core.dag_dependencies import initialize_parameters
@@ -41,7 +56,6 @@ from synaflow.core.observers import (
 )
 from synaflow.core.type_compatibility import (
     get_inner_type,
-    is_iterable_type,
     is_materialized_consumer,
     is_scalar,
 )
@@ -67,9 +81,24 @@ def memory_materializer_factory(ctx: MaterializeContext):
                 continue
         if tp is tuple:
             return tuple
-    if tp is not None and is_scalar(tp):
-        return _identity
-    return list
+        if is_scalar(tp):
+            return _identity
+        if tp in (
+            AsyncIterator,
+            Iterator,
+            Iterable,
+            AsyncIterable,
+            AbcAsyncIterator,
+            AbcIterator,
+            AbcIterable,
+            AbcAsyncIterable,
+        ):
+            return list
+
+    raise ValueError(
+        f"Cannot infer memory materializer for consumer type: '{tp}'. "
+        "Please provide explicit type hints for your consumer parameters, or use a step-level materializer."
+    )
 
 
 memory_materializer_factory.__name__ = "memory_materializer"
@@ -78,7 +107,7 @@ memory_materializer_factory.__name__ = "memory_materializer"
 def log_error_materializer_factory(ctx: ErrorMaterializeContext):
     log = logging.getLogger("synaflow")
 
-    def handle_error(exc: BaseException) -> None:
+    def log_error(exc: BaseException) -> None:
         log.warning(
             "[%s] [%s] %s: %s",
             ctx.pipeline_name,
@@ -88,7 +117,7 @@ def log_error_materializer_factory(ctx: ErrorMaterializeContext):
         )
         log.debug(traceback.format_exc())
 
-    return handle_error
+    return log_error
 
 
 log_error_materializer_factory.__name__ = "log_error_materializer"
@@ -130,39 +159,6 @@ def _validate_params_is_namedtuple(params: Any, pipeline_name: str) -> None:
         )
 
 
-def _validate_materializer_factory(name: str, mat: Any, is_error: bool = False) -> None:
-    if mat is None:
-        return
-    if not callable(mat):
-        raise TypeError(
-            f"Node '{name}': {'error materializer' if is_error else 'materializer'} must be a callable factory, got {type(mat).__name__}"
-        )
-
-    # Built-in collection types are commonly passed by mistake instead of factory
-    if isinstance(mat, type) and mat in (list, set, dict, tuple):
-        label = "error materializer" if is_error else "materializer"
-        helper = "to_error_materializer" if is_error else "to_materializer"
-        raise ValueError(
-            f"Node '{name}': {label} cannot be a direct type/callable '{mat.__name__}'. "
-            f"Please wrap it using {helper}({mat.__name__})."
-        )
-
-    # Let's inspect the signature to verify it accepts a context argument
-    try:
-        sig = inspect.signature(mat)
-        has_params = len(sig.parameters) > 0
-    except (ValueError, TypeError):
-        has_params = False
-
-    if not has_params:
-        label = "error materializer" if is_error else "materializer"
-        helper = "to_error_materializer" if is_error else "to_materializer"
-        raise ValueError(
-            f"Node '{name}': {label} factory must accept at least one argument (context). "
-            f"If you want to use a direct callable, wrap it using {helper}(...)."
-        )
-
-
 def _validate_declared_step_names(steps: list[Any], pipeline_name: str) -> None:
     for step in steps:
         if hasattr(step, "name"):
@@ -197,22 +193,95 @@ def _resolve_materializers(
     pipeline_error_materializer: Any,
 ) -> None:
     for name, node in dag.steps.items():
+        from synaflow.core.type_compatibility import (
+            is_iterable_type,
+            is_factory,
+            is_sync_stream_type,
+            is_async_stream_type,
+        )
+        from synaflow.core.types import MaterializeContext, ErrorMaterializeContext
+
         if not node.fn:
             node.materializer = None
-            node.error_materializer = None
             continue
 
-        mat = node.materializer or pipeline_materializer or memory_materializer_factory
-        _validate_materializer_factory(name, mat, is_error=False)
-        node.materializer = mat
+        has_explicit_mat = (
+            node.materializer is not None or pipeline_materializer is not None
+        )
+        is_stream = is_sync_stream_type(node.output) or is_async_stream_type(
+            node.output
+        )
+        is_untyped = node.output is None
+        is_scalar = not is_untyped and not is_iterable_type(node.output)
+        has_consumers = bool(dag.consumers_of(name))
 
+        mat = None
+        if has_explicit_mat:
+            mat = node.materializer or pipeline_materializer
+        else:
+            if is_scalar:
+                mat = None
+            elif is_stream:
+                if has_consumers:
+                    mat = memory_materializer_factory
+                else:
+                    mat = None
+            elif is_untyped:
+                if has_consumers:
+                    mat = memory_materializer_factory
+                else:
+                    mat = None
+
+        if mat and is_factory(mat):
+            consumers = []
+            for consumer_node in dag.steps.values():
+                if name in consumer_node.deps:
+                    consumers.append(consumer_node)
+
+            consumer_type = None
+            if consumers:
+                mat_consumers = [
+                    c for c in consumers if name in getattr(c, "materialized_deps", [])
+                ]
+                if mat_consumers:
+                    consumer_type = mat_consumers[0].deps.get(name)
+                    from synaflow.core.type_compatibility import is_type_compatible
+
+                    for other in mat_consumers[1:]:
+                        other_tp = other.deps.get(name)
+                        if (
+                            consumer_type != other_tp
+                            and not is_type_compatible(consumer_type, other_tp)
+                            and not is_type_compatible(other_tp, consumer_type)
+                        ):
+                            raise ValueError(
+                                f"Pipeline '{dag.name}': step '{name}' has consumers with incompatible types: "
+                                f"'{mat_consumers[0].name}' expects {consumer_type} but '{other.name}' expects {other_tp}."
+                            )
+                else:
+                    consumer_type = consumers[0].deps.get(name)
+            ctx = MaterializeContext(
+                pipeline_name=dag.name,
+                dataset_name=name,
+                item_type=node.output,
+                consumer_type=consumer_type,
+            )
+            node.materializer = mat(ctx)
+        else:
+            node.materializer = mat
         err_mat = (
             node.error_materializer
             or pipeline_error_materializer
             or log_error_materializer_factory
         )
-        _validate_materializer_factory(name, err_mat, is_error=True)
-        node.error_materializer = err_mat
+        if err_mat and is_factory(err_mat):
+            err_ctx = ErrorMaterializeContext(
+                pipeline_name=dag.name,
+                dataset_name=name,
+            )
+            node.error_materializer = err_mat(err_ctx)
+        else:
+            node.error_materializer = err_mat
 
         if (
             node.output

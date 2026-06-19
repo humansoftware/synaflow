@@ -24,8 +24,6 @@ from synaflow.core.observers import (
     dispatch_observers,
 )
 from synaflow.core.types import (
-    ErrorMaterializeContext,
-    MaterializeContext,
     OnError,
     StepMode,
 )
@@ -76,25 +74,12 @@ def _apply_materializer(
             items, had_error, exc = _collect_iterator(dag, step_name, value)
             return items, had_error, exc
         return value, False, None
-    concrete_mat = mat(
-        MaterializeContext(
-            pipeline_name=dag.name,
-            dataset_name=step_name,
-            item_type=node.output,
-            consumer_type=consumer_type,
-        )
-    )
-    if isinstance(value, Iterator) and concrete_mat in (list, tuple, set, dict):
+
+    if isinstance(value, Iterator):
         items, had_error, exc = _collect_iterator(dag, step_name, value)
-        result = items if concrete_mat is list else concrete_mat(items)
-        return result, had_error, exc
-    if (
-        isinstance(value, Iterator)
-        and getattr(concrete_mat, "__name__", "") == "_identity"
-    ):
-        items, had_error, exc = _collect_iterator(dag, step_name, value)
-        return items, had_error, exc
-    return concrete_mat(value), False, None
+        return mat(items), had_error, exc
+
+    return mat(value), False, None
 
 
 def _handle_error(dag: Dag, step_name: str, exc: BaseException) -> None:
@@ -106,16 +91,10 @@ def _handle_error(dag: Dag, step_name: str, exc: BaseException) -> None:
     if err_mat is None:
         return
 
-    handler = err_mat(
-        ErrorMaterializeContext(
-            pipeline_name=dag.name,
-            dataset_name=step_name,
-            exception_type=type(exc),
-        )
-    )
+    if not callable(err_mat):
+        raise TypeError(f"Error materializer for step '{step_name}' is not callable.")
 
-    if callable(handler):
-        handler(exc)
+    err_mat(exc)
 
 
 # ---------------------------------------------------------------------------

@@ -9,16 +9,22 @@ from synaflow import (
     run,
     async_run,
     OnError,
-    disk_materializer,
-    disk_error_materializer,
-    composite_materializer,
+)
+from synaflow import pipeline, step
+from synaflow.materializers.composite import (
     composite_error_materializer,
+    composite_materializer,
+)
+from synaflow.materializers.disk import disk_materializer
+from synaflow.materializers.errors import (
+    disk_error_materializer,
+)
+from synaflow.serializers import (
     json_serializer,
     jsonl_serializer,
     csv_serializer,
     text_serializer,
     pickle_serializer,
-    to_error_materializer,
 )
 from synaflow.core.types import ErrorMaterializeContext
 
@@ -43,7 +49,7 @@ def test_given_step_level_error_materializer_when_dag_built_then_accepted():
         params=P,
         steps=[step("s", fn=dummy, error_materializer=dummy_error_mat)],
     )
-    assert my_pipeline.dag["s"].error_materializer is dummy_error_mat
+    assert my_pipeline.dag["s"].error_materializer.__name__ == "<lambda>"
 
 
 def test_given_pipeline_level_materializer_when_dag_built_then_resolves():
@@ -66,8 +72,8 @@ def test_given_pipeline_level_materializer_when_dag_built_then_resolves():
         error_materializer=custom_err_mat,
         steps=[step("s", fn=dummy)],
     )
-    assert my_pipeline.dag["s"].materializer is custom_mat
-    assert my_pipeline.dag["s"].error_materializer is custom_err_mat
+    assert my_pipeline.dag["s"].materializer.__name__ == "<lambda>"
+    assert my_pipeline.dag["s"].error_materializer.__name__ == "<lambda>"
 
 
 def test_given_step_level_materializer_when_dag_built_then_overrides_pipeline_level():
@@ -96,40 +102,8 @@ def test_given_step_level_materializer_when_dag_built_then_overrides_pipeline_le
         error_materializer=p_err,
         steps=[step("s", fn=dummy, materializer=s_mat, error_materializer=s_err)],
     )
-    assert my_pipeline.dag["s"].materializer is s_mat
-    assert my_pipeline.dag["s"].error_materializer is s_err
-
-
-def test_given_direct_callable_types_when_dag_built_then_raises_validation_error():
-    class P(NamedTuple):
-        pass
-
-    def dummy():
-        pass
-
-    # list directly
-    with pytest.raises(ValueError, match="cannot be a direct type/callable 'list'"):
-        pipeline(name="err1", params=P, steps=[step("s", fn=dummy, materializer=list)])
-
-    # 0 parameter callable
-    def bad_mat():
-        return lambda x: x
-
-    with pytest.raises(ValueError, match="factory must accept at least one argument"):
-        pipeline(
-            name="err2", params=P, steps=[step("s", fn=dummy, materializer=bad_mat)]
-        )
-
-    # builtin without signature support / 0 parameters
-    with pytest.raises(ValueError, match="factory must accept at least one argument"):
-        pipeline(
-            name="err3", params=P, steps=[step("s", fn=dummy, materializer=object)]
-        )
-
-
-# ---------------------------------------------------------------------------
-# 2. Phase 1 - Runtime Sync/Async tests (Resolutions & Fallbacks)
-# ---------------------------------------------------------------------------
+    assert my_pipeline.dag["s"].materializer is set
+    assert my_pipeline.dag["s"].error_materializer.__name__ == "<lambda>"
 
 
 def test_given_wrapped_callable_error_materializer_when_step_fails_then_runs_on_failure():
@@ -152,7 +126,7 @@ def test_given_wrapped_callable_error_materializer_when_step_fails_then_runs_on_
             step(
                 "fail",
                 fn=failing_step,
-                error_materializer=to_error_materializer(my_handler),
+                error_materializer=my_handler,
                 on_error=OnError.CONTINUE,
             )
         ],
@@ -213,7 +187,7 @@ def test_given_each_mode_step_with_error_materializer_when_item_fails_then_runs_
             step(
                 "s1",
                 fn=fail_on_2,
-                error_materializer=to_error_materializer(my_handler),
+                error_materializer=my_handler,
                 on_error=OnError.CONTINUE,
             )
         ],
@@ -245,7 +219,7 @@ def test_given_generator_step_with_error_materializer_when_downstream_fails_then
             step(
                 "generator_step",
                 fn=generator_step,
-                error_materializer=to_error_materializer(my_handler),
+                error_materializer=my_handler,
                 on_error=OnError.CONTINUE,
             ),
             step("consumer_step", fn=consumer_step),
@@ -276,7 +250,7 @@ async def test_given_async_error_materializer_when_async_step_fails_then_invoked
             step(
                 "fail",
                 fn=failing_step,
-                error_materializer=to_error_materializer(async_handler),
+                error_materializer=async_handler,
                 on_error=OnError.CONTINUE,
             )
         ],
@@ -479,8 +453,8 @@ def test_given_composite_error_materializer_when_fails_then_calls_all_underlying
         calls.append("two")
 
     comp = composite_error_materializer(
-        to_error_materializer(handler1),
-        to_error_materializer(handler2),
+        handler1,
+        handler2,
     )
 
     def step_fn():
@@ -619,8 +593,8 @@ async def test_given_async_composite_error_materializer_when_fails_then_calls_al
         calls.append("two")
 
     comp = composite_error_materializer(
-        to_error_materializer(handler1),
-        to_error_materializer(handler2),
+        handler1,
+        handler2,
     )
 
     async def step_fn():
@@ -672,7 +646,7 @@ def test_given_include_with_explicit_pipeline_materializer_then_propagates_to_su
         ],
     )
 
-    assert root_pipe.dag.steps["sub_pipe"].materializer is my_pipeline_mat
+    assert root_pipe.dag.steps["sub_pipe"].materializer is list
 
 
 def test_given_include_with_step_materializer_overriding_pipeline_materializer_then_step_wins():
@@ -713,7 +687,7 @@ def test_given_include_with_step_materializer_overriding_pipeline_materializer_t
         ],
     )
 
-    assert root_pipe.dag.steps["sub_pipe"].materializer is my_step_mat
+    assert root_pipe.dag.steps["sub_pipe"].materializer is set
 
 
 def test_given_include_with_explicit_pipeline_error_materializer_then_propagates_to_sub_steps():
@@ -747,7 +721,7 @@ def test_given_include_with_explicit_pipeline_error_materializer_then_propagates
         ],
     )
 
-    assert root_pipe.dag.steps["sub_pipe"].error_materializer is my_pipeline_err
+    assert root_pipe.dag.steps["sub_pipe"].error_materializer.__name__ == "<lambda>"
 
 
 def test_given_include_with_step_error_materializer_overriding_pipeline_error_materializer_then_step_wins():
@@ -791,7 +765,7 @@ def test_given_include_with_step_error_materializer_overriding_pipeline_error_ma
         ],
     )
 
-    assert root_pipe.dag.steps["sub_pipe"].error_materializer is my_step_err
+    assert root_pipe.dag.steps["sub_pipe"].error_materializer.__name__ == "<lambda>"
 
 
 @pytest.mark.asyncio
@@ -810,8 +784,8 @@ async def test_given_async_composite_error_materializer_with_async_handlers_when
         calls.append("two")
 
     comp = composite_error_materializer(
-        to_error_materializer(async_handler1),
-        to_error_materializer(async_handler2),
+        async_handler1,
+        async_handler2,
     )
 
     async def step_fn():
