@@ -2,6 +2,33 @@
 
 
 
+## v0.17.1 (2026-06-19)
+
+### Chore
+
+* chore(tests): remove unused imports in custom_types corpus packs ([`e05a3ca`](https://github.com/humansoftware/synaflow/commit/e05a3ca7a2efdd0d08864b979d39a8cf1eec434a))
+
+* chore: add site/ directory to .gitignore ([`524b29d`](https://github.com/humansoftware/synaflow/commit/524b29db950c7bb0bdefb013d4b5c556c88c1a57))
+
+* chore: add OpenCode project config with agents, commands, and permissions ([`108a2d7`](https://github.com/humansoftware/synaflow/commit/108a2d7560b18ed4fee7a29335c5a2a8b774099c))
+
+### Fix
+
+* fix(core): allow custom materializers to bypass non-builtin inner type validation ([`2873429`](https://github.com/humansoftware/synaflow/commit/2873429689663fb1dce7f8826e1f6b1245b23297))
+
+### Test
+
+* test(execution): add runtime materialization tests for custom types ([`ae21523`](https://github.com/humansoftware/synaflow/commit/ae215236a9f22d94bae6183d32061316471674e3))
+
+* test(corpus): add custom_types validation and execution tests ([`2b4207f`](https://github.com/humansoftware/synaflow/commit/2b4207ffdc7c6db2571244e657a16c75b19fa4d1))
+
+### Unknown
+
+* Merge pull request #41 from humansoftware/fix/issue-38-materializer-validation
+
+fix(core): allow custom materializers to bypass non-builtin inner type validation ([`5b8b959`](https://github.com/humansoftware/synaflow/commit/5b8b959343ee65fcd2c854f2e905065bd15e5ceb))
+
+
 ## v0.17.0 (2026-06-18)
 
 ### Ci
