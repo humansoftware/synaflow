@@ -817,3 +817,44 @@ async def test_given_scalar_output_with_force_materialize_when_run_then_scalar_m
     await async_run(my_pipeline, params=P())
 
     assert materialized == [6]
+
+
+async def test_given_step_custom_materializer_and_non_builtin_type_when_run_then_executes_successfully():
+    from dataclasses import dataclass
+    from collections.abc import AsyncGenerator
+    from synaflow import async_run
+
+    @dataclass
+    class Row:
+        id: int
+        name: str
+
+    class P(NamedTuple):
+        pass
+
+    async def producer() -> AsyncGenerator[Row, None]:
+        yield Row(id=1, name="alice")
+        yield Row(id=2, name="bob")
+
+    seen = []
+
+    async def consumer(producer: list[Row]):
+        seen.extend(producer)
+
+    async def async_list(async_iterator) -> list:
+        items = []
+        async for item in async_iterator:
+            items.append(item)
+        return items
+
+    my_pipeline = pipeline(
+        name="test_custom_materializer_custom_type",
+        params=P,
+        steps=[
+            step("producer", fn=producer, materializer=to_materializer(async_list)),
+            step("consumer", fn=consumer),
+        ],
+    )
+
+    await async_run(my_pipeline, params=P())
+    assert seen == [Row(id=1, name="alice"), Row(id=2, name="bob")]

@@ -824,3 +824,38 @@ def test_given_two_unrolled_streams_with_one_empty_when_run_then_non_empty_side_
     run_pipeline(my_pipeline, params=P())
 
     assert seen == [(None, 10), (None, 20)]
+
+
+def test_given_step_custom_materializer_and_non_builtin_type_when_run_then_executes_successfully(
+    run_pipeline,
+):
+    from dataclasses import dataclass
+
+    @dataclass
+    class Row:
+        id: int
+        name: str
+
+    class P(NamedTuple):
+        pass
+
+    def producer() -> Iterator[Row]:
+        yield Row(id=1, name="alice")
+        yield Row(id=2, name="bob")
+
+    seen = []
+
+    def consumer(producer: list[Row]):
+        seen.extend(producer)
+
+    my_pipeline = pipeline(
+        name="test_custom_materializer_custom_type",
+        params=P,
+        steps=[
+            step("producer", fn=producer, materializer=to_materializer(list)),
+            step("consumer", fn=consumer),
+        ],
+    )
+
+    run_pipeline(my_pipeline, params=P())
+    assert seen == [Row(id=1, name="alice"), Row(id=2, name="bob")]
