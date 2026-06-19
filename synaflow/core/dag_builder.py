@@ -192,11 +192,11 @@ def _resolve_step_observers(
 
 
 def _resolve_materializers(
-    dag: dict[str, DagNode],
+    dag: Dag,
     pipeline_materializer: Any,
     pipeline_error_materializer: Any,
 ) -> None:
-    for name, node in dag.items():
+    for name, node in dag.steps.items():
         if not node.fn:
             node.materializer = None
             node.error_materializer = None
@@ -219,12 +219,7 @@ def _resolve_materializers(
             and is_iterable_type(node.output)
             and node.materializer is memory_materializer_factory
         ):
-            needs_materialize = (
-                node.on_error == OnError.STOP
-                or node.force_materialize
-                or any(name in consumer.materialized_deps for consumer in dag.values())
-            )
-            if needs_materialize:
+            if dag.needs_materialize(name):
                 inner = get_inner_type(node.output)
                 if inner is not None and not _is_builtin_type(inner):
                     raise ValueError(
@@ -328,17 +323,17 @@ def build_dag(
         pipeline_obs_resolved,
     )
     _compute_materialized_deps(dag)
-    _resolve_materializers(
-        dag,
-        memory_materializer_factory,
-        error_materializer_factory,
-    )
     dag_obj = _finalize_dag(
         pipeline_name,
         dag,
         produced,
         error_materializer_factory,
         pipeline_obs_resolved,
+    )
+    _resolve_materializers(
+        dag_obj,
+        memory_materializer_factory,
+        error_materializer_factory,
     )
 
     check_circular_dependencies(dag_obj, pipeline_name)
