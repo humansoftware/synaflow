@@ -194,7 +194,7 @@ def get_inner_type(tp: Any) -> Any:
 
 
 def get_type_name(tp: Any) -> str:
-    if tp is None:
+    if tp is None or tp is type(None):
         return "None"
 
     if tp in (Iterator, Generator, AsyncIterator, AsyncGenerator):

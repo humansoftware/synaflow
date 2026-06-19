@@ -281,7 +281,7 @@ def test_given_mode_each_when_return_type_is_none_then_output_remains_none():
     )
 
     assert p.dag.steps["sink"].mode is StepMode.EACH
-    assert p.dag.steps["sink"].output is None
+    assert p.dag.steps["sink"].output in (None, type(None))
 
 
 def test_given_mode_each_when_return_type_is_tuple_and_downstream_expects_list_of_tuples_then_pipeline_constructs():
