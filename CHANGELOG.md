@@ -2,6 +2,17 @@
 
 
 
+## v0.17.3 (2026-06-19)
+
+### Fix
+
+* fix(core): allow bare collections to satisfy type compatibility checks (#43)
+
+* fix(core): allow bare collections to satisfy type compatibility checks
+
+* style(tests): format test_is_type_compatible.py using ruff ([`802c160`](https://github.com/humansoftware/synaflow/commit/802c160bcf70a4bce27ce3cbe01eaff152a3a5a0))
+
+
 ## v0.17.2 (2026-06-19)
 
 ### Fix
