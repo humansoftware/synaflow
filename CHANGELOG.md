@@ -2,6 +2,13 @@
 
 
 
+## v0.20.0 (2026-06-20)
+
+### Feature
+
+* feat: support callable resource overrides (#53) ([`ff6ca4b`](https://github.com/humansoftware/synaflow/commit/ff6ca4bc63323874c8198111118b09b611bdc841))
+
+
 ## v0.19.0 (2026-06-20)
 
 ### Feature
