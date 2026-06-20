@@ -984,6 +984,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../testability/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Testability & Overrides
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../custom-materializers/" class="md-nav__link">
         
   
@@ -1159,6 +1187,17 @@
     <span class="md-ellipsis">
       
         Failure Isolation
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#test-time-observer-control" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Test-time observer control
       
     </span>
   </a>
@@ -1474,6 +1513,17 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#test-time-observer-control" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Test-time observer control
+      
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -1591,6 +1641,18 @@
 </code></pre></div>
 <h2 id="failure-isolation">Failure Isolation<a class="headerlink" href="#failure-isolation" title="Permanent link">&para;</a></h2>
 <p>Observer failures are <strong>logged and swallowed</strong> — they never affect pipeline execution. If an observer raises, the pipeline continues normally.</p>
+<h2 id="test-time-observer-control">Test-time observer control<a class="headerlink" href="#test-time-observer-control" title="Permanent link">&para;</a></h2>
+<p>Tests can replace or silence observers at run time without rebuilding the DAG:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">synaflow</span><span class="w"> </span><span class="kn">import</span> <span class="n">ExecutionOverrides</span><span class="p">,</span> <span class="n">Observer</span><span class="p">,</span> <span class="n">PIPELINE_SCOPE</span>
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>
+<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="n">overrides</span> <span class="o">=</span> <span class="n">ExecutionOverrides</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="n">p</span><span class="p">)</span>
+<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="n">overrides</span><span class="o">.</span><span class="n">observers</span><span class="p">[</span><span class="n">PIPELINE_SCOPE</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span><span class="n">Observer</span><span class="p">(</span><span class="n">test_recorder</span><span class="p">)]</span>
+</code></pre></div>
+<p>Use <code>PIPELINE_SCOPE</code> for pipeline-level observers and <code>Scope(...)</code> for compiled
+step keys inside included sub-pipelines.</p>
+<p>Unknown override keys are rejected: overrides can only target observer scopes
+that already exist in the compiled contract. See
+<a href="../testability/">Testability &amp; Execution Overrides</a>.</p>
 
 
 

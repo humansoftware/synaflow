@@ -1125,6 +1125,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../../advanced/testability/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Testability & Overrides
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../advanced/custom-materializers/" class="md-nav__link">
         
   
@@ -1591,6 +1619,8 @@ same flat compiled contract.</p>
 <code>pipeline(resources={...})</code>. Unlike materializers and observers, resources are
 runtime-only: if a pipeline declares one, <code>run()</code> / <code>async_run()</code> must receive
 it via <code>ExecutionOverrides.resources</code>, or execution fails loudly.</p>
+<p>If you need the operational testing patterns on top of that contract, see
+<a href="../../advanced/testability/">Testability &amp; Execution Overrides</a>.</p>
 <h3 id="2-write-your-own-runner">2. Write your own runner<a class="headerlink" href="#2-write-your-own-runner" title="Permanent link">&para;</a></h3>
 <p>The <code>Dag</code> object is self-contained. Anyone can write a runner:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">synaflow.core.dag</span><span class="w"> </span><span class="kn">import</span> <span class="n">Dag</span>
