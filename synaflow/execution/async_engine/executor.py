@@ -25,6 +25,7 @@ from synaflow.core.types import (
     OnError,
     StepMode,
 )
+from synaflow.execution.overrides import ExecutionOverrides
 
 from .constants import EOF_MARKER
 from .iterator_utils import AsyncQueueBranch, queue_to_async_gen
@@ -64,28 +65,30 @@ async def _collect_async_iterator(
 
 
 async def _apply_materializer(
-    dag: Dag, step_name: str, value: Any, consumer_type: Any = None
+    dag: Dag,
+    step_name: str,
+    value: Any,
+    materializer: Any,
+    consumer_type: Any = None,
 ) -> tuple[Any, bool, BaseException | None]:
-    node = dag[step_name]
-    mat = node.get("materializer")
-    if mat is None:
+    if materializer is None:
         if isinstance(value, (AsyncIterator, AsyncGenerator, Iterator, Generator)):
             items, had_error, exc = await _collect_async_iterator(dag, step_name, value)
             return items, had_error, exc
         return value, False, None
 
-    if inspect.iscoroutinefunction(mat):
-        result = await mat(value)
+    if inspect.iscoroutinefunction(materializer):
+        result = await materializer(value)
         return result, False, None
 
     if isinstance(value, (AsyncIterator, AsyncGenerator, Iterator, Generator)):
         items, had_error, exc = await _collect_async_iterator(dag, step_name, value)
-        res = mat(items)
+        res = materializer(items)
         if inspect.iscoroutine(res):
             return await res, had_error, exc
         return res, had_error, exc
 
-    res = mat(value)
+    res = materializer(value)
     if inspect.iscoroutine(res):
         return await res, False, None
     return res, False, None
@@ -171,7 +174,11 @@ async def _safe_iterate(name: str, iterable: Any):
 
 
 async def _resolve_queue(
-    dag: Dag, producer: str, queue: asyncio.Queue, consumer_type: Any
+    dag: Dag,
+    producer: str,
+    queue: asyncio.Queue,
+    consumer_type: Any,
+    materializer: Any,
 ) -> Any:
     if consumer_type in (AsyncIterator, AsyncGenerator):
         if isinstance(queue, AsyncQueueBranch):
@@ -183,7 +190,11 @@ async def _resolve_queue(
             return queue
         return queue_to_async_gen(queue)
     result, _, _ = await _apply_materializer(
-        dag, producer, queue_to_async_gen(queue), consumer_type=consumer_type
+        dag,
+        producer,
+        queue_to_async_gen(queue),
+        materializer,
+        consumer_type=consumer_type,
     )
     return result
 
@@ -194,15 +205,27 @@ async def _resolve_queue(
 
 
 class AsyncPipelineExecutor:
-    def __init__(self, dag: Dag, *, step_output_observers: list = None):
+    def __init__(
+        self,
+        dag: Dag,
+        *,
+        step_output_observers: list = None,
+        overrides: ExecutionOverrides | None = None,
+    ):
         self.dag = dag
         self.outputs = {}
         self._pump_tasks: list[asyncio.Task] = []
         self._step_output_observers = step_output_observers or []
+        self._overrides = overrides
 
     # ------------------------------------------------------------------
     # Lifecycle observer dispatch helpers (async)
     # ------------------------------------------------------------------
+
+    def _resolve_materializer(self, step_name: str, node: Any) -> Any:
+        if self._overrides is None:
+            return node.materializer
+        return self._overrides.materializers.resolve(step_name, node.materializer)
 
     async def _dispatch_pipeline_event(
         self,
@@ -501,7 +524,11 @@ class AsyncPipelineExecutor:
                 and dep_name not in unrolled
             ):
                 dep_type = node.deps.get(dep_name)
-                value = await _resolve_queue(self.dag, dep_name, value, dep_type)
+                producer_node = self.dag[dep_name]
+                materializer = self._resolve_materializer(dep_name, producer_node)
+                value = await _resolve_queue(
+                    self.dag, dep_name, value, dep_type, materializer
+                )
             param = node.dataset_param_names.get(dep_name, dep_name)
             args[param] = value
         return args
@@ -537,7 +564,8 @@ class AsyncPipelineExecutor:
     async def _materialize_with_events(
         self, step_name, output, node, consumer_type=None
     ):
-        mat_name = node.materializer.__name__ if callable(node.materializer) else None
+        materializer = self._resolve_materializer(step_name, node)
+        mat_name = materializer.__name__ if callable(materializer) else None
         await self._dispatch_materialization_event(
             step_name,
             node,
@@ -547,7 +575,11 @@ class AsyncPipelineExecutor:
         )
         try:
             result, had_error, exc = await _apply_materializer(
-                self.dag, step_name, output, consumer_type=consumer_type
+                self.dag,
+                step_name,
+                output,
+                materializer,
+                consumer_type=consumer_type,
             )
             await self._dispatch_materialization_event(
                 step_name,
@@ -764,10 +796,14 @@ class AsyncPipelineExecutor:
 # ---------------------------------------------------------------------------
 
 
-async def async_run(pipeline: PipelineDef, params: Any) -> None:
+async def async_run(
+    pipeline: PipelineDef,
+    params: Any,
+    overrides: ExecutionOverrides | None = None,
+) -> None:
     if getattr(pipeline, "requires_sync_runner", False):
         raise RuntimeError(
             "This pipeline contains synchronous streams (Iterator)."
             " It must be executed with run() or migrated to AsyncIterator."
         )
-    await AsyncPipelineExecutor(pipeline.dag).execute(params)
+    await AsyncPipelineExecutor(pipeline.dag, overrides=overrides).execute(params)

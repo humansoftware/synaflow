@@ -74,6 +74,13 @@ when `pipeline(...)` is called. Materialization decisions are compiled into the
 resolved materializer callables are frozen before `run()` starts. If it
 compiles, it's valid. No runtime surprises.
 
+### Runtime overrides on top of the compiled contract
+
+When you need test-time swaps without patching module globals, pass
+`ExecutionOverrides` to `run()` or `async_run()` and replace only the compiled
+materializers you care about. The DAG shape and semantics stay fixed; only the
+runtime callable changes.
+
 ### Build your own runner
 
 The DAG compiles to a deterministic JSON contract. Write custom runners or

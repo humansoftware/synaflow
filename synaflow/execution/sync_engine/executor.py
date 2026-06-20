@@ -27,6 +27,7 @@ from synaflow.core.types import (
     OnError,
     StepMode,
 )
+from synaflow.execution.overrides import ExecutionOverrides
 from synaflow.execution.sync_handoff import (
     SyncFanout,
     SyncMaterializedValue,
@@ -65,11 +66,13 @@ def _collect_iterator(
 
 
 def _apply_materializer(
-    dag: Dag, step_name: str, value: Any, consumer_type: Any = None
+    dag: Dag,
+    step_name: str,
+    value: Any,
+    materializer: Any,
+    consumer_type: Any = None,
 ) -> tuple[Any, bool, BaseException | None]:
-    node = dag[step_name]
-    mat = node.get("materializer")
-    if mat is None:
+    if materializer is None:
         if isinstance(value, Iterator):
             items, had_error, exc = _collect_iterator(dag, step_name, value)
             return items, had_error, exc
@@ -77,9 +80,9 @@ def _apply_materializer(
 
     if isinstance(value, Iterator):
         items, had_error, exc = _collect_iterator(dag, step_name, value)
-        return mat(items), had_error, exc
+        return materializer(items), had_error, exc
 
-    return mat(value), False, None
+    return materializer(value), False, None
 
 
 def _handle_error(dag: Dag, step_name: str, exc: BaseException) -> None:
@@ -103,12 +106,19 @@ def _handle_error(dag: Dag, step_name: str, exc: BaseException) -> None:
 
 
 class PipelineExecutor:
-    def __init__(self, dag: Dag, *, step_output_observers: list = None):
+    def __init__(
+        self,
+        dag: Dag,
+        *,
+        step_output_observers: list = None,
+        overrides: ExecutionOverrides | None = None,
+    ):
         self.dag = dag
         self.outputs = {}
         self._step_output_observers = step_output_observers or []
         self._active_fanouts: list[SyncFanout] = []
         self._observer_threads: list[threading.Thread] = []
+        self._overrides = overrides
 
     # ------------------------------------------------------------------
     # Lifecycle observer dispatch helpers
@@ -236,6 +246,11 @@ class PipelineExecutor:
     # ------------------------------------------------------------------
     # Execution
     # ------------------------------------------------------------------
+
+    def _resolve_materializer(self, step_name: str, node: Any) -> Any:
+        if self._overrides is None:
+            return node.materializer
+        return self._overrides.materializers.resolve(step_name, node.materializer)
 
     def execute(self, params: Any) -> None:
         for field, value in params._asdict().items():
@@ -500,7 +515,8 @@ class PipelineExecutor:
             self._observer_threads.append(thread)
 
     def _materialize_with_events(self, step_name, output, node, consumer_type=None):
-        mat_name = node.materializer.__name__ if callable(node.materializer) else None
+        materializer = self._resolve_materializer(step_name, node)
+        mat_name = materializer.__name__ if callable(materializer) else None
         self._dispatch_materialization_event(
             step_name,
             node,
@@ -510,7 +526,11 @@ class PipelineExecutor:
         )
         try:
             result, had_error, exc = _apply_materializer(
-                self.dag, step_name, output, consumer_type=consumer_type
+                self.dag,
+                step_name,
+                output,
+                materializer,
+                consumer_type=consumer_type,
             )
             self._dispatch_materialization_event(
                 step_name,
@@ -747,10 +767,12 @@ class PipelineExecutor:
 # ---------------------------------------------------------------------------
 
 
-def run(pipeline: PipelineDef, params: Any) -> None:
+def run(
+    pipeline: PipelineDef, params: Any, overrides: ExecutionOverrides | None = None
+) -> None:
     if getattr(pipeline, "requires_async_runner", False):
         raise RuntimeError(
             "This pipeline contains async features (async def or AsyncIterator)"
             " and must be executed with async_run()."
         )
-    PipelineExecutor(pipeline.dag).execute(params)
+    PipelineExecutor(pipeline.dag, overrides=overrides).execute(params)
