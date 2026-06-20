@@ -152,7 +152,7 @@ Every domain concern has a symmetric representation in both phases:
 | Mode resolution | Resolved at build time → `node.mode` | Executor reads `node.mode`, never re-infers |
 | Materialization | Resolved at build time → `node.materializer`, `materialized_deps`, `Dag.needs_materialize(...)` | Executor calls the resolved callable and follows the compiled plan |
 | Observers | Normalized at build time → `node.observers` | Executor dispatches events |
-| Resources | Declared at build time → `dag.resources` | Executor requires concrete runtime values via `ExecutionOverrides.resources` |
+| Resources | Declared at build time → `dag.resources` | Executor resolves the production factory per step, or an override provider when present |
 
 This symmetry means sync and async executors can be completely different
 implementations (one uses generators, the other uses `asyncio.Queue`) but

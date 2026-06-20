@@ -921,6 +921,66 @@ async def test_given_async_resource_context_manager_override_when_async_run_then
     assert exited == entered
 
 
+def test_given_async_resource_context_manager_factory_when_sync_run_then_raises_clear_error(
+    run_pipeline,
+):
+    class DB:
+        pass
+
+    class Params(NamedTuple):
+        value: int = 1
+
+    @asynccontextmanager
+    async def get_db() -> DB:
+        yield DB()
+
+    def use(db: DB, value: int) -> None:
+        return None
+
+    p = pipeline(
+        name="sync_rejects_async_resource_context_manager",
+        params=Params,
+        resources={"db": get_db},
+        steps=[step("use", fn=use)],
+    )
+
+    with pytest.raises(TypeError, match="produced an async context manager"):
+        run_pipeline(p, Params())
+
+
+def test_given_async_resource_context_manager_override_when_sync_run_then_raises_clear_error(
+    run_pipeline,
+):
+    class DB:
+        pass
+
+    class Params(NamedTuple):
+        value: int = 1
+
+    def get_db() -> DB:
+        return DB()
+
+    @asynccontextmanager
+    async def override_db() -> DB:
+        yield DB()
+
+    def use(db: DB, value: int) -> None:
+        return None
+
+    p = pipeline(
+        name="sync_rejects_async_resource_context_manager_override",
+        params=Params,
+        resources={"db": get_db},
+        steps=[step("use", fn=use)],
+    )
+
+    overrides = ExecutionOverrides.empty(p)
+    overrides.resources["db"] = override_db
+
+    with pytest.raises(TypeError, match="produced an async context manager"):
+        run_pipeline(p, Params(), overrides=overrides)
+
+
 def test_given_execution_overrides_from_production_when_resources_requested_then_registry_is_empty_but_keyed():
     class DB:
         pass
