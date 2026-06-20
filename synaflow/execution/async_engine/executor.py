@@ -1,5 +1,6 @@
 import asyncio
 import inspect
+from contextlib import AsyncExitStack
 from collections.abc import AsyncGenerator, AsyncIterator, Generator, Iterator
 from typing import Any
 
@@ -212,12 +213,14 @@ class AsyncPipelineExecutor:
         *,
         step_output_observers: list = None,
         overrides: ExecutionOverrides | None = None,
+        resource_factories: dict[str, Any] | None = None,
     ):
         self.dag = dag
         self.outputs = {}
         self._pump_tasks: list[asyncio.Task] = []
         self._step_output_observers = step_output_observers or []
         self._overrides = overrides
+        self._resource_factories = dict(resource_factories or {})
 
     # ------------------------------------------------------------------
     # Lifecycle observer dispatch helpers (async)
@@ -375,22 +378,6 @@ class AsyncPipelineExecutor:
     # ------------------------------------------------------------------
 
     def _seed_runtime_inputs(self, params: Any) -> None:
-        if self.dag.resources:
-            if self._overrides is None:
-                resource_names = ", ".join(sorted(self.dag.resources))
-                raise ValueError(
-                    f"Pipeline '{self.dag.name}' requires runtime resources: {resource_names}."
-                )
-            for resource_name in self.dag.resources:
-                try:
-                    self.outputs[resource_name] = self._overrides.resources[
-                        resource_name
-                    ]
-                except KeyError as exc:
-                    raise ValueError(
-                        f"Pipeline '{self.dag.name}' requires resource '{resource_name}' at runtime."
-                    ) from exc
-
         for field, value in params._asdict().items():
             self.outputs[field] = value
 
@@ -427,7 +414,10 @@ class AsyncPipelineExecutor:
             return
 
         unrolled = self.dag.each_inputs(step_name)
-        arguments = await self._build_arguments(step_name, node, unrolled)
+        resource_stack = AsyncExitStack()
+        arguments = await self._build_arguments(
+            step_name, node, unrolled, resource_stack
+        )
         await self._dispatch_step_event(node, StepEvent.STARTED, step_name)
 
         try:
@@ -447,6 +437,7 @@ class AsyncPipelineExecutor:
         finally:
             if "output" not in locals() or not self._is_stream_output(output):
                 await self._close_stream_arguments(arguments)
+            await resource_stack.aclose()
 
     async def _execute_step(self, step_name, node, arguments, unrolled):
         if unrolled:
@@ -550,21 +541,48 @@ class AsyncPipelineExecutor:
             return None
         return generate()
 
-    async def _build_arguments(self, consumer, node, unrolled):
+    async def _resolve_resource_argument(
+        self, resource_name: str, resource_stack: AsyncExitStack
+    ):
+        override_value = None
+        if self._overrides is not None:
+            override_value = self._overrides.resources.resolve(resource_name)
+        if override_value is not None:
+            return override_value
+
+        factory = self._resource_factories.get(resource_name)
+        if factory is None:
+            raise ValueError(
+                f"Pipeline '{self.dag.name}' requires resource '{resource_name}' at runtime."
+            )
+
+        value = factory()
+        if inspect.isawaitable(value):
+            value = await value
+        if hasattr(value, "__aenter__") and hasattr(value, "__aexit__"):
+            return await resource_stack.enter_async_context(value)
+        if hasattr(value, "__enter__") and hasattr(value, "__exit__"):
+            return resource_stack.enter_context(value)
+        return value
+
+    async def _build_arguments(self, consumer, node, unrolled, resource_stack):
         args = {}
         for dep_name in node.deps:
-            key = self.dag.output_key(dep_name, consumer)
-            value = self.outputs.get(key, self.outputs.get(dep_name))
-            if (
-                isinstance(value, (asyncio.Queue, AsyncQueueBranch))
-                and dep_name not in unrolled
-            ):
-                dep_type = node.deps.get(dep_name)
-                producer_node = self.dag[dep_name]
-                materializer = self._resolve_materializer(dep_name, producer_node)
-                value = await _resolve_queue(
-                    self.dag, dep_name, value, dep_type, materializer
-                )
+            if dep_name in self.dag.resources:
+                value = await self._resolve_resource_argument(dep_name, resource_stack)
+            else:
+                key = self.dag.output_key(dep_name, consumer)
+                value = self.outputs.get(key, self.outputs.get(dep_name))
+                if (
+                    isinstance(value, (asyncio.Queue, AsyncQueueBranch))
+                    and dep_name not in unrolled
+                ):
+                    dep_type = node.deps.get(dep_name)
+                    producer_node = self.dag[dep_name]
+                    materializer = self._resolve_materializer(dep_name, producer_node)
+                    value = await _resolve_queue(
+                        self.dag, dep_name, value, dep_type, materializer
+                    )
             param = node.dataset_param_names.get(dep_name, dep_name)
             args[param] = value
         return args
@@ -842,4 +860,8 @@ async def async_run(
             "This pipeline contains synchronous streams (Iterator)."
             " It must be executed with run() or migrated to AsyncIterator."
         )
-    await AsyncPipelineExecutor(pipeline.dag, overrides=overrides).execute(params)
+    await AsyncPipelineExecutor(
+        pipeline.dag,
+        overrides=overrides,
+        resource_factories=pipeline.resources,
+    ).execute(params)

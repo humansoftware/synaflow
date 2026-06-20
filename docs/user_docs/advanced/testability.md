@@ -44,8 +44,9 @@ These concepts live in different parts of the contract:
 | observers | compiled per scope | default compiled observers or override | Yes |
 
 `params` are user input data. `resources` are runtime dependencies such as a
-database client, HTTP client, or cache handle. Step outputs are neither:
-they are created by the pipeline itself.
+database client, HTTP client, or cache handle. They are declared as production
+factories on the pipeline and resolved when a step is injected. Step outputs are
+neither: they are created by the pipeline itself.
 
 ## `empty()` vs `from_production()`
 
@@ -60,14 +61,14 @@ Use `empty()` when you want aggressive test isolation:
 
 - observers default to no-op
 - materializers keep the compiled callable unless you replace one
-- resources must be filled explicitly before execution
+- production resource factories stay available unless you replace them
 
 Use `from_production()` when you want a surgical patch on top of the normal
 pipeline behavior:
 
 - compiled observers stay active unless replaced
 - compiled materializers stay active unless replaced
-- resources are still runtime-only and must be supplied explicitly
+- production resource factories stay active unless replaced
 
 In both modes, override keys must already exist in the compiled contract.
 Unknown step keys, observer scopes, or resource names fail loudly instead of
@@ -120,9 +121,9 @@ overrides = ExecutionOverrides.from_production(p)
 overrides.observers[PIPELINE_SCOPE] = [Observer(test_recorder)]
 ```
 
-## Injecting runtime resources
+## Production resource factories
 
-Declare the resource in the pipeline contract:
+Declare the production resource factory in the pipeline contract:
 
 ```python
 from typing import NamedTuple
@@ -134,18 +135,28 @@ class DB:
 class Params(NamedTuple):
     user_id: int
 
+def get_db() -> DB:
+    return DB(...)
+
 def load_user(db: DB, user_id: int):
     return db.fetch(user_id)
 
 p = pipeline(
     name="users",
     params=Params,
-    resources={"db": DB},
+    resources={"db": get_db},
     steps=[step("load_user", fn=load_user)],
 )
 ```
 
-Provide the concrete runtime object in the test:
+With that declaration, production can run without overrides:
+
+```python
+run(p, Params(user_id=42))
+```
+
+Provide a different runtime object in the test only when you want to replace
+that provider:
 
 ```python
 from synaflow import ExecutionOverrides, run
@@ -157,10 +168,24 @@ overrides.resources["db"] = fake_db
 run(p, Params(user_id=42), overrides=overrides)
 ```
 
-If a declared resource is missing, execution fails loudly.
-
 The inverse is also validated: setting `overrides.resources["missing"] = ...`
 for a name the pipeline never declared is rejected.
+
+## Context-managed resources
+
+If a production resource factory returns a context manager, the executor enters
+it before calling the step and injects the entered value:
+
+```python
+from contextlib import contextmanager
+
+@contextmanager
+def get_db() -> DB:
+    with pool.connection() as conn:
+        yield conn
+```
+
+This is useful for per-step connections and transactions.
 
 ## Shared resources across included sub-pipelines
 

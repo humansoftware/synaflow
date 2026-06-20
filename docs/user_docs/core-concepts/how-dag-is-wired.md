@@ -192,14 +192,18 @@ dependencies and do **not** become dataflow nodes:
 p = pipeline(
     name="users",
     params=Params,
-    resources={"db": DB},
+    resources={"db": get_db},
     steps=[step("load_user", fn=load_user)],
 )
 ```
 
-The compiled DAG records that `"db"` must exist, but the concrete object is
-only supplied later through `ExecutionOverrides.resources` at `run()` time.
-That distinction is part of SynaFlow's build-vs-run contract. See
+Here `get_db` is a production resource factory with a return type annotation
+such as `def get_db() -> DB: ...`.
+
+The compiled DAG records that `"db"` has type `DB`, but the concrete object is
+resolved later when the step is injected. `ExecutionOverrides.resources` can
+still replace that provider in tests. That distinction is part of SynaFlow's
+build-vs-run contract. See
 [Build vs Run](build-vs-run.md) and
 [Testability & Execution Overrides](../advanced/testability.md).
 
