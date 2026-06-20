@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import AsyncIterator
-from typing import NamedTuple, Any
+from typing import NamedTuple
 from synaflow import async_run, pipeline, step
 
 
@@ -63,4 +63,4 @@ async def test_given_future_annotations_when_custom_materializer_executed_then_r
     )
     await async_run(p, Params())
     assert captured == ["a", "b"]
-    assert resolved_item_type in (Any, AsyncIterator[str])
+    assert resolved_item_type == AsyncIterator[str]

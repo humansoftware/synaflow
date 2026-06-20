@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Iterator
-from typing import NamedTuple, Any
+from typing import NamedTuple
 from synaflow import pipeline, step
 from synaflow.execution.sync_engine.executor import run as sync_run
 
@@ -60,4 +60,4 @@ def test_given_future_annotations_when_custom_materializer_executed_then_receive
     )
     sync_run(p, Params())
     assert captured == ["a", "b"]
-    assert resolved_item_type in (Any, Iterator[str])
+    assert resolved_item_type == Iterator[str]

@@ -35,9 +35,6 @@ def get_safe_type_hints(fn: Any) -> dict[str, Any]:
     try:
         return typing.get_type_hints(fn, include_extras=True)
     except (NameError, TypeError):
-        import traceback
-
-        traceback.print_exc()
         return {}
 
 

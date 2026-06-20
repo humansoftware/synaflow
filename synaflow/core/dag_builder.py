@@ -56,8 +56,12 @@ from synaflow.core.observers import (
 )
 from synaflow.core.type_compatibility import (
     get_inner_type,
+    is_async_stream_type,
+    is_factory,
+    is_iterable_type,
     is_materialized_consumer,
     is_scalar,
+    is_sync_stream_type,
 )
 from synaflow.core.types import ErrorMaterializeContext, MaterializeContext, OnError
 
@@ -193,16 +197,9 @@ def _resolve_materializers(
     pipeline_error_materializer: Any,
 ) -> None:
     for name, node in dag.steps.items():
-        from synaflow.core.type_compatibility import (
-            is_iterable_type,
-            is_factory,
-            is_sync_stream_type,
-            is_async_stream_type,
-        )
-        from synaflow.core.types import MaterializeContext, ErrorMaterializeContext
-
         if not node.fn:
             node.materializer = None
+            node.error_materializer = None
             continue
 
         has_explicit_mat = (

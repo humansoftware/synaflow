@@ -11,12 +11,11 @@ from synaflow.core.definition import Step
 from synaflow.core.naming import get_base_dataset_name
 from synaflow.core.type_compatibility import (
     is_async_stream_type,
-    is_factory,
     is_iterable_type,
     is_scalar,
     is_sync_stream_type,
 )
-from synaflow.core.types import MaterializeContext, StepMode
+from synaflow.core.types import StepMode
 
 
 def validate_step_is_callable(step: Step, pipeline_name: str) -> None:
@@ -150,26 +149,23 @@ def validate_sync_async_consistency(
     has_async_materializer = False
     has_sync_materializer = False
 
-    def _is_async_mat(m: Any) -> bool:
-        if is_factory(m):
-            ctx = MaterializeContext(
-                pipeline_name=pipeline_name, dataset_name="validator", item_type=Any
-            )
-            m = m(ctx)
-        return inspect.iscoroutinefunction(m)
-
-    if memory_materializer_factory and not is_default_factory:
-        if _is_async_mat(memory_materializer_factory):
+    def _register_materializer(materializer: Any) -> None:
+        nonlocal has_async_materializer, has_sync_materializer
+        if materializer is None:
+            return
+        if inspect.iscoroutinefunction(materializer):
             has_async_materializer = True
         else:
             has_sync_materializer = True
 
+    if memory_materializer_factory and not is_default_factory:
+        for step in steps:
+            if getattr(step, "materializer", None) is None:
+                _register_materializer(dag.steps[step.name].materializer)
+
     for step in steps:
-        if getattr(step, "materializer", None):
-            if _is_async_mat(step.materializer):
-                has_async_materializer = True
-            else:
-                has_sync_materializer = True
+        if getattr(step, "materializer", None) is not None:
+            _register_materializer(dag.steps[step.name].materializer)
 
     if has_sync and has_async_materializer:
         raise ValueError(
