@@ -92,6 +92,10 @@ def _extract_sub_pipeline_param_fields(params: Any) -> list[str]:
     return []
 
 
+def _extract_sub_pipeline_resource_fields(resources: dict[str, Any]) -> list[str]:
+    return list(resources)
+
+
 def _build_expanded_step_name(prefix: str, sub_step: Step, exported_name: str) -> str:
     if sub_step.name == exported_name:
         return prefix
@@ -114,6 +118,7 @@ def _expand_sub_pipeline_steps(
     include_step: IncludeStep,
     adapter_name: str,
     sub_pipeline_param_fields: list[str],
+    sub_pipeline_resource_fields: list[str],
     new_parent_chain: str | None,
 ) -> list[Step]:
     prefix = include_step.name
@@ -131,6 +136,7 @@ def _expand_sub_pipeline_steps(
             prefix,
             adapter_name,
             sub_pipeline_param_fields,
+            sub_pipeline_resource_fields,
             sub_pipeline.params,
         )
         materializer, error_materializer, observers = _resolve_sub_step_overrides(
@@ -172,10 +178,14 @@ def _expand_include(
         include_step, current_pipeline_name, parent_chain
     )
     sub_pipeline_param_fields = _extract_sub_pipeline_param_fields(sub_pipeline.params)
+    sub_pipeline_resource_fields = _extract_sub_pipeline_resource_fields(
+        sub_pipeline.resources
+    )
     expanded_steps = _expand_sub_pipeline_steps(
         include_step,
         adapter_name,
         sub_pipeline_param_fields,
+        sub_pipeline_resource_fields,
         new_parent_chain,
     )
     return [adapter_step, *expanded_steps]
@@ -186,11 +196,14 @@ def _build_argument_mapping(
     prefix: str,
     adapter_name: str,
     sub_pipeline_param_fields: list[str],
+    sub_pipeline_resource_fields: list[str],
 ) -> dict[str, str]:
     arg_mapping: dict[str, str] = {}
     for param_name in signature.parameters:
         if param_name in sub_pipeline_param_fields:
             arg_mapping[param_name] = adapter_name
+        elif param_name in sub_pipeline_resource_fields:
+            arg_mapping[param_name] = param_name
         else:
             arg_mapping[param_name] = f"{prefix}__{param_name}"
     return arg_mapping
@@ -241,6 +254,7 @@ def _wrap_sub_step_fn(
     prefix: str,
     adapter_name: str,
     sub_pipeline_param_fields: list[str],
+    sub_pipeline_resource_fields: list[str],
     sub_pipeline_params_class: Any,
 ) -> Any:
     signature = inspect.signature(original_fn)
@@ -249,6 +263,7 @@ def _wrap_sub_step_fn(
         prefix,
         adapter_name,
         sub_pipeline_param_fields,
+        sub_pipeline_resource_fields,
     )
 
     if inspect.iscoroutinefunction(original_fn):

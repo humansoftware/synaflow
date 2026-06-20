@@ -3,6 +3,7 @@ from .overrides import (
     MaterializerRegistry,
     ObserverRegistry,
     PipelineRegistry,
+    ResourceRegistry,
 )
 
 __all__ = [
@@ -10,4 +11,5 @@ __all__ = [
     "MaterializerRegistry",
     "ObserverRegistry",
     "PipelineRegistry",
+    "ResourceRegistry",
 ]

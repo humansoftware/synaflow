@@ -127,16 +127,32 @@ class ObserverRegistry(PipelineRegistry):
         return normalized
 
 
+class ResourceRegistry(PipelineRegistry):
+    @classmethod
+    def empty(cls, pipeline: PipelineDef) -> "ResourceRegistry":
+        return cls(contract_keys=_resource_contract_keys(pipeline))
+
+    @classmethod
+    def from_production(cls, pipeline: PipelineDef) -> "ResourceRegistry":
+        return cls.empty(pipeline)
+
+    def _validate_value(self, key: str, value: Any) -> None:
+        if value is None:
+            raise TypeError(f"Resource override for key '{key}' cannot be None.")
+
+
 @dataclass(frozen=True)
 class ExecutionOverrides:
     materializers: MaterializerRegistry
     observers: ObserverRegistry
+    resources: ResourceRegistry
 
     @classmethod
     def empty(cls, pipeline: PipelineDef) -> "ExecutionOverrides":
         return cls(
             materializers=MaterializerRegistry.empty(pipeline),
             observers=ObserverRegistry.empty(pipeline),
+            resources=ResourceRegistry.empty(pipeline),
         )
 
     @classmethod
@@ -144,6 +160,7 @@ class ExecutionOverrides:
         return cls(
             materializers=MaterializerRegistry.from_production(pipeline),
             observers=ObserverRegistry.from_production(pipeline),
+            resources=ResourceRegistry.from_production(pipeline),
         )
 
 
@@ -186,3 +203,7 @@ def _observer_fallback_values(
         if step_local:
             values[step_name] = step_local
     return values
+
+
+def _resource_contract_keys(pipeline: PipelineDef) -> set[str]:
+    return set(pipeline.dag.resources)

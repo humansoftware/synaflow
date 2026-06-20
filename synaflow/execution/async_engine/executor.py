@@ -374,9 +374,28 @@ class AsyncPipelineExecutor:
     # Execution
     # ------------------------------------------------------------------
 
-    async def execute(self, params: Any) -> None:
+    def _seed_runtime_inputs(self, params: Any) -> None:
+        if self.dag.resources:
+            if self._overrides is None:
+                resource_names = ", ".join(sorted(self.dag.resources))
+                raise ValueError(
+                    f"Pipeline '{self.dag.name}' requires runtime resources: {resource_names}."
+                )
+            for resource_name in self.dag.resources:
+                try:
+                    self.outputs[resource_name] = self._overrides.resources[
+                        resource_name
+                    ]
+                except KeyError as exc:
+                    raise ValueError(
+                        f"Pipeline '{self.dag.name}' requires resource '{resource_name}' at runtime."
+                    ) from exc
+
         for field, value in params._asdict().items():
             self.outputs[field] = value
+
+    async def execute(self, params: Any) -> None:
+        self._seed_runtime_inputs(params)
 
         await self._dispatch_pipeline_event(PipelineEvent.STARTED)
         try:

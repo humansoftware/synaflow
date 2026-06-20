@@ -3,6 +3,7 @@ from typing import NamedTuple
 import pytest
 
 from synaflow import StepMode, pipeline, step
+from synaflow.core.definition import include
 from synaflow.core.types import OnError
 
 
@@ -75,6 +76,163 @@ def test_given_dependency_on_pipeline_param_when_constructed_then_passes():
         return limit
 
     pipeline(name="t", params=P, steps=[step("s1", fn=fn)])
+
+
+def test_given_dependency_on_declared_resource_when_constructed_then_passes():
+    class DB:
+        pass
+
+    class P(NamedTuple):
+        limit: int = 10
+
+    def fn(db: DB, limit: int) -> int:
+        return limit
+
+    p = pipeline(
+        name="t",
+        params=P,
+        resources={"db": DB},
+        steps=[step("s1", fn=fn)],
+    )
+
+    assert p.dag.resources == {"db": DB}
+    assert p.dag.steps["s1"].deps == {"db": DB, "limit": int}
+    assert p.to_dict()["resources"] == {"db": "DB"}
+
+
+def test_given_resource_name_colliding_with_params_field_when_constructed_then_raises():
+    class DB:
+        pass
+
+    class P(NamedTuple):
+        db: int = 10
+
+    def fn(db: DB) -> None:
+        pass
+
+    with pytest.raises(ValueError, match="collides with a params field"):
+        pipeline(
+            name="t",
+            params=P,
+            resources={"db": DB},
+            steps=[step("s1", fn=fn)],
+        )
+
+
+def test_given_resource_name_colliding_with_step_name_when_constructed_then_raises():
+    class DB:
+        pass
+
+    class P(NamedTuple):
+        limit: int = 10
+
+    def fn(limit: int) -> int:
+        return limit
+
+    with pytest.raises(ValueError, match="collides with a step name"):
+        pipeline(
+            name="t",
+            params=P,
+            resources={"db": DB},
+            steps=[step("db", fn=fn)],
+        )
+
+
+def test_given_sub_pipeline_resource_when_constructed_then_resource_is_inherited_into_parent_contract():
+    class DB:
+        pass
+
+    class SubParams(NamedTuple):
+        value: int
+
+    class Params(NamedTuple):
+        value: int = 10
+
+    def use(db: DB, value: int) -> int:
+        return value
+
+    sub = pipeline(
+        name="sub",
+        params=SubParams,
+        resources={"db": DB},
+        steps=[step("use", fn=use)],
+        exports="use",
+    )
+
+    def adapt(value: int) -> SubParams:
+        return SubParams(value=value)
+
+    p = pipeline(
+        name="parent",
+        params=Params,
+        steps=[include("incl", pipeline=sub, fn=adapt)],
+    )
+
+    assert p.dag.resources == {"db": DB}
+    assert p.dag.steps["incl"].deps == {"db": DB, "incl__adapter": SubParams}
+
+
+def test_given_parent_and_sub_pipeline_same_resource_instance_when_constructed_then_builds():
+    shared = object()
+
+    class SubParams(NamedTuple):
+        value: int
+
+    class Params(NamedTuple):
+        value: int = 10
+
+    def use(db: object, value: int) -> int:
+        return value
+
+    sub = pipeline(
+        name="sub",
+        params=SubParams,
+        resources={"db": shared},
+        steps=[step("use", fn=use)],
+        exports="use",
+    )
+
+    def adapt(value: int) -> SubParams:
+        return SubParams(value=value)
+
+    p = pipeline(
+        name="parent",
+        params=Params,
+        resources={"db": shared},
+        steps=[include("incl", pipeline=sub, fn=adapt)],
+    )
+
+    assert p.dag.resources["db"] is object
+
+
+def test_given_parent_and_sub_pipeline_different_resource_instances_with_same_name_when_constructed_then_raises():
+    class SubParams(NamedTuple):
+        value: int
+
+    class Params(NamedTuple):
+        value: int = 10
+
+    def use(db: object, value: int) -> int:
+        return value
+
+    sub = pipeline(
+        name="sub",
+        params=SubParams,
+        resources={"db": object()},
+        steps=[step("use", fn=use)],
+        exports="use",
+    )
+
+    def adapt(value: int) -> SubParams:
+        return SubParams(value=value)
+
+    with pytest.raises(ValueError, match="resource 'db' is declared multiple times"):
+        pipeline(
+            name="parent",
+            params=Params,
+            resources={"db": object()},
+            steps=[include("incl", pipeline=sub, fn=adapt)],
+        )
 
 
 def test_given_duplicate_step_name_when_constructed_then_raises():
