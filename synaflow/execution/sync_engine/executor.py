@@ -456,19 +456,17 @@ class PipelineExecutor:
         return generate()
 
     def _resolve_resource_argument(self, resource_name: str, resource_stack: ExitStack):
-        override_value = None
+        provider = None
         if self._overrides is not None:
-            override_value = self._overrides.resources.resolve(resource_name)
-        if override_value is not None:
-            return override_value
-
-        factory = self._resource_factories.get(resource_name)
-        if factory is None:
+            provider = self._overrides.resources.resolve(resource_name)
+        if provider is None:
+            provider = self._resource_factories.get(resource_name)
+        if provider is None:
             raise ValueError(
                 f"Pipeline '{self.dag.name}' requires resource '{resource_name}' at runtime."
             )
 
-        value = factory()
+        value = provider() if callable(provider) else provider
         if hasattr(value, "__aenter__") and hasattr(value, "__aexit__"):
             raise TypeError(
                 f"Pipeline '{self.dag.name}': resource '{resource_name}' produced an async context manager in sync run()."

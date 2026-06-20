@@ -798,7 +798,7 @@ wheels = [
 
 [[package]]
 name = "synaflow"
-version = "0.17.3"
+version = "0.18.0"
 source = { editable = "." }
 dependencies = [
     { name = "inflect" },
