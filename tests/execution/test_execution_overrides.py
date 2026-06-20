@@ -102,6 +102,30 @@ def test_given_execution_overrides_from_production_when_materializer_requested_t
     assert overrides.materializers["items"] is list
 
 
+def test_given_execution_overrides_empty_when_materializer_not_overridden_then_compiled_callable_is_kept():
+    class Params(NamedTuple):
+        count: int = 1
+
+    def gen(count: int) -> Iterator[int]:
+        yield from range(count)
+
+    def consume(items: list[int]) -> None:
+        return None
+
+    p = pipeline(
+        name="compiled_materializer_empty",
+        params=Params,
+        steps=[
+            step("items", fn=gen),
+            step("consume", fn=consume),
+        ],
+    )
+
+    overrides = ExecutionOverrides.empty(p)
+
+    assert overrides.materializers["items"] is list
+
+
 def test_given_unknown_materializer_override_key_when_assigned_then_raises():
     class Params(NamedTuple):
         value: int = 1
@@ -178,6 +202,72 @@ def test_given_pipeline_observer_override_when_sync_run_then_pipeline_and_step_e
     assert "StepCompletedContext" in events
 
 
+def test_given_execution_overrides_empty_when_observers_not_overridden_then_all_observers_are_silenced(
+    run_pipeline,
+):
+    class Params(NamedTuple):
+        value: int = 1
+
+    events = []
+
+    def record_pipeline(ctx):
+        events.append(type(ctx).__name__)
+
+    def record_step(ctx):
+        events.append(type(ctx).__name__)
+
+    def emit(value: int) -> int:
+        return value
+
+    p = pipeline(
+        name="observer_step_override",
+        params=Params,
+        steps=[step("emit", fn=emit, observers=[Observer(lambda ctx: None)])],
+        observers=[Observer(record_pipeline)],
+    )
+
+    overrides = ExecutionOverrides.empty(p)
+
+    run_pipeline(p, Params(), overrides=overrides)
+
+    assert events == []
+
+
+def test_given_execution_overrides_from_production_when_observers_not_overridden_then_compiled_observers_are_kept(
+    run_pipeline,
+):
+    class Params(NamedTuple):
+        value: int = 1
+
+    pipeline_events = []
+    step_events = []
+
+    def record_pipeline(ctx):
+        if ctx.event in (PipelineEvent.STARTED, PipelineEvent.COMPLETED):
+            pipeline_events.append(type(ctx).__name__)
+
+    def record_step(ctx):
+        if ctx.event in (StepEvent.STARTED, StepEvent.COMPLETED):
+            step_events.append(type(ctx).__name__)
+
+    def emit(value: int) -> int:
+        return value
+
+    p = pipeline(
+        name="observer_step_from_production",
+        params=Params,
+        steps=[step("emit", fn=emit, observers=[Observer(record_step)])],
+        observers=[Observer(record_pipeline)],
+    )
+
+    overrides = ExecutionOverrides.from_production(p)
+
+    run_pipeline(p, Params(), overrides=overrides)
+
+    assert pipeline_events == ["PipelineStartedContext", "PipelineCompletedContext"]
+    assert step_events == ["StepStartedContext", "StepCompletedContext"]
+
+
 def test_given_step_observer_override_when_sync_run_then_only_step_events_use_override(
     run_pipeline,
 ):
@@ -210,7 +300,7 @@ def test_given_step_observer_override_when_sync_run_then_only_step_events_use_ov
 
     run_pipeline(p, Params(), overrides=overrides)
 
-    assert pipeline_events == ["PipelineStartedContext", "PipelineCompletedContext"]
+    assert pipeline_events == []
     assert step_events == ["StepStartedContext", "StepCompletedContext"]
 
 

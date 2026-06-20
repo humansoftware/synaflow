@@ -92,7 +92,11 @@ class MaterializerRegistry(PipelineRegistry):
 class ObserverRegistry(PipelineRegistry):
     @classmethod
     def empty(cls, pipeline: PipelineDef) -> "ObserverRegistry":
-        return cls(contract_keys=_observer_contract_keys(pipeline))
+        contract_keys = _observer_contract_keys(pipeline)
+        return cls(
+            contract_keys=contract_keys,
+            fallback_values={key: [] for key in contract_keys},
+        )
 
     @classmethod
     def from_production(cls, pipeline: PipelineDef) -> "ObserverRegistry":
