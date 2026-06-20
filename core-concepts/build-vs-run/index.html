@@ -1534,7 +1534,7 @@ deterministic behavior possible.</p>
 </tr>
 <tr>
 <td><strong>Run-time</strong></td>
-<td>Topological execution, lockstep streaming, bounded handoff via <code>max_in_flight</code>, <code>tee</code> forking, observer dispatch, error handling</td>
+<td>Topological execution, lockstep streaming, bounded handoff via <code>max_in_flight</code>, <code>tee</code> forking, observer dispatch, error handling, optional <code>ExecutionOverrides</code> on top of the compiled contract</td>
 <td><code>run()</code> / <code>async_run()</code> is called</td>
 <td>Step outputs, side effects</td>
 </tr>
@@ -1568,6 +1568,9 @@ deterministic behavior possible.</p>
 <code>force_materialize</code>, and the resolved <code>node.materializer</code> callable — are
 resolved at build time and frozen in the JSON or <code>Dag</code>. Runners don't re-infer
 semantics; they execute the contract.</p>
+<p><code>ExecutionOverrides</code> fits inside that boundary: it can swap the concrete
+runtime callable for a compiled key such as a materializer, but it does not
+change graph structure, dependency resolution, or eager-vs-lazy planning.</p>
 <h3 id="2-write-your-own-runner">2. Write your own runner<a class="headerlink" href="#2-write-your-own-runner" title="Permanent link">&para;</a></h3>
 <p>The <code>Dag</code> object is self-contained. Anyone can write a runner:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">synaflow.core.dag</span><span class="w"> </span><span class="kn">import</span> <span class="n">Dag</span>
