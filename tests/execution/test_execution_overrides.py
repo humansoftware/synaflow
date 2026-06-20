@@ -2,7 +2,16 @@ from typing import AsyncGenerator, Iterator, NamedTuple
 
 import pytest
 
-from synaflow import ExecutionOverrides, async_run, pipeline, step
+from synaflow import (
+    ExecutionOverrides,
+    Observer,
+    PIPELINE_SCOPE,
+    PipelineEvent,
+    StepEvent,
+    async_run,
+    pipeline,
+    step,
+)
 
 
 def test_given_materializer_override_when_sync_run_then_override_is_used(
@@ -133,3 +142,149 @@ def test_given_non_callable_materializer_override_when_assigned_then_raises():
 
     with pytest.raises(TypeError, match="must be callable"):
         overrides.materializers["items"] = 123
+
+
+def test_given_pipeline_observer_override_when_sync_run_then_pipeline_and_step_events_use_override(
+    run_pipeline,
+):
+    class Params(NamedTuple):
+        value: int = 1
+
+    events = []
+
+    def record(ctx):
+        events.append(type(ctx).__name__)
+
+    def emit(value: int) -> int:
+        return value
+
+    p = pipeline(
+        name="observer_pipeline_override",
+        params=Params,
+        steps=[step("emit", fn=emit)],
+        observers=[Observer(lambda ctx: None)],
+    )
+
+    overrides = ExecutionOverrides.empty(p)
+    overrides.observers[PIPELINE_SCOPE] = [Observer(record)]
+
+    run_pipeline(p, Params(), overrides=overrides)
+
+    assert "PipelineStartedContext" in events
+    assert "PipelineCompletedContext" in events
+    assert "StepStartedContext" in events
+    assert "StepCompletedContext" in events
+
+
+def test_given_step_observer_override_when_sync_run_then_only_step_events_use_override(
+    run_pipeline,
+):
+    class Params(NamedTuple):
+        value: int = 1
+
+    pipeline_events = []
+    step_events = []
+
+    def record_pipeline(ctx):
+        if ctx.event in (PipelineEvent.STARTED, PipelineEvent.COMPLETED):
+            pipeline_events.append(type(ctx).__name__)
+
+    def record_step(ctx):
+        if ctx.event in (StepEvent.STARTED, StepEvent.COMPLETED):
+            step_events.append(type(ctx).__name__)
+
+    def emit(value: int) -> int:
+        return value
+
+    p = pipeline(
+        name="observer_step_override",
+        params=Params,
+        steps=[step("emit", fn=emit, observers=[Observer(lambda ctx: None)])],
+        observers=[Observer(record_pipeline)],
+    )
+
+    overrides = ExecutionOverrides.empty(p)
+    overrides.observers["emit"] = [Observer(record_step)]
+
+    run_pipeline(p, Params(), overrides=overrides)
+
+    assert pipeline_events == ["PipelineStartedContext", "PipelineCompletedContext"]
+    assert step_events == ["StepStartedContext", "StepCompletedContext"]
+
+
+async def test_given_pipeline_observer_override_when_async_run_then_pipeline_and_step_events_use_override():
+    class Params(NamedTuple):
+        value: int = 1
+
+    events = []
+
+    async def record(ctx):
+        events.append(type(ctx).__name__)
+
+    async def emit(value: int) -> int:
+        return value
+
+    p = pipeline(
+        name="async_observer_pipeline_override",
+        params=Params,
+        steps=[step("emit", fn=emit)],
+        observers=[Observer(lambda ctx: None)],
+    )
+
+    overrides = ExecutionOverrides.empty(p)
+    overrides.observers[PIPELINE_SCOPE] = [Observer(record)]
+
+    await async_run(p, Params(), overrides=overrides)
+
+    assert "PipelineStartedContext" in events
+    assert "PipelineCompletedContext" in events
+    assert "StepStartedContext" in events
+    assert "StepCompletedContext" in events
+
+
+def test_given_invalid_observer_override_key_when_assigned_then_raises():
+    class Params(NamedTuple):
+        value: int = 1
+
+    def emit(value: int) -> int:
+        return value
+
+    p = pipeline(
+        name="invalid_observer_key",
+        params=Params,
+        steps=[step("emit", fn=emit)],
+        observers=[Observer(lambda ctx: None)],
+    )
+
+    overrides = ExecutionOverrides.empty(p)
+
+    with pytest.raises(KeyError, match="Unknown override key 'missing'"):
+        overrides.observers["missing"] = [Observer(lambda ctx: None)]
+
+
+def test_given_invalid_observer_override_value_when_assigned_then_raises():
+    class Params(NamedTuple):
+        value: int = 1
+
+    def emit(value: int) -> int:
+        return value
+
+    p = pipeline(
+        name="invalid_observer_value",
+        params=Params,
+        steps=[step("emit", fn=emit)],
+        observers=[Observer(lambda ctx: None)],
+    )
+
+    overrides = ExecutionOverrides.empty(p)
+
+    record = lambda ctx: None
+
+    with pytest.raises(TypeError, match="must be a list of observers"):
+        overrides.observers[PIPELINE_SCOPE] = record
+
+    with pytest.raises(
+        TypeError,
+        match="must contain only callables or Observer registrations",
+    ):
+        overrides.observers[PIPELINE_SCOPE] = [123]

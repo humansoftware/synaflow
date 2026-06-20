@@ -5,6 +5,7 @@ from collections.abc import Iterator
 from typing import Any
 
 from synaflow.core.dag import Dag
+from synaflow.core.constants import PIPELINE_SCOPE
 from synaflow.execution.bounded_iterator import BoundedIterator
 from synaflow.core.definition import PipelineDef
 from synaflow.core.exceptions import PipelineStopException
@@ -124,13 +125,29 @@ class PipelineExecutor:
     # Lifecycle observer dispatch helpers
     # ------------------------------------------------------------------
 
+    def _resolve_pipeline_observers(self) -> list:
+        if self._overrides is None:
+            return self.dag.pipeline_observers
+        return self._overrides.observers.resolve(
+            PIPELINE_SCOPE, self.dag.pipeline_observers
+        )
+
+    def _resolve_step_observers(self, node: Any, step_name: str) -> list:
+        pipeline_observers = self._resolve_pipeline_observers()
+        step_observers = [obs for obs in node.observers if obs.source == "step"]
+        if self._overrides is not None:
+            step_observers = self._overrides.observers.resolve(
+                step_name, step_observers
+            )
+        return [*pipeline_observers, *step_observers]
+
     def _dispatch_pipeline_event(
         self,
         event: PipelineEvent,
         step_name: str | None = None,
         exception: BaseException | None = None,
     ) -> None:
-        registrations = self.dag.pipeline_observers
+        registrations = self._resolve_pipeline_observers()
         if not registrations:
             return
         ctx: Any
@@ -159,7 +176,7 @@ class PipelineExecutor:
         completed_all_inputs: bool = True,
         exception: BaseException | None = None,
     ) -> None:
-        registrations = node.observers
+        registrations = self._resolve_step_observers(node, step_name)
         if not registrations:
             return
         ctx: Any
@@ -207,7 +224,7 @@ class PipelineExecutor:
         materializer_name: str | None = None,
         exception: BaseException | None = None,
     ) -> None:
-        registrations = node.observers
+        registrations = self._resolve_step_observers(node, step_name)
         if not registrations:
             return
         ctx: Any

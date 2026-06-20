@@ -77,9 +77,10 @@ compiles, it's valid. No runtime surprises.
 ### Runtime overrides on top of the compiled contract
 
 When you need test-time swaps without patching module globals, pass
-`ExecutionOverrides` to `run()` or `async_run()` and replace only the compiled
-materializers you care about. The DAG shape and semantics stay fixed; only the
-runtime callable changes.
+`ExecutionOverrides` to `run()` or `async_run()` and replace only compiled
+runtime dependencies such as materializers or observers. Use
+`PIPELINE_SCOPE` for pipeline-level observers. The DAG shape and semantics stay
+fixed; only the runtime callable changes.
 
 ### Build your own runner
 

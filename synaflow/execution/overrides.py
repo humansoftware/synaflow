@@ -2,7 +2,9 @@ from collections.abc import Iterator, MutableMapping
 from dataclasses import dataclass
 from typing import Any
 
+from synaflow.core.constants import PIPELINE_SCOPE
 from synaflow.core.definition import PipelineDef
+from synaflow.core.observers import Observer, ResolvedObserver
 
 
 class PipelineRegistry(MutableMapping[str, Any]):
@@ -26,8 +28,7 @@ class PipelineRegistry(MutableMapping[str, Any]):
 
     def __setitem__(self, key: str, value: Any) -> None:
         self._validate_key(key)
-        self._validate_value(key, value)
-        self._overrides[key] = value
+        self._overrides[key] = self._normalize_value(key, value)
 
     def __delitem__(self, key: str) -> None:
         self._validate_key(key)
@@ -56,6 +57,10 @@ class PipelineRegistry(MutableMapping[str, Any]):
     def _validate_value(self, key: str, value: Any) -> None:
         return None
 
+    def _normalize_value(self, key: str, value: Any) -> Any:
+        self._validate_value(key, value)
+        return value
+
 
 class MaterializerRegistry(PipelineRegistry):
     @classmethod
@@ -74,17 +79,58 @@ class MaterializerRegistry(PipelineRegistry):
             raise TypeError(f"Materializer override for step '{key}' must be callable.")
 
 
+class ObserverRegistry(PipelineRegistry):
+    @classmethod
+    def empty(cls, pipeline: PipelineDef) -> "ObserverRegistry":
+        return cls(contract_keys=_observer_contract_keys(pipeline))
+
+    @classmethod
+    def from_production(cls, pipeline: PipelineDef) -> "ObserverRegistry":
+        return cls(
+            contract_keys=_observer_contract_keys(pipeline),
+            fallback_values=_observer_fallback_values(pipeline),
+        )
+
+    def _normalize_value(self, key: str, value: Any) -> list[ResolvedObserver]:
+        if not isinstance(value, list):
+            raise TypeError(
+                f"Observer override for scope '{key}' must be a list of observers."
+            )
+
+        source = "pipeline" if key == PIPELINE_SCOPE else "step"
+        normalized: list[ResolvedObserver] = []
+        for item in value:
+            if isinstance(item, ResolvedObserver):
+                normalized.append(item)
+            elif isinstance(item, Observer):
+                normalized.append(ResolvedObserver(handler=item.handler, source=source))
+            elif callable(item):
+                normalized.append(ResolvedObserver(handler=item, source=source))
+            else:
+                raise TypeError(
+                    f"Observer override for scope '{key}' must contain only callables or Observer registrations."
+                )
+        return normalized
+
+
 @dataclass(frozen=True)
 class ExecutionOverrides:
     materializers: MaterializerRegistry
+    observers: ObserverRegistry
 
     @classmethod
     def empty(cls, pipeline: PipelineDef) -> "ExecutionOverrides":
-        return cls(materializers=MaterializerRegistry.empty(pipeline))
+        return cls(
+            materializers=MaterializerRegistry.empty(pipeline),
+            observers=ObserverRegistry.empty(pipeline),
+        )
 
     @classmethod
     def from_production(cls, pipeline: PipelineDef) -> "ExecutionOverrides":
-        return cls(materializers=MaterializerRegistry.from_production(pipeline))
+        return cls(
+            materializers=MaterializerRegistry.from_production(pipeline),
+            observers=ObserverRegistry.from_production(pipeline),
+        )
 
 
 def _materializer_contract_keys(pipeline: PipelineDef) -> set[str]:
@@ -101,3 +147,28 @@ def _materializer_fallback_values(pipeline: PipelineDef) -> dict[str, Any]:
         for step_name, node in pipeline.dag.steps.items()
         if node.materializer is not None
     }
+
+
+def _observer_contract_keys(pipeline: PipelineDef) -> set[str]:
+    keys = set()
+    if pipeline.dag.pipeline_observers:
+        keys.add(PIPELINE_SCOPE)
+    keys.update(
+        step_name for step_name, node in pipeline.dag.steps.items() if node.observers
+    )
+    return keys
+
+
+def _observer_fallback_values(
+    pipeline: PipelineDef,
+) -> dict[str, list[ResolvedObserver]]:
+    values: dict[str, list[ResolvedObserver]] = {}
+    if pipeline.dag.pipeline_observers:
+        values[PIPELINE_SCOPE] = list(pipeline.dag.pipeline_observers)
+    for step_name, node in pipeline.dag.steps.items():
+        step_local = [
+            observer for observer in node.observers if observer.source == "step"
+        ]
+        if step_local:
+            values[step_name] = step_local
+    return values
