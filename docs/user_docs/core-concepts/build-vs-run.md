@@ -68,9 +68,9 @@ resolved at build time and frozen in the JSON or `Dag`. Runners don't re-infer
 semantics; they execute the contract.
 
 `ExecutionOverrides` fits inside that boundary: it can swap the concrete
-runtime callable for a compiled key such as a materializer or observer scope,
-but it does not change graph structure, dependency resolution, or eager-vs-lazy
-planning.
+runtime callable for a compiled key such as a materializer, observer scope, or
+declared runtime resource, but it does not change graph structure, dependency
+resolution, or eager-vs-lazy planning.
 
 For nested pipelines, the public key helper is `Scope`, not manual string
 concatenation:
@@ -81,6 +81,7 @@ from synaflow import ExecutionOverrides, Observer, PIPELINE_SCOPE, Scope
 overrides = ExecutionOverrides.empty(p)
 sub = Scope("incl")
 
+overrides.resources["db"] = FakeDatabase()
 overrides.observers[PIPELINE_SCOPE] = [Observer(noop)]
 overrides.observers[sub.scope("validate")] = [Observer(spy)]
 overrides.materializers[sub.scope("prepare")] = tuple
@@ -89,6 +90,11 @@ overrides.materializers[sub.scope("prepare")] = tuple
 The executor never understands sub-pipelines directly. `Scope` resolves to the
 compiled DAG step key before execution starts, so runtime still operates on the
 same flat compiled contract.
+
+For resources, the key space is explicit in the compiled pipeline contract via
+`pipeline(resources={...})`. Unlike materializers and observers, resources are
+runtime-only: if a pipeline declares one, `run()` / `async_run()` must receive
+it via `ExecutionOverrides.resources`, or execution fails loudly.
 
 ### 2. Write your own runner
 
@@ -141,6 +147,7 @@ Every domain concern has a symmetric representation in both phases:
 | Mode resolution | Resolved at build time → `node.mode` | Executor reads `node.mode`, never re-infers |
 | Materialization | Resolved at build time → `node.materializer`, `materialized_deps`, `Dag.needs_materialize(...)` | Executor calls the resolved callable and follows the compiled plan |
 | Observers | Normalized at build time → `node.observers` | Executor dispatches events |
+| Resources | Declared at build time → `dag.resources` | Executor requires concrete runtime values via `ExecutionOverrides.resources` |
 
 This symmetry means sync and async executors can be completely different
 implementations (one uses generators, the other uses `asyncio.Queue`) but
