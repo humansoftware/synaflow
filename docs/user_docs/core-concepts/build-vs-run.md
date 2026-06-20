@@ -72,6 +72,24 @@ runtime callable for a compiled key such as a materializer or observer scope,
 but it does not change graph structure, dependency resolution, or eager-vs-lazy
 planning.
 
+For nested pipelines, the public key helper is `Scope`, not manual string
+concatenation:
+
+```python
+from synaflow import ExecutionOverrides, Observer, PIPELINE_SCOPE, Scope
+
+overrides = ExecutionOverrides.empty(p)
+sub = Scope("incl")
+
+overrides.observers[PIPELINE_SCOPE] = [Observer(noop)]
+overrides.observers[sub.scope("validate")] = [Observer(spy)]
+overrides.materializers[sub.scope("prepare")] = tuple
+```
+
+The executor never understands sub-pipelines directly. `Scope` resolves to the
+compiled DAG step key before execution starts, so runtime still operates on the
+same flat compiled contract.
+
 ### 2. Write your own runner
 
 The `Dag` object is self-contained. Anyone can write a runner:

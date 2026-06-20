@@ -82,6 +82,20 @@ runtime dependencies such as materializers or observers. Use
 `PIPELINE_SCOPE` for pipeline-level observers. The DAG shape and semantics stay
 fixed; only the runtime callable changes.
 
+```python
+from synaflow import ExecutionOverrides, Observer, PIPELINE_SCOPE, Scope
+
+overrides = ExecutionOverrides.empty(p)
+sub = Scope("payments")
+
+overrides.observers[PIPELINE_SCOPE] = [Observer(noop_metrics)]
+overrides.observers[sub.scope("validate")] = [Observer(test_recorder)]
+overrides.materializers[sub.scope("normalize")] = list
+```
+
+For included sub-pipelines, `Scope(...)` is the public helper for addressing
+compiled step keys without hardcoding `"payments__validate"` by hand.
+
 ### Build your own runner
 
 The DAG compiles to a deterministic JSON contract. Write custom runners or
