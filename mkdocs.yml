@@ -68,6 +68,7 @@ nav:
       - Sync & Async Parity: core-concepts/sync-async.md
       - Examples: core-concepts/examples.md
   - Advanced:
+      - Testability & Overrides: advanced/testability.md
       - Custom Materializers: advanced/custom-materializers.md
       - Custom Observers: advanced/custom-observers.md
       - Export Guidance: advanced/export-guidance.md

@@ -65,3 +65,21 @@ p = pipeline(observers=[Observer(async_handler)])
 ## Failure Isolation
 
 Observer failures are **logged and swallowed** — they never affect pipeline execution. If an observer raises, the pipeline continues normally.
+
+## Test-time observer control
+
+Tests can replace or silence observers at run time without rebuilding the DAG:
+
+```python
+from synaflow import ExecutionOverrides, Observer, PIPELINE_SCOPE
+
+overrides = ExecutionOverrides.empty(p)
+overrides.observers[PIPELINE_SCOPE] = [Observer(test_recorder)]
+```
+
+Use `PIPELINE_SCOPE` for pipeline-level observers and `Scope(...)` for compiled
+step keys inside included sub-pipelines.
+
+Unknown override keys are rejected: overrides can only target observer scopes
+that already exist in the compiled contract. See
+[Testability & Execution Overrides](testability.md).
