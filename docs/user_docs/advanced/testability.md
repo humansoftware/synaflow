@@ -123,6 +123,11 @@ overrides.observers[PIPELINE_SCOPE] = [Observer(test_recorder)]
 
 ## Production resource factories
 
+The full runtime model for production providers, per-step caching, and
+context-managed cleanup is documented in
+[Resources & Factories](resources.md). This section focuses on how tests replace
+those providers.
+
 Declare the production resource factory in the pipeline contract:
 
 ```python
@@ -289,7 +294,7 @@ Good for validating production wiring or test harness setup itself.
 - prefer `from_production()` for integration tests
 - use `PIPELINE_SCOPE` only for pipeline-level observers
 - use `Scope` for compiled step keys, especially in included sub-pipelines
-- treat `resources` as runtime-only dependencies, not user input params
+- treat `resources` as runtime dependencies provided by factories, not user input params
 - expect unknown override keys to fail loudly
 - remember that override entries replace the runtime value for that key; they do
   not create new compiled keys
@@ -298,5 +303,6 @@ Good for validating production wiring or test harness setup itself.
 
 - [Build vs Run](../core-concepts/build-vs-run.md)
 - [How the DAG is Wired](../core-concepts/how-dag-is-wired.md)
+- [Resources & Factories](resources.md)
 - [Custom Materializers](custom-materializers.md)
 - [Custom Observers](custom-observers.md)
