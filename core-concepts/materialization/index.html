@@ -1566,6 +1566,11 @@ what any consumer asks for</strong>.</p>
 </tr>
 </tbody>
 </table>
+<p>These are <strong>build-time decisions</strong>. When <code>pipeline(...)</code> is compiled, SynaFlow
+records which dependencies must be materialized in the <code>Dag</code>
+(<code>materialized_deps</code>) and resolves the materializer callable for each step.
+The runtime executors do not re-decide which branch is eager; they follow the
+compiled contract.</p>
 <h2 id="error-policies-onerrorcontinue-vs-onerrorstop">Error Policies: <code>OnError.CONTINUE</code> vs <code>OnError.STOP</code><a class="headerlink" href="#error-policies-onerrorcontinue-vs-onerrorstop" title="Permanent link">&para;</a></h2>
 <p>Every step has an <code>on_error</code> policy that controls what happens when the step's
 function raises an exception.</p>
@@ -1651,6 +1656,8 @@ function raises an exception.</p>
 </ol>
 <p>This guarantees transactional integrity — you can inspect what was processed
 before the failure.</p>
+<p>In other words, <code>OnError.STOP</code> changes the compiled materialization plan, not
+just the runtime error behavior.</p>
 <h2 id="error-materializers">Error Materializers<a class="headerlink" href="#error-materializers" title="Permanent link">&para;</a></h2>
 <p>When a step fails, an <strong>error materializer</strong> captures the exception and
 partial output. Configure per-step or per-pipeline:</p>

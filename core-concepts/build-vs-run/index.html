@@ -1528,7 +1528,7 @@ deterministic behavior possible.</p>
 <tbody>
 <tr>
 <td><strong>Build-time</strong></td>
-<td>Type validation, mode resolution, materializer assignment, circular dependency check, sync/async consistency</td>
+<td>Type validation, mode resolution, materializer assignment, consumer materialization planning, circular dependency check, sync/async consistency</td>
 <td><code>pipeline(...)</code> is called</td>
 <td><code>Dag</code> object, serializable JSON</td>
 </tr>
@@ -1564,8 +1564,9 @@ deterministic behavior possible.</p>
 <a id="__codelineno-1-17" name="__codelineno-1-17" href="#__codelineno-1-17"></a><span class="p">}</span>
 </code></pre></div>
 <p>All semantic decisions — mode, <code>max_in_flight</code>, <code>each_mode_deps</code>,
-<code>materialized_deps</code> — are
-resolved at build time and frozen in the JSON. Runners don't re-infer
+<code>materialized_deps</code>, eager materialization triggered by <code>OnError.STOP</code> or
+<code>force_materialize</code>, and the resolved <code>node.materializer</code> callable — are
+resolved at build time and frozen in the JSON or <code>Dag</code>. Runners don't re-infer
 semantics; they execute the contract.</p>
 <h3 id="2-write-your-own-runner">2. Write your own runner<a class="headerlink" href="#2-write-your-own-runner" title="Permanent link">&para;</a></h3>
 <p>The <code>Dag</code> object is self-contained. Anyone can write a runner:</p>
@@ -1612,17 +1613,17 @@ needs to check types or resolve ambiguities at runtime.</p>
 <tr>
 <td>Dependencies</td>
 <td><code>validate_and_resolve_dependencies()</code></td>
-<td>Inlined in executor</td>
+<td>Executor reads resolved deps from <code>node.deps</code></td>
 </tr>
 <tr>
 <td>Topology</td>
 <td><code>check_circular_dependencies()</code>, <code>get_execution_levels()</code></td>
-<td>Inlined in executor</td>
+<td>Executor iterates <code>dag.get_execution_levels()</code></td>
 </tr>
 <tr>
 <td>Step compilation</td>
 <td><code>validate_and_compile_step()</code></td>
-<td>Inlined in executor</td>
+<td>Executor calls compiled <code>node.fn</code></td>
 </tr>
 <tr>
 <td>Mode resolution</td>
@@ -1631,8 +1632,8 @@ needs to check types or resolve ambiguities at runtime.</p>
 </tr>
 <tr>
 <td>Materialization</td>
-<td>Resolved at build time → <code>node.materializer</code></td>
-<td>Executor calls the resolved callable</td>
+<td>Resolved at build time → <code>node.materializer</code>, <code>materialized_deps</code>, <code>Dag.needs_materialize(...)</code></td>
+<td>Executor calls the resolved callable and follows the compiled plan</td>
 </tr>
 <tr>
 <td>Observers</td>
