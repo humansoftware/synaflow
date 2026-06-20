@@ -1569,27 +1569,42 @@ deterministic behavior possible.</p>
 resolved at build time and frozen in the JSON or <code>Dag</code>. Runners don't re-infer
 semantics; they execute the contract.</p>
 <p><code>ExecutionOverrides</code> fits inside that boundary: it can swap the concrete
-runtime callable for a compiled key such as a materializer, but it does not
-change graph structure, dependency resolution, or eager-vs-lazy planning.</p>
+runtime callable for a compiled key such as a materializer or observer scope,
+but it does not change graph structure, dependency resolution, or eager-vs-lazy
+planning.</p>
+<p>For nested pipelines, the public key helper is <code>Scope</code>, not manual string
+concatenation:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">synaflow</span><span class="w"> </span><span class="kn">import</span> <span class="n">ExecutionOverrides</span><span class="p">,</span> <span class="n">Observer</span><span class="p">,</span> <span class="n">PIPELINE_SCOPE</span><span class="p">,</span> <span class="n">Scope</span>
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="n">overrides</span> <span class="o">=</span> <span class="n">ExecutionOverrides</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="n">p</span><span class="p">)</span>
+<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="n">sub</span> <span class="o">=</span> <span class="n">Scope</span><span class="p">(</span><span class="s2">&quot;incl&quot;</span><span class="p">)</span>
+<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>
+<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="n">overrides</span><span class="o">.</span><span class="n">observers</span><span class="p">[</span><span class="n">PIPELINE_SCOPE</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span><span class="n">Observer</span><span class="p">(</span><span class="n">noop</span><span class="p">)]</span>
+<a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="n">overrides</span><span class="o">.</span><span class="n">observers</span><span class="p">[</span><span class="n">sub</span><span class="o">.</span><span class="n">scope</span><span class="p">(</span><span class="s2">&quot;validate&quot;</span><span class="p">)]</span> <span class="o">=</span> <span class="p">[</span><span class="n">Observer</span><span class="p">(</span><span class="n">spy</span><span class="p">)]</span>
+<a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a><span class="n">overrides</span><span class="o">.</span><span class="n">materializers</span><span class="p">[</span><span class="n">sub</span><span class="o">.</span><span class="n">scope</span><span class="p">(</span><span class="s2">&quot;prepare&quot;</span><span class="p">)]</span> <span class="o">=</span> <span class="nb">tuple</span>
+</code></pre></div>
+<p>The executor never understands sub-pipelines directly. <code>Scope</code> resolves to the
+compiled DAG step key before execution starts, so runtime still operates on the
+same flat compiled contract.</p>
 <h3 id="2-write-your-own-runner">2. Write your own runner<a class="headerlink" href="#2-write-your-own-runner" title="Permanent link">&para;</a></h3>
 <p>The <code>Dag</code> object is self-contained. Anyone can write a runner:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">synaflow.core.dag</span><span class="w"> </span><span class="kn">import</span> <span class="n">Dag</span>
-<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>
-<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="k">class</span><span class="w"> </span><span class="nc">MyRunner</span><span class="p">:</span>
-<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">execute</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">dag</span><span class="p">:</span> <span class="n">Dag</span><span class="p">,</span> <span class="n">params</span><span class="p">):</span>
-<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>        <span class="k">for</span> <span class="n">level</span> <span class="ow">in</span> <span class="n">dag</span><span class="o">.</span><span class="n">get_execution_levels</span><span class="p">():</span>
-<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>            <span class="k">for</span> <span class="n">step_name</span> <span class="ow">in</span> <span class="n">level</span><span class="p">:</span>
-<a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a>                <span class="n">node</span> <span class="o">=</span> <span class="n">dag</span><span class="o">.</span><span class="n">steps</span><span class="p">[</span><span class="n">step_name</span><span class="p">]</span>
-<a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a>                <span class="c1"># resolve dependencies, call node.fn, store output</span>
-<a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a>                <span class="o">...</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">synaflow.core.dag</span><span class="w"> </span><span class="kn">import</span> <span class="n">Dag</span>
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>
+<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="k">class</span><span class="w"> </span><span class="nc">MyRunner</span><span class="p">:</span>
+<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">execute</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">dag</span><span class="p">:</span> <span class="n">Dag</span><span class="p">,</span> <span class="n">params</span><span class="p">):</span>
+<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>        <span class="k">for</span> <span class="n">level</span> <span class="ow">in</span> <span class="n">dag</span><span class="o">.</span><span class="n">get_execution_levels</span><span class="p">():</span>
+<a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a>            <span class="k">for</span> <span class="n">step_name</span> <span class="ow">in</span> <span class="n">level</span><span class="p">:</span>
+<a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a>                <span class="n">node</span> <span class="o">=</span> <span class="n">dag</span><span class="o">.</span><span class="n">steps</span><span class="p">[</span><span class="n">step_name</span><span class="p">]</span>
+<a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a>                <span class="c1"># resolve dependencies, call node.fn, store output</span>
+<a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a>                <span class="o">...</span>
 </code></pre></div>
 <p>This is how SynaFlow ships two native runners (sync and async) with identical
 semantics, and how you can compile a pipeline into Airflow or Prefect DAGs.</p>
 <h3 id="3-deterministic-and-testable">3. Deterministic and testable<a class="headerlink" href="#3-deterministic-and-testable" title="Permanent link">&para;</a></h3>
 <p>Because the DAG is a pure data structure, you can assert on it directly:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="n">dag</span> <span class="o">=</span> <span class="n">pipeline</span><span class="p">(</span><span class="o">...</span><span class="p">)</span><span class="o">.</span><span class="n">dag</span>
-<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="k">assert</span> <span class="n">dag</span><span class="o">.</span><span class="n">steps</span><span class="p">[</span><span class="s2">&quot;transformer&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">mode</span> <span class="o">==</span> <span class="n">StepMode</span><span class="o">.</span><span class="n">EACH</span>
-<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="k">assert</span> <span class="n">dag</span><span class="o">.</span><span class="n">get_execution_levels</span><span class="p">()</span> <span class="o">==</span> <span class="p">[[</span><span class="s2">&quot;producer&quot;</span><span class="p">],</span> <span class="p">[</span><span class="s2">&quot;transformer&quot;</span><span class="p">],</span> <span class="p">[</span><span class="s2">&quot;consumer&quot;</span><span class="p">]]</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="n">dag</span> <span class="o">=</span> <span class="n">pipeline</span><span class="p">(</span><span class="o">...</span><span class="p">)</span><span class="o">.</span><span class="n">dag</span>
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="k">assert</span> <span class="n">dag</span><span class="o">.</span><span class="n">steps</span><span class="p">[</span><span class="s2">&quot;transformer&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">mode</span> <span class="o">==</span> <span class="n">StepMode</span><span class="o">.</span><span class="n">EACH</span>
+<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="k">assert</span> <span class="n">dag</span><span class="o">.</span><span class="n">get_execution_levels</span><span class="p">()</span> <span class="o">==</span> <span class="p">[[</span><span class="s2">&quot;producer&quot;</span><span class="p">],</span> <span class="p">[</span><span class="s2">&quot;transformer&quot;</span><span class="p">],</span> <span class="p">[</span><span class="s2">&quot;consumer&quot;</span><span class="p">]]</span>
 </code></pre></div>
 <p>The test corpus validates DAG structure and execution output independently —
 build-time correctness is verified without running the pipeline.</p>
