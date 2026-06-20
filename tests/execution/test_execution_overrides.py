@@ -1,3 +1,4 @@
+from contextlib import asynccontextmanager, contextmanager
 from typing import AsyncGenerator, Iterator, NamedTuple
 
 import pytest
@@ -495,7 +496,7 @@ def test_given_scope_key_when_observer_overridden_in_sub_pipeline_then_override_
     ]
 
 
-def test_given_resource_registry_empty_when_missing_required_resource_then_run_raises(
+def test_given_empty_resource_overrides_when_pipeline_resource_factory_exists_then_factory_is_used(
     run_pipeline,
 ):
     class DB:
@@ -509,22 +510,26 @@ def test_given_resource_registry_empty_when_missing_required_resource_then_run_r
     def use(db: DB, value: int) -> None:
         seen.append((db, value))
 
+    def get_db() -> DB:
+        return DB()
+
     p = pipeline(
         name="missing_resource",
         params=Params,
-        resources={"db": DB},
+        resources={"db": get_db},
         steps=[step("use", fn=use)],
     )
 
     overrides = ExecutionOverrides.empty(p)
 
-    with pytest.raises(ValueError, match="requires resource 'db'"):
-        run_pipeline(p, Params(), overrides=overrides)
+    run_pipeline(p, Params(), overrides=overrides)
 
-    assert seen == []
+    assert len(seen) == 1
+    assert isinstance(seen[0][0], DB)
+    assert seen[0][1] == 1
 
 
-def test_given_resource_registry_without_overrides_when_pipeline_requires_resources_then_run_raises(
+def test_given_pipeline_resource_factory_when_run_without_override_then_resource_is_injected(
     run_pipeline,
 ):
     class DB:
@@ -533,18 +538,64 @@ def test_given_resource_registry_without_overrides_when_pipeline_requires_resour
     class Params(NamedTuple):
         value: int = 1
 
+    seen = []
+
     def use(db: DB, value: int) -> None:
-        return None
+        seen.append((db, value))
+
+    def get_db() -> DB:
+        return DB()
 
     p = pipeline(
         name="missing_resource_registry",
         params=Params,
-        resources={"db": DB},
+        resources={"db": get_db},
         steps=[step("use", fn=use)],
     )
 
-    with pytest.raises(ValueError, match="requires runtime resources: db"):
-        run_pipeline(p, Params())
+    run_pipeline(p, Params())
+
+    assert len(seen) == 1
+    assert isinstance(seen[0][0], DB)
+    assert seen[0][1] == 1
+
+
+def test_given_pipeline_resource_factory_used_by_multiple_steps_when_run_then_factory_is_called_per_step(
+    run_pipeline,
+):
+    class DB:
+        pass
+
+    class Params(NamedTuple):
+        value: int = 1
+
+    created = []
+    seen = []
+
+    def get_db() -> DB:
+        db = DB()
+        created.append(db)
+        return db
+
+    def first(db: DB, value: int) -> int:
+        seen.append(("first", db, value))
+        return value
+
+    def second(db: DB, first: int) -> None:
+        seen.append(("second", db, first))
+
+    p = pipeline(
+        name="resource_factory_per_step",
+        params=Params,
+        resources={"db": get_db},
+        steps=[step("first", fn=first), step("second", fn=second)],
+    )
+
+    run_pipeline(p, Params())
+
+    assert len(created) == 2
+    assert seen[0] == ("first", created[0], 1)
+    assert seen[1] == ("second", created[1], 1)
 
 
 def test_given_resource_override_when_sync_run_then_resource_is_injected(run_pipeline):
@@ -559,10 +610,13 @@ def test_given_resource_override_when_sync_run_then_resource_is_injected(run_pip
     def use(db: DB, value: int) -> None:
         seen.append((db, value))
 
+    def get_db() -> DB:
+        return DB()
+
     p = pipeline(
         name="sync_resource_override",
         params=Params,
-        resources={"db": DB},
+        resources={"db": get_db},
         steps=[step("use", fn=use)],
     )
 
@@ -587,10 +641,13 @@ async def test_given_resource_override_when_async_run_then_resource_is_injected(
     async def use(db: DB, value: int) -> None:
         seen.append((db, value))
 
+    def get_db() -> DB:
+        return DB()
+
     p = pipeline(
         name="async_resource_override",
         params=Params,
-        resources={"db": DB},
+        resources={"db": get_db},
         steps=[step("use", fn=use)],
     )
 
@@ -603,6 +660,115 @@ async def test_given_resource_override_when_async_run_then_resource_is_injected(
     assert seen == [(db, 3)]
 
 
+def test_given_resource_override_when_pipeline_factory_exists_then_override_takes_precedence(
+    run_pipeline,
+):
+    class DB:
+        def __init__(self, source: str):
+            self.source = source
+
+    class Params(NamedTuple):
+        value: int = 3
+
+    seen = []
+
+    def use(db: DB, value: int) -> None:
+        seen.append((db.source, value))
+
+    def get_db() -> DB:
+        return DB("pipeline")
+
+    p = pipeline(
+        name="resource_override_precedence",
+        params=Params,
+        resources={"db": get_db},
+        steps=[step("use", fn=use)],
+    )
+
+    overrides = ExecutionOverrides.empty(p)
+    overrides.resources["db"] = DB("override")
+
+    run_pipeline(p, Params(), overrides=overrides)
+
+    assert seen == [("override", 3)]
+
+
+def test_given_resource_context_manager_factory_when_sync_run_then_entered_value_is_injected(
+    run_pipeline,
+):
+    class DB:
+        pass
+
+    class Params(NamedTuple):
+        value: int = 5
+
+    entered = []
+    exited = []
+    seen = []
+
+    @contextmanager
+    def get_db() -> DB:
+        db = DB()
+        entered.append(db)
+        try:
+            yield db
+        finally:
+            exited.append(db)
+
+    def use(db: DB, value: int) -> None:
+        seen.append((db, value))
+
+    p = pipeline(
+        name="sync_resource_context_manager",
+        params=Params,
+        resources={"db": get_db},
+        steps=[step("use", fn=use)],
+    )
+
+    run_pipeline(p, Params())
+
+    assert len(entered) == 1
+    assert seen == [(entered[0], 5)]
+    assert exited == entered
+
+
+async def test_given_async_resource_context_manager_factory_when_async_run_then_entered_value_is_injected():
+    class DB:
+        pass
+
+    class Params(NamedTuple):
+        value: int = 5
+
+    entered = []
+    exited = []
+    seen = []
+
+    @asynccontextmanager
+    async def get_db() -> DB:
+        db = DB()
+        entered.append(db)
+        try:
+            yield db
+        finally:
+            exited.append(db)
+
+    async def use(db: DB, value: int) -> None:
+        seen.append((db, value))
+
+    p = pipeline(
+        name="async_resource_context_manager",
+        params=Params,
+        resources={"db": get_db},
+        steps=[step("use", fn=use)],
+    )
+
+    await async_run(p, Params())
+
+    assert len(entered) == 1
+    assert seen == [(entered[0], 5)]
+    assert exited == entered
+
+
 def test_given_execution_overrides_from_production_when_resources_requested_then_registry_is_empty_but_keyed():
     class DB:
         pass
@@ -613,10 +779,13 @@ def test_given_execution_overrides_from_production_when_resources_requested_then
     def use(db: DB, value: int) -> None:
         return None
 
+    def get_db() -> DB:
+        return DB()
+
     p = pipeline(
         name="resource_contract",
         params=Params,
-        resources={"db": DB},
+        resources={"db": get_db},
         steps=[step("use", fn=use)],
     )
 
@@ -638,10 +807,13 @@ def test_given_unknown_resource_override_key_when_assigned_then_raises():
     def use(db: DB, value: int) -> None:
         return None
 
+    def get_db() -> DB:
+        return DB()
+
     p = pipeline(
         name="invalid_resource_key",
         params=Params,
-        resources={"db": DB},
+        resources={"db": get_db},
         steps=[step("use", fn=use)],
     )
 
@@ -661,10 +833,13 @@ def test_given_none_resource_override_value_when_assigned_then_raises():
     def use(db: DB, value: int) -> None:
         return None
 
+    def get_db() -> DB:
+        return DB()
+
     p = pipeline(
         name="invalid_resource_value",
         params=Params,
-        resources={"db": DB},
+        resources={"db": get_db},
         steps=[step("use", fn=use)],
     )
 
@@ -692,10 +867,13 @@ def test_given_sub_pipeline_resource_when_overridden_then_resource_is_injected_i
         seen.append((db, value))
         return value
 
+    def get_db() -> DB:
+        return DB()
+
     sub = pipeline(
         name="sub",
         params=SubParams,
-        resources={"db": DB},
+        resources={"db": get_db},
         steps=[step("use", fn=use)],
         exports="use",
     )

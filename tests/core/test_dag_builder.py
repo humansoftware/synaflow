@@ -88,10 +88,13 @@ def test_given_dependency_on_declared_resource_when_constructed_then_passes():
     def fn(db: DB, limit: int) -> int:
         return limit
 
+    def get_db() -> DB:
+        return DB()
+
     p = pipeline(
         name="t",
         params=P,
-        resources={"db": DB},
+        resources={"db": get_db},
         steps=[step("s1", fn=fn)],
     )
 
@@ -110,11 +113,14 @@ def test_given_resource_name_colliding_with_params_field_when_constructed_then_r
     def fn(db: DB) -> None:
         pass
 
+    def get_db() -> DB:
+        return DB()
+
     with pytest.raises(ValueError, match="collides with a params field"):
         pipeline(
             name="t",
             params=P,
-            resources={"db": DB},
+            resources={"db": get_db},
             steps=[step("s1", fn=fn)],
         )
 
@@ -129,11 +135,14 @@ def test_given_resource_name_colliding_with_step_name_when_constructed_then_rais
     def fn(limit: int) -> int:
         return limit
 
+    def get_db() -> DB:
+        return DB()
+
     with pytest.raises(ValueError, match="collides with a step name"):
         pipeline(
             name="t",
             params=P,
-            resources={"db": DB},
+            resources={"db": get_db},
             steps=[step("db", fn=fn)],
         )
 
@@ -151,10 +160,13 @@ def test_given_sub_pipeline_resource_when_constructed_then_resource_is_inherited
     def use(db: DB, value: int) -> int:
         return value
 
+    def get_db() -> DB:
+        return DB()
+
     sub = pipeline(
         name="sub",
         params=SubParams,
-        resources={"db": DB},
+        resources={"db": get_db},
         steps=[step("use", fn=use)],
         exports="use",
     )
@@ -173,7 +185,8 @@ def test_given_sub_pipeline_resource_when_constructed_then_resource_is_inherited
 
 
 def test_given_parent_and_sub_pipeline_same_resource_instance_when_constructed_then_builds():
-    shared = object()
+    def shared() -> object:
+        return object()
 
     class SubParams(NamedTuple):
         value: int
@@ -215,10 +228,16 @@ def test_given_parent_and_sub_pipeline_different_resource_instances_with_same_na
     def use(db: object, value: int) -> int:
         return value
 
+    def get_sub_db() -> object:
+        return object()
+
+    def get_parent_db() -> object:
+        return object()
+
     sub = pipeline(
         name="sub",
         params=SubParams,
-        resources={"db": object()},
+        resources={"db": get_sub_db},
         steps=[step("use", fn=use)],
         exports="use",
     )
@@ -230,8 +249,52 @@ def test_given_parent_and_sub_pipeline_different_resource_instances_with_same_na
         pipeline(
             name="parent",
             params=Params,
-            resources={"db": object()},
+            resources={"db": get_parent_db},
             steps=[include("incl", pipeline=sub, fn=adapt)],
+        )
+
+
+def test_given_resource_factory_without_return_annotation_when_constructed_then_raises():
+    class DB:
+        pass
+
+    class P(NamedTuple):
+        limit: int = 10
+
+    def fn(db: DB, limit: int) -> int:
+        return limit
+
+    def get_db():
+        return DB()
+
+    with pytest.raises(ValueError, match="must declare a return type annotation"):
+        pipeline(
+            name="t",
+            params=P,
+            resources={"db": get_db},
+            steps=[step("s1", fn=fn)],
+        )
+
+
+def test_given_resource_factory_returning_none_when_constructed_then_raises():
+    class DB:
+        pass
+
+    class P(NamedTuple):
+        limit: int = 10
+
+    def fn(db: DB, limit: int) -> int:
+        return limit
+
+    def get_db() -> None:
+        return None
+
+    with pytest.raises(ValueError, match="must not return None"):
+        pipeline(
+            name="t",
+            params=P,
+            resources={"db": get_db},
+            steps=[step("s1", fn=fn)],
         )
 
 

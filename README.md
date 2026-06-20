@@ -96,8 +96,9 @@ overrides.materializers[sub.scope("normalize")] = list
 
 For included sub-pipelines, `Scope(...)` is the public helper for addressing
 compiled step keys without hardcoding `"payments__validate"` by hand.
-Declared `resources={...}` are runtime-only and must be provided through
-`ExecutionOverrides.resources`.
+Declared `resources={...}` are production factories. They are called when a
+step is injected. `ExecutionOverrides.resources` is optional and only replaces
+that provider when you want a different runtime value.
 
 See also: `docs/user_docs/advanced/testability.md`
 

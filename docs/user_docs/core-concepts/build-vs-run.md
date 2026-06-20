@@ -92,9 +92,11 @@ compiled DAG step key before execution starts, so runtime still operates on the
 same flat compiled contract.
 
 For resources, the key space is explicit in the compiled pipeline contract via
-`pipeline(resources={...})`. Unlike materializers and observers, resources are
-runtime-only: if a pipeline declares one, `run()` / `async_run()` must receive
-it via `ExecutionOverrides.resources`, or execution fails loudly.
+`pipeline(resources={...})`, but the runtime source is the production factory
+declared on the pipeline itself. The DAG compiles the resource type from that
+factory's return annotation, and the executor calls the factory when the step is
+injected. `ExecutionOverrides.resources` is optional and only replaces that
+provider when needed.
 
 If you need the operational testing patterns on top of that contract, see
 [Testability & Execution Overrides](../advanced/testability.md).

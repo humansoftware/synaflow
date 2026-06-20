@@ -1,5 +1,6 @@
 import itertools
 import threading
+from contextlib import ExitStack
 from concurrent.futures import ThreadPoolExecutor
 from collections.abc import Iterator
 from typing import Any
@@ -113,6 +114,7 @@ class PipelineExecutor:
         *,
         step_output_observers: list = None,
         overrides: ExecutionOverrides | None = None,
+        resource_factories: dict[str, Any] | None = None,
     ):
         self.dag = dag
         self.outputs = {}
@@ -120,6 +122,7 @@ class PipelineExecutor:
         self._active_fanouts: list[SyncFanout] = []
         self._observer_threads: list[threading.Thread] = []
         self._overrides = overrides
+        self._resource_factories = dict(resource_factories or {})
 
     # ------------------------------------------------------------------
     # Lifecycle observer dispatch helpers
@@ -265,22 +268,6 @@ class PipelineExecutor:
     # ------------------------------------------------------------------
 
     def _seed_runtime_inputs(self, params: Any) -> None:
-        if self.dag.resources:
-            if self._overrides is None:
-                resource_names = ", ".join(sorted(self.dag.resources))
-                raise ValueError(
-                    f"Pipeline '{self.dag.name}' requires runtime resources: {resource_names}."
-                )
-            for resource_name in self.dag.resources:
-                try:
-                    self.outputs[resource_name] = self._overrides.resources[
-                        resource_name
-                    ]
-                except KeyError as exc:
-                    raise ValueError(
-                        f"Pipeline '{self.dag.name}' requires resource '{resource_name}' at runtime."
-                    ) from exc
-
         for field, value in params._asdict().items():
             self.outputs[field] = value
 
@@ -370,7 +357,8 @@ class PipelineExecutor:
         if not node.fn:
             return
 
-        arguments = self._build_arguments(step_name, node)
+        resource_stack = ExitStack()
+        arguments = self._build_arguments(step_name, node, resource_stack)
         unrolled = self.dag.each_inputs(step_name)
         self._dispatch_step_event(node, StepEvent.STARTED, step_name)
 
@@ -391,6 +379,7 @@ class PipelineExecutor:
         finally:
             if "output" not in locals() or not isinstance(output, Iterator):
                 self._close_managed_stream_arguments(arguments)
+            resource_stack.close()
 
     def _execute_step(self, step_name, node, arguments, unrolled):
         if unrolled:
@@ -466,15 +455,40 @@ class PipelineExecutor:
             return None
         return generate()
 
-    def _build_arguments(self, consumer, node):
+    def _resolve_resource_argument(self, resource_name: str, resource_stack: ExitStack):
+        override_value = None
+        if self._overrides is not None:
+            override_value = self._overrides.resources.resolve(resource_name)
+        if override_value is not None:
+            return override_value
+
+        factory = self._resource_factories.get(resource_name)
+        if factory is None:
+            raise ValueError(
+                f"Pipeline '{self.dag.name}' requires resource '{resource_name}' at runtime."
+            )
+
+        value = factory()
+        if hasattr(value, "__aenter__") and hasattr(value, "__aexit__"):
+            raise TypeError(
+                f"Pipeline '{self.dag.name}': resource '{resource_name}' produced an async context manager in sync run()."
+            )
+        if hasattr(value, "__enter__") and hasattr(value, "__exit__"):
+            return resource_stack.enter_context(value)
+        return value
+
+    def _build_arguments(self, consumer, node, resource_stack: ExitStack):
         args = {}
         for dep_name in node.deps:
-            key = self.dag.output_key(dep_name, consumer)
-            value = self.outputs.get(key, self.outputs.get(dep_name))
-            if isinstance(value, SyncMaterializedValue):
-                value = self._resolve_materialized_value(
-                    dep_name, value, node, consumer
-                )
+            if dep_name in self.dag.resources:
+                value = self._resolve_resource_argument(dep_name, resource_stack)
+            else:
+                key = self.dag.output_key(dep_name, consumer)
+                value = self.outputs.get(key, self.outputs.get(dep_name))
+                if isinstance(value, SyncMaterializedValue):
+                    value = self._resolve_materialized_value(
+                        dep_name, value, node, consumer
+                    )
             param = node.dataset_param_names.get(dep_name, dep_name)
             args[param] = value
         return args
@@ -811,4 +825,8 @@ def run(
             "This pipeline contains async features (async def or AsyncIterator)"
             " and must be executed with async_run()."
         )
-    PipelineExecutor(pipeline.dag, overrides=overrides).execute(params)
+    PipelineExecutor(
+        pipeline.dag,
+        overrides=overrides,
+        resource_factories=pipeline.resources,
+    ).execute(params)
