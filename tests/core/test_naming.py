@@ -1,6 +1,6 @@
 import pytest
 
-from synaflow.core.naming import get_base_dataset_name
+from synaflow.core.naming import Scope, get_base_dataset_name
 
 
 @pytest.mark.parametrize(
@@ -26,3 +26,16 @@ from synaflow.core.naming import get_base_dataset_name
 )
 def test_get_base_dataset_name(name, expected):
     assert get_base_dataset_name(name) == expected
+
+
+def test_scope_builds_nested_step_keys():
+    sub = Scope("incl")
+
+    assert str(sub) == "incl"
+    assert str(sub.scope("validator")) == "incl__validator"
+    assert sub("validator") == "incl__validator"
+
+
+def test_scope_rejects_empty_parts():
+    with pytest.raises(ValueError, match="non-empty"):
+        Scope("")

@@ -4,11 +4,39 @@ Base Dataset name so users can reference datasets naturally (singular,
 plural, suffixed) without manual wiring.
 """
 
+from dataclasses import dataclass
+
 import inflect
 
 _engine = inflect.engine()
 
 _SUFFIXES = {"_list", "_set", "_dict", "_tuple"}
+
+
+@dataclass(frozen=True)
+class Scope:
+    parts: tuple[str, ...]
+
+    def __init__(self, *parts: str):
+        normalized = tuple(_validate_scope_part(part) for part in parts)
+        if not normalized:
+            raise ValueError("Scope requires at least one non-empty part.")
+        object.__setattr__(self, "parts", normalized)
+
+    def scope(self, part: str) -> "Scope":
+        return Scope(*self.parts, part)
+
+    def __call__(self, step_name: str) -> str:
+        return str(self.scope(step_name))
+
+    def __str__(self) -> str:
+        return "__".join(self.parts)
+
+
+def _validate_scope_part(part: str) -> str:
+    if not isinstance(part, str) or not part:
+        raise ValueError("Scope parts must be non-empty strings.")
+    return part
 
 
 def get_base_dataset_name(name: str) -> str:

@@ -1,4 +1,6 @@
 from .core.definition import include, pipeline, step
+from .core.constants import PIPELINE_SCOPE
+from .core.naming import Scope
 from .core.observers import (
     MaterializationEvent,
     Observer,
@@ -21,6 +23,8 @@ __all__ = [
     "pipeline",
     "step",
     "include",
+    "PIPELINE_SCOPE",
+    "Scope",
     "run",
     "async_run",
     "ExecutionOverrides",
