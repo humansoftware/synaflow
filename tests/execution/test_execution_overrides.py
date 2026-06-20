@@ -672,3 +672,53 @@ def test_given_none_resource_override_value_when_assigned_then_raises():
 
     with pytest.raises(TypeError, match="cannot be None"):
         overrides.resources["db"] = None
+
+
+def test_given_sub_pipeline_resource_when_overridden_then_resource_is_injected_into_included_step(
+    run_pipeline,
+):
+    class DB:
+        pass
+
+    class SubParams(NamedTuple):
+        value: int
+
+    class Params(NamedTuple):
+        value: int = 3
+
+    seen = []
+
+    def use(db: DB, value: int) -> int:
+        seen.append((db, value))
+        return value
+
+    sub = pipeline(
+        name="sub",
+        params=SubParams,
+        resources={"db": DB},
+        steps=[step("use", fn=use)],
+        exports="use",
+    )
+
+    def adapt(value: int) -> SubParams:
+        return SubParams(value=value)
+
+    def consume(incl: int) -> None:
+        return None
+
+    p = pipeline(
+        name="parent",
+        params=Params,
+        steps=[
+            include("incl", pipeline=sub, fn=adapt),
+            step("consume", fn=consume),
+        ],
+    )
+
+    overrides = ExecutionOverrides.empty(p)
+    db = DB()
+    overrides.resources["db"] = db
+
+    run_pipeline(p, Params(), overrides=overrides)
+
+    assert seen == [(db, 3)]

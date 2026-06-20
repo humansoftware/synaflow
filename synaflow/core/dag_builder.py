@@ -40,6 +40,7 @@ from typing import (
 
 from synaflow.core.dag import Dag, DagNode
 from synaflow.core.dag_dependencies import initialize_parameters, initialize_resources
+from synaflow.core.definition import IncludeStep
 from synaflow.core.dag_expansion import expand_macros
 from synaflow.core.dag_steps import (
     validate_and_compile_step,
@@ -187,6 +188,49 @@ def _validate_resource_names(
             raise ValueError(
                 f"Pipeline '{pipeline_name}': resource '{resource_name}' collides with a step name."
             )
+
+
+def _merge_resources(
+    merged: dict[str, Any],
+    incoming: dict[str, Any],
+    pipeline_name: str,
+) -> None:
+    for resource_name, resource in incoming.items():
+        if resource_name in merged and merged[resource_name] is not resource:
+            raise ValueError(
+                f"Pipeline '{pipeline_name}': resource '{resource_name}' is declared multiple times with different instances/factories."
+            )
+        merged.setdefault(resource_name, resource)
+
+
+def _collect_pipeline_resources(
+    pipeline_name: str,
+    steps: list[Any],
+    resources: dict[str, Any],
+    include_chain: tuple[str, ...] = (),
+) -> dict[str, Any]:
+    merged: dict[str, Any] = {}
+    _merge_resources(merged, resources, pipeline_name)
+
+    for step in steps:
+        if not isinstance(step, IncludeStep):
+            continue
+
+        sub_pipeline = step.pipeline
+        if sub_pipeline.name in include_chain:
+            raise ValueError(
+                f"Infinite cycle detected: Pipeline '{sub_pipeline.name}' is already in the inclusion chain '{'.'.join(include_chain)}'"
+            )
+
+        sub_resources = _collect_pipeline_resources(
+            pipeline_name,
+            sub_pipeline.steps,
+            sub_pipeline.resources,
+            (*include_chain, sub_pipeline.name),
+        )
+        _merge_resources(merged, sub_resources, pipeline_name)
+
+    return merged
 
 
 def _resolve_pipeline_observers(
@@ -413,13 +457,18 @@ def build_dag(
     _validate_params_is_namedtuple(params, pipeline_name)
     pipeline_obs_resolved = _resolve_pipeline_observers(pipeline_observers or [])
     expanded_steps = _expand_and_validate_steps(steps, pipeline_name)
-    resources = resources or {}
-    _validate_resource_names(resources, params, expanded_steps, pipeline_name)
+    effective_resources = _collect_pipeline_resources(
+        pipeline_name,
+        steps,
+        resources or {},
+        include_chain=(pipeline_name,),
+    )
+    _validate_resource_names(effective_resources, params, expanded_steps, pipeline_name)
     dag, produced = _compile_steps(
         expanded_steps,
         pipeline_name,
         params,
-        resources,
+        effective_resources,
         pipeline_obs_resolved,
     )
     _compute_materialized_deps(dag)
@@ -427,7 +476,7 @@ def build_dag(
         pipeline_name,
         dag,
         produced,
-        set(resources),
+        set(effective_resources),
         error_materializer_factory,
         pipeline_obs_resolved,
     )
