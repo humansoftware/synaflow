@@ -158,7 +158,7 @@ def validate_sync_async_consistency(
         else:
             has_sync_materializer = True
 
-    if memory_materializer_factory and not is_default_factory:
+    if not is_default_factory:
         for step in steps:
             if getattr(step, "materializer", None) is None:
                 _register_materializer(dag.steps[step.name].materializer)
