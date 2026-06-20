@@ -367,6 +367,7 @@ Because SynaFlow separates **build-time** (DAG compilation) from **run-time**
 (execution), you can write custom runners or auto-generate native DAGs for
 Airflow, Dagster, or Prefect from the same pipeline definition.
 Read more: [Build vs Run](core-concepts/build-vs-run.md) ·
+[Testability & Overrides](advanced/testability.md) ·
 [Max In Flight](core-concepts/max-in-flight.md) ·
 [Export Guidance](advanced/export-guidance.md).
 

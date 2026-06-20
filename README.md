@@ -99,6 +99,8 @@ compiled step keys without hardcoding `"payments__validate"` by hand.
 Declared `resources={...}` are runtime-only and must be provided through
 `ExecutionOverrides.resources`.
 
+See also: `docs/user_docs/advanced/testability.md`
+
 ### Build your own runner
 
 The DAG compiles to a deterministic JSON contract. Write custom runners or
