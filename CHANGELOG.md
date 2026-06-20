@@ -2,6 +2,107 @@
 
 
 
+## v0.18.0 (2026-06-20)
+
+### Documentation
+
+* docs: polish execution overrides documentation (#51) ([`ff81e55`](https://github.com/humansoftware/synaflow/commit/ff81e55b386918ebb4f92231fead7c2cbe139697))
+
+### Feature
+
+* feat: release execution overrides and runtime resources ([`9528034`](https://github.com/humansoftware/synaflow/commit/95280345752fba067c7531330a06864e21290ff4))
+
+### Refactor
+
+* refactor: simplify executor materialization and fallback logic (#46)
+
+* refactor(core): catch specific exceptions (NameError, TypeError) in type hint evaluation
+
+* test(core): add PEP 563 runtime execution and materializer tests
+
+* test(core): add custom types and Future compatibility checks to type_compatibility tests
+
+* refactor(tests): move pep 563 runtime tests from core to execution module
+
+* chore(tests): remove unused Iterator import from core test file
+
+* test: maintain parity by moving PEP 563 runtime tests to sync and async engines
+
+* feat: only require custom materializer for custom types when needs_materialize is True
+
+* test: modify non-builtin type test to consume as Iterator and not use a custom materializer
+
+* test: add custom class type cases to is_type_compatible test
+
+* refactor: use Dag.needs_materialize in _resolve_materializers instead of duplicating logic
+
+* test: add custom NamedTuple and Iterator[Future] compatibility test cases
+
+* ci: report Total Coverage as a GitHub Check Run in PRs
+
+* refactor: simplify executor materialization and enforce callable error materializers
+
+* refactor: simplify explicit pipeline materializer validation
+
+* refactor: centralize dag materialization planning
+
+* test: trim redundant executor materialization cases
+
+* docs: align build-time materialization contract ([`fdc8e0e`](https://github.com/humansoftware/synaflow/commit/fdc8e0eca4c3d7e7bfff9736ca39742da0173e94))
+
+* refactor(core): catch specific exceptions in type hint resolution (#44)
+
+* refactor(core): catch specific exceptions (NameError, TypeError) in type hint evaluation
+
+* test(core): add PEP 563 runtime execution and materializer tests
+
+* test(core): add custom types and Future compatibility checks to type_compatibility tests
+
+* refactor(tests): move pep 563 runtime tests from core to execution module
+
+* chore(tests): remove unused Iterator import from core test file
+
+* test: maintain parity by moving PEP 563 runtime tests to sync and async engines
+
+* feat: only require custom materializer for custom types when needs_materialize is True
+
+* test: modify non-builtin type test to consume as Iterator and not use a custom materializer
+
+* test: add custom class type cases to is_type_compatible test
+
+* refactor: use Dag.needs_materialize in _resolve_materializers instead of duplicating logic
+
+* test: add custom NamedTuple and Iterator[Future] compatibility test cases
+
+* ci: report Total Coverage as a GitHub Check Run in PRs ([`1762a31`](https://github.com/humansoftware/synaflow/commit/1762a315bfebeee751fcb803f55b43c458d3c766))
+
+### Unknown
+
+* add testability documentation (#50) ([`b67ac9f`](https://github.com/humansoftware/synaflow/commit/b67ac9f38e3176030302e235f6202ac8f9eb3cb6))
+
+* [codex] Add runtime resource overrides (#49)
+
+* add runtime resource overrides
+
+* document runtime resource overrides
+
+* inherit sub-pipeline resources in contract ([`228cb3f`](https://github.com/humansoftware/synaflow/commit/228cb3f74e45e979149c0f7e6dffaa750a69ea7f))
+
+* [codex] Add observer execution overrides (#48)
+
+* add observer execution overrides
+
+* add scope helper for override keys
+
+* accept builtin concrete materializers
+
+* document scope override examples
+
+* align observer empty overrides with design ([`97826b6`](https://github.com/humansoftware/synaflow/commit/97826b64c0e2df35535efca39e4009c8dedebaed))
+
+* add materializer execution overrides (#47) ([`4a5acc7`](https://github.com/humansoftware/synaflow/commit/4a5acc7b556cb8f3b0486b3def4040de1a7dad7a))
+
+
 ## v0.17.3 (2026-06-19)
 
 ### Fix
