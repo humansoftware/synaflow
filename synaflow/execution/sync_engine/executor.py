@@ -565,9 +565,6 @@ class PipelineExecutor:
             completed_all_inputs=True,
         )
 
-    def _stream_requires_eager_materialization(self, node):
-        return node.on_error == OnError.STOP or node.force_materialize
-
     def _materialize_stream_output(
         self,
         step_name,
@@ -628,16 +625,9 @@ class PipelineExecutor:
         self.outputs[self.dag.output_key(step_name, consumer)] = output
 
     def _publish_stream_to_multiple_consumers(self, step_name, output, node, consumers):
-        lazy_consumers = [
-            consumer
-            for consumer in consumers
-            if step_name not in self.dag[consumer].materialized_deps
-        ]
-        eager_consumers = [
-            consumer
-            for consumer in consumers
-            if step_name in self.dag[consumer].materialized_deps
-        ]
+        plan = self.dag.consumer_materialization_plan(step_name)
+        lazy_consumers = plan.lazy_consumers
+        eager_consumers = plan.eager_consumers
 
         if not self._consumers_share_execution_level(consumers):
             output = _maybe_wrap_stream(output, node)
@@ -646,8 +636,8 @@ class PipelineExecutor:
             consumer_branches = branches[: len(consumers)]
             observer_branches = branches[len(consumers) :]
             for consumer, branch in zip(consumers, consumer_branches):
-                consumer_node = self.dag[consumer]
-                if step_name in consumer_node.materialized_deps:
+                if consumer in eager_consumers:
+                    consumer_node = self.dag[consumer]
                     branch, _, _ = self._materialize_with_events(
                         step_name,
                         branch,
@@ -716,15 +706,16 @@ class PipelineExecutor:
             self._publish_scalar_output(step_name, output, node, deferred)
             return
 
-        consumers = self.dag.consumers_of(step_name)
+        plan = self.dag.consumer_materialization_plan(step_name)
+        consumers = plan.consumers
 
-        if self._stream_requires_eager_materialization(node):
+        if self.dag.requires_eager_materialization(step_name):
             self._materialize_stream_output(
                 step_name, output, node, consumers, deferred
             )
             return
 
-        if len(consumers) == 1 and self.dag.needs_materialize(step_name):
+        if len(consumers) == 1 and plan.eager_consumers:
             self._publish_stream_to_single_consumer(
                 step_name, output, node, consumers[0], deferred
             )

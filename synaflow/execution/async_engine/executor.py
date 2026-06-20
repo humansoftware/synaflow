@@ -607,9 +607,6 @@ class AsyncPipelineExecutor:
     def _is_stream_output(self, output):
         return isinstance(output, (Iterator, Generator, AsyncIterator, AsyncGenerator))
 
-    def _stream_requires_eager_materialization(self, node):
-        return node.on_error == OnError.STOP or node.force_materialize
-
     async def _publish_eager_materialized_stream(
         self,
         step_name,
@@ -728,9 +725,10 @@ class AsyncPipelineExecutor:
             await self._publish_scalar_output(step_name, output, node, deferred)
             return
 
-        consumers = self.dag.consumers_of(step_name)
+        plan = self.dag.consumer_materialization_plan(step_name)
+        consumers = plan.consumers
 
-        if self._stream_requires_eager_materialization(node):
+        if self.dag.requires_eager_materialization(step_name):
             try:
                 await self._publish_eager_materialized_stream(
                     step_name, output, node, consumers, deferred
@@ -741,7 +739,7 @@ class AsyncPipelineExecutor:
                 await self._handle_stream_publish_error(step_name, node, exc)
             return
 
-        if len(consumers) == 1 and self.dag.needs_materialize(step_name):
+        if len(consumers) == 1 and plan.eager_consumers:
             try:
                 await self._publish_single_consumer_stream(
                     step_name, output, node, consumers[0], deferred

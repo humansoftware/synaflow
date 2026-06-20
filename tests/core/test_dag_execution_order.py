@@ -215,6 +215,46 @@ def test_given_dag_node_with_resolved_each_mode_when_each_inputs_then_reads_from
     assert dag.each_inputs("transform") == ["items"]
 
 
+def test_given_on_error_stop_when_requires_eager_materialization_then_true():
+    from synaflow.core.dag import Dag, DagNode
+    from synaflow.core.types import OnError
+
+    dag = Dag(name="test")
+    dag.steps = {
+        "producer": DagNode(deps={}, on_error=OnError.STOP),
+    }
+
+    assert dag.requires_eager_materialization("producer") is True
+
+
+def test_given_force_materialize_when_requires_eager_materialization_then_true():
+    from synaflow.core.dag import Dag, DagNode
+
+    dag = Dag(name="test")
+    dag.steps = {
+        "producer": DagNode(deps={}, force_materialize=True),
+    }
+
+    assert dag.requires_eager_materialization("producer") is True
+
+
+def test_given_mixed_consumers_when_consumer_materialization_plan_then_classifies():
+    from synaflow.core.dag import Dag, DagNode
+
+    dag = Dag(name="test")
+    dag.steps = {
+        "producer": DagNode(deps={}),
+        "lazy": DagNode(deps={"producer": int}, materialized_deps=[]),
+        "eager": DagNode(deps={"producer": list[int]}, materialized_deps=["producer"]),
+    }
+
+    plan = dag.consumer_materialization_plan("producer")
+
+    assert plan.consumers == ["lazy", "eager"]
+    assert plan.lazy_consumers == ["lazy"]
+    assert plan.eager_consumers == ["eager"]
+
+
 def test_given_linear_dag_when_get_execution_levels_then_returns_sequential_levels():
     from synaflow.core.dag import Dag, DagNode
 

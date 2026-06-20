@@ -73,6 +73,13 @@ class DagNode:
         return ret
 
 
+@dataclass(frozen=True)
+class ConsumerMaterializationPlan:
+    consumers: list[str]
+    eager_consumers: list[str]
+    lazy_consumers: list[str]
+
+
 def _serialize_observers(observers: list) -> list[dict]:
     result = []
     for obs in observers:
@@ -174,11 +181,37 @@ class Dag:
         if node is None:
             return False
 
-        if node.on_error == OnError.STOP or node.force_materialize:
+        if self.requires_eager_materialization(step_name):
             return True
 
         return any(
             step_name in consumer.materialized_deps for consumer in self.steps.values()
+        )
+
+    def requires_eager_materialization(self, step_name: str) -> bool:
+        node = self.steps.get(step_name)
+        if node is None:
+            return False
+        return node.on_error == OnError.STOP or node.force_materialize
+
+    def consumer_materialization_plan(
+        self, producer: str
+    ) -> ConsumerMaterializationPlan:
+        consumers = self.consumers_of(producer)
+        eager_consumers = [
+            consumer
+            for consumer in consumers
+            if producer in self.steps[consumer].materialized_deps
+        ]
+        lazy_consumers = [
+            consumer
+            for consumer in consumers
+            if producer not in self.steps[consumer].materialized_deps
+        ]
+        return ConsumerMaterializationPlan(
+            consumers=consumers,
+            eager_consumers=eager_consumers,
+            lazy_consumers=lazy_consumers,
         )
 
     def get_execution_levels(self) -> list[list[str]]:
