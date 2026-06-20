@@ -693,6 +693,70 @@ def test_given_resource_override_when_pipeline_factory_exists_then_override_take
     assert seen == [("override", 3)]
 
 
+def test_given_resource_factory_override_when_sync_run_then_override_factory_is_used(
+    run_pipeline,
+):
+    class DB:
+        def __init__(self, source: str):
+            self.source = source
+
+    class Params(NamedTuple):
+        value: int = 3
+
+    seen = []
+
+    def use(db: DB, value: int) -> None:
+        seen.append((db.source, value))
+
+    def get_db() -> DB:
+        return DB("pipeline")
+
+    p = pipeline(
+        name="resource_override_factory_sync",
+        params=Params,
+        resources={"db": get_db},
+        steps=[step("use", fn=use)],
+    )
+
+    overrides = ExecutionOverrides.empty(p)
+    overrides.resources["db"] = lambda: DB("override-factory")
+
+    run_pipeline(p, Params(), overrides=overrides)
+
+    assert seen == [("override-factory", 3)]
+
+
+async def test_given_resource_factory_override_when_async_run_then_override_factory_is_used():
+    class DB:
+        def __init__(self, source: str):
+            self.source = source
+
+    class Params(NamedTuple):
+        value: int = 3
+
+    seen = []
+
+    async def use(db: DB, value: int) -> None:
+        seen.append((db.source, value))
+
+    def get_db() -> DB:
+        return DB("pipeline")
+
+    p = pipeline(
+        name="resource_override_factory_async",
+        params=Params,
+        resources={"db": get_db},
+        steps=[step("use", fn=use)],
+    )
+
+    overrides = ExecutionOverrides.empty(p)
+    overrides.resources["db"] = lambda: DB("override-factory")
+
+    await async_run(p, Params(), overrides=overrides)
+
+    assert seen == [("override-factory", 3)]
+
+
 def test_given_resource_context_manager_factory_when_sync_run_then_entered_value_is_injected(
     run_pipeline,
 ):
@@ -732,6 +796,51 @@ def test_given_resource_context_manager_factory_when_sync_run_then_entered_value
     assert exited == entered
 
 
+def test_given_resource_context_manager_override_when_sync_run_then_entered_value_is_injected(
+    run_pipeline,
+):
+    class DB:
+        pass
+
+    class Params(NamedTuple):
+        value: int = 5
+
+    entered = []
+    exited = []
+    seen = []
+
+    def get_db() -> DB:
+        return DB()
+
+    @contextmanager
+    def override_db() -> DB:
+        db = DB()
+        entered.append(db)
+        try:
+            yield db
+        finally:
+            exited.append(db)
+
+    def use(db: DB, value: int) -> None:
+        seen.append((db, value))
+
+    p = pipeline(
+        name="sync_resource_context_manager_override",
+        params=Params,
+        resources={"db": get_db},
+        steps=[step("use", fn=use)],
+    )
+
+    overrides = ExecutionOverrides.empty(p)
+    overrides.resources["db"] = override_db
+
+    run_pipeline(p, Params(), overrides=overrides)
+
+    assert len(entered) == 1
+    assert seen == [(entered[0], 5)]
+    assert exited == entered
+
+
 async def test_given_async_resource_context_manager_factory_when_async_run_then_entered_value_is_injected():
     class DB:
         pass
@@ -763,6 +872,49 @@ async def test_given_async_resource_context_manager_factory_when_async_run_then_
     )
 
     await async_run(p, Params())
+
+    assert len(entered) == 1
+    assert seen == [(entered[0], 5)]
+    assert exited == entered
+
+
+async def test_given_async_resource_context_manager_override_when_async_run_then_entered_value_is_injected():
+    class DB:
+        pass
+
+    class Params(NamedTuple):
+        value: int = 5
+
+    entered = []
+    exited = []
+    seen = []
+
+    def get_db() -> DB:
+        return DB()
+
+    @asynccontextmanager
+    async def override_db() -> DB:
+        db = DB()
+        entered.append(db)
+        try:
+            yield db
+        finally:
+            exited.append(db)
+
+    async def use(db: DB, value: int) -> None:
+        seen.append((db, value))
+
+    p = pipeline(
+        name="async_resource_context_manager_override",
+        params=Params,
+        resources={"db": get_db},
+        steps=[step("use", fn=use)],
+    )
+
+    overrides = ExecutionOverrides.empty(p)
+    overrides.resources["db"] = override_db
+
+    await async_run(p, Params(), overrides=overrides)
 
     assert len(entered) == 1
     assert seen == [(entered[0], 5)]

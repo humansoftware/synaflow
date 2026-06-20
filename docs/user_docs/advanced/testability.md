@@ -171,6 +171,12 @@ run(p, Params(user_id=42), overrides=overrides)
 The inverse is also validated: setting `overrides.resources["missing"] = ...`
 for a name the pipeline never declared is rejected.
 
+Overrides can also be resource factories, including context-managed ones:
+
+```python
+overrides.resources["db"] = lambda: FakeDB()
+```
+
 ## Context-managed resources
 
 If a production resource factory returns a context manager, the executor enters
@@ -186,6 +192,9 @@ def get_db() -> DB:
 ```
 
 This is useful for per-step connections and transactions.
+
+The same pattern also works in `ExecutionOverrides.resources` when a test wants
+replacement logic plus cleanup.
 
 ## Shared resources across included sub-pipelines
 
