@@ -69,7 +69,10 @@ reads.
 ### Static validation at build time
 
 Type errors, missing dependencies, circular graphs, mode conflicts — all caught
-when `pipeline(...)` is called. If it compiles, it's valid. No runtime surprises.
+when `pipeline(...)` is called. Materialization decisions are compiled into the
+`Dag` too: mode resolution, per-dependency eager materialization, and the
+resolved materializer callables are frozen before `run()` starts. If it
+compiles, it's valid. No runtime surprises.
 
 ### Build your own runner
 

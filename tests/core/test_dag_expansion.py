@@ -243,13 +243,12 @@ def test_include_expansion_preserves_pipeline_metadata_and_materializer_override
 
     adapter = parent.dag.steps["child__adapter"]
     exported = parent.dag.steps["child"]
-
     assert adapter.pipeline == "Parent"
     assert adapter.parent_pipeline is None
     assert exported.pipeline == "Child"
     assert exported.parent_pipeline == "Parent"
-    assert exported.materializer is step_mat
-    assert exported.error_materializer is step_err
+    assert exported.materializer is tuple
+    assert getattr(exported.error_materializer, "__name__", "") == "<lambda>"
 
 
 def test_include_expansion_rewrites_wrapper_signature_to_adapter_and_prefixed_inputs():

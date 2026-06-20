@@ -22,8 +22,6 @@ from synaflow.core.observers import (
     dispatch_observers_async,
 )
 from synaflow.core.types import (
-    ErrorMaterializeContext,
-    MaterializeContext,
     OnError,
     StepMode,
 )
@@ -75,33 +73,19 @@ async def _apply_materializer(
             items, had_error, exc = await _collect_async_iterator(dag, step_name, value)
             return items, had_error, exc
         return value, False, None
-    concrete_mat = mat(
-        MaterializeContext(
-            pipeline_name=dag.name,
-            dataset_name=step_name,
-            item_type=node.output,
-            consumer_type=consumer_type,
-        )
-    )
-    if inspect.iscoroutinefunction(concrete_mat):
-        result = await concrete_mat(value)
+
+    if inspect.iscoroutinefunction(mat):
+        result = await mat(value)
         return result, False, None
+
     if isinstance(value, (AsyncIterator, AsyncGenerator, Iterator, Generator)):
-        if (
-            concrete_mat in (list, tuple, set, dict)
-            or getattr(concrete_mat, "__name__", "") == "_identity"
-        ):
-            items, had_error, exc = await _collect_async_iterator(dag, step_name, value)
-            res = items if concrete_mat is list else concrete_mat(items)
-            if inspect.iscoroutine(res):
-                return await res, had_error, exc
-            return res, had_error, exc
         items, had_error, exc = await _collect_async_iterator(dag, step_name, value)
-        res = concrete_mat(items)
+        res = mat(items)
         if inspect.iscoroutine(res):
             return await res, had_error, exc
         return res, had_error, exc
-    res = concrete_mat(value)
+
+    res = mat(value)
     if inspect.iscoroutine(res):
         return await res, False, None
     return res, False, None
@@ -117,29 +101,13 @@ async def _handle_error(dag: Dag, step_name: str, exc: BaseException) -> None:
         return
 
     if inspect.iscoroutinefunction(err_mat):
-        handler = await err_mat(
-            ErrorMaterializeContext(
-                pipeline_name=dag.name,
-                dataset_name=step_name,
-                exception_type=type(exc),
-            )
-        )
+        await err_mat(exc)
+    elif callable(err_mat):
+        res = err_mat(exc)
+        if inspect.iscoroutine(res):
+            await res
     else:
-        handler = err_mat(
-            ErrorMaterializeContext(
-                pipeline_name=dag.name,
-                dataset_name=step_name,
-                exception_type=type(exc),
-            )
-        )
-
-    if handler is not None:
-        if inspect.iscoroutinefunction(handler):
-            await handler(exc)
-        else:
-            res = handler(exc)
-            if inspect.iscoroutine(res):
-                await res
+        raise TypeError(f"Error materializer for step '{step_name}' is not callable.")
 
 
 async def _pump_iterator(
@@ -639,9 +607,6 @@ class AsyncPipelineExecutor:
     def _is_stream_output(self, output):
         return isinstance(output, (Iterator, Generator, AsyncIterator, AsyncGenerator))
 
-    def _stream_requires_eager_materialization(self, node):
-        return node.on_error == OnError.STOP or node.force_materialize
-
     async def _publish_eager_materialized_stream(
         self,
         step_name,
@@ -760,9 +725,10 @@ class AsyncPipelineExecutor:
             await self._publish_scalar_output(step_name, output, node, deferred)
             return
 
-        consumers = self.dag.consumers_of(step_name)
+        plan = self.dag.consumer_materialization_plan(step_name)
+        consumers = plan.consumers
 
-        if self._stream_requires_eager_materialization(node):
+        if self.dag.requires_eager_materialization(step_name):
             try:
                 await self._publish_eager_materialized_stream(
                     step_name, output, node, consumers, deferred
@@ -773,7 +739,7 @@ class AsyncPipelineExecutor:
                 await self._handle_stream_publish_error(step_name, node, exc)
             return
 
-        if len(consumers) == 1 and self.dag.needs_materialize(step_name):
+        if len(consumers) == 1 and plan.eager_consumers:
             try:
                 await self._publish_single_consumer_stream(
                     step_name, output, node, consumers[0], deferred

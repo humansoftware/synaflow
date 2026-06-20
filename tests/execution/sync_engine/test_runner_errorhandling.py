@@ -270,3 +270,31 @@ def test_given_on_error_stop_when_stream_iteration_fails_then_pipeline_stops_and
 
     sink.assert_not_called()
     assert handled == [("source", "ValueError")]
+
+
+def test_given_non_callable_error_materializer_when_step_fails_then_raises_type_error(
+    run_pipeline,
+):
+    def producer() -> list[int]:
+        raise ValueError("Oops")
+
+    class P(NamedTuple):
+        pass
+
+    my_pipeline = pipeline(
+        name="test",
+        params=P,
+        steps=[
+            step(
+                "producer",
+                fn=producer,
+                on_error=OnError.CONTINUE,
+                error_materializer="not a callable string",
+            )
+        ],
+    )
+
+    with pytest.raises(
+        TypeError, match="Error materializer for step 'producer' is not callable"
+    ):
+        run_pipeline(my_pipeline, params=P())

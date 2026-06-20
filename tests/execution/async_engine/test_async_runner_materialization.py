@@ -3,7 +3,7 @@ from typing import AsyncGenerator, AsyncIterator, NamedTuple
 from unittest.mock import AsyncMock as MagicMock
 
 
-from synaflow import async_run, pipeline, step, to_materializer
+from synaflow import async_run, pipeline, step
 from synaflow.core.types import OnError
 
 
@@ -24,48 +24,6 @@ def mock_step(**params: type) -> MagicMock:
     return mock
 
 
-async def test_given_generator_output_and_two_each_consumers_when_run_then_materialized_once():
-    class P(NamedTuple):
-        count: int = 3
-
-    async def gen(count: int) -> AsyncGenerator[int, None]:
-        for _i in range(count):
-            yield _i
-
-    call_order = []
-
-    async def a(items: int):
-        call_order.append(("a", items))
-
-    async def b(items: int):
-        call_order.append(("b", items))
-
-    materialized = []
-
-    def spy_materialize(ctx):
-        async def concrete(g):
-            materialized.append("called")
-            return [x async for x in g]
-
-        return concrete
-
-    my_pipeline = pipeline(
-        name="test",
-        params=P,
-        materializer=spy_materialize,
-        steps=[
-            step("items", fn=gen),
-            step("a", fn=a),
-            step("b", fn=b),
-        ],
-    )
-
-    await async_run(my_pipeline, params=P())
-    assert len(materialized) == 0
-    assert [val for key, val in call_order if key == "a"] == [0, 1, 2]
-    assert [val for key, val in call_order if key == "b"] == [0, 1, 2]
-
-
 async def test_given_generator_and_scalar_and_iterator_consumers_when_run_then_no_materialization():
     class P(NamedTuple):
         count: int = 3
@@ -82,135 +40,6 @@ async def test_given_generator_and_scalar_and_iterator_consumers_when_run_then_n
     async def b(items: AsyncIterator[int]):
         async for x in items:
             call_order.append(("b", x))
-
-    materialized = []
-
-    def spy_materialize(ctx):
-        async def concrete(g):
-            materialized.append("called")
-            return [x async for x in g]
-
-        return concrete
-
-    my_pipeline = pipeline(
-        name="test",
-        params=P,
-        materializer=spy_materialize,
-        steps=[
-            step("items", fn=gen),
-            step("a", fn=a),
-            step("b", fn=b),
-        ],
-    )
-
-    await async_run(my_pipeline, params=P())
-    assert len(materialized) == 0
-    assert [val for key, val in call_order if key == "a"] == [0, 1, 2]
-    assert [val for key, val in call_order if key == "b"] == [0, 1, 2]
-
-
-async def test_given_generator_and_two_iterator_consumers_when_run_then_no_materialization():
-    class P(NamedTuple):
-        count: int = 3
-
-    async def gen(count: int) -> AsyncGenerator[int, None]:
-        for _i in range(count):
-            yield _i
-
-    call_order = []
-
-    async def a(items: AsyncIterator[int]):
-        async for x in items:
-            call_order.append(("a", x))
-
-    async def b(items: AsyncIterator[int]):
-        async for x in items:
-            call_order.append(("b", x))
-
-    materialized = []
-
-    def spy_materialize(ctx):
-        async def concrete(g):
-            materialized.append("called")
-            return [x async for x in g]
-
-        return concrete
-
-    my_pipeline = pipeline(
-        name="test",
-        params=P,
-        materializer=spy_materialize,
-        steps=[
-            step("items", fn=gen),
-            step("a", fn=a),
-            step("b", fn=b),
-        ],
-    )
-
-    await async_run(my_pipeline, params=P())
-    assert len(materialized) == 0
-    assert [val for key, val in call_order if key == "a"] == [0, 1, 2]
-    assert [val for key, val in call_order if key == "b"] == [0, 1, 2]
-
-
-async def test_given_generator_and_union_scalar_and_union_iterator_consumers_when_run_then_no_materialization():
-    class P(NamedTuple):
-        count: int = 3
-
-    async def gen(count: int) -> AsyncGenerator[int, None]:
-        for _i in range(count):
-            yield _i
-
-    call_order = []
-
-    async def a(items: int | str):
-        call_order.append(("a", items))
-
-    async def b(items: AsyncIterator[int | str]):
-        async for x in items:
-            call_order.append(("b", x))
-
-    materialized = []
-
-    def spy_materialize(ctx):
-        async def concrete(g):
-            materialized.append("called")
-            return [x async for x in g]
-
-        return concrete
-
-    my_pipeline = pipeline(
-        name="test",
-        params=P,
-        materializer=spy_materialize,
-        steps=[
-            step("items", fn=gen),
-            step("a", fn=a),
-            step("b", fn=b),
-        ],
-    )
-
-    await async_run(my_pipeline, params=P())
-    assert len(materialized) == 0
-    assert [val for key, val in call_order if key == "a"] == [0, 1, 2]
-    assert [val for key, val in call_order if key == "b"] == [0, 1, 2]
-
-
-async def test_given_generator_of_union_and_union_scalar_consumers_when_run_then_no_materialization():
-    class P(NamedTuple):
-        count: int = 3
-
-    async def gen(count: int) -> AsyncGenerator[int | str, None]:
-        for _i in range(count):
-            yield _i
-
-    call_order = []
-
-    async def a(items: int | str | None):
-        call_order.append(("a", items))
-
-    async def b(items: int | str | bool):
-        call_order.append(("b", items))
 
     materialized = []
 
@@ -773,42 +602,7 @@ async def test_given_scalar_output_with_on_error_stop_when_run_then_scalar_mater
                 "produce",
                 fn=produce,
                 on_error=OnError.STOP,
-                materializer=to_materializer(scalar_materializer),
-            ),
-            step("consume", fn=consume),
-        ],
-    )
-
-    await async_run(my_pipeline, params=P())
-
-    assert materialized == [6]
-
-
-async def test_given_scalar_output_with_force_materialize_when_run_then_scalar_materializer_is_invoked():
-    class P(NamedTuple):
-        x: int = 3
-
-    materialized = []
-
-    async def scalar_materializer(value):
-        materialized.append(value)
-        return value
-
-    async def produce(x: int) -> int:
-        return x * 2
-
-    async def consume(produce: int):
-        pass
-
-    my_pipeline = pipeline(
-        name="test_scalar_force",
-        params=P,
-        steps=[
-            step(
-                "produce",
-                fn=produce,
-                materializer=to_materializer(scalar_materializer),
-                force_materialize=True,
+                materializer=scalar_materializer,
             ),
             step("consume", fn=consume),
         ],

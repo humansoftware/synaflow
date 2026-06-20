@@ -82,6 +82,12 @@ Materialization also happens automatically when:
 | Consumer asks for `tuple[T, ...]` | `def fn(data: tuple[int, ...])` |
 | `on_error=STOP` on the producer (see below) | All downstream consumers materialize |
 
+These are **build-time decisions**. When `pipeline(...)` is compiled, SynaFlow
+records which dependencies must be materialized in the `Dag`
+(`materialized_deps`) and resolves the materializer callable for each step.
+The runtime executors do not re-decide which branch is eager; they follow the
+compiled contract.
+
 ## Error Policies: `OnError.CONTINUE` vs `OnError.STOP`
 
 Every step has an `on_error` policy that controls what happens when the step's
@@ -175,6 +181,9 @@ When `on_error=STOP` is set:
 
 This guarantees transactional integrity — you can inspect what was processed
 before the failure.
+
+In other words, `OnError.STOP` changes the compiled materialization plan, not
+just the runtime error behavior.
 
 ## Error Materializers
 

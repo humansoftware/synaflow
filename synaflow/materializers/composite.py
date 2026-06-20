@@ -2,6 +2,8 @@ import inspect
 from collections.abc import Iterator
 from typing import Any
 
+from synaflow.core.type_compatibility import is_factory
+
 
 def _is_async_callable(func: Any) -> bool:
     if func is None:
@@ -16,12 +18,14 @@ def _is_async_callable(func: Any) -> bool:
 
 def composite_materializer(*materializers):
     def factory(ctx):
-        resolved = [m(ctx) for m in materializers if m is not None]
+        resolved = [
+            m(ctx) if is_factory(m) else m for m in materializers if m is not None
+        ]
         any_async = any(_is_async_callable(m) for m in resolved)
 
         if any_async:
 
-            async def concrete_async(value: Any) -> Any:
+            async def run_composite_materializers_async(value: Any) -> Any:
                 if isinstance(value, Iterator):
                     value = list(value)
 
@@ -35,10 +39,10 @@ def composite_materializer(*materializers):
                             res = await res
                 return res if res is not None else value
 
-            return concrete_async
+            return run_composite_materializers_async
         else:
 
-            def concrete_sync(value: Any) -> Any:
+            def run_composite_materializers_sync(value: Any) -> Any:
                 if isinstance(value, Iterator):
                     value = list(value)
 
@@ -47,19 +51,25 @@ def composite_materializer(*materializers):
                     res = m(value)
                 return res if res is not None else value
 
-            return concrete_sync
+            return run_composite_materializers_sync
 
     return factory
 
 
 def composite_error_materializer(*error_materializers):
     def factory(ctx):
-        resolved = [em(ctx) for em in error_materializers if em is not None]
+        resolved = [
+            em(ctx) if is_factory(em) else em
+            for em in error_materializers
+            if em is not None
+        ]
         any_async = any(_is_async_callable(em) for em in resolved)
 
         if any_async:
 
-            async def concrete_async(exc: BaseException) -> None:
+            async def run_composite_error_materializers_async(
+                exc: BaseException,
+            ) -> None:
                 for em in resolved:
                     if _is_async_callable(em):
                         await em(exc)
@@ -68,13 +78,13 @@ def composite_error_materializer(*error_materializers):
                         if inspect.iscoroutine(res):
                             await res
 
-            return concrete_async
+            return run_composite_error_materializers_async
         else:
 
-            def concrete_sync(exc: BaseException) -> None:
+            def run_composite_error_materializers_sync(exc: BaseException) -> None:
                 for em in resolved:
                     em(exc)
 
-            return concrete_sync
+            return run_composite_error_materializers_sync
 
     return factory

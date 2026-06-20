@@ -16,7 +16,7 @@ def disk_materializer(
         fname = file_name or f"{ctx.dataset_name}.{ext}"
         target_path = base_path / fname
 
-        def concrete(value: Any) -> Any:
+        def write_to_disk(value: Any) -> Any:
             target_path.parent.mkdir(parents=True, exist_ok=True)
 
             if isinstance(value, Iterator):
@@ -34,6 +34,6 @@ def disk_materializer(
 
             return value
 
-        return concrete
+        return write_to_disk
 
     return factory

@@ -2,7 +2,7 @@ from collections.abc import AsyncGenerator
 from typing import NamedTuple
 from dataclasses import dataclass
 
-from synaflow import pipeline, step, to_materializer
+from synaflow import pipeline, step
 
 
 @dataclass
@@ -37,7 +37,7 @@ custom_types_pipeline = pipeline(
     name="custom_types_example",
     params=CustomTypesParams,
     steps=[
-        step("records", fn=records, materializer=to_materializer(async_list)),
+        step("records", fn=records, materializer=async_list),
         step("process", fn=process),
     ],
 )
@@ -53,8 +53,8 @@ pack = PipelinePack(
                 "fn": "records",
                 "on_error": "continue",
                 "mode": "all",
-                "materializer": "factory",
-                "error_materializer": "log_error_materializer",
+                "materializer": "async_list",
+                "error_materializer": "log_error",
                 "materialized_deps": [],
                 "each_mode_deps": [],
                 "pipeline": "custom_types_example",
@@ -67,8 +67,8 @@ pack = PipelinePack(
                 "fn": "process",
                 "on_error": "continue",
                 "mode": "all",
-                "materializer": "memory_materializer",
-                "error_materializer": "log_error_materializer",
+                "materializer": None,
+                "error_materializer": "log_error",
                 "materialized_deps": ["records"],
                 "each_mode_deps": [],
                 "pipeline": "custom_types_example",

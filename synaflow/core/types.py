@@ -42,7 +42,6 @@ class MaterializeContext:
 class ErrorMaterializeContext:
     pipeline_name: str
     dataset_name: str
-    exception_type: type[BaseException]
 
 
 @dataclass

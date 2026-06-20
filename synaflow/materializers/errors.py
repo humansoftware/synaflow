@@ -30,7 +30,7 @@ def disk_error_materializer(
         fname = file_name or f"{ctx.dataset_name}.{ext}"
         target_path = base_path / fname
 
-        def concrete(exc: BaseException) -> None:
+        def append_error_to_disk(exc: BaseException) -> None:
             target_path.parent.mkdir(parents=True, exist_ok=True)
 
             record = ErrorRecord(
@@ -51,6 +51,6 @@ def disk_error_materializer(
                 else:
                     serializer(f, record)
 
-        return concrete
+        return append_error_to_disk
 
     return factory
