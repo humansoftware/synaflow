@@ -232,6 +232,32 @@ def test_given_step_materializer_when_non_builtin_inner_type_used_then_dag_build
     assert p.dag is not None
 
 
+def test_given_builtin_concrete_materializer_when_signature_not_inspectable_then_dag_builds():
+    from collections.abc import Iterator
+    from synaflow import pipeline, step
+
+    class Params(NamedTuple):
+        pass
+
+    def producer() -> Iterator[int]:
+        yield 1
+        yield 2
+
+    def consumer(producer: int) -> None:
+        pass
+
+    p = pipeline(
+        name="test_builtin_concrete_materializer",
+        params=Params,
+        steps=[
+            step("producer", fn=producer, materializer=int),
+            step("consumer", fn=consumer),
+        ],
+    )
+    assert p.dag is not None
+    assert p.dag.steps["producer"].materializer is int
+
+
 def test_given_pipeline_materializer_when_non_builtin_inner_type_used_then_dag_builds():
     from dataclasses import dataclass
     from collections.abc import Iterator

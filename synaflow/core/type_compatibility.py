@@ -7,7 +7,10 @@ from typing import Any, Callable, Tuple, Union, get_args, get_origin
 def is_factory(func: Callable) -> bool:
     if not callable(func):
         return False
-    sig = inspect.signature(func)
+    try:
+        sig = inspect.signature(func)
+    except (TypeError, ValueError):
+        return False
     for param in sig.parameters.values():
         if param.name in ("ctx", "context") or "MaterializeContext" in str(
             param.annotation
