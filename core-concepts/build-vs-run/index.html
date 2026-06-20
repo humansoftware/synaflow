@@ -1698,7 +1698,7 @@ needs to check types or resolve ambiguities at runtime.</p>
 <tr>
 <td>Resources</td>
 <td>Declared at build time → <code>dag.resources</code></td>
-<td>Executor requires concrete runtime values via <code>ExecutionOverrides.resources</code></td>
+<td>Executor resolves the production factory per step, or an override provider when present</td>
 </tr>
 </tbody>
 </table>
