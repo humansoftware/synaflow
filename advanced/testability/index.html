@@ -1099,10 +1099,21 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#injecting-runtime-resources" class="md-nav__link">
+  <a href="#production-resource-factories" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Injecting runtime resources
+        Production resource factories
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#context-managed-resources" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Context-managed resources
       
     </span>
   </a>
@@ -1552,10 +1563,21 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#injecting-runtime-resources" class="md-nav__link">
+  <a href="#production-resource-factories" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Injecting runtime resources
+        Production resource factories
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#context-managed-resources" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Context-managed resources
       
     </span>
   </a>
@@ -1771,8 +1793,9 @@ implementations for already-declared keys.</p>
 </tbody>
 </table>
 <p><code>params</code> are user input data. <code>resources</code> are runtime dependencies such as a
-database client, HTTP client, or cache handle. Step outputs are neither:
-they are created by the pipeline itself.</p>
+database client, HTTP client, or cache handle. They are declared as production
+factories on the pipeline and resolved when a step is injected. Step outputs are
+neither: they are created by the pipeline itself.</p>
 <h2 id="empty-vs-from_production"><code>empty()</code> vs <code>from_production()</code><a class="headerlink" href="#empty-vs-from_production" title="Permanent link">&para;</a></h2>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">synaflow</span><span class="w"> </span><span class="kn">import</span> <span class="n">ExecutionOverrides</span>
 <a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>
@@ -1783,14 +1806,14 @@ they are created by the pipeline itself.</p>
 <ul>
 <li>observers default to no-op</li>
 <li>materializers keep the compiled callable unless you replace one</li>
-<li>resources must be filled explicitly before execution</li>
+<li>production resource factories stay available unless you replace them</li>
 </ul>
 <p>Use <code>from_production()</code> when you want a surgical patch on top of the normal
 pipeline behavior:</p>
 <ul>
 <li>compiled observers stay active unless replaced</li>
 <li>compiled materializers stay active unless replaced</li>
-<li>resources are still runtime-only and must be supplied explicitly</li>
+<li>production resource factories stay active unless replaced</li>
 </ul>
 <p>In both modes, override keys must already exist in the compiled contract.
 Unknown step keys, observer scopes, or resource names fail loudly instead of
@@ -1828,8 +1851,8 @@ observer layer while keeping compiled step-level observers intact:</p>
 <a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="n">overrides</span> <span class="o">=</span> <span class="n">ExecutionOverrides</span><span class="o">.</span><span class="n">from_production</span><span class="p">(</span><span class="n">p</span><span class="p">)</span>
 <a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="n">overrides</span><span class="o">.</span><span class="n">observers</span><span class="p">[</span><span class="n">PIPELINE_SCOPE</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span><span class="n">Observer</span><span class="p">(</span><span class="n">test_recorder</span><span class="p">)]</span>
 </code></pre></div>
-<h2 id="injecting-runtime-resources">Injecting runtime resources<a class="headerlink" href="#injecting-runtime-resources" title="Permanent link">&para;</a></h2>
-<p>Declare the resource in the pipeline contract:</p>
+<h2 id="production-resource-factories">Production resource factories<a class="headerlink" href="#production-resource-factories" title="Permanent link">&para;</a></h2>
+<p>Declare the production resource factory in the pipeline contract:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">NamedTuple</span>
 <a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">synaflow</span><span class="w"> </span><span class="kn">import</span> <span class="n">pipeline</span><span class="p">,</span> <span class="n">step</span>
 <a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>
@@ -1839,81 +1862,98 @@ observer layer while keeping compiled step-level observers intact:</p>
 <a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a><span class="k">class</span><span class="w"> </span><span class="nc">Params</span><span class="p">(</span><span class="n">NamedTuple</span><span class="p">):</span>
 <a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a>    <span class="n">user_id</span><span class="p">:</span> <span class="nb">int</span>
 <a id="__codelineno-5-9" name="__codelineno-5-9" href="#__codelineno-5-9"></a>
-<a id="__codelineno-5-10" name="__codelineno-5-10" href="#__codelineno-5-10"></a><span class="k">def</span><span class="w"> </span><span class="nf">load_user</span><span class="p">(</span><span class="n">db</span><span class="p">:</span> <span class="n">DB</span><span class="p">,</span> <span class="n">user_id</span><span class="p">:</span> <span class="nb">int</span><span class="p">):</span>
-<a id="__codelineno-5-11" name="__codelineno-5-11" href="#__codelineno-5-11"></a>    <span class="k">return</span> <span class="n">db</span><span class="o">.</span><span class="n">fetch</span><span class="p">(</span><span class="n">user_id</span><span class="p">)</span>
+<a id="__codelineno-5-10" name="__codelineno-5-10" href="#__codelineno-5-10"></a><span class="k">def</span><span class="w"> </span><span class="nf">get_db</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="n">DB</span><span class="p">:</span>
+<a id="__codelineno-5-11" name="__codelineno-5-11" href="#__codelineno-5-11"></a>    <span class="k">return</span> <span class="n">DB</span><span class="p">(</span><span class="o">...</span><span class="p">)</span>
 <a id="__codelineno-5-12" name="__codelineno-5-12" href="#__codelineno-5-12"></a>
-<a id="__codelineno-5-13" name="__codelineno-5-13" href="#__codelineno-5-13"></a><span class="n">p</span> <span class="o">=</span> <span class="n">pipeline</span><span class="p">(</span>
-<a id="__codelineno-5-14" name="__codelineno-5-14" href="#__codelineno-5-14"></a>    <span class="n">name</span><span class="o">=</span><span class="s2">&quot;users&quot;</span><span class="p">,</span>
-<a id="__codelineno-5-15" name="__codelineno-5-15" href="#__codelineno-5-15"></a>    <span class="n">params</span><span class="o">=</span><span class="n">Params</span><span class="p">,</span>
-<a id="__codelineno-5-16" name="__codelineno-5-16" href="#__codelineno-5-16"></a>    <span class="n">resources</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;db&quot;</span><span class="p">:</span> <span class="n">DB</span><span class="p">},</span>
-<a id="__codelineno-5-17" name="__codelineno-5-17" href="#__codelineno-5-17"></a>    <span class="n">steps</span><span class="o">=</span><span class="p">[</span><span class="n">step</span><span class="p">(</span><span class="s2">&quot;load_user&quot;</span><span class="p">,</span> <span class="n">fn</span><span class="o">=</span><span class="n">load_user</span><span class="p">)],</span>
-<a id="__codelineno-5-18" name="__codelineno-5-18" href="#__codelineno-5-18"></a><span class="p">)</span>
+<a id="__codelineno-5-13" name="__codelineno-5-13" href="#__codelineno-5-13"></a><span class="k">def</span><span class="w"> </span><span class="nf">load_user</span><span class="p">(</span><span class="n">db</span><span class="p">:</span> <span class="n">DB</span><span class="p">,</span> <span class="n">user_id</span><span class="p">:</span> <span class="nb">int</span><span class="p">):</span>
+<a id="__codelineno-5-14" name="__codelineno-5-14" href="#__codelineno-5-14"></a>    <span class="k">return</span> <span class="n">db</span><span class="o">.</span><span class="n">fetch</span><span class="p">(</span><span class="n">user_id</span><span class="p">)</span>
+<a id="__codelineno-5-15" name="__codelineno-5-15" href="#__codelineno-5-15"></a>
+<a id="__codelineno-5-16" name="__codelineno-5-16" href="#__codelineno-5-16"></a><span class="n">p</span> <span class="o">=</span> <span class="n">pipeline</span><span class="p">(</span>
+<a id="__codelineno-5-17" name="__codelineno-5-17" href="#__codelineno-5-17"></a>    <span class="n">name</span><span class="o">=</span><span class="s2">&quot;users&quot;</span><span class="p">,</span>
+<a id="__codelineno-5-18" name="__codelineno-5-18" href="#__codelineno-5-18"></a>    <span class="n">params</span><span class="o">=</span><span class="n">Params</span><span class="p">,</span>
+<a id="__codelineno-5-19" name="__codelineno-5-19" href="#__codelineno-5-19"></a>    <span class="n">resources</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;db&quot;</span><span class="p">:</span> <span class="n">get_db</span><span class="p">},</span>
+<a id="__codelineno-5-20" name="__codelineno-5-20" href="#__codelineno-5-20"></a>    <span class="n">steps</span><span class="o">=</span><span class="p">[</span><span class="n">step</span><span class="p">(</span><span class="s2">&quot;load_user&quot;</span><span class="p">,</span> <span class="n">fn</span><span class="o">=</span><span class="n">load_user</span><span class="p">)],</span>
+<a id="__codelineno-5-21" name="__codelineno-5-21" href="#__codelineno-5-21"></a><span class="p">)</span>
 </code></pre></div>
-<p>Provide the concrete runtime object in the test:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">synaflow</span><span class="w"> </span><span class="kn">import</span> <span class="n">ExecutionOverrides</span><span class="p">,</span> <span class="n">run</span>
-<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>
-<a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="n">fake_db</span> <span class="o">=</span> <span class="n">FakeDB</span><span class="p">()</span>
-<a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="n">overrides</span> <span class="o">=</span> <span class="n">ExecutionOverrides</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="n">p</span><span class="p">)</span>
-<a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a><span class="n">overrides</span><span class="o">.</span><span class="n">resources</span><span class="p">[</span><span class="s2">&quot;db&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">fake_db</span>
-<a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a>
-<a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a><span class="n">run</span><span class="p">(</span><span class="n">p</span><span class="p">,</span> <span class="n">Params</span><span class="p">(</span><span class="n">user_id</span><span class="o">=</span><span class="mi">42</span><span class="p">),</span> <span class="n">overrides</span><span class="o">=</span><span class="n">overrides</span><span class="p">)</span>
+<p>With that declaration, production can run without overrides:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="n">run</span><span class="p">(</span><span class="n">p</span><span class="p">,</span> <span class="n">Params</span><span class="p">(</span><span class="n">user_id</span><span class="o">=</span><span class="mi">42</span><span class="p">))</span>
 </code></pre></div>
-<p>If a declared resource is missing, execution fails loudly.</p>
+<p>Provide a different runtime object in the test only when you want to replace
+that provider:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">synaflow</span><span class="w"> </span><span class="kn">import</span> <span class="n">ExecutionOverrides</span><span class="p">,</span> <span class="n">run</span>
+<a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>
+<a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a><span class="n">fake_db</span> <span class="o">=</span> <span class="n">FakeDB</span><span class="p">()</span>
+<a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a><span class="n">overrides</span> <span class="o">=</span> <span class="n">ExecutionOverrides</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="n">p</span><span class="p">)</span>
+<a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a><span class="n">overrides</span><span class="o">.</span><span class="n">resources</span><span class="p">[</span><span class="s2">&quot;db&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">fake_db</span>
+<a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a>
+<a id="__codelineno-7-7" name="__codelineno-7-7" href="#__codelineno-7-7"></a><span class="n">run</span><span class="p">(</span><span class="n">p</span><span class="p">,</span> <span class="n">Params</span><span class="p">(</span><span class="n">user_id</span><span class="o">=</span><span class="mi">42</span><span class="p">),</span> <span class="n">overrides</span><span class="o">=</span><span class="n">overrides</span><span class="p">)</span>
+</code></pre></div>
 <p>The inverse is also validated: setting <code>overrides.resources["missing"] = ...</code>
 for a name the pipeline never declared is rejected.</p>
+<h2 id="context-managed-resources">Context-managed resources<a class="headerlink" href="#context-managed-resources" title="Permanent link">&para;</a></h2>
+<p>If a production resource factory returns a context manager, the executor enters
+it before calling the step and injects the entered value:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">contextlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">contextmanager</span>
+<a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a>
+<a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a><span class="nd">@contextmanager</span>
+<a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a><span class="k">def</span><span class="w"> </span><span class="nf">get_db</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="n">DB</span><span class="p">:</span>
+<a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a>    <span class="k">with</span> <span class="n">pool</span><span class="o">.</span><span class="n">connection</span><span class="p">()</span> <span class="k">as</span> <span class="n">conn</span><span class="p">:</span>
+<a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a>        <span class="k">yield</span> <span class="n">conn</span>
+</code></pre></div>
+<p>This is useful for per-step connections and transactions.</p>
 <h2 id="shared-resources-across-included-sub-pipelines">Shared resources across included sub-pipelines<a class="headerlink" href="#shared-resources-across-included-sub-pipelines" title="Permanent link">&para;</a></h2>
 <p>Resources are part of the flat compiled contract, even when steps come from
 included pipelines. That means production configuration and tests must satisfy
 the same declared names:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="n">overrides</span> <span class="o">=</span> <span class="n">ExecutionOverrides</span><span class="o">.</span><span class="n">from_production</span><span class="p">(</span><span class="n">p</span><span class="p">)</span>
-<a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="n">overrides</span><span class="o">.</span><span class="n">resources</span><span class="p">[</span><span class="s2">&quot;db&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">FakeDB</span><span class="p">()</span>
-<a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a><span class="n">overrides</span><span class="o">.</span><span class="n">resources</span><span class="p">[</span><span class="s2">&quot;payments_api&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">FakePaymentsAPI</span><span class="p">()</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="n">overrides</span> <span class="o">=</span> <span class="n">ExecutionOverrides</span><span class="o">.</span><span class="n">from_production</span><span class="p">(</span><span class="n">p</span><span class="p">)</span>
+<a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a><span class="n">overrides</span><span class="o">.</span><span class="n">resources</span><span class="p">[</span><span class="s2">&quot;db&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">FakeDB</span><span class="p">()</span>
+<a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a><span class="n">overrides</span><span class="o">.</span><span class="n">resources</span><span class="p">[</span><span class="s2">&quot;payments_api&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">FakePaymentsAPI</span><span class="p">()</span>
 </code></pre></div>
 <p>If two included pipelines declare the same resource name, they must refer to
 the exact same contract entry. Conflicting definitions are a build-time error.</p>
 <h2 id="sub-pipelines-and-scope">Sub-pipelines and <code>Scope</code><a class="headerlink" href="#sub-pipelines-and-scope" title="Permanent link">&para;</a></h2>
 <p>For included pipelines, use <code>Scope</code> to address compiled step keys safely.</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">synaflow</span><span class="w"> </span><span class="kn">import</span> <span class="n">ExecutionOverrides</span><span class="p">,</span> <span class="n">Observer</span><span class="p">,</span> <span class="n">Scope</span>
-<a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a>
-<a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a><span class="n">sub</span> <span class="o">=</span> <span class="n">Scope</span><span class="p">(</span><span class="s2">&quot;payments&quot;</span><span class="p">)</span>
-<a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a><span class="n">overrides</span> <span class="o">=</span> <span class="n">ExecutionOverrides</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="n">p</span><span class="p">)</span>
-<a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a>
-<a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a><span class="n">overrides</span><span class="o">.</span><span class="n">materializers</span><span class="p">[</span><span class="n">sub</span><span class="o">.</span><span class="n">scope</span><span class="p">(</span><span class="s2">&quot;normalize&quot;</span><span class="p">)]</span> <span class="o">=</span> <span class="nb">list</span>
-<a id="__codelineno-8-7" name="__codelineno-8-7" href="#__codelineno-8-7"></a><span class="n">overrides</span><span class="o">.</span><span class="n">observers</span><span class="p">[</span><span class="n">sub</span><span class="o">.</span><span class="n">scope</span><span class="p">(</span><span class="s2">&quot;validate&quot;</span><span class="p">)]</span> <span class="o">=</span> <span class="p">[</span><span class="n">Observer</span><span class="p">(</span><span class="n">test_recorder</span><span class="p">)]</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">synaflow</span><span class="w"> </span><span class="kn">import</span> <span class="n">ExecutionOverrides</span><span class="p">,</span> <span class="n">Observer</span><span class="p">,</span> <span class="n">Scope</span>
+<a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a>
+<a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a><span class="n">sub</span> <span class="o">=</span> <span class="n">Scope</span><span class="p">(</span><span class="s2">&quot;payments&quot;</span><span class="p">)</span>
+<a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a><span class="n">overrides</span> <span class="o">=</span> <span class="n">ExecutionOverrides</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="n">p</span><span class="p">)</span>
+<a id="__codelineno-10-5" name="__codelineno-10-5" href="#__codelineno-10-5"></a>
+<a id="__codelineno-10-6" name="__codelineno-10-6" href="#__codelineno-10-6"></a><span class="n">overrides</span><span class="o">.</span><span class="n">materializers</span><span class="p">[</span><span class="n">sub</span><span class="o">.</span><span class="n">scope</span><span class="p">(</span><span class="s2">&quot;normalize&quot;</span><span class="p">)]</span> <span class="o">=</span> <span class="nb">list</span>
+<a id="__codelineno-10-7" name="__codelineno-10-7" href="#__codelineno-10-7"></a><span class="n">overrides</span><span class="o">.</span><span class="n">observers</span><span class="p">[</span><span class="n">sub</span><span class="o">.</span><span class="n">scope</span><span class="p">(</span><span class="s2">&quot;validate&quot;</span><span class="p">)]</span> <span class="o">=</span> <span class="p">[</span><span class="n">Observer</span><span class="p">(</span><span class="n">test_recorder</span><span class="p">)]</span>
 </code></pre></div>
 <p>This avoids hardcoding strings like <code>"payments__validate"</code> directly in tests.</p>
 <p><code>Scope</code> is just a key helper. Executors still run the flat compiled DAG and do
 not understand sub-pipelines as a separate runtime concept.</p>
 <h2 id="typical-testing-patterns">Typical testing patterns<a class="headerlink" href="#typical-testing-patterns" title="Permanent link">&para;</a></h2>
 <h3 id="1-full-isolation">1. Full isolation<a class="headerlink" href="#1-full-isolation" title="Permanent link">&para;</a></h3>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="n">overrides</span> <span class="o">=</span> <span class="n">ExecutionOverrides</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="n">p</span><span class="p">)</span>
-<a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a><span class="n">overrides</span><span class="o">.</span><span class="n">resources</span><span class="p">[</span><span class="s2">&quot;db&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">FakeDB</span><span class="p">()</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="n">overrides</span> <span class="o">=</span> <span class="n">ExecutionOverrides</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="n">p</span><span class="p">)</span>
+<a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a><span class="n">overrides</span><span class="o">.</span><span class="n">resources</span><span class="p">[</span><span class="s2">&quot;db&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">FakeDB</span><span class="p">()</span>
 </code></pre></div>
 <p>Good for unit-style tests where side effects should be silent by default.</p>
 <h3 id="2-surgical-patch-over-production-behavior">2. Surgical patch over production behavior<a class="headerlink" href="#2-surgical-patch-over-production-behavior" title="Permanent link">&para;</a></h3>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="n">overrides</span> <span class="o">=</span> <span class="n">ExecutionOverrides</span><span class="o">.</span><span class="n">from_production</span><span class="p">(</span><span class="n">p</span><span class="p">)</span>
-<a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a><span class="n">overrides</span><span class="o">.</span><span class="n">materializers</span><span class="p">[</span><span class="s2">&quot;records&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">list</span>
-<a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a><span class="n">overrides</span><span class="o">.</span><span class="n">resources</span><span class="p">[</span><span class="s2">&quot;db&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">FakeDB</span><span class="p">()</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="n">overrides</span> <span class="o">=</span> <span class="n">ExecutionOverrides</span><span class="o">.</span><span class="n">from_production</span><span class="p">(</span><span class="n">p</span><span class="p">)</span>
+<a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a><span class="n">overrides</span><span class="o">.</span><span class="n">materializers</span><span class="p">[</span><span class="s2">&quot;records&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">list</span>
+<a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a><span class="n">overrides</span><span class="o">.</span><span class="n">resources</span><span class="p">[</span><span class="s2">&quot;db&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">FakeDB</span><span class="p">()</span>
 </code></pre></div>
 <p>Good for integration-style tests where most of the production contract should
 stay intact.</p>
 <h3 id="2b-keep-production-observers-except-one-scope">2b. Keep production observers except one scope<a class="headerlink" href="#2b-keep-production-observers-except-one-scope" title="Permanent link">&para;</a></h3>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">synaflow</span><span class="w"> </span><span class="kn">import</span> <span class="n">PIPELINE_SCOPE</span>
-<a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a>
-<a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a><span class="n">overrides</span> <span class="o">=</span> <span class="n">ExecutionOverrides</span><span class="o">.</span><span class="n">from_production</span><span class="p">(</span><span class="n">p</span><span class="p">)</span>
-<a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a><span class="n">overrides</span><span class="o">.</span><span class="n">observers</span><span class="p">[</span><span class="n">PIPELINE_SCOPE</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
-<a id="__codelineno-11-5" name="__codelineno-11-5" href="#__codelineno-11-5"></a><span class="n">overrides</span><span class="o">.</span><span class="n">resources</span><span class="p">[</span><span class="s2">&quot;db&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">FakeDB</span><span class="p">()</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">synaflow</span><span class="w"> </span><span class="kn">import</span> <span class="n">PIPELINE_SCOPE</span>
+<a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a>
+<a id="__codelineno-13-3" name="__codelineno-13-3" href="#__codelineno-13-3"></a><span class="n">overrides</span> <span class="o">=</span> <span class="n">ExecutionOverrides</span><span class="o">.</span><span class="n">from_production</span><span class="p">(</span><span class="n">p</span><span class="p">)</span>
+<a id="__codelineno-13-4" name="__codelineno-13-4" href="#__codelineno-13-4"></a><span class="n">overrides</span><span class="o">.</span><span class="n">observers</span><span class="p">[</span><span class="n">PIPELINE_SCOPE</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+<a id="__codelineno-13-5" name="__codelineno-13-5" href="#__codelineno-13-5"></a><span class="n">overrides</span><span class="o">.</span><span class="n">resources</span><span class="p">[</span><span class="s2">&quot;db&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">FakeDB</span><span class="p">()</span>
 </code></pre></div>
 <p>Good when the test wants normal execution semantics but no global telemetry.</p>
 <h3 id="3-deep-patch-in-a-sub-pipeline">3. Deep patch in a sub-pipeline<a class="headerlink" href="#3-deep-patch-in-a-sub-pipeline" title="Permanent link">&para;</a></h3>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="n">sub</span> <span class="o">=</span> <span class="n">Scope</span><span class="p">(</span><span class="s2">&quot;billing&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">scope</span><span class="p">(</span><span class="s2">&quot;fraud&quot;</span><span class="p">)</span>
-<a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a><span class="n">overrides</span> <span class="o">=</span> <span class="n">ExecutionOverrides</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="n">p</span><span class="p">)</span>
-<a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a><span class="n">overrides</span><span class="o">.</span><span class="n">observers</span><span class="p">[</span><span class="n">sub</span><span class="p">(</span><span class="s2">&quot;score&quot;</span><span class="p">)]</span> <span class="o">=</span> <span class="p">[</span><span class="n">Observer</span><span class="p">(</span><span class="n">spy</span><span class="p">)]</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a><span class="n">sub</span> <span class="o">=</span> <span class="n">Scope</span><span class="p">(</span><span class="s2">&quot;billing&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">scope</span><span class="p">(</span><span class="s2">&quot;fraud&quot;</span><span class="p">)</span>
+<a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a><span class="n">overrides</span> <span class="o">=</span> <span class="n">ExecutionOverrides</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="n">p</span><span class="p">)</span>
+<a id="__codelineno-14-3" name="__codelineno-14-3" href="#__codelineno-14-3"></a><span class="n">overrides</span><span class="o">.</span><span class="n">observers</span><span class="p">[</span><span class="n">sub</span><span class="p">(</span><span class="s2">&quot;score&quot;</span><span class="p">)]</span> <span class="o">=</span> <span class="p">[</span><span class="n">Observer</span><span class="p">(</span><span class="n">spy</span><span class="p">)]</span>
 </code></pre></div>
 <p>Good when only one nested compiled step needs different runtime behavior.</p>
 <h3 id="4-assert-missing-resource-wiring-fails-loudly">4. Assert missing resource wiring fails loudly<a class="headerlink" href="#4-assert-missing-resource-wiring-fails-loudly" title="Permanent link">&para;</a></h3>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="n">overrides</span> <span class="o">=</span> <span class="n">ExecutionOverrides</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="n">p</span><span class="p">)</span>
-<a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a><span class="n">run</span><span class="p">(</span><span class="n">p</span><span class="p">,</span> <span class="n">Params</span><span class="p">(</span><span class="n">user_id</span><span class="o">=</span><span class="mi">42</span><span class="p">),</span> <span class="n">overrides</span><span class="o">=</span><span class="n">overrides</span><span class="p">)</span>  <span class="c1"># raises: missing resource &quot;db&quot;</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a><span class="n">overrides</span> <span class="o">=</span> <span class="n">ExecutionOverrides</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="n">p</span><span class="p">)</span>
+<a id="__codelineno-15-2" name="__codelineno-15-2" href="#__codelineno-15-2"></a><span class="n">run</span><span class="p">(</span><span class="n">p</span><span class="p">,</span> <span class="n">Params</span><span class="p">(</span><span class="n">user_id</span><span class="o">=</span><span class="mi">42</span><span class="p">),</span> <span class="n">overrides</span><span class="o">=</span><span class="n">overrides</span><span class="p">)</span>  <span class="c1"># raises: missing resource &quot;db&quot;</span>
 </code></pre></div>
 <p>Good for validating production wiring or test harness setup itself.</p>
 <h2 id="practical-guidance">Practical guidance<a class="headerlink" href="#practical-guidance" title="Permanent link">&para;</a></h2>

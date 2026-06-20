@@ -1616,9 +1616,11 @@ concatenation:</p>
 compiled DAG step key before execution starts, so runtime still operates on the
 same flat compiled contract.</p>
 <p>For resources, the key space is explicit in the compiled pipeline contract via
-<code>pipeline(resources={...})</code>. Unlike materializers and observers, resources are
-runtime-only: if a pipeline declares one, <code>run()</code> / <code>async_run()</code> must receive
-it via <code>ExecutionOverrides.resources</code>, or execution fails loudly.</p>
+<code>pipeline(resources={...})</code>, but the runtime source is the production factory
+declared on the pipeline itself. The DAG compiles the resource type from that
+factory's return annotation, and the executor calls the factory when the step is
+injected. <code>ExecutionOverrides.resources</code> is optional and only replaces that
+provider when needed.</p>
 <p>If you need the operational testing patterns on top of that contract, see
 <a href="../../advanced/testability/">Testability &amp; Execution Overrides</a>.</p>
 <h3 id="2-write-your-own-runner">2. Write your own runner<a class="headerlink" href="#2-write-your-own-runner" title="Permanent link">&para;</a></h3>
