@@ -7,8 +7,10 @@ from synaflow import (
     Observer,
     PIPELINE_SCOPE,
     PipelineEvent,
+    Scope,
     StepEvent,
     async_run,
+    include,
     pipeline,
     step,
 )
@@ -288,3 +290,115 @@ def test_given_invalid_observer_override_value_when_assigned_then_raises():
         match="must contain only callables or Observer registrations",
     ):
         overrides.observers[PIPELINE_SCOPE] = [123]
+
+
+def test_given_scope_key_when_materializer_overridden_in_sub_pipeline_then_override_is_used(
+    run_pipeline,
+):
+    class SubParams(NamedTuple):
+        value: int
+
+    class Params(NamedTuple):
+        value: int = 3
+
+    def prepare(value: int) -> Iterator[int]:
+        yield value
+        yield value + 1
+
+    def finish(prepare: list[int]) -> int:
+        return sum(prepare)
+
+    sub = pipeline(
+        name="sub",
+        params=SubParams,
+        steps=[
+            step("prepare", fn=prepare),
+            step("finish", fn=finish),
+        ],
+        exports="finish",
+    )
+
+    def adapt(value: int) -> SubParams:
+        return SubParams(value=value)
+
+    captured = []
+
+    def consume(incl: int) -> None:
+        captured.append(incl)
+
+    p = pipeline(
+        name="scope_materializer_override",
+        params=Params,
+        steps=[
+            include("incl", pipeline=sub, fn=adapt),
+            step("consume", fn=consume),
+        ],
+    )
+
+    overrides = ExecutionOverrides.empty(p)
+    sub_scope = Scope("incl")
+    overrides.materializers[sub_scope.scope("prepare")] = lambda items: [
+        item + 1 for item in items
+    ]
+
+    run_pipeline(p, Params(), overrides=overrides)
+
+    assert captured == [9]
+
+
+def test_given_scope_key_when_observer_overridden_in_sub_pipeline_then_override_is_used(
+    run_pipeline,
+):
+    class SubParams(NamedTuple):
+        value: int
+
+    class Params(NamedTuple):
+        value: int = 3
+
+    events = []
+
+    def record(ctx):
+        if ctx.event in (StepEvent.STARTED, StepEvent.COMPLETED):
+            events.append((ctx.step_name, type(ctx).__name__))
+
+    def prepare(value: int) -> int:
+        return value * 2
+
+    def finish(prepare: int) -> int:
+        return prepare
+
+    sub = pipeline(
+        name="sub",
+        params=SubParams,
+        steps=[
+            step("prepare", fn=prepare, observers=[Observer(lambda ctx: None)]),
+            step("finish", fn=finish),
+        ],
+        exports="finish",
+    )
+
+    def adapt(value: int) -> SubParams:
+        return SubParams(value=value)
+
+    def consume(incl: int) -> None:
+        return None
+
+    p = pipeline(
+        name="scope_observer_override",
+        params=Params,
+        steps=[
+            include("incl", pipeline=sub, fn=adapt),
+            step("consume", fn=consume),
+        ],
+    )
+
+    overrides = ExecutionOverrides.empty(p)
+    sub_scope = Scope("incl")
+    overrides.observers[sub_scope.scope("prepare")] = [Observer(record)]
+
+    run_pipeline(p, Params(), overrides=overrides)
+
+    assert events == [
+        ("incl__prepare", "StepStartedContext"),
+        ("incl__prepare", "StepCompletedContext"),
+    ]

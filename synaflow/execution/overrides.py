@@ -4,6 +4,7 @@ from typing import Any
 
 from synaflow.core.constants import PIPELINE_SCOPE
 from synaflow.core.definition import PipelineDef
+from synaflow.core.naming import Scope
 from synaflow.core.observers import Observer, ResolvedObserver
 
 
@@ -18,23 +19,26 @@ class PipelineRegistry(MutableMapping[str, Any]):
         self._fallback_values = dict(fallback_values or {})
         self._overrides: dict[str, Any] = {}
 
-    def __getitem__(self, key: str) -> Any:
-        self._validate_key(key)
-        if key in self._overrides:
-            return self._overrides[key]
-        if key in self._fallback_values:
-            return self._fallback_values[key]
-        raise KeyError(key)
+    def __getitem__(self, key: str | Scope) -> Any:
+        normalized_key = self._normalize_key(key)
+        self._validate_key(normalized_key)
+        if normalized_key in self._overrides:
+            return self._overrides[normalized_key]
+        if normalized_key in self._fallback_values:
+            return self._fallback_values[normalized_key]
+        raise KeyError(normalized_key)
 
-    def __setitem__(self, key: str, value: Any) -> None:
-        self._validate_key(key)
-        self._overrides[key] = self._normalize_value(key, value)
+    def __setitem__(self, key: str | Scope, value: Any) -> None:
+        normalized_key = self._normalize_key(key)
+        self._validate_key(normalized_key)
+        self._overrides[normalized_key] = self._normalize_value(normalized_key, value)
 
-    def __delitem__(self, key: str) -> None:
-        self._validate_key(key)
-        if key not in self._overrides:
-            raise KeyError(key)
-        del self._overrides[key]
+    def __delitem__(self, key: str | Scope) -> None:
+        normalized_key = self._normalize_key(key)
+        self._validate_key(normalized_key)
+        if normalized_key not in self._overrides:
+            raise KeyError(normalized_key)
+        del self._overrides[normalized_key]
 
     def __iter__(self) -> Iterator[str]:
         return iter(sorted(self._contract_keys))
@@ -42,12 +46,18 @@ class PipelineRegistry(MutableMapping[str, Any]):
     def __len__(self) -> int:
         return len(self._contract_keys)
 
-    def resolve(self, key: str, default: Any = None) -> Any:
-        if key in self._overrides:
-            return self._overrides[key]
-        if key in self._fallback_values:
-            return self._fallback_values[key]
+    def resolve(self, key: str | Scope, default: Any = None) -> Any:
+        normalized_key = self._normalize_key(key)
+        if normalized_key in self._overrides:
+            return self._overrides[normalized_key]
+        if normalized_key in self._fallback_values:
+            return self._fallback_values[normalized_key]
         return default
+
+    def _normalize_key(self, key: str | Scope) -> str:
+        if isinstance(key, Scope):
+            return str(key)
+        return key
 
     def _validate_key(self, key: str) -> None:
         if key not in self._contract_keys:
