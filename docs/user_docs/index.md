@@ -367,6 +367,7 @@ Because SynaFlow separates **build-time** (DAG compilation) from **run-time**
 (execution), you can write custom runners or auto-generate native DAGs for
 Airflow, Dagster, or Prefect from the same pipeline definition.
 Read more: [Build vs Run](core-concepts/build-vs-run.md) ·
+[Resources & Factories](advanced/resources.md) ·
 [Testability & Overrides](advanced/testability.md) ·
 [Max In Flight](core-concepts/max-in-flight.md) ·
 [Export Guidance](advanced/export-guidance.md).
@@ -398,6 +399,11 @@ For detailed comparisons: [SynaFlow vs Hamilton](comparisons/hamilton.md) ·
 <div style="font-size:1.8em;margin-bottom:0.3em">🧪</div>
 <div style="font-weight:bold;color:#7dcfff;margin-bottom:0.5em">Testability</div>
 <a href="advanced/testability/" style="font-size:0.9em">Runtime overrides</a>
+</div>
+<div style="flex:1;min-width:200px;background:#24283b;border-radius:8px;padding:1.2em;text-align:center">
+<div style="font-size:1.8em;margin-bottom:0.3em">🗄️</div>
+<div style="font-weight:bold;color:#7dcfff;margin-bottom:0.5em">Resources</div>
+<a href="advanced/resources/" style="font-size:0.9em">Factories and cleanup</a>
 </div>
 <div style="flex:1;min-width:200px;background:#24283b;border-radius:8px;padding:1.2em;text-align:center">
 <div style="font-size:1.8em;margin-bottom:0.3em">📊</div>

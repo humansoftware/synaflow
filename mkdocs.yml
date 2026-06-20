@@ -69,6 +69,7 @@ nav:
       - Examples: core-concepts/examples.md
   - Advanced:
       - Testability & Overrides: advanced/testability.md
+      - Resources & Factories: advanced/resources.md
       - Custom Materializers: advanced/custom-materializers.md
       - Custom Observers: advanced/custom-observers.md
       - Export Guidance: advanced/export-guidance.md

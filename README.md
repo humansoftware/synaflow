@@ -136,7 +136,7 @@ Start here: **[humansoftware.github.io/synaflow](https://humansoftware.github.io
 |---|---|
 | [Tutorial](https://humansoftware.github.io/synaflow/tutorial/hello-world/) | 5-level step-by-step guide building a pipeline from scratch |
 | [Core Concepts](https://humansoftware.github.io/synaflow/core-concepts/how-dag-is-wired/) | How the DAG is wired, lockstep flow, max in flight, build vs run, event-based processing |
-| [Advanced](https://humansoftware.github.io/synaflow/advanced/testability/) | Testability, runtime overrides, custom materializers, observers, and export guidance |
+| [Advanced](https://humansoftware.github.io/synaflow/advanced/testability/) | Testability, resource factories, runtime overrides, custom materializers, observers, and export guidance |
 | [Examples](https://humansoftware.github.io/synaflow/core-concepts/examples/) | Every corpus pipeline with auto-generated diagrams and source code |
 | [Comparisons](https://humansoftware.github.io/synaflow/comparisons/hamilton/) | Detailed comparisons with Hamilton, Java Streams, and LINQ |
 | [Design Philosophy](docs/DESIGN_PHILOSOPHY.md) | Architectural decisions, contracts, and design rationale |
