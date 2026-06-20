@@ -202,38 +202,6 @@ def test_given_no_custom_materializer_and_non_builtin_inner_type_when_not_materi
     assert p.dag.needs_materialize("producer") is False
 
 
-def test_given_no_custom_materializer_and_non_builtin_inner_type_when_not_materialized_then_dag_builds():
-    from dataclasses import dataclass
-    from collections.abc import Iterator
-    from synaflow import pipeline, step
-
-    @dataclass
-    class Row:
-        id: int
-        name: str
-
-    class Params(NamedTuple):
-        pass
-
-    def producer() -> Iterator[Row]:
-        yield Row(id=1, name="a")
-
-    # Consumed as a scalar (EACH mode) so needs_materialize is False
-    def consumer(producer: Row) -> None:
-        pass
-
-    p = pipeline(
-        name="test_validation_no_mat",
-        params=Params,
-        steps=[
-            step("producer", fn=producer),
-            step("consumer", fn=consumer),
-        ],
-    )
-    assert p.dag is not None
-    assert p.dag.needs_materialize("producer") is False
-
-
 def test_given_step_materializer_when_non_builtin_inner_type_used_then_dag_builds():
     from dataclasses import dataclass
     from collections.abc import Iterator

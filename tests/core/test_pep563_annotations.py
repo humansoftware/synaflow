@@ -34,20 +34,12 @@ def test_given_undefined_type_annotation_in_params_when_initialize_parameters_ca
     class ParamsWithUndefined(NamedTuple):
         x: "SomeUndefinedType"
 
-    import typing
-
-    try:
-        print("GET HINTS:", typing.get_type_hints(ParamsWithUndefined))
-    except Exception as e:
-        print("GET HINTS EXCEPTION:", type(e), e)
-
     from synaflow.core.dag_dependencies import initialize_parameters
 
     nodes = initialize_parameters(ParamsWithUndefined)
     assert "x" in nodes
     from typing import ForwardRef
 
-    print("OUTPUT TYPE:", type(nodes["x"].output), nodes["x"].output)
     assert (
         isinstance(nodes["x"].output, ForwardRef)
         or nodes["x"].output == "SomeUndefinedType"

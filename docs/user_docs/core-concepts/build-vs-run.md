@@ -28,7 +28,7 @@ flowchart LR
 
 | Phase | What happens | When | Output |
 |---|---|---|---|
-| **Build-time** | Type validation, mode resolution, materializer assignment, circular dependency check, sync/async consistency | `pipeline(...)` is called | `Dag` object, serializable JSON |
+| **Build-time** | Type validation, mode resolution, materializer assignment, consumer materialization planning, circular dependency check, sync/async consistency | `pipeline(...)` is called | `Dag` object, serializable JSON |
 | **Run-time** | Topological execution, lockstep streaming, bounded handoff via `max_in_flight`, `tee` forking, observer dispatch, error handling | `run()` / `async_run()` is called | Step outputs, side effects |
 
 ## Why this matters
@@ -62,8 +62,9 @@ print(p.to_dict())
 ```
 
 All semantic decisions — mode, `max_in_flight`, `each_mode_deps`,
-`materialized_deps` — are
-resolved at build time and frozen in the JSON. Runners don't re-infer
+`materialized_deps`, eager materialization triggered by `OnError.STOP` or
+`force_materialize`, and the resolved `node.materializer` callable — are
+resolved at build time and frozen in the JSON or `Dag`. Runners don't re-infer
 semantics; they execute the contract.
 
 ### 2. Write your own runner
@@ -111,11 +112,11 @@ Every domain concern has a symmetric representation in both phases:
 | Concern | Build-time | Run-time |
 |---|---|---|
 | Pipeline/Orchestration | `build_dag()` | `PipelineExecutor` / `AsyncPipelineExecutor` |
-| Dependencies | `validate_and_resolve_dependencies()` | Inlined in executor |
-| Topology | `check_circular_dependencies()`, `get_execution_levels()` | Inlined in executor |
-| Step compilation | `validate_and_compile_step()` | Inlined in executor |
+| Dependencies | `validate_and_resolve_dependencies()` | Executor reads resolved deps from `node.deps` |
+| Topology | `check_circular_dependencies()`, `get_execution_levels()` | Executor iterates `dag.get_execution_levels()` |
+| Step compilation | `validate_and_compile_step()` | Executor calls compiled `node.fn` |
 | Mode resolution | Resolved at build time → `node.mode` | Executor reads `node.mode`, never re-infers |
-| Materialization | Resolved at build time → `node.materializer` | Executor calls the resolved callable |
+| Materialization | Resolved at build time → `node.materializer`, `materialized_deps`, `Dag.needs_materialize(...)` | Executor calls the resolved callable and follows the compiled plan |
 | Observers | Normalized at build time → `node.observers` | Executor dispatches events |
 
 This symmetry means sync and async executors can be completely different

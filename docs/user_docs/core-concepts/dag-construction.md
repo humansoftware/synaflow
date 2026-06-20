@@ -42,6 +42,7 @@ print(p.to_dict())
       "fn": "producer",
       "mode": "all",
       "on_error": "continue",
+      "materializer": "memory_materializer",
       "each_mode_deps": [],
       "materialized_deps": []
     }
@@ -49,7 +50,10 @@ print(p.to_dict())
 }
 ```
 
-This JSON is the **execution contract** — external runners (Airflow, Prefect, custom executors) can read it to replicate the DAG without re-inferring semantics.
+This JSON is the **execution contract** — external runners (Airflow, Prefect,
+custom executors) can read it to replicate the DAG without re-inferring
+semantics. Dependency edges, mode, and materialization metadata are already
+compiled into the graph.
 
 ## Execution Levels
 
