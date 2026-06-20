@@ -1569,9 +1569,9 @@ deterministic behavior possible.</p>
 resolved at build time and frozen in the JSON or <code>Dag</code>. Runners don't re-infer
 semantics; they execute the contract.</p>
 <p><code>ExecutionOverrides</code> fits inside that boundary: it can swap the concrete
-runtime callable for a compiled key such as a materializer or observer scope,
-but it does not change graph structure, dependency resolution, or eager-vs-lazy
-planning.</p>
+runtime callable for a compiled key such as a materializer, observer scope, or
+declared runtime resource, but it does not change graph structure, dependency
+resolution, or eager-vs-lazy planning.</p>
 <p>For nested pipelines, the public key helper is <code>Scope</code>, not manual string
 concatenation:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">synaflow</span><span class="w"> </span><span class="kn">import</span> <span class="n">ExecutionOverrides</span><span class="p">,</span> <span class="n">Observer</span><span class="p">,</span> <span class="n">PIPELINE_SCOPE</span><span class="p">,</span> <span class="n">Scope</span>
@@ -1579,13 +1579,18 @@ concatenation:</p>
 <a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="n">overrides</span> <span class="o">=</span> <span class="n">ExecutionOverrides</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="n">p</span><span class="p">)</span>
 <a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="n">sub</span> <span class="o">=</span> <span class="n">Scope</span><span class="p">(</span><span class="s2">&quot;incl&quot;</span><span class="p">)</span>
 <a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>
-<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="n">overrides</span><span class="o">.</span><span class="n">observers</span><span class="p">[</span><span class="n">PIPELINE_SCOPE</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span><span class="n">Observer</span><span class="p">(</span><span class="n">noop</span><span class="p">)]</span>
-<a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="n">overrides</span><span class="o">.</span><span class="n">observers</span><span class="p">[</span><span class="n">sub</span><span class="o">.</span><span class="n">scope</span><span class="p">(</span><span class="s2">&quot;validate&quot;</span><span class="p">)]</span> <span class="o">=</span> <span class="p">[</span><span class="n">Observer</span><span class="p">(</span><span class="n">spy</span><span class="p">)]</span>
-<a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a><span class="n">overrides</span><span class="o">.</span><span class="n">materializers</span><span class="p">[</span><span class="n">sub</span><span class="o">.</span><span class="n">scope</span><span class="p">(</span><span class="s2">&quot;prepare&quot;</span><span class="p">)]</span> <span class="o">=</span> <span class="nb">tuple</span>
+<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="n">overrides</span><span class="o">.</span><span class="n">resources</span><span class="p">[</span><span class="s2">&quot;db&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">FakeDatabase</span><span class="p">()</span>
+<a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="n">overrides</span><span class="o">.</span><span class="n">observers</span><span class="p">[</span><span class="n">PIPELINE_SCOPE</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span><span class="n">Observer</span><span class="p">(</span><span class="n">noop</span><span class="p">)]</span>
+<a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a><span class="n">overrides</span><span class="o">.</span><span class="n">observers</span><span class="p">[</span><span class="n">sub</span><span class="o">.</span><span class="n">scope</span><span class="p">(</span><span class="s2">&quot;validate&quot;</span><span class="p">)]</span> <span class="o">=</span> <span class="p">[</span><span class="n">Observer</span><span class="p">(</span><span class="n">spy</span><span class="p">)]</span>
+<a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a><span class="n">overrides</span><span class="o">.</span><span class="n">materializers</span><span class="p">[</span><span class="n">sub</span><span class="o">.</span><span class="n">scope</span><span class="p">(</span><span class="s2">&quot;prepare&quot;</span><span class="p">)]</span> <span class="o">=</span> <span class="nb">tuple</span>
 </code></pre></div>
 <p>The executor never understands sub-pipelines directly. <code>Scope</code> resolves to the
 compiled DAG step key before execution starts, so runtime still operates on the
 same flat compiled contract.</p>
+<p>For resources, the key space is explicit in the compiled pipeline contract via
+<code>pipeline(resources={...})</code>. Unlike materializers and observers, resources are
+runtime-only: if a pipeline declares one, <code>run()</code> / <code>async_run()</code> must receive
+it via <code>ExecutionOverrides.resources</code>, or execution fails loudly.</p>
 <h3 id="2-write-your-own-runner">2. Write your own runner<a class="headerlink" href="#2-write-your-own-runner" title="Permanent link">&para;</a></h3>
 <p>The <code>Dag</code> object is self-contained. Anyone can write a runner:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">synaflow.core.dag</span><span class="w"> </span><span class="kn">import</span> <span class="n">Dag</span>
@@ -1657,6 +1662,11 @@ needs to check types or resolve ambiguities at runtime.</p>
 <td>Observers</td>
 <td>Normalized at build time → <code>node.observers</code></td>
 <td>Executor dispatches events</td>
+</tr>
+<tr>
+<td>Resources</td>
+<td>Declared at build time → <code>dag.resources</code></td>
+<td>Executor requires concrete runtime values via <code>ExecutionOverrides.resources</code></td>
 </tr>
 </tbody>
 </table>
