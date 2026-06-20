@@ -2,6 +2,13 @@
 
 
 
+## v0.19.0 (2026-06-20)
+
+### Feature
+
+* feat: add production resource factories (#52) ([`fccbeae`](https://github.com/humansoftware/synaflow/commit/fccbeae06a8d27888f70cbc15ae1a6ee4929a79a))
+
+
 ## v0.18.0 (2026-06-20)
 
 ### Documentation
