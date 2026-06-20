@@ -96,6 +96,9 @@ For resources, the key space is explicit in the compiled pipeline contract via
 runtime-only: if a pipeline declares one, `run()` / `async_run()` must receive
 it via `ExecutionOverrides.resources`, or execution fails loudly.
 
+If you need the operational testing patterns on top of that contract, see
+[Testability & Execution Overrides](../advanced/testability.md).
+
 ### 2. Write your own runner
 
 The `Dag` object is self-contained. Anyone can write a runner:

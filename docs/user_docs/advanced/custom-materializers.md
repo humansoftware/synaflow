@@ -69,3 +69,22 @@ from synaflow import log_error_materializer, disk_error_materializer
 step("processor", fn=process,
      error_materializer=disk_error_materializer("/tmp/errors"))
 ```
+
+## Test-time swaps
+
+If a pipeline is already compiled, tests do not need to rebuild it just to
+change one materializer. Use `ExecutionOverrides` to replace the concrete
+runtime callable for one compiled step key:
+
+```python
+from synaflow import ExecutionOverrides
+
+overrides = ExecutionOverrides.from_production(p)
+overrides.materializers["records"] = tuple
+```
+
+This keeps the DAG topology and materialization plan intact. It only swaps the
+runtime implementation for that compiled key.
+
+For included sub-pipelines, use `Scope(...)` instead of hardcoded flattened
+strings. See [Testability & Execution Overrides](testability.md).

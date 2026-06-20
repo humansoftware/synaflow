@@ -395,6 +395,11 @@ For detailed comparisons: [SynaFlow vs Hamilton](comparisons/hamilton.md) ·
 <a href="core-concepts/how-dag-is-wired/" style="font-size:0.9em">How the DAG is wired</a>
 </div>
 <div style="flex:1;min-width:200px;background:#24283b;border-radius:8px;padding:1.2em;text-align:center">
+<div style="font-size:1.8em;margin-bottom:0.3em">🧪</div>
+<div style="font-weight:bold;color:#7dcfff;margin-bottom:0.5em">Testability</div>
+<a href="advanced/testability/" style="font-size:0.9em">Runtime overrides</a>
+</div>
+<div style="flex:1;min-width:200px;background:#24283b;border-radius:8px;padding:1.2em;text-align:center">
 <div style="font-size:1.8em;margin-bottom:0.3em">📊</div>
 <div style="font-weight:bold;color:#7dcfff;margin-bottom:0.5em">Examples</div>
 <a href="core-concepts/examples/" style="font-size:0.9em">All corpus pipelines</a>

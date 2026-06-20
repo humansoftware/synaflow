@@ -31,6 +31,22 @@ Run time decides:
 Overrides do **not** mutate graph structure. They only replace concrete runtime
 implementations for already-declared keys.
 
+## `params` vs `resources` vs step outputs
+
+These concepts live in different parts of the contract:
+
+| Concept | Declared at build time | Supplied at run time | Addressed by overrides |
+|---|---|---|---|
+| `params` | `pipeline(params=...)` | `run(p, params)` | No |
+| `resources` | `pipeline(resources=...)` | `overrides.resources[...] = ...` | Yes |
+| step outputs | producer return types | produced by execution | No |
+| materializers | compiled per step key | default compiled callable or override | Yes |
+| observers | compiled per scope | default compiled observers or override | Yes |
+
+`params` are user input data. `resources` are runtime dependencies such as a
+database client, HTTP client, or cache handle. Step outputs are neither:
+they are created by the pipeline itself.
+
 ## `empty()` vs `from_production()`
 
 ```python
@@ -53,6 +69,10 @@ pipeline behavior:
 - compiled materializers stay active unless replaced
 - resources are still runtime-only and must be supplied explicitly
 
+In both modes, override keys must already exist in the compiled contract.
+Unknown step keys, observer scopes, or resource names fail loudly instead of
+being ignored.
+
 ## Replacing a materializer
 
 ```python
@@ -64,6 +84,15 @@ overrides.materializers["records"] = tuple
 
 This is useful when a test wants a concrete collection protocol without
 touching pipeline construction.
+
+If the pipeline includes sub-pipelines, prefer `Scope(...)`:
+
+```python
+from synaflow import Scope
+
+sub = Scope("payments")
+overrides.materializers[sub.scope("records")] = tuple
+```
 
 ## Silencing or replacing observers
 
@@ -80,6 +109,16 @@ overrides.observers[PIPELINE_SCOPE] = [Observer(record)]
 ```
 
 With `empty()`, any observer scope you do **not** override stays silent.
+
+With `from_production()`, this pattern is useful for swapping only the global
+observer layer while keeping compiled step-level observers intact:
+
+```python
+from synaflow import ExecutionOverrides, Observer, PIPELINE_SCOPE
+
+overrides = ExecutionOverrides.from_production(p)
+overrides.observers[PIPELINE_SCOPE] = [Observer(test_recorder)]
+```
 
 ## Injecting runtime resources
 
@@ -120,6 +159,24 @@ run(p, Params(user_id=42), overrides=overrides)
 
 If a declared resource is missing, execution fails loudly.
 
+The inverse is also validated: setting `overrides.resources["missing"] = ...`
+for a name the pipeline never declared is rejected.
+
+## Shared resources across included sub-pipelines
+
+Resources are part of the flat compiled contract, even when steps come from
+included pipelines. That means production configuration and tests must satisfy
+the same declared names:
+
+```python
+overrides = ExecutionOverrides.from_production(p)
+overrides.resources["db"] = FakeDB()
+overrides.resources["payments_api"] = FakePaymentsAPI()
+```
+
+If two included pipelines declare the same resource name, they must refer to
+the exact same contract entry. Conflicting definitions are a build-time error.
+
 ## Sub-pipelines and `Scope`
 
 For included pipelines, use `Scope` to address compiled step keys safely.
@@ -135,6 +192,9 @@ overrides.observers[sub.scope("validate")] = [Observer(test_recorder)]
 ```
 
 This avoids hardcoding strings like `"payments__validate"` directly in tests.
+
+`Scope` is just a key helper. Executors still run the flat compiled DAG and do
+not understand sub-pipelines as a separate runtime concept.
 
 ## Typical testing patterns
 
@@ -158,6 +218,18 @@ overrides.resources["db"] = FakeDB()
 Good for integration-style tests where most of the production contract should
 stay intact.
 
+### 2b. Keep production observers except one scope
+
+```python
+from synaflow import PIPELINE_SCOPE
+
+overrides = ExecutionOverrides.from_production(p)
+overrides.observers[PIPELINE_SCOPE] = []
+overrides.resources["db"] = FakeDB()
+```
+
+Good when the test wants normal execution semantics but no global telemetry.
+
 ### 3. Deep patch in a sub-pipeline
 
 ```python
@@ -168,6 +240,15 @@ overrides.observers[sub("score")] = [Observer(spy)]
 
 Good when only one nested compiled step needs different runtime behavior.
 
+### 4. Assert missing resource wiring fails loudly
+
+```python
+overrides = ExecutionOverrides.empty(p)
+run(p, Params(user_id=42), overrides=overrides)  # raises: missing resource "db"
+```
+
+Good for validating production wiring or test harness setup itself.
+
 ## Practical guidance
 
 - prefer `empty()` for unit tests
@@ -175,3 +256,13 @@ Good when only one nested compiled step needs different runtime behavior.
 - use `PIPELINE_SCOPE` only for pipeline-level observers
 - use `Scope` for compiled step keys, especially in included sub-pipelines
 - treat `resources` as runtime-only dependencies, not user input params
+- expect unknown override keys to fail loudly
+- remember that override entries replace the runtime value for that key; they do
+  not create new compiled keys
+
+## See also
+
+- [Build vs Run](../core-concepts/build-vs-run.md)
+- [How the DAG is Wired](../core-concepts/how-dag-is-wired.md)
+- [Custom Materializers](custom-materializers.md)
+- [Custom Observers](custom-observers.md)

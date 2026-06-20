@@ -183,6 +183,26 @@ def numbers(count: int) -> ...:
 #           ^^^^^           ← matches "count" from Params
 ```
 
+### Runtime resources are different
+
+`params` are user inputs and become DAG inputs. `resources` are runtime
+dependencies and do **not** become dataflow nodes:
+
+```python
+p = pipeline(
+    name="users",
+    params=Params,
+    resources={"db": DB},
+    steps=[step("load_user", fn=load_user)],
+)
+```
+
+The compiled DAG records that `"db"` must exist, but the concrete object is
+only supplied later through `ExecutionOverrides.resources` at `run()` time.
+That distinction is part of SynaFlow's build-vs-run contract. See
+[Build vs Run](build-vs-run.md) and
+[Testability & Execution Overrides](../advanced/testability.md).
+
 ---
 
 ## Rule 5: The Execution Order = Topological Sort

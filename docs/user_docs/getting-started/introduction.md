@@ -50,6 +50,9 @@ Once you've built something, dive into [**Core Concepts**](../core-concepts/how-
 
 The [**Advanced**](../advanced/custom-materializers.md) section covers:
 
+- [**Testability & Overrides**](../advanced/testability.md) — replace
+  materializers, observers, and runtime resources without mutating the
+  compiled DAG contract.
 - [**Custom Materializers**](../advanced/custom-materializers.md) — write your
   own disk, database, or cloud-backed collectors.
 - [**Custom Observers**](../advanced/custom-observers.md) — monitor pipeline
