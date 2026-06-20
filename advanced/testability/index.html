@@ -18,7 +18,7 @@
         <link rel="prev" href="../../core-concepts/examples/">
       
       
-        <link rel="next" href="../custom-materializers/">
+        <link rel="next" href="../resources/">
       
       
         
@@ -1252,6 +1252,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../resources/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Resources & Factories
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../custom-materializers/" class="md-nav__link">
         
   
@@ -1852,6 +1880,10 @@ observer layer while keeping compiled step-level observers intact:</p>
 <a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="n">overrides</span><span class="o">.</span><span class="n">observers</span><span class="p">[</span><span class="n">PIPELINE_SCOPE</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span><span class="n">Observer</span><span class="p">(</span><span class="n">test_recorder</span><span class="p">)]</span>
 </code></pre></div>
 <h2 id="production-resource-factories">Production resource factories<a class="headerlink" href="#production-resource-factories" title="Permanent link">&para;</a></h2>
+<p>The full runtime model for production providers, per-step caching, and
+context-managed cleanup is documented in
+<a href="../resources/">Resources &amp; Factories</a>. This section focuses on how tests replace
+those providers.</p>
 <p>Declare the production resource factory in the pipeline contract:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">NamedTuple</span>
 <a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">synaflow</span><span class="w"> </span><span class="kn">import</span> <span class="n">pipeline</span><span class="p">,</span> <span class="n">step</span>
@@ -1967,7 +1999,7 @@ stay intact.</p>
 <li>prefer <code>from_production()</code> for integration tests</li>
 <li>use <code>PIPELINE_SCOPE</code> only for pipeline-level observers</li>
 <li>use <code>Scope</code> for compiled step keys, especially in included sub-pipelines</li>
-<li>treat <code>resources</code> as runtime-only dependencies, not user input params</li>
+<li>treat <code>resources</code> as runtime dependencies provided by factories, not user input params</li>
 <li>expect unknown override keys to fail loudly</li>
 <li>remember that override entries replace the runtime value for that key; they do
   not create new compiled keys</li>
@@ -1976,6 +2008,7 @@ stay intact.</p>
 <ul>
 <li><a href="../../core-concepts/build-vs-run/">Build vs Run</a></li>
 <li><a href="../../core-concepts/how-dag-is-wired/">How the DAG is Wired</a></li>
+<li><a href="../resources/">Resources &amp; Factories</a></li>
 <li><a href="../custom-materializers/">Custom Materializers</a></li>
 <li><a href="../custom-observers/">Custom Observers</a></li>
 </ul>
