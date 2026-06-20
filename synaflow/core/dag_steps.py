@@ -42,6 +42,7 @@ def validate_unique_step_name(
 def validate_and_compile_step(
     step: Step,
     produced: dict[str, DagNode],
+    resources: dict[str, DagNode],
     pipeline_name: str,
     observers: list | None = None,
 ) -> DagNode:
@@ -51,7 +52,7 @@ def validate_and_compile_step(
     _validate_max_in_flight(step, pipeline_name)
 
     deps, dataset_param_names = validate_and_resolve_dependencies(
-        step, sig, hints, produced, pipeline_name
+        step, sig, hints, produced, resources, pipeline_name
     )
 
     mode, each_mode_deps = resolve_step_mode(step, deps, produced, pipeline_name)

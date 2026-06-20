@@ -43,6 +43,7 @@ class PipelineDef:
     name: str
     params: Any
     steps: list[Step | IncludeStep]
+    resources: dict[str, Any] = field(default_factory=dict)
     exports: str | None = None
     materializer: Callable | None = None
     error_materializer: Callable | None = None
@@ -58,6 +59,7 @@ class PipelineDef:
             self.name,
             self.params,
             self.steps,
+            self.resources,
             self.materializer,
             is_default_factory=(self.materializer is None),
             error_materializer_factory=self.error_materializer,

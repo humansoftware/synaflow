@@ -31,6 +31,14 @@ def initialize_parameters(params: type[NamedTuple]) -> dict[str, DagNode]:
     return produced
 
 
+def initialize_resources(resources: dict[str, Any]) -> dict[str, DagNode]:
+    produced: dict[str, DagNode] = {}
+    for name, resource in resources.items():
+        resource_type = resource if isinstance(resource, type) else type(resource)
+        produced[name] = DagNode(output=resource_type)
+    return produced
+
+
 def get_safe_type_hints(fn: Any) -> dict[str, Any]:
     try:
         return typing.get_type_hints(fn, include_extras=True)
@@ -52,6 +60,7 @@ def validate_and_resolve_dependencies(
     sig: inspect.Signature,
     hints: dict[str, Any],
     produced: dict[str, DagNode],
+    resources: dict[str, DagNode],
     pipeline_name: str,
 ) -> tuple[dict[str, Any], dict[str, str]]:
     deps: dict[str, Any] = {}
@@ -62,7 +71,9 @@ def validate_and_resolve_dependencies(
         if consumer_type is inspect.Parameter.empty:
             consumer_type = None
 
-        if param_name in produced:
+        if param_name in resources:
+            producer_name = param_name
+        elif param_name in produced:
             producer_name = param_name
         else:
             param_base = get_base_dataset_name(param_name)

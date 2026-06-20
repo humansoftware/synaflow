@@ -7,6 +7,7 @@ from synaflow import (
     Observer,
     PIPELINE_SCOPE,
     PipelineEvent,
+    ResourceRegistry,
     Scope,
     StepEvent,
     async_run,
@@ -492,3 +493,182 @@ def test_given_scope_key_when_observer_overridden_in_sub_pipeline_then_override_
         ("incl__prepare", "StepStartedContext"),
         ("incl__prepare", "StepCompletedContext"),
     ]
+
+
+def test_given_resource_registry_empty_when_missing_required_resource_then_run_raises(
+    run_pipeline,
+):
+    class DB:
+        pass
+
+    class Params(NamedTuple):
+        value: int = 1
+
+    seen = []
+
+    def use(db: DB, value: int) -> None:
+        seen.append((db, value))
+
+    p = pipeline(
+        name="missing_resource",
+        params=Params,
+        resources={"db": DB},
+        steps=[step("use", fn=use)],
+    )
+
+    overrides = ExecutionOverrides.empty(p)
+
+    with pytest.raises(ValueError, match="requires resource 'db'"):
+        run_pipeline(p, Params(), overrides=overrides)
+
+    assert seen == []
+
+
+def test_given_resource_registry_without_overrides_when_pipeline_requires_resources_then_run_raises(
+    run_pipeline,
+):
+    class DB:
+        pass
+
+    class Params(NamedTuple):
+        value: int = 1
+
+    def use(db: DB, value: int) -> None:
+        return None
+
+    p = pipeline(
+        name="missing_resource_registry",
+        params=Params,
+        resources={"db": DB},
+        steps=[step("use", fn=use)],
+    )
+
+    with pytest.raises(ValueError, match="requires runtime resources: db"):
+        run_pipeline(p, Params())
+
+
+def test_given_resource_override_when_sync_run_then_resource_is_injected(run_pipeline):
+    class DB:
+        pass
+
+    class Params(NamedTuple):
+        value: int = 3
+
+    seen = []
+
+    def use(db: DB, value: int) -> None:
+        seen.append((db, value))
+
+    p = pipeline(
+        name="sync_resource_override",
+        params=Params,
+        resources={"db": DB},
+        steps=[step("use", fn=use)],
+    )
+
+    overrides = ExecutionOverrides.empty(p)
+    db = DB()
+    overrides.resources["db"] = db
+
+    run_pipeline(p, Params(), overrides=overrides)
+
+    assert seen == [(db, 3)]
+
+
+async def test_given_resource_override_when_async_run_then_resource_is_injected():
+    class DB:
+        pass
+
+    class Params(NamedTuple):
+        value: int = 3
+
+    seen = []
+
+    async def use(db: DB, value: int) -> None:
+        seen.append((db, value))
+
+    p = pipeline(
+        name="async_resource_override",
+        params=Params,
+        resources={"db": DB},
+        steps=[step("use", fn=use)],
+    )
+
+    overrides = ExecutionOverrides.empty(p)
+    db = DB()
+    overrides.resources["db"] = db
+
+    await async_run(p, Params(), overrides=overrides)
+
+    assert seen == [(db, 3)]
+
+
+def test_given_execution_overrides_from_production_when_resources_requested_then_registry_is_empty_but_keyed():
+    class DB:
+        pass
+
+    class Params(NamedTuple):
+        value: int = 1
+
+    def use(db: DB, value: int) -> None:
+        return None
+
+    p = pipeline(
+        name="resource_contract",
+        params=Params,
+        resources={"db": DB},
+        steps=[step("use", fn=use)],
+    )
+
+    overrides = ExecutionOverrides.from_production(p)
+
+    assert isinstance(overrides.resources, ResourceRegistry)
+    assert list(overrides.resources) == ["db"]
+    with pytest.raises(KeyError):
+        _ = overrides.resources["db"]
+
+
+def test_given_unknown_resource_override_key_when_assigned_then_raises():
+    class DB:
+        pass
+
+    class Params(NamedTuple):
+        value: int = 1
+
+    def use(db: DB, value: int) -> None:
+        return None
+
+    p = pipeline(
+        name="invalid_resource_key",
+        params=Params,
+        resources={"db": DB},
+        steps=[step("use", fn=use)],
+    )
+
+    overrides = ExecutionOverrides.empty(p)
+
+    with pytest.raises(KeyError, match="Unknown override key 'missing'"):
+        overrides.resources["missing"] = DB()
+
+
+def test_given_none_resource_override_value_when_assigned_then_raises():
+    class DB:
+        pass
+
+    class Params(NamedTuple):
+        value: int = 1
+
+    def use(db: DB, value: int) -> None:
+        return None
+
+    p = pipeline(
+        name="invalid_resource_value",
+        params=Params,
+        resources={"db": DB},
+        steps=[step("use", fn=use)],
+    )
+
+    overrides = ExecutionOverrides.empty(p)
+
+    with pytest.raises(TypeError, match="cannot be None"):
+        overrides.resources["db"] = None

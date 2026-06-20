@@ -77,6 +77,66 @@ def test_given_dependency_on_pipeline_param_when_constructed_then_passes():
     pipeline(name="t", params=P, steps=[step("s1", fn=fn)])
 
 
+def test_given_dependency_on_declared_resource_when_constructed_then_passes():
+    class DB:
+        pass
+
+    class P(NamedTuple):
+        limit: int = 10
+
+    def fn(db: DB, limit: int) -> int:
+        return limit
+
+    p = pipeline(
+        name="t",
+        params=P,
+        resources={"db": DB},
+        steps=[step("s1", fn=fn)],
+    )
+
+    assert p.dag.resources == {"db": DB}
+    assert p.dag.steps["s1"].deps == {"db": DB, "limit": int}
+    assert p.to_dict()["resources"] == {"db": "DB"}
+
+
+def test_given_resource_name_colliding_with_params_field_when_constructed_then_raises():
+    class DB:
+        pass
+
+    class P(NamedTuple):
+        db: int = 10
+
+    def fn(db: DB) -> None:
+        pass
+
+    with pytest.raises(ValueError, match="collides with a params field"):
+        pipeline(
+            name="t",
+            params=P,
+            resources={"db": DB},
+            steps=[step("s1", fn=fn)],
+        )
+
+
+def test_given_resource_name_colliding_with_step_name_when_constructed_then_raises():
+    class DB:
+        pass
+
+    class P(NamedTuple):
+        limit: int = 10
+
+    def fn(limit: int) -> int:
+        return limit
+
+    with pytest.raises(ValueError, match="collides with a step name"):
+        pipeline(
+            name="t",
+            params=P,
+            resources={"db": DB},
+            steps=[step("db", fn=fn)],
+        )
+
+
 def test_given_duplicate_step_name_when_constructed_then_raises():
     class P(NamedTuple):
         pass

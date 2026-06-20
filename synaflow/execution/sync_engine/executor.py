@@ -264,14 +264,33 @@ class PipelineExecutor:
     # Execution
     # ------------------------------------------------------------------
 
+    def _seed_runtime_inputs(self, params: Any) -> None:
+        if self.dag.resources:
+            if self._overrides is None:
+                resource_names = ", ".join(sorted(self.dag.resources))
+                raise ValueError(
+                    f"Pipeline '{self.dag.name}' requires runtime resources: {resource_names}."
+                )
+            for resource_name in self.dag.resources:
+                try:
+                    self.outputs[resource_name] = self._overrides.resources[
+                        resource_name
+                    ]
+                except KeyError as exc:
+                    raise ValueError(
+                        f"Pipeline '{self.dag.name}' requires resource '{resource_name}' at runtime."
+                    ) from exc
+
+        for field, value in params._asdict().items():
+            self.outputs[field] = value
+
     def _resolve_materializer(self, step_name: str, node: Any) -> Any:
         if self._overrides is None:
             return node.materializer
         return self._overrides.materializers.resolve(step_name, node.materializer)
 
     def execute(self, params: Any) -> None:
-        for field, value in params._asdict().items():
-            self.outputs[field] = value
+        self._seed_runtime_inputs(params)
 
         self._dispatch_pipeline_event(PipelineEvent.STARTED)
         try:

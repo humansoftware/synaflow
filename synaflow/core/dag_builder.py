@@ -39,7 +39,7 @@ from typing import (
 )
 
 from synaflow.core.dag import Dag, DagNode
-from synaflow.core.dag_dependencies import initialize_parameters
+from synaflow.core.dag_dependencies import initialize_parameters, initialize_resources
 from synaflow.core.dag_expansion import expand_macros
 from synaflow.core.dag_steps import (
     validate_and_compile_step,
@@ -167,6 +167,26 @@ def _validate_declared_step_names(steps: list[Any], pipeline_name: str) -> None:
     for step in steps:
         if hasattr(step, "name"):
             validate_unique_step_name(step.name, {}, pipeline_name)
+
+
+def _validate_resource_names(
+    resources: dict[str, Any],
+    params: type[NamedTuple],
+    expanded_steps: list[Any],
+    pipeline_name: str,
+) -> None:
+    param_fields = set(getattr(params, "_fields", []))
+    step_names = {step.name for step in expanded_steps}
+
+    for resource_name in resources:
+        if resource_name in param_fields:
+            raise ValueError(
+                f"Pipeline '{pipeline_name}': resource '{resource_name}' collides with a params field."
+            )
+        if resource_name in step_names:
+            raise ValueError(
+                f"Pipeline '{pipeline_name}': resource '{resource_name}' collides with a step name."
+            )
 
 
 def _resolve_pipeline_observers(
@@ -328,10 +348,13 @@ def _compile_steps(
     expanded_steps: list[Any],
     pipeline_name: str,
     params: type[NamedTuple],
+    resources: dict[str, Any],
     pipeline_observers: list[ResolvedObserver],
 ) -> tuple[dict[str, DagNode], dict[str, DagNode]]:
     dag: dict[str, DagNode] = {}
     produced = initialize_parameters(params)
+    produced.update(initialize_resources(resources))
+    resource_nodes = initialize_resources(resources)
 
     for step in expanded_steps:
         validate_step_is_callable(step, pipeline_name)
@@ -340,6 +363,7 @@ def _compile_steps(
         compiled_step = validate_and_compile_step(
             step,
             produced,
+            resource_nodes,
             pipeline_name,
             observers=_resolve_step_observers(pipeline_observers, step.observers),
         )
@@ -353,12 +377,18 @@ def _finalize_dag(
     pipeline_name: str,
     dag: dict[str, DagNode],
     produced: dict[str, DagNode],
+    resource_names: set[str],
     error_materializer_factory: Any,
     pipeline_observers: list[ResolvedObserver],
 ) -> Dag:
     dag_obj = Dag(name=pipeline_name)
     dag_obj.params = {
-        name: info.output for name, info in produced.items() if name not in dag
+        name: info.output
+        for name, info in produced.items()
+        if name not in dag and name not in resource_names
+    }
+    dag_obj.resources = {
+        name: info.output for name, info in produced.items() if name in resource_names
     }
     dag_obj.steps = dag
     dag_obj.error_materializer_factory = error_materializer_factory
@@ -370,6 +400,7 @@ def build_dag(
     pipeline_name: str,
     params: type[NamedTuple],
     steps: list[Any],
+    resources: dict[str, Any] | None = None,
     memory_materializer_factory: Any = None,
     is_default_factory: bool = False,
     error_materializer_factory: Any = None,
@@ -382,10 +413,13 @@ def build_dag(
     _validate_params_is_namedtuple(params, pipeline_name)
     pipeline_obs_resolved = _resolve_pipeline_observers(pipeline_observers or [])
     expanded_steps = _expand_and_validate_steps(steps, pipeline_name)
+    resources = resources or {}
+    _validate_resource_names(resources, params, expanded_steps, pipeline_name)
     dag, produced = _compile_steps(
         expanded_steps,
         pipeline_name,
         params,
+        resources,
         pipeline_obs_resolved,
     )
     _compute_materialized_deps(dag)
@@ -393,6 +427,7 @@ def build_dag(
         pipeline_name,
         dag,
         produced,
+        set(resources),
         error_materializer_factory,
         pipeline_obs_resolved,
     )
