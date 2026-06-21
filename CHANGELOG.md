@@ -2,6 +2,15 @@
 
 
 
+## v0.20.3 (2026-06-21)
+
+### Fix
+
+* fix: remove uv lock from release ([`05871ec`](https://github.com/humansoftware/synaflow/commit/05871ec4854598eb51db1590116d213b59ba4148))
+
+* fix: sync uv lock during release ([`17e4313`](https://github.com/humansoftware/synaflow/commit/17e4313b70ee615c6749cec379104676b224e27a))
+
+
 ## v0.20.2 (2026-06-21)
 
 ### Fix
