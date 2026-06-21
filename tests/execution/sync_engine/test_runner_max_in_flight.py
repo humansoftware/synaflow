@@ -280,37 +280,6 @@ def test_given_max_in_flight_3_when_fanout_lazy_and_eager_then_both_receive_item
     assert eager_results == [list(range(10))]
 
 
-def test_given_handoff_and_unrelated_sibling_when_run_then_unrelated_step_stays_on_main_thread():
-    class P(NamedTuple):
-        count: int = 5
-
-    main_thread_id = threading.get_ident()
-    thread_ids: list[int] = []
-
-    def producer(count: int) -> Generator[int, None, None]:
-        yield from range(count)
-
-    def lazy_consumer(producer: Iterator[int]) -> None:
-        for _ in producer:
-            pass
-
-    def unrelated(count: int) -> None:
-        thread_ids.append(threading.get_ident())
-
-    p = pipeline(
-        name="test",
-        params=P,
-        steps=[
-            step("producer", fn=producer, max_in_flight=3),
-            step("lazy_consumer", fn=lazy_consumer),
-            step("unrelated", fn=unrelated),
-        ],
-    )
-    run(p, Count(count=5))
-
-    assert thread_ids == [main_thread_id]
-
-
 def test_given_user_resource_with_close_when_used_as_param_then_executor_does_not_close_it():
     class Resource:
         def __init__(self) -> None:
@@ -623,3 +592,97 @@ def test_runner_contract_uses_dag_node_max_in_flight_not_step_max_in_flight():
     assert produced == list(range(20))
     assert consumed == list(range(20))
     assert max_seen_ahead <= 1
+
+
+def test_given_multilevel_each_fanout_when_run_max_in_flight_1_then_completes(
+    run_pipeline,
+):
+    class P(NamedTuple):
+        pass
+
+    def source() -> Iterator[int]:
+        for i in range(20):
+            yield i
+
+    def l1a(source: int) -> int:
+        return source
+
+    def l1b(source: int) -> int:
+        return source * 10
+
+    def l1c(source: int) -> int:
+        return source * 100
+
+    seen_x: list[int] = []
+    seen_y: list[int] = []
+
+    def l2x(l1a: int) -> None:
+        seen_x.append(l1a)
+
+    def l2y(l1a: int) -> None:
+        seen_y.append(l1a)
+
+    my_pipeline = pipeline(
+        name="test_multilevel_each_fanout_mif_1",
+        params=P,
+        steps=[
+            step("source", fn=source, max_in_flight=1),
+            step("l1a", fn=l1a, max_in_flight=1),
+            step("l1b", fn=l1b, max_in_flight=1),
+            step("l1c", fn=l1c, max_in_flight=1),
+            step("l2x", fn=l2x, max_in_flight=1),
+            step("l2y", fn=l2y, max_in_flight=1),
+        ],
+    )
+
+    run_pipeline(my_pipeline, params=P())
+
+    assert seen_x == list(range(20))
+    assert seen_y == list(range(20))
+
+
+def test_given_multilevel_each_fanout_when_run_max_in_flight_3_then_completes(
+    run_pipeline,
+):
+    class P(NamedTuple):
+        pass
+
+    def source() -> Iterator[int]:
+        for i in range(20):
+            yield i
+
+    def l1a(source: int) -> int:
+        return source
+
+    def l1b(source: int) -> int:
+        return source * 10
+
+    def l1c(source: int) -> int:
+        return source * 100
+
+    seen_x: list[int] = []
+    seen_y: list[int] = []
+
+    def l2x(l1a: int) -> None:
+        seen_x.append(l1a)
+
+    def l2y(l1a: int) -> None:
+        seen_y.append(l1a)
+
+    my_pipeline = pipeline(
+        name="test_multilevel_each_fanout_mif_3",
+        params=P,
+        steps=[
+            step("source", fn=source, max_in_flight=3),
+            step("l1a", fn=l1a, max_in_flight=3),
+            step("l1b", fn=l1b, max_in_flight=3),
+            step("l1c", fn=l1c, max_in_flight=3),
+            step("l2x", fn=l2x, max_in_flight=3),
+            step("l2y", fn=l2y, max_in_flight=3),
+        ],
+    )
+
+    run_pipeline(my_pipeline, params=P())
+
+    assert seen_x == list(range(20))
+    assert seen_y == list(range(20))

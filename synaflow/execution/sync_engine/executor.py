@@ -280,8 +280,7 @@ class PipelineExecutor:
 
         self._dispatch_pipeline_event(PipelineEvent.STARTED)
         try:
-            for level in self.dag.get_execution_levels():
-                self._run_level(level)
+            self._run_graph()
         except PipelineStopException as exc:
             self._dispatch_pipeline_event(
                 PipelineEvent.FAILED,
@@ -299,38 +298,68 @@ class PipelineExecutor:
         finally:
             self._cleanup_fanouts()
 
-    def _run_level(self, level: list[str]) -> None:
-        handoff_steps = self._handoff_steps_in_level(level)
-        if not handoff_steps:
-            for step_name in level:
-                self._run_step(step_name)
-            return
+    def _step_inputs_available(self, step_name: str) -> bool:
+        node = self.dag[step_name]
+        for dep_name in node.deps:
+            if dep_name in self.dag.resources:
+                continue
+            key = self.dag.output_key(dep_name, step_name)
+            if key not in self.outputs and dep_name not in self.outputs:
+                return False
+        return True
 
-        submitted = {}
-        with ThreadPoolExecutor(max_workers=len(handoff_steps)) as pool:
-            for step_name in level:
-                if step_name in handoff_steps:
-                    submitted[step_name] = pool.submit(self._run_step, step_name)
-                else:
-                    self._run_step(step_name)
-            for step_name in handoff_steps:
-                try:
-                    submitted[step_name].result()
-                except BaseException as exc:
-                    self._abort_fanouts(exc)
-                    raise
+    def _run_graph(self) -> None:
+        cond = threading.Condition()
+        running_tasks = set()
+        finished_tasks = set()
+        ready_tasks = set()
+        fatal_error = None
+        completed_cleanly = True
 
-    def _handoff_steps_in_level(self, level: list[str]) -> set[str]:
-        handoff_steps = set()
-        for step_name in level:
-            node = self.dag[step_name]
-            for dep_name in node.deps:
-                key = self.dag.output_key(dep_name, step_name)
-                value = self.outputs.get(key, self.outputs.get(dep_name))
-                if isinstance(value, SyncQueueIterator):
-                    handoff_steps.add(step_name)
-                    break
-        return handoff_steps
+        with ThreadPoolExecutor(max_workers=max(1, len(self.dag.steps))) as pool:
+
+            def check_new_ready_steps():
+                for s in self.dag.steps:
+                    if (
+                        s not in ready_tasks
+                        and s not in running_tasks
+                        and s not in finished_tasks
+                    ):
+                        if self._step_inputs_available(s):
+                            ready_tasks.add(s)
+
+                while ready_tasks:
+                    s = ready_tasks.pop()
+                    running_tasks.add(s)
+                    future = pool.submit(self._run_step, s)
+                    future.add_done_callback(
+                        lambda fut, step_name=s: step_done(fut, step_name)
+                    )
+
+            def step_done(future, step_name):
+                nonlocal fatal_error, completed_cleanly
+                with cond:
+                    running_tasks.remove(step_name)
+                    finished_tasks.add(step_name)
+                    try:
+                        future.result()
+                    except BaseException as exc:
+                        if fatal_error is None:
+                            fatal_error = exc
+                        completed_cleanly = False
+                        self._abort_fanouts(exc)
+
+                    if completed_cleanly:
+                        check_new_ready_steps()
+                    cond.notify_all()
+
+            with cond:
+                check_new_ready_steps()
+                while running_tasks:
+                    cond.wait()
+
+        if fatal_error is not None:
+            raise fatal_error
 
     def _consumers_share_execution_level(self, consumers: list[str]) -> bool:
         level_index = {}

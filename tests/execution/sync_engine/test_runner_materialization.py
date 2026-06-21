@@ -736,3 +736,54 @@ def test_given_diamond_topology_with_multiple_lazy_streams_when_run_then_no_dead
     run_pipeline(my_pipeline, params=P())
     assert len(call_order) == 20
     assert len(audit_seen) == 10
+
+
+def test_given_multilevel_each_fanout_when_run_then_completes_without_materializing_intermediate(
+    run_pipeline,
+):
+    class P(NamedTuple):
+        pass
+
+    def source() -> Iterator[int]:
+        for i in range(20):
+            yield i
+
+    def l1a(source: int) -> int:
+        return source
+
+    def l1b(source: int) -> int:
+        return source * 10
+
+    def l1c(source: int) -> int:
+        return source * 100
+
+    seen_x: list[int] = []
+    seen_y: list[int] = []
+
+    def l2x(l1a: int) -> None:
+        seen_x.append(l1a)
+
+    def l2y(l1a: int) -> None:
+        seen_y.append(l1a)
+
+    my_pipeline = pipeline(
+        name="test_multilevel_each_fanout",
+        params=P,
+        steps=[
+            step("source", fn=source),
+            step("l1a", fn=l1a),
+            step("l1b", fn=l1b),
+            step("l1c", fn=l1c),
+            step("l2x", fn=l2x),
+            step("l2y", fn=l2y),
+        ],
+    )
+
+    # Asserting that intermediate step remains lazy and doesn't get materialized
+    assert my_pipeline.dag.steps["l1a"].materialize_output is False
+
+    run_pipeline(my_pipeline, params=P())
+
+    # Asserting that terminal consumers receive all items
+    assert seen_x == list(range(20))
+    assert seen_y == list(range(20))
