@@ -2,6 +2,35 @@
 
 
 
+## v0.20.2 (2026-06-21)
+
+### Fix
+
+* fix: trigger release for materialization contract refactor ([`8973f3c`](https://github.com/humansoftware/synaflow/commit/8973f3cb3624cfc3c2f0d73c3fda72cf469239a3))
+
+### Refactor
+
+* refactor: compile producer-level materialization contract (#59)
+
+* fix: honor dag materialization plan in async executor
+
+* fix: use dag plan for async materialization
+
+* refactor: clarify merging fanout materialization planning
+
+* refactor: centralize dag materialization planning
+
+* refactor: share dag builder indexes and planning
+
+* refactor: compile producer-level materialization contract
+
+* refactor: drop eager branch handoff plumbing
+
+* refactor: hide materialized deps from exported dag
+
+* test: remove private materialization debug from corpus exports ([`fe6a0eb`](https://github.com/humansoftware/synaflow/commit/fe6a0ebdff5d709cfff22c3ba6ea8d53286c2474))
+
+
 ## v0.20.1 (2026-06-21)
 
 ### Documentation
