@@ -118,7 +118,7 @@ pack = PipelinePack(
                 "mode": "all",
                 "materializer": None,
                 "error_materializer": "log_error",
-                "materialized_deps": [],
+                "materialized_deps": ["step3", "step4"],
                 "each_mode_deps": [],
                 "pipeline": "complex_parallel",
                 "parent_pipeline": None,

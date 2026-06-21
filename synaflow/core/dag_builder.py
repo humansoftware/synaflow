@@ -392,9 +392,6 @@ def _detect_and_materialize_merging_fanout_edges(dag: dict[str, DagNode]) -> Non
                 for other_name in dag:
                     if other_name != name:
                         if count_paths(name, other_name) >= 2:
-                            # name is a merging fan-out producer.
-                            # We want to materialize name for any direct downstream consumer
-                            # that can reach the merge point other_name.
                             for neighbor in adj[name]:
                                 if count_paths(neighbor, other_name) >= 1:
                                     neighbor_node = dag[neighbor]
@@ -416,6 +413,23 @@ def _compute_materialized_deps(dag: dict[str, DagNode]) -> None:
                 materialized_deps.append(dep_name)
         if node.force_materialize:
             for dep_name in node.deps:
+                if dep_name not in materialized_deps:
+                    materialized_deps.append(dep_name)
+
+        lazy_stream_deps = []
+        for dep_name in node.deps:
+            if dep_name in materialized_deps:
+                continue
+            producer_node = dag.get(dep_name)
+            if producer_node is None or producer_node.output is None:
+                continue
+            if is_sync_stream_type(producer_node.output) or is_async_stream_type(
+                producer_node.output
+            ):
+                lazy_stream_deps.append(dep_name)
+
+        if len(lazy_stream_deps) >= 2:
+            for dep_name in lazy_stream_deps:
                 if dep_name not in materialized_deps:
                     materialized_deps.append(dep_name)
         node.materialized_deps = materialized_deps

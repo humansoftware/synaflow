@@ -186,12 +186,11 @@ async def _resolve_queue(
     queue: asyncio.Queue,
     consumer_type: Any,
     materializer: Any,
-    force_materialize: bool = False,
 ) -> Any:
     origin = getattr(consumer_type, "__origin__", consumer_type)
-    if not force_materialize and (
-        consumer_type in (AsyncIterator, AsyncGenerator)
-        or origin in (AsyncIterator, AsyncGenerator)
+    if consumer_type in (AsyncIterator, AsyncGenerator) or origin in (
+        AsyncIterator,
+        AsyncGenerator,
     ):
         if isinstance(queue, AsyncQueueBranch):
             return queue
@@ -583,15 +582,22 @@ class AsyncPipelineExecutor:
                     dep_type = node.deps.get(dep_name)
                     producer_node = self.dag[dep_name]
                     materializer = self._resolve_materializer(dep_name, producer_node)
-                    is_materialized = dep_name in node.materialized_deps
-                    value = await _resolve_queue(
-                        self.dag,
-                        dep_name,
-                        value,
-                        dep_type,
-                        materializer,
-                        force_materialize=is_materialized,
-                    )
+                    if dep_name in node.materialized_deps:
+                        value, _, _ = await _apply_materializer(
+                            self.dag,
+                            dep_name,
+                            queue_to_async_gen(value),
+                            materializer,
+                            consumer_type=dep_type,
+                        )
+                    else:
+                        value = await _resolve_queue(
+                            self.dag,
+                            dep_name,
+                            value,
+                            dep_type,
+                            materializer,
+                        )
                 if isinstance(value, (list, tuple, set)) and dep_name not in unrolled:
                     dep_type = node.deps.get(dep_name)
                     origin = getattr(dep_type, "__origin__", dep_type)
