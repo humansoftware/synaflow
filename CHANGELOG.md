@@ -2,6 +2,15 @@
 
 
 
+## v0.20.4 (2026-06-21)
+
+### Fix
+
+* fix(execution): replace lockstep level execution with ready-queue scheduler to prevent nested fanout deadlocks (#61)
+
+This commit implements Option A as per Issue #60. It refactors the sync and async executors to use a ready-queue scheduler that starts steps dynamically as their inputs become available. This preserves lazy evaluation for nested EACH fanouts while preventing the pipeline from hanging on cross-level producer/consumer barriers. ([`686076d`](https://github.com/humansoftware/synaflow/commit/686076dd20c9effdda6677a81fae5a5ae1fc13a7))
+
+
 ## v0.20.3 (2026-06-21)
 
 ### Fix
