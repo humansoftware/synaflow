@@ -26,7 +26,7 @@ def test_given_iterator_of_pairs_when_consumer_wants_dict_then_dag_builds():
         return len(producer)
 
     p = build_minimal_dag(producer_fn=producer, consumer_fn=consumer, params=KVParam)
-    assert p.dag.steps["consumer"].materialized_deps == ["producer"]
+    assert p.dag.needs_materialize("producer") is True
 
 
 # ---------------------------------------------------------------------------
@@ -34,7 +34,7 @@ def test_given_iterator_of_pairs_when_consumer_wants_dict_then_dag_builds():
 # ---------------------------------------------------------------------------
 
 
-def test_given_dict_producer_when_consumer_wants_iterator_of_items_then_no_materialized_deps():
+def test_given_dict_producer_when_consumer_wants_iterator_of_items_then_producer_stays_lazy():
     class DictParam(NamedTuple):
         data: dict[str, int] = {"a": 1}
 
@@ -45,7 +45,7 @@ def test_given_dict_producer_when_consumer_wants_iterator_of_items_then_no_mater
         return list(producer)
 
     p = build_minimal_dag(producer_fn=producer, consumer_fn=consumer, params=DictParam)
-    assert p.dag.steps["consumer"].materialized_deps == []
+    assert p.dag.needs_materialize("producer") is False
 
 
 # ---------------------------------------------------------------------------

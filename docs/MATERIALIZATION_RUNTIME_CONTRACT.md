@@ -41,6 +41,11 @@ The accepted simplification is:
   useful for JSON snapshots and inspection, but executors should not depend on
   it for behavior.
 
+- `DagNode._materialize_reasons`
+  Private producer-side debug metadata describing why a producer was marked for
+  materialization. The exported JSON may include these reasons as
+  `needs_materialize_reasons` for developer inspection.
+
 ## Current Rules That Force Producer Materialization
 
 A producer becomes materialized when any of these is true:

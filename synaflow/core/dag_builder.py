@@ -410,13 +410,23 @@ def _plan_materialization(dag: dict[str, DagNode], indexes: _DagBuildIndexes) ->
       - runtime must not try to re-derive edge-level eager/lazy behavior
 
     `materialize_output` is the runtime contract.
-    `materialized_deps` is derived afterward only as consumer-side diagnostics.
+    `_materialized_deps` is derived afterward only as consumer-side diagnostics.
     """
     producer_needs_materialize = {name: False for name in dag}
+    producer_reasons = {name: set() for name in dag}
+
+    def mark_materialize(producer_name: str, reason: str) -> bool:
+        producer_reasons[producer_name].add(reason)
+        if producer_needs_materialize[producer_name]:
+            return False
+        producer_needs_materialize[producer_name] = True
+        return True
 
     for producer_name, node in dag.items():
-        if node.on_error == OnError.STOP or node.force_materialize:
-            producer_needs_materialize[producer_name] = True
+        if node.on_error == OnError.STOP:
+            mark_materialize(producer_name, "producer_on_error_stop")
+        if node.force_materialize:
+            mark_materialize(producer_name, "producer_force_materialize")
 
     changed = True
     while changed:
@@ -429,18 +439,21 @@ def _plan_materialization(dag: dict[str, DagNode], indexes: _DagBuildIndexes) ->
             for dep_name, dep_type in node.deps.items():
                 if dep_name not in dag:
                     continue
-                if (
-                    is_materialized_consumer(dep_type)
-                    and not producer_needs_materialize[dep_name]
-                ):
-                    producer_needs_materialize[dep_name] = True
-                    changed = True
+                if is_materialized_consumer(dep_type):
+                    changed = (
+                        mark_materialize(
+                            dep_name, "consumer_requires_materialized_type"
+                        )
+                        or changed
+                    )
 
             if node.force_materialize:
                 for dep_name in node.deps:
-                    if dep_name in dag and not producer_needs_materialize[dep_name]:
-                        producer_needs_materialize[dep_name] = True
-                        changed = True
+                    if dep_name in dag:
+                        changed = (
+                            mark_materialize(dep_name, "consumer_force_materialize")
+                            or changed
+                        )
 
             lazy_stream_deps = [
                 dep_name
@@ -451,9 +464,10 @@ def _plan_materialization(dag: dict[str, DagNode], indexes: _DagBuildIndexes) ->
             ]
             if len(lazy_stream_deps) >= 2:
                 for dep_name in lazy_stream_deps:
-                    if not producer_needs_materialize[dep_name]:
-                        producer_needs_materialize[dep_name] = True
-                        changed = True
+                    changed = (
+                        mark_materialize(dep_name, "multiple_lazy_stream_dependencies")
+                        or changed
+                    )
 
             # If this stream producer is already compiled as materialized,
             # every lazy upstream stream it drains must also materialize.
@@ -463,18 +477,20 @@ def _plan_materialization(dag: dict[str, DagNode], indexes: _DagBuildIndexes) ->
                 node.output
             ):
                 for dep_name in lazy_stream_deps:
-                    if not producer_needs_materialize[dep_name]:
-                        producer_needs_materialize[dep_name] = True
-                        changed = True
+                    changed = (
+                        mark_materialize(dep_name, "upstream_of_materialized_stream")
+                        or changed
+                    )
 
     for producer_name, node in dag.items():
         node.materialize_output = producer_needs_materialize[producer_name]
+        node._materialize_reasons = sorted(producer_reasons[producer_name])
 
     for consumer_name, node in dag.items():
         if node.fn is None:
-            node.materialized_deps = []
+            node._materialized_deps = []
             continue
-        node.materialized_deps = [
+        node._materialized_deps = [
             dep_name
             for dep_name in node.deps
             if dep_name in dag and producer_needs_materialize[dep_name]

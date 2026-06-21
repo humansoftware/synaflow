@@ -140,7 +140,7 @@ consumer-driven per-branch materialization.
 **Reason:** Reduces "boilerplate" when passing parameters through the flow. The executor merges the `NamedTuple` keys with upstream node outputs, allowing intermediate steps to directly request these parameters in their signature.
 
 ### 3.2. The `OnError.STOP` Rule and Forced Materialization
-**Decision:** When a node is configured with `OnError.STOP`, all downstream consumers have their `materialized_deps` updated so the producer's output is fully materialized before any consumer begins execution.
+**Decision:** When a node is configured with `OnError.STOP`, the producer is marked as needing materialization before any downstream consumer begins execution.
 **Reason:** Pipeline transactional integrity. If processing stops midway due to an error and propagation is lazy, the downstream node would receive garbage or a fraction of the collection. Additionally, if the materializer persists to disk/database, the processed data must be saved before the error halts the pipeline so it can be inspected.
 
 ### 3.3. Protocol Separation: Materializers vs. Materializer Factories
@@ -153,9 +153,9 @@ consumer-driven per-branch materialization.
 **Decision:** The materializer for every DAG node is pre-computed during DAG construction (build time). Resolution order: step-level `materializer` → pipeline-level `memory_materializer_factory` → global default factory. A materializer is **never None** in the serialized DAG. The DAG builder raises a `ValidationError` if no compatible materializer can be resolved (e.g., for custom types without an explicit factory).
 **Reason:** Runtime should not be responsible for fallback resolution or type checking — that is a build-time concern. The builder stores the resolved factory; the runtime only handles the factory-with-context call pattern when needed.
 
-### 3.5. `materialized_deps` Belongs to the Consumer
-**Decision:** `materialized_deps` is a property of the **consumer**, listing which of its inputs must be fully materialized before the node can execute. The DAG builder computes this from consumer type annotations (`list`, `set`, `tuple`, `dict`), `on_error=STOP` propagation, and an explicit `force_materialize` flag on the step.
-**Reason:** The consumer knows what it needs. The producer doesn't know (or care) who will consume its output. The runtime may still ask `dag.needs_materialize(step_name)`, but that answer is derived from the DAG graph plus node-local flags; it is not stored as independent node state and is not serialized.
+### 3.5. Producer-Level Materialization Contract
+**Decision:** Materialization is compiled at the **producer** level. If any rule forces a producer to materialize, all of its consumers read from that materialized output.
+**Reason:** This keeps the runtime simple and prevents executors from re-deriving eager/lazy policy per edge. Consumer-facing materialization details may still exist internally for diagnostics, but they are not the runtime contract and are not part of the public export shape.
 
 ### 3.5.1. Step Mode Is a DAG Decision
 **Decision:** A step's execution mode is resolved at build time and stored in the DAG as `mode` plus `each_mode_deps`. The user-facing API exposes `StepMode.AUTO`, `StepMode.EACH`, and `StepMode.ALL`.
@@ -183,7 +183,7 @@ consumer-driven per-branch materialization.
 The practical consequence is strict DAG primacy at runtime:
 - the builder resolves `mode` and `each_mode_deps`
 - the executors consult the DAG and do not re-infer step mode
-- materialization context is carried all the way to the branch consumer that demanded it
+- materialization is compiled once in the DAG and executors follow that producer-level contract
 - sync and async error handling must preserve the same user-visible contract
 
 ### 3.9. Materializer Compatibility Table (Default Factory)

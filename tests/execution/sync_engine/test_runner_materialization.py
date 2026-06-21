@@ -728,10 +728,10 @@ def test_given_diamond_topology_with_multiple_lazy_streams_when_run_then_no_dead
     )
 
     # Materialization propagates upstream through lazy stream chains.
-    assert my_pipeline.dag.steps["a"].materialized_deps == ["source"]
-    assert my_pipeline.dag.steps["b"].materialized_deps == ["source"]
-    assert my_pipeline.dag.steps["audit"].materialized_deps == ["source"]
-    assert my_pipeline.dag.steps["finalize"].materialized_deps == ["a", "b"]
+    assert my_pipeline.dag.steps["a"]._materialized_deps == ["source"]
+    assert my_pipeline.dag.steps["b"]._materialized_deps == ["source"]
+    assert my_pipeline.dag.steps["audit"]._materialized_deps == ["source"]
+    assert my_pipeline.dag.steps["finalize"]._materialized_deps == ["a", "b"]
 
     run_pipeline(my_pipeline, params=P())
     assert len(call_order) == 20

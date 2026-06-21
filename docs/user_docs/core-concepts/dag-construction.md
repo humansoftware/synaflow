@@ -43,8 +43,7 @@ print(p.to_dict())
       "mode": "all",
       "on_error": "continue",
       "materializer": "memory_materializer",
-      "each_mode_deps": [],
-      "materialized_deps": []
+      "each_mode_deps": []
     }
   }
 }

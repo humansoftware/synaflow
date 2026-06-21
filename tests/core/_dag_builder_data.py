@@ -76,31 +76,31 @@ COMPATIBILITY_TABLE = [
         label="Iterator[T] -> list[T]",
         producer_fn=_producer_iter,
         consumer_fn=_consumer_list,
-        expected_materialized_deps=["producer"],
+        expected_needs_materialize=True,
     ),
     dict(
         label="Iterator[T] -> set[T]",
         producer_fn=_producer_iter,
         consumer_fn=_consumer_set,
-        expected_materialized_deps=["producer"],
+        expected_needs_materialize=True,
     ),
     dict(
         label="Iterator[T] -> tuple[T, ...]",
         producer_fn=_producer_iter,
         consumer_fn=_consumer_tuple,
-        expected_materialized_deps=["producer"],
+        expected_needs_materialize=True,
     ),
     dict(
         label="Iterator[tuple[K,V]] -> list[tuple[K,V]]",
         producer_fn=_producer_kv,
         consumer_fn=_consumer_kv_list,
-        expected_materialized_deps=["producer"],
+        expected_needs_materialize=True,
     ),
     dict(
         label="Iterator[tuple[K,V]] -> dict[K,V]",
         producer_fn=_producer_kv,
         consumer_fn=_consumer_dict,
-        expected_materialized_deps=["producer"],
+        expected_needs_materialize=True,
     ),
 ]
 

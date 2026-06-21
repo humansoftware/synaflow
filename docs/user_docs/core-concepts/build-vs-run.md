@@ -54,7 +54,6 @@ print(p.to_dict())
       "on_error": "continue",
       "max_in_flight": 1,
       "materializer": "memory_materializer",
-      "materialized_deps": [],
       "each_mode_deps": []
     }
   }
@@ -62,8 +61,9 @@ print(p.to_dict())
 ```
 
 All semantic decisions — mode, `max_in_flight`, `each_mode_deps`,
-`materialized_deps`, eager materialization triggered by `OnError.STOP` or
-`force_materialize`, and the resolved `node.materializer` callable — are
+producer-level materialization triggered by consumer requirements,
+`OnError.STOP`, or `force_materialize`, and the resolved
+`node.materializer` callable — are
 resolved at build time and frozen in the JSON or `Dag`. Runners don't re-infer
 semantics; they execute the contract.
 
@@ -150,7 +150,7 @@ Every domain concern has a symmetric representation in both phases:
 | Topology | `check_circular_dependencies()`, `get_execution_levels()` | Executor iterates `dag.get_execution_levels()` |
 | Step compilation | `validate_and_compile_step()` | Executor calls compiled `node.fn` |
 | Mode resolution | Resolved at build time → `node.mode` | Executor reads `node.mode`, never re-infers |
-| Materialization | Resolved at build time → `node.materializer`, `materialized_deps`, `Dag.needs_materialize(...)` | Executor calls the resolved callable and follows the compiled plan |
+| Materialization | Resolved at build time → `node.materializer`, `Dag.needs_materialize(...)`, optional debug `needs_materialize_reasons` | Executor calls the resolved callable and follows the compiled plan |
 | Observers | Normalized at build time → `node.observers` | Executor dispatches events |
 | Resources | Declared at build time → `dag.resources` | Executor resolves the production factory per step, or an override provider when present |
 

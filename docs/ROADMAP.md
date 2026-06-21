@@ -4,7 +4,7 @@ This roadmap outlines the planned features and architectural evolutions for the 
 
 ## ✅ Completed
 
-- **DAG Model** — `Dag`/`DagNode` dataclasses with separated `params` and `steps`, `materialized_deps`, `materializer` pre-computed at build time, `each_inputs` helper, resolved `mode` + `each_mode_deps` in the compiled graph and JSON
+- **DAG Model** — `Dag`/`DagNode` dataclasses with separated `params` and `steps`, producer-level materialization planning, `materializer` pre-computed at build time, `each_inputs` helper, resolved `mode` + `each_mode_deps` in the compiled graph and JSON
 - **Dict support** — `dict[K,V]` as both producer and consumer; `Iterator[tuple[K,V]]` → `dict`
 - **Sub-Pipelines** — `include()` macro expansion with nested pipeline flattening
 - **Materializer architecture** — step-level → pipeline-level → global default resolution; `force_materialize`; `identity` for scalars; custom type validation; default factory with protocol detection
