@@ -71,7 +71,6 @@ version_toml = [
 ]
 commit_parser = "angular"
 major_on_zero = false
-build_command = "uv lock"
 
 
 
