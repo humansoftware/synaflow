@@ -183,16 +183,12 @@ async def _list_to_async_gen(lst):
 async def _resolve_queue(
     dag: Dag,
     producer: str,
+    consumer: str,
     queue: asyncio.Queue,
     consumer_type: Any,
     materializer: Any,
-    force_materialize: bool = False,
 ) -> Any:
-    origin = getattr(consumer_type, "__origin__", consumer_type)
-    if not force_materialize and (
-        consumer_type in (AsyncIterator, AsyncGenerator)
-        or origin in (AsyncIterator, AsyncGenerator)
-    ):
+    if producer not in dag.steps[consumer].materialized_deps:
         if isinstance(queue, AsyncQueueBranch):
             return queue
         return queue_to_async_gen(queue)
@@ -583,14 +579,13 @@ class AsyncPipelineExecutor:
                     dep_type = node.deps.get(dep_name)
                     producer_node = self.dag[dep_name]
                     materializer = self._resolve_materializer(dep_name, producer_node)
-                    is_materialized = dep_name in node.materialized_deps
                     value = await _resolve_queue(
                         self.dag,
                         dep_name,
+                        consumer,
                         value,
                         dep_type,
                         materializer,
-                        force_materialize=is_materialized,
                     )
                 if isinstance(value, (list, tuple, set)) and dep_name not in unrolled:
                     dep_type = node.deps.get(dep_name)
