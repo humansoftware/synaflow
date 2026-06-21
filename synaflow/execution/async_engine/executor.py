@@ -175,6 +175,11 @@ async def _safe_iterate(name: str, iterable: Any):
                 raise StepExecutionError(f"Error iterating step '{name}'") from e
 
 
+async def _list_to_async_gen(lst):
+    for item in lst:
+        yield item
+
+
 async def _resolve_queue(
     dag: Dag,
     producer: str,
@@ -581,6 +586,11 @@ class AsyncPipelineExecutor:
                     value = await _resolve_queue(
                         self.dag, dep_name, value, dep_type, materializer
                     )
+                elif isinstance(value, (list, tuple, set)) and dep_name not in unrolled:
+                    dep_type = node.deps.get(dep_name)
+                    origin = getattr(dep_type, "__origin__", dep_type)
+                    if origin in (AsyncIterator, AsyncGenerator):
+                        value = _list_to_async_gen(value)
             param = node.dataset_param_names.get(dep_name, dep_name)
             args[param] = value
         return args

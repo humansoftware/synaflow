@@ -683,3 +683,42 @@ async def test_given_no_custom_materializer_and_non_builtin_type_when_not_materi
 
     await async_run(my_pipeline, params=P())
     assert seen == [Row(id=1, name="alice"), Row(id=2, name="bob")]
+
+
+async def test_given_diamond_topology_with_multiple_lazy_streams_when_run_then_no_deadlock():
+    class P(NamedTuple):
+        pass
+
+    async def source() -> AsyncIterator[int]:
+        for i in range(10):
+            yield i
+
+    async def a(source: AsyncIterator[int]) -> AsyncIterator[int]:
+        async for x in source:
+            yield x
+
+    async def b(source: AsyncIterator[int]) -> AsyncIterator[int]:
+        async for x in source:
+            yield x
+
+    call_order = []
+
+    async def finalize(a: AsyncIterator[int], b: AsyncIterator[int]) -> None:
+        async for x in a:
+            call_order.append(("a", x))
+        async for y in b:
+            call_order.append(("b", y))
+
+    my_pipeline = pipeline(
+        name="test_diamond_deadlock",
+        params=P,
+        steps=[
+            step("source", fn=source),
+            step("a", fn=a),
+            step("b", fn=b),
+            step("finalize", fn=finalize),
+        ],
+    )
+
+    await async_run(my_pipeline, params=P())
+    assert len(call_order) == 20

@@ -683,3 +683,42 @@ def test_given_no_custom_materializer_and_non_builtin_type_when_not_materialized
 
     run_pipeline(my_pipeline, params=P())
     assert seen == [Row(id=1, name="alice"), Row(id=2, name="bob")]
+
+
+def test_given_diamond_topology_with_multiple_lazy_streams_when_run_then_no_deadlock(
+    run_pipeline,
+):
+    class P(NamedTuple):
+        pass
+
+    def source() -> Iterator[int]:
+        for i in range(10):
+            yield i
+
+    def a(source: Iterator[int]) -> Iterator[int]:
+        yield from source
+
+    def b(source: Iterator[int]) -> Iterator[int]:
+        yield from source
+
+    call_order = []
+
+    def finalize(a: Iterator[int], b: Iterator[int]) -> None:
+        for x in a:
+            call_order.append(("a", x))
+        for y in b:
+            call_order.append(("b", y))
+
+    my_pipeline = pipeline(
+        name="test_diamond_deadlock",
+        params=P,
+        steps=[
+            step("source", fn=source),
+            step("a", fn=a),
+            step("b", fn=b),
+            step("finalize", fn=finalize),
+        ],
+    )
+
+    run_pipeline(my_pipeline, params=P())
+    assert len(call_order) == 20

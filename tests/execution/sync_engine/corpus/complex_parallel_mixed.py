@@ -63,7 +63,7 @@ pack = PipelinePack(
                 "mode": "all",
                 "materializer": "list",
                 "error_materializer": "log_error",
-                "materialized_deps": [],
+                "materialized_deps": ["base"],
                 "each_mode_deps": [],
                 "pipeline": "complex_parallel_mixed",
                 "parent_pipeline": None,
