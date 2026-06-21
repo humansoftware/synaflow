@@ -360,43 +360,62 @@ def _resolve_materializers(
 
 
 def _detect_and_materialize_merging_fanout_edges(dag: dict[str, DagNode]) -> None:
-    adj = {name: [] for name in dag}
-    for name, node in dag.items():
-        for dep in node.deps:
-            if dep in adj:
-                adj[dep].append(name)
+    adjacency = {name: [] for name in dag}
+    for consumer_name, node in dag.items():
+        for dep_name in node.deps:
+            if dep_name in adjacency:
+                adjacency[dep_name].append(consumer_name)
 
-    memo = {}
+    def is_stream_node(node_name: str) -> bool:
+        output = dag[node_name].output
+        return output is not None and (
+            is_sync_stream_type(output) or is_async_stream_type(output)
+        )
 
-    def count_paths(u, v):
-        if u == v:
-            return 1
-        if (u, v) in memo:
-            return memo[(u, v)]
-        paths = 0
-        for neighbor in adj[u]:
-            if neighbor == v or (
-                dag[neighbor].output is not None
-                and (
-                    is_sync_stream_type(dag[neighbor].output)
-                    or is_async_stream_type(dag[neighbor].output)
-                )
-            ):
-                paths += count_paths(neighbor, v)
-        memo[(u, v)] = paths
-        return paths
+    def reachable_targets(start: str) -> set[str]:
+        seen = set()
+        stack = [start]
+        reachable = set()
 
-    for name, node in dag.items():
-        if node.output is not None:
-            if is_sync_stream_type(node.output) or is_async_stream_type(node.output):
-                for other_name in dag:
-                    if other_name != name:
-                        if count_paths(name, other_name) >= 2:
-                            for neighbor in adj[name]:
-                                if count_paths(neighbor, other_name) >= 1:
-                                    neighbor_node = dag[neighbor]
-                                    if name not in neighbor_node.materialized_deps:
-                                        neighbor_node.materialized_deps.append(name)
+        while stack:
+            current = stack.pop()
+            if current in seen:
+                continue
+            seen.add(current)
+            reachable.add(current)
+            if is_stream_node(current):
+                stack.extend(adjacency[current])
+
+        return reachable
+
+    for producer_name, node in dag.items():
+        if node.output is None or not (
+            is_sync_stream_type(node.output) or is_async_stream_type(node.output)
+        ):
+            continue
+
+        direct_consumers = adjacency[producer_name]
+        if len(direct_consumers) < 2:
+            continue
+
+        branch_targets = {
+            consumer_name: reachable_targets(consumer_name)
+            for consumer_name in direct_consumers
+        }
+        target_branch_counts: dict[str, int] = {}
+        for targets in branch_targets.values():
+            for target in targets:
+                target_branch_counts[target] = target_branch_counts.get(target, 0) + 1
+        shared_targets = {
+            target for target, branch_count in target_branch_counts.items() if branch_count >= 2
+        }
+
+        for consumer_name, targets in branch_targets.items():
+            if not (targets & shared_targets):
+                continue
+            consumer_node = dag[consumer_name]
+            if producer_name not in consumer_node.materialized_deps:
+                consumer_node.materialized_deps.append(producer_name)
 
 
 def _compute_materialized_deps(dag: dict[str, DagNode]) -> None:
