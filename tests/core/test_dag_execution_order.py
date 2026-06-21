@@ -80,12 +80,36 @@ def test_given_fan_out_when_constructed_then_passes():
 PACKS = {**SYNC_PACKS, **ASYNC_PACKS}
 
 
+def _normalize_exported_dag_for_contract_assertions(dag_dict: dict) -> dict:
+    normalized = {
+        "name": dag_dict["name"],
+        "params": dict(dag_dict["params"]),
+        "steps": {},
+    }
+    if "resources" in dag_dict:
+        normalized["resources"] = dict(dag_dict["resources"])
+    if "error_materializer" in dag_dict:
+        normalized["error_materializer"] = dag_dict["error_materializer"]
+    if "pipeline_observers" in dag_dict:
+        normalized["pipeline_observers"] = list(dag_dict["pipeline_observers"])
+
+    for step_name, step in dag_dict["steps"].items():
+        normalized["steps"][step_name] = {
+            key: value
+            for key, value in step.items()
+            if key not in {"materialized_deps", "needs_materialize_reasons"}
+        }
+    return normalized
+
+
 @pytest.mark.parametrize("pack_name, pack", list(PACKS.items()), ids=list(PACKS.keys()))
 def test_corpus_execution_levels(pack_name, pack):
     if pack.expected_execution_levels is not None:
         assert pack.pipeline.get_execution_levels() == pack.expected_execution_levels
     if pack.json_dag is not None:
-        assert pack.pipeline.to_dict() == pack.json_dag
+        assert _normalize_exported_dag_for_contract_assertions(
+            pack.pipeline.to_dict()
+        ) == _normalize_exported_dag_for_contract_assertions(pack.json_dag)
 
 
 def test_given_diamond_dag_when_consumers_of_branch_then_returns_merge():
@@ -238,21 +262,17 @@ def test_given_force_materialize_when_requires_eager_materialization_then_true()
     assert dag.requires_eager_materialization("producer") is True
 
 
-def test_given_mixed_consumers_when_consumer_materialization_plan_then_classifies():
+def test_given_materialized_producer_when_needs_materialize_then_true():
     from synaflow.core.dag import Dag, DagNode
 
     dag = Dag(name="test")
     dag.steps = {
-        "producer": DagNode(deps={}),
-        "lazy": DagNode(deps={"producer": int}, materialized_deps=[]),
-        "eager": DagNode(deps={"producer": list[int]}, materialized_deps=["producer"]),
+        "producer": DagNode(deps={}, materialize_output=True),
+        "lazy": DagNode(deps={"producer": int}),
+        "eager": DagNode(deps={"producer": list[int]}),
     }
 
-    plan = dag.consumer_materialization_plan("producer")
-
-    assert plan.consumers == ["lazy", "eager"]
-    assert plan.lazy_consumers == ["lazy"]
-    assert plan.eager_consumers == ["eager"]
+    assert dag.needs_materialize("producer") is True
 
 
 def test_given_linear_dag_when_get_execution_levels_then_returns_sequential_levels():

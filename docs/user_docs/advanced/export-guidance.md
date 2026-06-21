@@ -19,7 +19,6 @@ Every pipeline exports a deterministic JSON via `pipeline.to_dict()`:
       "mode": "all",
       "materializer": "memory_materializer",
       "error_materializer": "log_error_materializer",
-      "materialized_deps": [],
       "each_mode_deps": [],
       "pipeline": "example",
       "parent_pipeline": null
@@ -37,9 +36,9 @@ Every pipeline exports a deterministic JSON via `pipeline.to_dict()`:
 | `mode` | `"all"` (single call with full input) or `"each"` (called per item). |
 | `each_mode_deps` | Which deps must be unrolled item-by-item in EACH mode. |
 | `on_error` | `"continue"` (skip failed items) or `"stop"` (halt pipeline). |
-| `materialized_deps` | Which inputs must be fully materialized before this step runs. |
 | `materializer` | Name of the materializer callable. |
 | `error_materializer` | Name of the error handler callable. |
+| `needs_materialize_reasons` | Optional debug-only reasons explaining why this producer was compiled as materialized. |
 
 ## Exporting to Airflow
 
@@ -78,5 +77,5 @@ def synaflow_to_prefect(dag_json):
 ## Key Guarantees
 
 - The JSON is **deterministic** — same pipeline always produces the same structure.
-- All **semantic decisions** (mode, each_mode_deps, materialized_deps) are pre-computed at build time.
+- All **semantic decisions** (mode, each_mode_deps, producer-level materialization) are pre-computed at build time.
 - External runners do **not** need to re-infer semantics — they only need to execute the contract.

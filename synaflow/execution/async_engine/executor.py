@@ -181,29 +181,11 @@ async def _list_to_async_gen(lst):
 
 
 async def _resolve_queue(
-    dag: Dag,
-    producer: str,
     queue: asyncio.Queue,
-    consumer_type: Any,
-    materializer: Any,
-    force_materialize: bool = False,
 ) -> Any:
-    origin = getattr(consumer_type, "__origin__", consumer_type)
-    if not force_materialize and (
-        consumer_type in (AsyncIterator, AsyncGenerator)
-        or origin in (AsyncIterator, AsyncGenerator)
-    ):
-        if isinstance(queue, AsyncQueueBranch):
-            return queue
-        return queue_to_async_gen(queue)
-    result, _, _ = await _apply_materializer(
-        dag,
-        producer,
-        queue_to_async_gen(queue),
-        materializer,
-        consumer_type=consumer_type,
-    )
-    return result
+    if isinstance(queue, AsyncQueueBranch):
+        return queue
+    return queue_to_async_gen(queue)
 
 
 # ---------------------------------------------------------------------------
@@ -580,18 +562,7 @@ class AsyncPipelineExecutor:
                     isinstance(value, (asyncio.Queue, AsyncQueueBranch))
                     and dep_name not in unrolled
                 ):
-                    dep_type = node.deps.get(dep_name)
-                    producer_node = self.dag[dep_name]
-                    materializer = self._resolve_materializer(dep_name, producer_node)
-                    is_materialized = dep_name in node.materialized_deps
-                    value = await _resolve_queue(
-                        self.dag,
-                        dep_name,
-                        value,
-                        dep_type,
-                        materializer,
-                        force_materialize=is_materialized,
-                    )
+                    value = await _resolve_queue(value)
                 if isinstance(value, (list, tuple, set)) and dep_name not in unrolled:
                     dep_type = node.deps.get(dep_name)
                     origin = getattr(dep_type, "__origin__", dep_type)
@@ -727,23 +698,6 @@ class AsyncPipelineExecutor:
         if deferred:
             await self._emit_step_result(node, step_name, items, had_error, exc)
 
-    async def _publish_single_consumer_stream(
-        self,
-        step_name,
-        output,
-        node,
-        consumer,
-        deferred,
-    ):
-        consumer_type = self.dag[consumer].deps.get(step_name)
-        items, had_error, exc = await self._materialize_with_events(
-            step_name, output, node, consumer_type=consumer_type
-        )
-        self.outputs[self.dag.output_key(step_name, consumer)] = items
-        self._notify_observers(step_name, items)
-        if deferred:
-            await self._emit_step_result(node, step_name, items, had_error, exc)
-
     async def _handle_stream_publish_error(self, step_name, node, exc):
         await _handle_error(self.dag, step_name, exc)
         if node.on_error == OnError.STOP:
@@ -825,24 +779,12 @@ class AsyncPipelineExecutor:
             await self._publish_scalar_output(step_name, output, node, deferred)
             return
 
-        plan = self.dag.consumer_materialization_plan(step_name)
-        consumers = plan.consumers
+        consumers = self.dag.consumers_of(step_name)
 
-        if self.dag.requires_eager_materialization(step_name):
+        if self.dag.needs_materialize(step_name):
             try:
                 await self._publish_eager_materialized_stream(
                     step_name, output, node, consumers, deferred
-                )
-            except PipelineStopException:
-                raise
-            except Exception as exc:
-                await self._handle_stream_publish_error(step_name, node, exc)
-            return
-
-        if len(consumers) == 1 and plan.eager_consumers:
-            try:
-                await self._publish_single_consumer_stream(
-                    step_name, output, node, consumers[0], deferred
                 )
             except PipelineStopException:
                 raise

@@ -198,7 +198,7 @@ def test_given_generator_and_eager_each_and_eager_iterator_consumers_when_run_th
     assert [val for key, val in call_order if key == "b"] == [0, 1, 2]
 
 
-def test_given_two_generators_when_consumed_by_single_step_then_no_materialization(
+def test_given_two_generators_when_consumed_by_single_step_then_automatic_materialization(
     run_pipeline,
 ):
     class P(NamedTuple):
@@ -240,7 +240,7 @@ def test_given_two_generators_when_consumed_by_single_step_then_no_materializati
     )
 
     run_pipeline(my_pipeline, params=P())
-    assert len(materialized) == 0
+    assert len(materialized) == 2
     assert [val for key, val in call_order if key == "c1"] == [0, 1, 2]
     assert [val for key, val in call_order if key == "c2"] == [10, 11, 12]
 
@@ -416,7 +416,7 @@ def test_given_generator_and_iterator_and_list_consumers_when_run_then_iterator_
     run_pipeline(my_pipeline, params=P())
 
     assert materialized == ["called"]
-    assert observations["lazy_is_list"] is False
+    assert observations["lazy_is_list"] is True
     assert observations["lazy_values"] == [0, 1, 2]
     assert observations["eager_is_list"] is True
     assert observations["eager_values"] == [0, 1, 2]
@@ -727,10 +727,11 @@ def test_given_diamond_topology_with_multiple_lazy_streams_when_run_then_no_dead
         ],
     )
 
-    # Prove compile-time precision: source is materialized for a and b, but NOT for audit (remains lazy)
-    assert "source" in my_pipeline.dag.steps["a"].materialized_deps
-    assert "source" in my_pipeline.dag.steps["b"].materialized_deps
-    assert "source" not in my_pipeline.dag.steps["audit"].materialized_deps
+    # Materialization propagates upstream through lazy stream chains.
+    assert my_pipeline.dag.steps["a"]._materialized_deps == ["source"]
+    assert my_pipeline.dag.steps["b"]._materialized_deps == ["source"]
+    assert my_pipeline.dag.steps["audit"]._materialized_deps == ["source"]
+    assert my_pipeline.dag.steps["finalize"]._materialized_deps == ["a", "b"]
 
     run_pipeline(my_pipeline, params=P())
     assert len(call_order) == 20

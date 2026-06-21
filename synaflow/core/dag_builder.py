@@ -6,12 +6,17 @@ build_dag() orchestrates the full compilation pipeline:
   2. Initialize params from the NamedTuple
   3. Compile each step (validate types, resolve deps, infer output type)
   4. Resolve materializers (step → pipeline → global default)
-  5. Compute materialized_deps (which inputs need eager materialization)
+  5. Compute producer-level materialization
   6. Validate: circular deps, sync/async consistency
 
 Also exports the global default factories:
   - memory_materializer_factory       (stream → collection)
   - log_error_materializer_factory (exception → log)
+
+Design note:
+  The builder is responsible for the full materialization plan. Runtime must
+  only ask whether a producer output is materialized globally. Any per-consumer
+  materialization details that remain in the Dag are private diagnostics.
 
 All functions are stateless — no classes, no self.
 """
@@ -19,6 +24,7 @@ All functions are stateless — no classes, no self.
 import logging
 import traceback
 import types as _types
+from dataclasses import dataclass
 from collections.abc import (
     AsyncIterable as AbcAsyncIterable,
     AsyncIterator as AbcAsyncIterator,
@@ -157,6 +163,33 @@ def _is_builtin_type(tp: Any) -> bool:
     return False
 
 
+def _is_stream_output(tp: Any) -> bool:
+    return tp is not None and (is_sync_stream_type(tp) or is_async_stream_type(tp))
+
+
+@dataclass(frozen=True)
+class _DagBuildIndexes:
+    consumers_by_producer: dict[str, list[str]]
+    stream_nodes: set[str]
+
+
+def _build_dag_indexes(dag: dict[str, DagNode]) -> _DagBuildIndexes:
+    consumers_by_producer = {name: [] for name in dag}
+    stream_nodes = {
+        name for name, node in dag.items() if _is_stream_output(node.output)
+    }
+
+    for consumer_name, node in dag.items():
+        for dep_name in node.deps:
+            if dep_name in consumers_by_producer:
+                consumers_by_producer[dep_name].append(consumer_name)
+
+    return _DagBuildIndexes(
+        consumers_by_producer=consumers_by_producer,
+        stream_nodes=stream_nodes,
+    )
+
+
 def _validate_params_is_namedtuple(params: Any, pipeline_name: str) -> None:
     if not hasattr(params, "_fields"):
         raise ValueError(
@@ -257,9 +290,45 @@ def _resolve_step_observers(
 
 def _resolve_materializers(
     dag: Dag,
+    indexes: _DagBuildIndexes,
     pipeline_materializer: Any,
     pipeline_error_materializer: Any,
 ) -> None:
+    def resolve_materializer_consumer_type(step_name: str) -> Any:
+        consumers = [
+            dag.steps[consumer_name]
+            for consumer_name in indexes.consumers_by_producer.get(step_name, [])
+        ]
+        if not consumers:
+            return None
+
+        mat_consumers = [
+            consumer
+            for consumer in consumers
+            if is_materialized_consumer(consumer.deps.get(step_name))
+        ]
+        if not mat_consumers and dag.needs_materialize(step_name):
+            mat_consumers = consumers
+        if not mat_consumers:
+            return consumers[0].deps.get(step_name)
+
+        consumer_type = mat_consumers[0].deps.get(step_name)
+        from synaflow.core.type_compatibility import is_type_compatible
+
+        for other in mat_consumers[1:]:
+            other_tp = other.deps.get(step_name)
+            if (
+                consumer_type != other_tp
+                and not is_type_compatible(consumer_type, other_tp)
+                and not is_type_compatible(other_tp, consumer_type)
+            ):
+                raise ValueError(
+                    f"Pipeline '{dag.name}': step '{step_name}' has consumers with incompatible types: "
+                    f"'{mat_consumers[0].name}' expects {consumer_type} but '{other.name}' expects {other_tp}."
+                )
+
+        return consumer_type
+
     for name, node in dag.steps.items():
         if not node.fn:
             node.materializer = None
@@ -269,12 +338,10 @@ def _resolve_materializers(
         has_explicit_mat = (
             node.materializer is not None or pipeline_materializer is not None
         )
-        is_stream = is_sync_stream_type(node.output) or is_async_stream_type(
-            node.output
-        )
+        is_stream = name in indexes.stream_nodes
         is_untyped = node.output is None
         is_scalar = not is_untyped and not is_iterable_type(node.output)
-        has_consumers = bool(dag.consumers_of(name))
+        has_consumers = bool(indexes.consumers_by_producer.get(name))
 
         mat = None
         if has_explicit_mat:
@@ -294,38 +361,11 @@ def _resolve_materializers(
                     mat = None
 
         if mat and is_factory(mat):
-            consumers = []
-            for consumer_node in dag.steps.values():
-                if name in consumer_node.deps:
-                    consumers.append(consumer_node)
-
-            consumer_type = None
-            if consumers:
-                mat_consumers = [
-                    c for c in consumers if name in getattr(c, "materialized_deps", [])
-                ]
-                if mat_consumers:
-                    consumer_type = mat_consumers[0].deps.get(name)
-                    from synaflow.core.type_compatibility import is_type_compatible
-
-                    for other in mat_consumers[1:]:
-                        other_tp = other.deps.get(name)
-                        if (
-                            consumer_type != other_tp
-                            and not is_type_compatible(consumer_type, other_tp)
-                            and not is_type_compatible(other_tp, consumer_type)
-                        ):
-                            raise ValueError(
-                                f"Pipeline '{dag.name}': step '{name}' has consumers with incompatible types: "
-                                f"'{mat_consumers[0].name}' expects {consumer_type} but '{other.name}' expects {other_tp}."
-                            )
-                else:
-                    consumer_type = consumers[0].deps.get(name)
             ctx = MaterializeContext(
                 pipeline_name=dag.name,
                 dataset_name=name,
                 item_type=node.output,
-                consumer_type=consumer_type,
+                consumer_type=resolve_materializer_consumer_type(name),
             )
             node.materializer = mat(ctx)
         else:
@@ -359,66 +399,102 @@ def _resolve_materializers(
                     )
 
 
-def _detect_and_materialize_merging_fanout_edges(dag: dict[str, DagNode]) -> None:
-    adj = {name: [] for name in dag}
-    for name, node in dag.items():
-        for dep in node.deps:
-            if dep in adj:
-                adj[dep].append(name)
+def _plan_materialization(dag: dict[str, DagNode], indexes: _DagBuildIndexes) -> None:
+    """
+    Compile the materialization plan once, in the builder.
 
-    memo = {}
+    Accepted design:
+      - materialization is a producer-level decision
+      - if any rule forces producer P to materialize, every consumer of P reads
+        from the materialized output
+      - runtime must not try to re-derive edge-level eager/lazy behavior
 
-    def count_paths(u, v):
-        if u == v:
-            return 1
-        if (u, v) in memo:
-            return memo[(u, v)]
-        paths = 0
-        for neighbor in adj[u]:
-            if neighbor == v or (
-                dag[neighbor].output is not None
-                and (
-                    is_sync_stream_type(dag[neighbor].output)
-                    or is_async_stream_type(dag[neighbor].output)
-                )
-            ):
-                paths += count_paths(neighbor, v)
-        memo[(u, v)] = paths
-        return paths
+    `materialize_output` is the runtime contract.
+    `_materialized_deps` is derived afterward only as consumer-side diagnostics.
+    """
+    producer_needs_materialize = {name: False for name in dag}
+    producer_reasons = {name: set() for name in dag}
 
-    for name, node in dag.items():
-        if node.output is not None:
-            if is_sync_stream_type(node.output) or is_async_stream_type(node.output):
-                for other_name in dag:
-                    if other_name != name:
-                        if count_paths(name, other_name) >= 2:
-                            # name is a merging fan-out producer.
-                            # We want to materialize name for any direct downstream consumer
-                            # that can reach the merge point other_name.
-                            for neighbor in adj[name]:
-                                if count_paths(neighbor, other_name) >= 1:
-                                    neighbor_node = dag[neighbor]
-                                    if name not in neighbor_node.materialized_deps:
-                                        neighbor_node.materialized_deps.append(name)
+    def mark_materialize(producer_name: str, reason: str) -> bool:
+        producer_reasons[producer_name].add(reason)
+        if producer_needs_materialize[producer_name]:
+            return False
+        producer_needs_materialize[producer_name] = True
+        return True
 
-
-def _compute_materialized_deps(dag: dict[str, DagNode]) -> None:
-    for node in dag.values():
-        if node.fn is None:
-            node.materialized_deps = []
-            continue
-
-        materialized_deps = []
-        for dep_name, dep_type in node.deps.items():
-            if is_materialized_consumer(dep_type):
-                materialized_deps.append(dep_name)
-            elif dep_name in dag and dag[dep_name].on_error == OnError.STOP:
-                materialized_deps.append(dep_name)
+    for producer_name, node in dag.items():
+        if node.on_error == OnError.STOP:
+            mark_materialize(producer_name, "producer_on_error_stop")
         if node.force_materialize:
-            for dep_name in node.deps:
-                if dep_name not in materialized_deps:
-                    materialized_deps.append(dep_name)
-        node.materialized_deps = materialized_deps
+            mark_materialize(producer_name, "producer_force_materialize")
+
+    changed = True
+    while changed:
+        changed = False
+
+        for consumer_name, node in dag.items():
+            if node.fn is None:
+                continue
+
+            for dep_name, dep_type in node.deps.items():
+                if dep_name not in dag:
+                    continue
+                if is_materialized_consumer(dep_type):
+                    changed = (
+                        mark_materialize(
+                            dep_name, "consumer_requires_materialized_type"
+                        )
+                        or changed
+                    )
+
+            if node.force_materialize:
+                for dep_name in node.deps:
+                    if dep_name in dag:
+                        changed = (
+                            mark_materialize(dep_name, "consumer_force_materialize")
+                            or changed
+                        )
+
+            lazy_stream_deps = [
+                dep_name
+                for dep_name in node.deps
+                if dep_name in indexes.stream_nodes
+                and dep_name not in node.each_mode_deps
+                and not producer_needs_materialize[dep_name]
+            ]
+            if len(lazy_stream_deps) >= 2:
+                for dep_name in lazy_stream_deps:
+                    changed = (
+                        mark_materialize(dep_name, "multiple_lazy_stream_dependencies")
+                        or changed
+                    )
+
+            # If this stream producer is already compiled as materialized,
+            # every lazy upstream stream it drains must also materialize.
+            # This keeps the policy producer-level while avoiding runtime
+            # deadlocks in merging/fanout chains.
+            if producer_needs_materialize[consumer_name] and _is_stream_output(
+                node.output
+            ):
+                for dep_name in lazy_stream_deps:
+                    changed = (
+                        mark_materialize(dep_name, "upstream_of_materialized_stream")
+                        or changed
+                    )
+
+    for producer_name, node in dag.items():
+        node.materialize_output = producer_needs_materialize[producer_name]
+        node._materialize_reasons = sorted(producer_reasons[producer_name])
+
+    for consumer_name, node in dag.items():
+        if node.fn is None:
+            node._materialized_deps = []
+            continue
+        node._materialized_deps = [
+            dep_name
+            for dep_name in node.deps
+            if dep_name in dag and producer_needs_materialize[dep_name]
+        ]
 
 
 def _expand_and_validate_steps(
@@ -514,8 +590,8 @@ def build_dag(
         effective_resources,
         pipeline_obs_resolved,
     )
-    _compute_materialized_deps(dag)
-    _detect_and_materialize_merging_fanout_edges(dag)
+    indexes = _build_dag_indexes(dag)
+    _plan_materialization(dag, indexes)
     dag_obj = _finalize_dag(
         pipeline_name,
         dag,
@@ -526,6 +602,7 @@ def build_dag(
     )
     _resolve_materializers(
         dag_obj,
+        indexes,
         memory_materializer_factory,
         error_materializer_factory,
     )

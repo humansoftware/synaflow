@@ -93,7 +93,7 @@ Tests are organized by **what is being tested**, not by the topology used. Each 
 tests/core/
 ├── test_dag_builder_compatibility.py   — type pair compatibility table
 ├── test_dag_builder_materializer.py    — materializer resolution
-├── test_dag_builder_materialized_deps.py — materialized dependency computation
+├── test_dag_builder_materialized_deps.py — producer-level materialization planning
 ├── test_dag_builder_validation.py      — error cases and edge conditions
 ```
 
@@ -105,7 +105,7 @@ Tests are separated by concern:
 - **Design-time (build)**: test DAG compilation, validation, type compatibility. Lives under `tests/core/`.
 - **Run-time**: test pipeline execution, materialization, error handling. Lives under `tests/execution/`.
 
-Whenever a semantic decision is compiled into the DAG (`mode`, `each_mode_deps`, `materialized_deps`, serialized JSON shape), prefer asserting the compiled DAG directly in core tests instead of letting execution tests rediscover the same rule indirectly.
+Whenever a semantic decision is compiled into the DAG (`mode`, `each_mode_deps`, `needs_materialize(...)`, serialized JSON shape), prefer asserting the compiled DAG directly in core tests instead of letting execution tests rediscover the same rule indirectly.
 
 ### 2.5. Shared Corpus (Specification Compliance Tests)
 

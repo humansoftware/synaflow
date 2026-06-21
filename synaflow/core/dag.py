@@ -4,8 +4,14 @@ The Directed Acyclic Graph: the compiled, immutable model of a pipeline.
 Dag     — the top-level container: name, params (input types), steps (nodes),
           and computed metadata (runner requirements, error materializer).
 DagNode — one step in the graph: function, input types (deps), output type,
-          error policy, materializer, and which deps must be materialized
-          before this node can execute.
+          error policy, materializer, and whether its output must be
+          materialized before publication to downstream consumers.
+
+Design note:
+  Runtime decisions must be driven by producer-level materialization only.
+  The builder may keep per-consumer materialization details for diagnostics,
+  but executors must not inspect them. If a producer is marked as needing
+  materialization, all of its consumers read from the materialized output.
 
 Methods on Dag (all stateless queries over the graph):
   - consumers_of(step_name) → list of step names that depend on it
@@ -30,7 +36,9 @@ class DagNode:
     on_error: OnError | None = None
     mode: StepMode = StepMode.ALL
     materializer: Callable | None = None
-    materialized_deps: list[str] = field(default_factory=list)
+    _materialized_deps: list[str] = field(default_factory=list)
+    _materialize_reasons: list[str] = field(default_factory=list)
+    materialize_output: bool = False
     each_mode_deps: list[str] = field(default_factory=list)
     force_materialize: bool = False
     pipeline: str | None = None
@@ -60,24 +68,18 @@ class DagNode:
             "mode": self.mode.value,
             "materializer": mat.__name__ if callable(mat) else None,
             "error_materializer": err_mat.__name__ if callable(err_mat) else None,
-            "materialized_deps": self.materialized_deps,
             "each_mode_deps": self.each_mode_deps,
             "pipeline": self.pipeline,
             "parent_pipeline": self.parent_pipeline,
             "max_in_flight": self.max_in_flight,
         }
+        if self.materialize_output:
+            ret["needs_materialize_reasons"] = list(self._materialize_reasons)
         if self.observers:
             ret["observers"] = _serialize_observers(self.observers)
         if self.dataset_param_names:
             ret["dataset_param_names"] = dict(self.dataset_param_names)
         return ret
-
-
-@dataclass(frozen=True)
-class ConsumerMaterializationPlan:
-    consumers: list[str]
-    eager_consumers: list[str]
-    lazy_consumers: list[str]
 
 
 def _serialize_observers(observers: list) -> list[dict]:
@@ -187,39 +189,13 @@ class Dag:
         node = self.steps.get(step_name)
         if node is None:
             return False
-
-        if self.requires_eager_materialization(step_name):
-            return True
-
-        return any(
-            step_name in consumer.materialized_deps for consumer in self.steps.values()
-        )
+        return node.materialize_output
 
     def requires_eager_materialization(self, step_name: str) -> bool:
         node = self.steps.get(step_name)
         if node is None:
             return False
         return node.on_error == OnError.STOP or node.force_materialize
-
-    def consumer_materialization_plan(
-        self, producer: str
-    ) -> ConsumerMaterializationPlan:
-        consumers = self.consumers_of(producer)
-        eager_consumers = [
-            consumer
-            for consumer in consumers
-            if producer in self.steps[consumer].materialized_deps
-        ]
-        lazy_consumers = [
-            consumer
-            for consumer in consumers
-            if producer not in self.steps[consumer].materialized_deps
-        ]
-        return ConsumerMaterializationPlan(
-            consumers=consumers,
-            eager_consumers=eager_consumers,
-            lazy_consumers=lazy_consumers,
-        )
 
     def get_execution_levels(self) -> list[list[str]]:
         in_degree: dict[str, int] = {name: 0 for name in self.steps}

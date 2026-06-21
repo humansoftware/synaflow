@@ -43,8 +43,7 @@ print(p.to_dict())
       "mode": "all",
       "on_error": "continue",
       "materializer": "memory_materializer",
-      "each_mode_deps": [],
-      "materialized_deps": []
+      "each_mode_deps": []
     }
   }
 }
@@ -54,6 +53,11 @@ This JSON is the **execution contract** — external runners (Airflow, Prefect,
 custom executors) can read it to replicate the DAG without re-inferring
 semantics. Dependency edges, mode, and materialization metadata are already
 compiled into the graph.
+
+For stream outputs, the important contract is producer-level: the DAG already
+decides whether a producer must be materialized before downstream publication.
+Executors should consume that decision, not recalculate eager vs lazy behavior
+per edge.
 
 ## Execution Levels
 
