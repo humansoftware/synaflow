@@ -67,6 +67,45 @@ from synaflow.core.type_compatibility import (
 from synaflow.core.types import ErrorMaterializeContext, MaterializeContext, OnError
 
 
+def make_list_materializer(fn):
+    def list_materializer(*args, **kwargs):
+        return fn(*args, **kwargs)
+
+    list_materializer.__name__ = "list"
+    return list_materializer
+
+
+def make_async_list_materializer(fn):
+    async def list_materializer(*args, **kwargs):
+        return await fn(*args, **kwargs)
+
+    list_materializer.__name__ = "list"
+    return list_materializer
+
+
+async def _async_iterator_materializer(items):
+    if hasattr(items, "__aiter__"):
+        collected = [x async for x in items]
+    else:
+        collected = list(items)
+
+    async def _gen():
+        for x in collected:
+            yield x
+
+    return _gen()
+
+
+def _sync_iterator_materializer(items):
+    return iter(items)
+
+
+async_iterator_list_materializer = make_async_list_materializer(
+    _async_iterator_materializer
+)
+sync_iterator_list_materializer = make_list_materializer(_sync_iterator_materializer)
+
+
 def _identity(x):
     return x
 
@@ -90,15 +129,18 @@ def memory_materializer_factory(ctx: MaterializeContext):
             return _identity
         if tp in (
             AsyncIterator,
-            Iterator,
-            Iterable,
             AsyncIterable,
             AbcAsyncIterator,
-            AbcIterator,
-            AbcIterable,
             AbcAsyncIterable,
         ):
-            return list
+            return async_iterator_list_materializer
+        if tp in (
+            Iterator,
+            Iterable,
+            AbcIterator,
+            AbcIterable,
+        ):
+            return sync_iterator_list_materializer
 
     raise ValueError(
         f"Cannot infer memory materializer for consumer type: '{tp}'. "

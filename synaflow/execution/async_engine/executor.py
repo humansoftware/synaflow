@@ -27,7 +27,6 @@ from synaflow.core.types import (
     OnError,
     StepMode,
 )
-from synaflow.core.type_compatibility import is_async_stream_type
 from synaflow.execution.overrides import ExecutionOverrides
 
 from .constants import EOF_MARKER
@@ -174,11 +173,6 @@ async def _safe_iterate(name: str, iterable: Any):
                 if isinstance(e, StepExecutionError):
                     raise e
                 raise StepExecutionError(f"Error iterating step '{name}'") from e
-
-
-async def _list_to_async_gen(lst):
-    for item in lst:
-        yield item
 
 
 async def _resolve_queue(
@@ -588,10 +582,7 @@ class AsyncPipelineExecutor:
                         dep_type,
                         materializer,
                     )
-                if dep_name in node.materialized_deps:
-                    dep_type = node.deps.get(dep_name)
-                    if is_async_stream_type(dep_type):
-                        value = _list_to_async_gen(value)
+
             param = node.dataset_param_names.get(dep_name, dep_name)
             args[param] = value
         return args

@@ -3,9 +3,9 @@ from dataclasses import dataclass
 from typing import Any
 
 from synaflow.core.constants import PIPELINE_SCOPE
-from synaflow.core.definition import PipelineDef
 from synaflow.core.naming import Scope
 from synaflow.core.observers import Observer, ResolvedObserver
+from synaflow.core.dag import Dag
 
 
 class PipelineRegistry(MutableMapping[str, Any]):
@@ -72,16 +72,22 @@ class PipelineRegistry(MutableMapping[str, Any]):
         return value
 
 
+def _get_dag(pipeline_or_dag: Any) -> Dag:
+    if hasattr(pipeline_or_dag, "dag"):
+        return pipeline_or_dag.dag
+    return pipeline_or_dag
+
+
 class MaterializerRegistry(PipelineRegistry):
     @classmethod
-    def empty(cls, pipeline: PipelineDef) -> "MaterializerRegistry":
+    def empty(cls, pipeline: Any) -> "MaterializerRegistry":
         return cls(
             contract_keys=_materializer_contract_keys(pipeline),
             fallback_values=_materializer_fallback_values(pipeline),
         )
 
     @classmethod
-    def from_production(cls, pipeline: PipelineDef) -> "MaterializerRegistry":
+    def from_production(cls, pipeline: Any) -> "MaterializerRegistry":
         return cls.empty(pipeline)
 
     def _validate_value(self, key: str, value: Any) -> None:
@@ -91,7 +97,7 @@ class MaterializerRegistry(PipelineRegistry):
 
 class ObserverRegistry(PipelineRegistry):
     @classmethod
-    def empty(cls, pipeline: PipelineDef) -> "ObserverRegistry":
+    def empty(cls, pipeline: Any) -> "ObserverRegistry":
         contract_keys = _observer_contract_keys(pipeline)
         return cls(
             contract_keys=contract_keys,
@@ -99,7 +105,7 @@ class ObserverRegistry(PipelineRegistry):
         )
 
     @classmethod
-    def from_production(cls, pipeline: PipelineDef) -> "ObserverRegistry":
+    def from_production(cls, pipeline: Any) -> "ObserverRegistry":
         return cls(
             contract_keys=_observer_contract_keys(pipeline),
             fallback_values=_observer_fallback_values(pipeline),
@@ -129,11 +135,11 @@ class ObserverRegistry(PipelineRegistry):
 
 class ResourceRegistry(PipelineRegistry):
     @classmethod
-    def empty(cls, pipeline: PipelineDef) -> "ResourceRegistry":
+    def empty(cls, pipeline: Any) -> "ResourceRegistry":
         return cls(contract_keys=_resource_contract_keys(pipeline))
 
     @classmethod
-    def from_production(cls, pipeline: PipelineDef) -> "ResourceRegistry":
+    def from_production(cls, pipeline: Any) -> "ResourceRegistry":
         return cls.empty(pipeline)
 
     def _validate_value(self, key: str, value: Any) -> None:
@@ -148,7 +154,7 @@ class ExecutionOverrides:
     resources: ResourceRegistry
 
     @classmethod
-    def empty(cls, pipeline: PipelineDef) -> "ExecutionOverrides":
+    def empty(cls, pipeline: Any) -> "ExecutionOverrides":
         return cls(
             materializers=MaterializerRegistry.empty(pipeline),
             observers=ObserverRegistry.empty(pipeline),
@@ -156,7 +162,7 @@ class ExecutionOverrides:
         )
 
     @classmethod
-    def from_production(cls, pipeline: PipelineDef) -> "ExecutionOverrides":
+    def from_production(cls, pipeline: Any) -> "ExecutionOverrides":
         return cls(
             materializers=MaterializerRegistry.from_production(pipeline),
             observers=ObserverRegistry.from_production(pipeline),
@@ -164,39 +170,41 @@ class ExecutionOverrides:
         )
 
 
-def _materializer_contract_keys(pipeline: PipelineDef) -> set[str]:
+def _materializer_contract_keys(pipeline: Any) -> set[str]:
+    dag = _get_dag(pipeline)
     return {
         step_name
-        for step_name, node in pipeline.dag.steps.items()
+        for step_name, node in dag.steps.items()
         if node.materializer is not None
     }
 
 
-def _materializer_fallback_values(pipeline: PipelineDef) -> dict[str, Any]:
+def _materializer_fallback_values(pipeline: Any) -> dict[str, Any]:
+    dag = _get_dag(pipeline)
     return {
         step_name: node.materializer
-        for step_name, node in pipeline.dag.steps.items()
+        for step_name, node in dag.steps.items()
         if node.materializer is not None
     }
 
 
-def _observer_contract_keys(pipeline: PipelineDef) -> set[str]:
+def _observer_contract_keys(pipeline: Any) -> set[str]:
+    dag = _get_dag(pipeline)
     keys = set()
-    if pipeline.dag.pipeline_observers:
+    if dag.pipeline_observers:
         keys.add(PIPELINE_SCOPE)
-    keys.update(
-        step_name for step_name, node in pipeline.dag.steps.items() if node.observers
-    )
+    keys.update(step_name for step_name, node in dag.steps.items() if node.observers)
     return keys
 
 
 def _observer_fallback_values(
-    pipeline: PipelineDef,
+    pipeline: Any,
 ) -> dict[str, list[ResolvedObserver]]:
+    dag = _get_dag(pipeline)
     values: dict[str, list[ResolvedObserver]] = {}
-    if pipeline.dag.pipeline_observers:
-        values[PIPELINE_SCOPE] = list(pipeline.dag.pipeline_observers)
-    for step_name, node in pipeline.dag.steps.items():
+    if dag.pipeline_observers:
+        values[PIPELINE_SCOPE] = list(dag.pipeline_observers)
+    for step_name, node in dag.steps.items():
         step_local = [
             observer for observer in node.observers if observer.source == "step"
         ]
@@ -205,5 +213,6 @@ def _observer_fallback_values(
     return values
 
 
-def _resource_contract_keys(pipeline: PipelineDef) -> set[str]:
-    return set(pipeline.dag.resources)
+def _resource_contract_keys(pipeline: Any) -> set[str]:
+    dag = _get_dag(pipeline)
+    return set(dag.resources)
