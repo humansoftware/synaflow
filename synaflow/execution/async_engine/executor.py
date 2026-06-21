@@ -27,6 +27,7 @@ from synaflow.core.types import (
     OnError,
     StepMode,
 )
+from synaflow.core.type_compatibility import is_async_stream_type
 from synaflow.execution.overrides import ExecutionOverrides
 
 from .constants import EOF_MARKER
@@ -587,10 +588,9 @@ class AsyncPipelineExecutor:
                         dep_type,
                         materializer,
                     )
-                if isinstance(value, (list, tuple, set)) and dep_name not in unrolled:
+                if dep_name in node.materialized_deps:
                     dep_type = node.deps.get(dep_name)
-                    origin = getattr(dep_type, "__origin__", dep_type)
-                    if origin in (AsyncIterator, AsyncGenerator):
+                    if is_async_stream_type(dep_type):
                         value = _list_to_async_gen(value)
             param = node.dataset_param_names.get(dep_name, dep_name)
             args[param] = value
