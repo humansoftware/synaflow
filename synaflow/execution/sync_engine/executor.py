@@ -663,10 +663,7 @@ class PipelineExecutor:
     ):
         consumer_type = self.dag[consumer].deps.get(step_name)
 
-        if (
-            self._step_output_observers
-            and step_name not in self.dag[consumer].materialized_deps
-        ):
+        if self._step_output_observers and not self.dag.needs_materialize(step_name):
             observer_branches = self._observer_branch_names()
             fanout = SyncFanout(
                 output,
@@ -693,10 +690,6 @@ class PipelineExecutor:
         self.outputs[self.dag.output_key(step_name, consumer)] = output
 
     def _publish_stream_to_multiple_consumers(self, step_name, output, node, consumers):
-        plan = self.dag.consumer_materialization_plan(step_name)
-        lazy_consumers = plan.lazy_consumers
-        eager_consumers = plan.eager_consumers
-
         if not self._consumers_share_execution_level(consumers):
             output = _maybe_wrap_stream(output, node)
             observer_count = len(self._step_output_observers)
@@ -704,32 +697,6 @@ class PipelineExecutor:
             consumer_branches = branches[: len(consumers)]
             observer_branches = branches[len(consumers) :]
             for consumer, branch in zip(consumers, consumer_branches):
-                if consumer in eager_consumers:
-                    consumer_node = self.dag[consumer]
-                    branch, _, _ = self._materialize_with_events(
-                        step_name,
-                        branch,
-                        node,
-                        consumer_type=consumer_node.deps.get(step_name),
-                    )
-                self.outputs[self.dag.output_key(step_name, consumer)] = branch
-            for observer, branch in zip(self._step_output_observers, observer_branches):
-                observer(step_name, self._collect_observer_items(branch))
-            return
-
-        if not lazy_consumers:
-            observer_count = len(self._step_output_observers)
-            branches = itertools.tee(output, len(consumers) + observer_count)
-            consumer_branches = branches[: len(consumers)]
-            observer_branches = branches[len(consumers) :]
-            for consumer, branch in zip(consumers, consumer_branches):
-                consumer_node = self.dag[consumer]
-                branch, _, _ = self._materialize_with_events(
-                    step_name,
-                    branch,
-                    node,
-                    consumer_type=consumer_node.deps.get(step_name),
-                )
                 self.outputs[self.dag.output_key(step_name, consumer)] = branch
             for observer, branch in zip(self._step_output_observers, observer_branches):
                 observer(step_name, self._collect_observer_items(branch))
@@ -738,17 +705,13 @@ class PipelineExecutor:
         fanout = SyncFanout(
             output,
             max_in_flight=max(1, node.max_in_flight),
-            lazy_branches=lazy_consumers + self._observer_branch_names(),
-            eager_branches=eager_consumers,
+            lazy_branches=consumers + self._observer_branch_names(),
+            eager_branches=[],
         )
         self._active_fanouts.append(fanout)
-        for consumer in lazy_consumers:
+        for consumer in consumers:
             self.outputs[self.dag.output_key(step_name, consumer)] = (
                 fanout.lazy_iterator(consumer)
-            )
-        for consumer in eager_consumers:
-            self.outputs[self.dag.output_key(step_name, consumer)] = fanout.eager_value(
-                consumer
             )
         self._start_observer_threads(step_name, fanout, self._observer_branch_names())
         fanout.start()
@@ -774,18 +737,11 @@ class PipelineExecutor:
             self._publish_scalar_output(step_name, output, node, deferred)
             return
 
-        plan = self.dag.consumer_materialization_plan(step_name)
-        consumers = plan.consumers
+        consumers = self.dag.consumers_of(step_name)
 
-        if self.dag.requires_eager_materialization(step_name):
+        if self.dag.needs_materialize(step_name):
             self._materialize_stream_output(
                 step_name, output, node, consumers, deferred
-            )
-            return
-
-        if len(consumers) == 1 and plan.eager_consumers:
-            self._publish_stream_to_single_consumer(
-                step_name, output, node, consumers[0], deferred
             )
             return
 

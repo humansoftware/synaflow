@@ -88,7 +88,7 @@ def test_given_consumer_wants_iterator_with_two_consumers_when_dag_built_then_on
             step("b", fn=consumer_b),
         ],
     )
-    assert p.dag.steps["a"].materialized_deps == []
+    assert p.dag.steps["a"].materialized_deps == ["gen"]
     assert p.dag.steps["b"].materialized_deps == ["gen"]
 
 

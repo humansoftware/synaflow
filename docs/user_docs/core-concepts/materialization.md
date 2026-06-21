@@ -83,10 +83,11 @@ Materialization also happens automatically when:
 | `on_error=STOP` on the producer (see below) | All downstream consumers materialize |
 
 These are **build-time decisions**. When `pipeline(...)` is compiled, SynaFlow
-records which dependencies must be materialized in the `Dag`
-(`materialized_deps`) and resolves the materializer callable for each step.
-The runtime executors do not re-decide which branch is eager; they follow the
-compiled contract.
+decides whether each producer output must be materialized and resolves the
+materializer callable for that producer. If a producer is marked for
+materialization, all of its consumers read from the materialized output. The
+runtime executors do not re-decide eager vs lazy edges; they follow the
+compiled DAG contract.
 
 ## Error Policies: `OnError.CONTINUE` vs `OnError.STOP`
 
@@ -172,9 +173,8 @@ step("fragile", fn=fragile, on_error=OnError.STOP)
 
 When `on_error=STOP` is set:
 
-1. All consumers downstream of this step have their `materialized_deps` updated
-   to include this step's output.
-2. The step's output is fully materialized **before** any consumer runs.
+1. This producer is marked to materialize its output before publication.
+2. All downstream consumers read from that materialized output.
 3. If the step fails partway through, consumers receive the partial data that
    was successfully produced.
 4. A `PipelineStopException` is raised with `step_name` and `cause`.
@@ -210,8 +210,8 @@ step("critical", fn=do_work,
 
 | Mechanism | When it triggers | Effect |
 |---|---|---|
-| Consumer type: `list[T]` | Always (build-time) | Materializes stream for that consumer |
-| `force_materialize=True` | Always (build-time) | Materializes regardless of consumers |
-| `on_error=STOP` | Build-time rule | Materializes for all downstream consumers |
+| Consumer type: `list[T]` | Always (build-time) | Marks the producer output for materialization |
+| `force_materialize=True` | Always (build-time) | Marks the producer output for materialization |
+| `on_error=STOP` | Build-time rule | Marks the producer output for materialization |
 | `on_error=CONTINUE` | Runtime (per item) | Skips failed item, pipeline keeps running |
 | Error materializer | Runtime (per failure) | Captures exception + partial data |

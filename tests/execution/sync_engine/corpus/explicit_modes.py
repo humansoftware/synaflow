@@ -44,7 +44,7 @@ pack = PipelinePack(
                 "mode": "all",
                 "materializer": "_identity",
                 "error_materializer": "log_error",
-                "materialized_deps": ["items"],
+                "materialized_deps": [],
                 "each_mode_deps": [],
                 "pipeline": "explicit_modes",
                 "parent_pipeline": None,

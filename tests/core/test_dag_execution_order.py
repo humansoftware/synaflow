@@ -243,16 +243,16 @@ def test_given_mixed_consumers_when_consumer_materialization_plan_then_classifie
 
     dag = Dag(name="test")
     dag.steps = {
-        "producer": DagNode(deps={}),
-        "lazy": DagNode(deps={"producer": int}, materialized_deps=[]),
-        "eager": DagNode(deps={"producer": list[int]}, materialized_deps=["producer"]),
+        "producer": DagNode(deps={}, materialize_output=True),
+        "lazy": DagNode(deps={"producer": int}),
+        "eager": DagNode(deps={"producer": list[int]}),
     }
 
     plan = dag.consumer_materialization_plan("producer")
 
     assert plan.consumers == ["lazy", "eager"]
-    assert plan.lazy_consumers == ["lazy"]
-    assert plan.eager_consumers == ["eager"]
+    assert plan.lazy_consumers == []
+    assert plan.eager_consumers == ["lazy", "eager"]
 
 
 def test_given_linear_dag_when_get_execution_levels_then_returns_sequential_levels():

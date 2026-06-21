@@ -60,7 +60,7 @@ pack = PipelinePack(
                 "mode": "all",
                 "materializer": "_identity",
                 "error_materializer": "log_error",
-                "materialized_deps": ["raw_texts"],
+                "materialized_deps": [],
                 "each_mode_deps": [],
                 "pipeline": "MainPipeline",
                 "parent_pipeline": None,

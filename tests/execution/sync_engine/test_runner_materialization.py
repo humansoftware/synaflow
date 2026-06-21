@@ -416,7 +416,7 @@ def test_given_generator_and_iterator_and_list_consumers_when_run_then_iterator_
     run_pipeline(my_pipeline, params=P())
 
     assert materialized == ["called"]
-    assert observations["lazy_is_list"] is False
+    assert observations["lazy_is_list"] is True
     assert observations["lazy_values"] == [0, 1, 2]
     assert observations["eager_is_list"] is True
     assert observations["eager_values"] == [0, 1, 2]
@@ -727,10 +727,10 @@ def test_given_diamond_topology_with_multiple_lazy_streams_when_run_then_no_dead
         ],
     )
 
-    # Prove compile-time precision: source is materialized for a and b, but NOT for audit (remains lazy)
-    assert "source" in my_pipeline.dag.steps["a"].materialized_deps
-    assert "source" in my_pipeline.dag.steps["b"].materialized_deps
-    assert "source" not in my_pipeline.dag.steps["audit"].materialized_deps
+    # Materialization propagates upstream through lazy stream chains.
+    assert my_pipeline.dag.steps["a"].materialized_deps == ["source"]
+    assert my_pipeline.dag.steps["b"].materialized_deps == ["source"]
+    assert my_pipeline.dag.steps["audit"].materialized_deps == ["source"]
     assert my_pipeline.dag.steps["finalize"].materialized_deps == ["a", "b"]
 
     run_pipeline(my_pipeline, params=P())

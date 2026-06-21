@@ -6,12 +6,17 @@ build_dag() orchestrates the full compilation pipeline:
   2. Initialize params from the NamedTuple
   3. Compile each step (validate types, resolve deps, infer output type)
   4. Resolve materializers (step → pipeline → global default)
-  5. Compute materialized_deps (which inputs need eager materialization)
+  5. Compute producer-level materialization
   6. Validate: circular deps, sync/async consistency
 
 Also exports the global default factories:
   - memory_materializer_factory       (stream → collection)
   - log_error_materializer_factory (exception → log)
+
+Design note:
+  The builder is responsible for the full materialization plan. Runtime must
+  only ask whether a producer output is materialized globally. Any per-consumer
+  materialization details that remain in the Dag are private diagnostics.
 
 All functions are stateless — no classes, no self.
 """
@@ -298,8 +303,12 @@ def _resolve_materializers(
             return None
 
         mat_consumers = [
-            consumer for consumer in consumers if step_name in consumer.materialized_deps
+            consumer
+            for consumer in consumers
+            if is_materialized_consumer(consumer.deps.get(step_name))
         ]
+        if not mat_consumers and dag.needs_materialize(step_name):
+            mat_consumers = consumers
         if not mat_consumers:
             return consumers[0].deps.get(step_name)
 
@@ -390,87 +399,85 @@ def _resolve_materializers(
                     )
 
 
-def _plan_materialized_deps(
-    dag: dict[str, DagNode], indexes: _DagBuildIndexes
-) -> None:
-    planned_edges: dict[str, set[str]] = {
-        consumer_name: set() for consumer_name in dag if dag[consumer_name].fn is not None
-    }
+def _plan_materialization(dag: dict[str, DagNode], indexes: _DagBuildIndexes) -> None:
+    """
+    Compile the materialization plan once, in the builder.
 
-    def mark(consumer_name: str, dep_name: str) -> None:
-        if consumer_name in planned_edges:
-            planned_edges[consumer_name].add(dep_name)
+    Accepted design:
+      - materialization is a producer-level decision
+      - if any rule forces producer P to materialize, every consumer of P reads
+        from the materialized output
+      - runtime must not try to re-derive edge-level eager/lazy behavior
 
-    for consumer_name, node in dag.items():
-        if node.fn is None:
-            node.materialized_deps = []
-            continue
+    `materialize_output` is the runtime contract.
+    `materialized_deps` is derived afterward only as consumer-side diagnostics.
+    """
+    producer_needs_materialize = {name: False for name in dag}
 
-        for dep_name, dep_type in node.deps.items():
-            if is_materialized_consumer(dep_type):
-                mark(consumer_name, dep_name)
-            elif dep_name in dag and dag[dep_name].on_error == OnError.STOP:
-                mark(consumer_name, dep_name)
+    for producer_name, node in dag.items():
+        if node.on_error == OnError.STOP or node.force_materialize:
+            producer_needs_materialize[producer_name] = True
 
-        if node.force_materialize:
-            for dep_name in node.deps:
-                mark(consumer_name, dep_name)
+    changed = True
+    while changed:
+        changed = False
 
-        lazy_stream_deps = [
-            dep_name
-            for dep_name in node.deps
-            if dep_name not in planned_edges[consumer_name]
-            and dep_name in indexes.stream_nodes
-        ]
-        if len(lazy_stream_deps) >= 2:
-            for dep_name in lazy_stream_deps:
-                mark(consumer_name, dep_name)
-
-    def reachable_stream_targets(start: str) -> set[str]:
-        seen = set()
-        stack = [start]
-        reachable = set()
-
-        while stack:
-            current = stack.pop()
-            if current in seen:
+        for consumer_name, node in dag.items():
+            if node.fn is None:
                 continue
-            seen.add(current)
-            reachable.add(current)
-            if current in indexes.stream_nodes:
-                stack.extend(indexes.consumers_by_producer[current])
 
-        return reachable
+            for dep_name, dep_type in node.deps.items():
+                if dep_name not in dag:
+                    continue
+                if (
+                    is_materialized_consumer(dep_type)
+                    and not producer_needs_materialize[dep_name]
+                ):
+                    producer_needs_materialize[dep_name] = True
+                    changed = True
 
-    for producer_name in indexes.stream_nodes:
-        direct_consumers = indexes.consumers_by_producer[producer_name]
-        if len(direct_consumers) < 2:
-            continue
+            if node.force_materialize:
+                for dep_name in node.deps:
+                    if dep_name in dag and not producer_needs_materialize[dep_name]:
+                        producer_needs_materialize[dep_name] = True
+                        changed = True
 
-        branch_targets = {
-            consumer_name: reachable_stream_targets(consumer_name)
-            for consumer_name in direct_consumers
-        }
-        target_branch_counts: dict[str, int] = {}
-        for targets in branch_targets.values():
-            for target in targets:
-                target_branch_counts[target] = target_branch_counts.get(target, 0) + 1
-        shared_targets = {
-            target
-            for target, branch_count in target_branch_counts.items()
-            if branch_count >= 2
-        }
+            lazy_stream_deps = [
+                dep_name
+                for dep_name in node.deps
+                if dep_name in indexes.stream_nodes
+                and dep_name not in node.each_mode_deps
+                and not producer_needs_materialize[dep_name]
+            ]
+            if len(lazy_stream_deps) >= 2:
+                for dep_name in lazy_stream_deps:
+                    if not producer_needs_materialize[dep_name]:
+                        producer_needs_materialize[dep_name] = True
+                        changed = True
 
-        for consumer_name, targets in branch_targets.items():
-            if targets & shared_targets:
-                mark(consumer_name, producer_name)
+            # If this stream producer is already compiled as materialized,
+            # every lazy upstream stream it drains must also materialize.
+            # This keeps the policy producer-level while avoiding runtime
+            # deadlocks in merging/fanout chains.
+            if producer_needs_materialize[consumer_name] and _is_stream_output(
+                node.output
+            ):
+                for dep_name in lazy_stream_deps:
+                    if not producer_needs_materialize[dep_name]:
+                        producer_needs_materialize[dep_name] = True
+                        changed = True
+
+    for producer_name, node in dag.items():
+        node.materialize_output = producer_needs_materialize[producer_name]
 
     for consumer_name, node in dag.items():
         if node.fn is None:
             node.materialized_deps = []
             continue
         node.materialized_deps = [
-            dep_name for dep_name in node.deps if dep_name in planned_edges[consumer_name]
+            dep_name
+            for dep_name in node.deps
+            if dep_name in dag and producer_needs_materialize[dep_name]
         ]
 
 
@@ -568,7 +575,7 @@ def build_dag(
         pipeline_obs_resolved,
     )
     indexes = _build_dag_indexes(dag)
-    _plan_materialized_deps(dag, indexes)
+    _plan_materialization(dag, indexes)
     dag_obj = _finalize_dag(
         pipeline_name,
         dag,

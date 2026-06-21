@@ -562,21 +562,7 @@ class AsyncPipelineExecutor:
                     isinstance(value, (asyncio.Queue, AsyncQueueBranch))
                     and dep_name not in unrolled
                 ):
-                    dep_type = node.deps.get(dep_name)
-                    producer_node = self.dag[dep_name]
-                    materializer = self._resolve_materializer(dep_name, producer_node)
-                    if dep_name in node.materialized_deps:
-                        value, _, _ = await _apply_materializer(
-                            self.dag,
-                            dep_name,
-                            queue_to_async_gen(value),
-                            materializer,
-                            consumer_type=dep_type,
-                        )
-                    else:
-                        value = await _resolve_queue(
-                            value,
-                        )
+                    value = await _resolve_queue(value)
                 if isinstance(value, (list, tuple, set)) and dep_name not in unrolled:
                     dep_type = node.deps.get(dep_name)
                     origin = getattr(dep_type, "__origin__", dep_type)
@@ -810,24 +796,12 @@ class AsyncPipelineExecutor:
             await self._publish_scalar_output(step_name, output, node, deferred)
             return
 
-        plan = self.dag.consumer_materialization_plan(step_name)
-        consumers = plan.consumers
+        consumers = self.dag.consumers_of(step_name)
 
-        if self.dag.requires_eager_materialization(step_name):
+        if self.dag.needs_materialize(step_name):
             try:
                 await self._publish_eager_materialized_stream(
                     step_name, output, node, consumers, deferred
-                )
-            except PipelineStopException:
-                raise
-            except Exception as exc:
-                await self._handle_stream_publish_error(step_name, node, exc)
-            return
-
-        if len(consumers) == 1 and plan.eager_consumers:
-            try:
-                await self._publish_single_consumer_stream(
-                    step_name, output, node, consumers[0], deferred
                 )
             except PipelineStopException:
                 raise

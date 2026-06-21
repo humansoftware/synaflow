@@ -58,7 +58,7 @@ pack = PipelinePack(
                 "mode": "all",
                 "materializer": None,
                 "error_materializer": "log_error",
-                "materialized_deps": [],
+                "materialized_deps": ["gen"],
                 "each_mode_deps": [],
                 "pipeline": "mixed_fanout",
                 "parent_pipeline": None,
@@ -85,7 +85,7 @@ pack = PipelinePack(
     input_params=MixedFanoutParams(count=3),
     step_results={
         "gen": [0, 1, 2],
-        "lazy": (True, [0, 1, 2]),
+        "lazy": (False, [0, 1, 2]),
         "eager": (True, [0, 1, 2]),
     },
     expected_execution_levels=[["gen"], ["lazy", "eager"]],
