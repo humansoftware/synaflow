@@ -701,6 +701,12 @@ def test_given_diamond_topology_with_multiple_lazy_streams_when_run_then_no_dead
     def b(source: Iterator[int]) -> Iterator[int]:
         yield from source
 
+    audit_seen = []
+
+    def audit(source: Iterator[int]) -> None:
+        for x in source:
+            audit_seen.append(x)
+
     call_order = []
 
     def finalize(a: Iterator[int], b: Iterator[int]) -> None:
@@ -716,9 +722,16 @@ def test_given_diamond_topology_with_multiple_lazy_streams_when_run_then_no_dead
             step("source", fn=source),
             step("a", fn=a),
             step("b", fn=b),
+            step("audit", fn=audit),
             step("finalize", fn=finalize),
         ],
     )
 
+    # Prove compile-time precision: source is materialized for a and b, but NOT for audit (remains lazy)
+    assert "source" in my_pipeline.dag.steps["a"].materialized_deps
+    assert "source" in my_pipeline.dag.steps["b"].materialized_deps
+    assert "source" not in my_pipeline.dag.steps["audit"].materialized_deps
+
     run_pipeline(my_pipeline, params=P())
     assert len(call_order) == 20
+    assert len(audit_seen) == 10

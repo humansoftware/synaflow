@@ -359,7 +359,7 @@ def _resolve_materializers(
                     )
 
 
-def _detect_and_force_materialize_merging_fanouts(dag: dict[str, DagNode]) -> None:
+def _detect_and_materialize_merging_fanout_edges(dag: dict[str, DagNode]) -> None:
     adj = {name: [] for name in dag}
     for name, node in dag.items():
         for dep in node.deps:
@@ -389,14 +389,17 @@ def _detect_and_force_materialize_merging_fanouts(dag: dict[str, DagNode]) -> No
     for name, node in dag.items():
         if node.output is not None:
             if is_sync_stream_type(node.output) or is_async_stream_type(node.output):
-                is_merging = False
                 for other_name in dag:
                     if other_name != name:
                         if count_paths(name, other_name) >= 2:
-                            is_merging = True
-                            break
-                if is_merging:
-                    node.force_materialize = True
+                            # name is a merging fan-out producer.
+                            # We want to materialize name for any direct downstream consumer
+                            # that can reach the merge point other_name.
+                            for neighbor in adj[name]:
+                                if count_paths(neighbor, other_name) >= 1:
+                                    neighbor_node = dag[neighbor]
+                                    if name not in neighbor_node.materialized_deps:
+                                        neighbor_node.materialized_deps.append(name)
 
 
 def _compute_materialized_deps(dag: dict[str, DagNode]) -> None:
@@ -511,8 +514,8 @@ def build_dag(
         effective_resources,
         pipeline_obs_resolved,
     )
-    _detect_and_force_materialize_merging_fanouts(dag)
     _compute_materialized_deps(dag)
+    _detect_and_materialize_merging_fanout_edges(dag)
     dag_obj = _finalize_dag(
         pipeline_name,
         dag,
