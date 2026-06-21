@@ -698,23 +698,6 @@ class AsyncPipelineExecutor:
         if deferred:
             await self._emit_step_result(node, step_name, items, had_error, exc)
 
-    async def _publish_single_consumer_stream(
-        self,
-        step_name,
-        output,
-        node,
-        consumer,
-        deferred,
-    ):
-        consumer_type = self.dag[consumer].deps.get(step_name)
-        items, had_error, exc = await self._materialize_with_events(
-            step_name, output, node, consumer_type=consumer_type
-        )
-        self.outputs[self.dag.output_key(step_name, consumer)] = items
-        self._notify_observers(step_name, items)
-        if deferred:
-            await self._emit_step_result(node, step_name, items, had_error, exc)
-
     async def _handle_stream_publish_error(self, step_name, node, exc):
         await _handle_error(self.dag, step_name, exc)
         if node.on_error == OnError.STOP:

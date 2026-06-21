@@ -32,7 +32,6 @@ from synaflow.core.types import (
 from synaflow.execution.overrides import ExecutionOverrides
 from synaflow.execution.sync_handoff import (
     SyncFanout,
-    SyncMaterializedValue,
     SyncQueueIterator,
 )
 
@@ -328,7 +327,7 @@ class PipelineExecutor:
             for dep_name in node.deps:
                 key = self.dag.output_key(dep_name, step_name)
                 value = self.outputs.get(key, self.outputs.get(dep_name))
-                if isinstance(value, (SyncQueueIterator, SyncMaterializedValue)):
+                if isinstance(value, SyncQueueIterator):
                     handoff_steps.add(step_name)
                     break
         return handoff_steps
@@ -483,23 +482,9 @@ class PipelineExecutor:
             else:
                 key = self.dag.output_key(dep_name, consumer)
                 value = self.outputs.get(key, self.outputs.get(dep_name))
-                if isinstance(value, SyncMaterializedValue):
-                    value = self._resolve_materialized_value(
-                        dep_name, value, node, consumer
-                    )
             param = node.dataset_param_names.get(dep_name, dep_name)
             args[param] = value
         return args
-
-    def _resolve_materialized_value(self, producer, holder, node, consumer):
-        consumer_type = node.deps.get(producer)
-        output, _, _ = self._materialize_with_events(
-            producer,
-            holder.result(),
-            self.dag[producer],
-            consumer_type=consumer_type,
-        )
-        return output
 
     def _attach_argument_cleanup(self, output, arguments):
         if not isinstance(output, Iterator):
@@ -668,8 +653,7 @@ class PipelineExecutor:
             fanout = SyncFanout(
                 output,
                 max_in_flight=max(1, node.max_in_flight),
-                lazy_branches=[consumer, *observer_branches],
-                eager_branches=[],
+                branches=[consumer, *observer_branches],
             )
             self._active_fanouts.append(fanout)
             self.outputs[self.dag.output_key(step_name, consumer)] = (
@@ -705,8 +689,7 @@ class PipelineExecutor:
         fanout = SyncFanout(
             output,
             max_in_flight=max(1, node.max_in_flight),
-            lazy_branches=consumers + self._observer_branch_names(),
-            eager_branches=[],
+            branches=consumers + self._observer_branch_names(),
         )
         self._active_fanouts.append(fanout)
         for consumer in consumers:
