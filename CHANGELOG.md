@@ -2,6 +2,25 @@
 
 
 
+## v0.20.1 (2026-06-21)
+
+### Documentation
+
+* docs: add dedicated resources guide (#55) ([`e7d487f`](https://github.com/humansoftware/synaflow/commit/e7d487f89b3d0a4ce89ecd6f10e52cb333fd1f4a))
+
+### Fix
+
+* fix: resolve pipeline deadlock in merging fan-outs at compile-time ([`aa545ef`](https://github.com/humansoftware/synaflow/commit/aa545eff23fb62baa355cbd2abf1ed7d4e54abd3))
+
+### Refactor
+
+* refactor: refine merging fan-outs deadlock resolution to use edge-specific materialized_deps ([`5c31c0a`](https://github.com/humansoftware/synaflow/commit/5c31c0ab64cbf4b4bd9ade621b993a81978e2377))
+
+### Test
+
+* test: cover async resource provider errors (#54) ([`ada7c2a`](https://github.com/humansoftware/synaflow/commit/ada7c2a75ebe89e5ad742415045802550d83d1e6))
+
+
 ## v0.20.0 (2026-06-20)
 
 ### Feature
