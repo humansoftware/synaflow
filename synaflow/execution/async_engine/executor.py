@@ -368,15 +368,71 @@ class AsyncPipelineExecutor:
         for field, value in params._asdict().items():
             self.outputs[field] = value
 
+    def _step_inputs_available(self, step_name: str) -> bool:
+        node = self.dag[step_name]
+        for dep_name in node.deps:
+            if dep_name in self.dag.resources:
+                continue
+            key = self.dag.output_key(dep_name, step_name)
+            if key not in self.outputs and dep_name not in self.outputs:
+                return False
+        return True
+
+    async def _run_graph(self) -> None:
+        running_tasks = set()
+        finished_tasks = set()
+        ready_tasks = set()
+        fatal_error = None
+
+        event = asyncio.Event()
+
+        def check_new_ready_steps():
+            for s in self.dag.steps:
+                if (
+                    s not in ready_tasks
+                    and s not in running_tasks
+                    and s not in finished_tasks
+                ):
+                    if self._step_inputs_available(s):
+                        ready_tasks.add(s)
+
+            while ready_tasks:
+                s = ready_tasks.pop()
+                running_tasks.add(s)
+                task = asyncio.create_task(self._run_step(s))
+                task.add_done_callback(lambda t, step_name=s: step_done(t, step_name))
+
+        def step_done(task, step_name):
+            nonlocal fatal_error
+            running_tasks.remove(step_name)
+            finished_tasks.add(step_name)
+            try:
+                task.result()
+            except BaseException as exc:
+                if fatal_error is None:
+                    fatal_error = exc
+                for t in self._pump_tasks:
+                    t.cancel()
+
+            if fatal_error is None:
+                check_new_ready_steps()
+
+            if not running_tasks:
+                event.set()
+
+        check_new_ready_steps()
+        if running_tasks:
+            await event.wait()
+
+        if fatal_error is not None:
+            raise fatal_error
+
     async def execute(self, params: Any) -> None:
         self._seed_runtime_inputs(params)
 
         await self._dispatch_pipeline_event(PipelineEvent.STARTED)
         try:
-            for level in self.dag.get_execution_levels():
-                tasks = [self._run_step(name) for name in level]
-                if tasks:
-                    await asyncio.gather(*tasks)
+            await self._run_graph()
 
             if self._pump_tasks:
                 await asyncio.gather(*self._pump_tasks)

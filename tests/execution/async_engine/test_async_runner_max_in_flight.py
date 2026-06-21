@@ -532,3 +532,100 @@ async def test_runner_contract_uses_dag_node_max_in_flight_not_step_max_in_fligh
     assert produced == list(range(20))
     assert consumed == list(range(20))
     assert max_seen_ahead <= 3
+
+
+import pytest
+from collections.abc import AsyncIterator
+from synaflow import async_run
+
+
+@pytest.mark.asyncio
+async def test_given_multilevel_each_fanout_when_run_max_in_flight_1_then_completes():
+    class P(NamedTuple):
+        pass
+
+    async def source() -> AsyncIterator[int]:
+        for i in range(20):
+            yield i
+
+    async def l1a(source: int) -> int:
+        return source
+
+    async def l1b(source: int) -> int:
+        return source * 10
+
+    async def l1c(source: int) -> int:
+        return source * 100
+
+    seen_x: list[int] = []
+    seen_y: list[int] = []
+
+    async def l2x(l1a: int) -> None:
+        seen_x.append(l1a)
+
+    async def l2y(l1a: int) -> None:
+        seen_y.append(l1a)
+
+    my_pipeline = pipeline(
+        name="test_multilevel_each_fanout_mif_1_async",
+        params=P,
+        steps=[
+            step("source", fn=source, max_in_flight=1),
+            step("l1a", fn=l1a, max_in_flight=1),
+            step("l1b", fn=l1b, max_in_flight=1),
+            step("l1c", fn=l1c, max_in_flight=1),
+            step("l2x", fn=l2x, max_in_flight=1),
+            step("l2y", fn=l2y, max_in_flight=1),
+        ],
+    )
+
+    await async_run(my_pipeline, params=P())
+
+    assert seen_x == list(range(20))
+    assert seen_y == list(range(20))
+
+
+@pytest.mark.asyncio
+async def test_given_multilevel_each_fanout_when_run_max_in_flight_3_then_completes():
+    class P(NamedTuple):
+        pass
+
+    async def source() -> AsyncIterator[int]:
+        for i in range(20):
+            yield i
+
+    async def l1a(source: int) -> int:
+        return source
+
+    async def l1b(source: int) -> int:
+        return source * 10
+
+    async def l1c(source: int) -> int:
+        return source * 100
+
+    seen_x: list[int] = []
+    seen_y: list[int] = []
+
+    async def l2x(l1a: int) -> None:
+        seen_x.append(l1a)
+
+    async def l2y(l1a: int) -> None:
+        seen_y.append(l1a)
+
+    my_pipeline = pipeline(
+        name="test_multilevel_each_fanout_mif_3_async",
+        params=P,
+        steps=[
+            step("source", fn=source, max_in_flight=3),
+            step("l1a", fn=l1a, max_in_flight=3),
+            step("l1b", fn=l1b, max_in_flight=3),
+            step("l1c", fn=l1c, max_in_flight=3),
+            step("l2x", fn=l2x, max_in_flight=3),
+            step("l2y", fn=l2y, max_in_flight=3),
+        ],
+    )
+
+    await async_run(my_pipeline, params=P())
+
+    assert seen_x == list(range(20))
+    assert seen_y == list(range(20))

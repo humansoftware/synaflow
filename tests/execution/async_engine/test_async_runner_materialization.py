@@ -736,3 +736,56 @@ async def test_given_diamond_topology_with_multiple_lazy_streams_when_run_then_n
     await async_run(my_pipeline, params=P())
     assert len(call_order) == 20
     assert len(audit_seen) == 10
+
+
+import pytest
+from collections.abc import AsyncIterator
+from synaflow import async_run
+
+
+@pytest.mark.asyncio
+async def test_given_multilevel_each_fanout_when_run_then_completes_without_materializing_intermediate():
+    class P(NamedTuple):
+        pass
+
+    async def source() -> AsyncIterator[int]:
+        for i in range(20):
+            yield i
+
+    async def l1a(source: int) -> int:
+        return source
+
+    async def l1b(source: int) -> int:
+        return source * 10
+
+    async def l1c(source: int) -> int:
+        return source * 100
+
+    seen_x: list[int] = []
+    seen_y: list[int] = []
+
+    async def l2x(l1a: int) -> None:
+        seen_x.append(l1a)
+
+    async def l2y(l1a: int) -> None:
+        seen_y.append(l1a)
+
+    my_pipeline = pipeline(
+        name="test_multilevel_each_fanout_async",
+        params=P,
+        steps=[
+            step("source", fn=source),
+            step("l1a", fn=l1a),
+            step("l1b", fn=l1b),
+            step("l1c", fn=l1c),
+            step("l2x", fn=l2x),
+            step("l2y", fn=l2y),
+        ],
+    )
+
+    assert my_pipeline.dag.steps["l1a"].materialize_output is False
+
+    await async_run(my_pipeline, params=P())
+
+    assert seen_x == list(range(20))
+    assert seen_y == list(range(20))
