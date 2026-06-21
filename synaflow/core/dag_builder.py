@@ -359,20 +359,53 @@ def _resolve_materializers(
                     )
 
 
-def _detect_and_materialize_merging_fanout_edges(dag: dict[str, DagNode]) -> None:
-    adjacency = {name: [] for name in dag}
+def _plan_materialized_deps(dag: dict[str, DagNode]) -> None:
+    consumers_by_producer = {name: [] for name in dag}
+    stream_nodes = {
+        name
+        for name, node in dag.items()
+        if node.output is not None
+        and (is_sync_stream_type(node.output) or is_async_stream_type(node.output))
+    }
+
     for consumer_name, node in dag.items():
         for dep_name in node.deps:
-            if dep_name in adjacency:
-                adjacency[dep_name].append(consumer_name)
+            if dep_name in consumers_by_producer:
+                consumers_by_producer[dep_name].append(consumer_name)
 
-    def is_stream_node(node_name: str) -> bool:
-        output = dag[node_name].output
-        return output is not None and (
-            is_sync_stream_type(output) or is_async_stream_type(output)
-        )
+    planned_edges: dict[str, set[str]] = {
+        consumer_name: set() for consumer_name in dag if dag[consumer_name].fn is not None
+    }
 
-    def reachable_targets(start: str) -> set[str]:
+    def mark(consumer_name: str, dep_name: str) -> None:
+        if consumer_name in planned_edges:
+            planned_edges[consumer_name].add(dep_name)
+
+    for consumer_name, node in dag.items():
+        if node.fn is None:
+            node.materialized_deps = []
+            continue
+
+        for dep_name, dep_type in node.deps.items():
+            if is_materialized_consumer(dep_type):
+                mark(consumer_name, dep_name)
+            elif dep_name in dag and dag[dep_name].on_error == OnError.STOP:
+                mark(consumer_name, dep_name)
+
+        if node.force_materialize:
+            for dep_name in node.deps:
+                mark(consumer_name, dep_name)
+
+        lazy_stream_deps = [
+            dep_name
+            for dep_name in node.deps
+            if dep_name not in planned_edges[consumer_name] and dep_name in stream_nodes
+        ]
+        if len(lazy_stream_deps) >= 2:
+            for dep_name in lazy_stream_deps:
+                mark(consumer_name, dep_name)
+
+    def reachable_stream_targets(start: str) -> set[str]:
         seen = set()
         stack = [start]
         reachable = set()
@@ -383,23 +416,18 @@ def _detect_and_materialize_merging_fanout_edges(dag: dict[str, DagNode]) -> Non
                 continue
             seen.add(current)
             reachable.add(current)
-            if is_stream_node(current):
-                stack.extend(adjacency[current])
+            if current in stream_nodes:
+                stack.extend(consumers_by_producer[current])
 
         return reachable
 
-    for producer_name, node in dag.items():
-        if node.output is None or not (
-            is_sync_stream_type(node.output) or is_async_stream_type(node.output)
-        ):
-            continue
-
-        direct_consumers = adjacency[producer_name]
+    for producer_name in stream_nodes:
+        direct_consumers = consumers_by_producer[producer_name]
         if len(direct_consumers) < 2:
             continue
 
         branch_targets = {
-            consumer_name: reachable_targets(consumer_name)
+            consumer_name: reachable_stream_targets(consumer_name)
             for consumer_name in direct_consumers
         }
         target_branch_counts: dict[str, int] = {}
@@ -407,51 +435,22 @@ def _detect_and_materialize_merging_fanout_edges(dag: dict[str, DagNode]) -> Non
             for target in targets:
                 target_branch_counts[target] = target_branch_counts.get(target, 0) + 1
         shared_targets = {
-            target for target, branch_count in target_branch_counts.items() if branch_count >= 2
+            target
+            for target, branch_count in target_branch_counts.items()
+            if branch_count >= 2
         }
 
         for consumer_name, targets in branch_targets.items():
-            if not (targets & shared_targets):
-                continue
-            consumer_node = dag[consumer_name]
-            if producer_name not in consumer_node.materialized_deps:
-                consumer_node.materialized_deps.append(producer_name)
+            if targets & shared_targets:
+                mark(consumer_name, producer_name)
 
-
-def _compute_materialized_deps(dag: dict[str, DagNode]) -> None:
-    for node in dag.values():
+    for consumer_name, node in dag.items():
         if node.fn is None:
             node.materialized_deps = []
             continue
-
-        materialized_deps = []
-        for dep_name, dep_type in node.deps.items():
-            if is_materialized_consumer(dep_type):
-                materialized_deps.append(dep_name)
-            elif dep_name in dag and dag[dep_name].on_error == OnError.STOP:
-                materialized_deps.append(dep_name)
-        if node.force_materialize:
-            for dep_name in node.deps:
-                if dep_name not in materialized_deps:
-                    materialized_deps.append(dep_name)
-
-        lazy_stream_deps = []
-        for dep_name in node.deps:
-            if dep_name in materialized_deps:
-                continue
-            producer_node = dag.get(dep_name)
-            if producer_node is None or producer_node.output is None:
-                continue
-            if is_sync_stream_type(producer_node.output) or is_async_stream_type(
-                producer_node.output
-            ):
-                lazy_stream_deps.append(dep_name)
-
-        if len(lazy_stream_deps) >= 2:
-            for dep_name in lazy_stream_deps:
-                if dep_name not in materialized_deps:
-                    materialized_deps.append(dep_name)
-        node.materialized_deps = materialized_deps
+        node.materialized_deps = [
+            dep_name for dep_name in node.deps if dep_name in planned_edges[consumer_name]
+        ]
 
 
 def _expand_and_validate_steps(
@@ -547,8 +546,7 @@ def build_dag(
         effective_resources,
         pipeline_obs_resolved,
     )
-    _compute_materialized_deps(dag)
-    _detect_and_materialize_merging_fanout_edges(dag)
+    _plan_materialized_deps(dag)
     dag_obj = _finalize_dag(
         pipeline_name,
         dag,
