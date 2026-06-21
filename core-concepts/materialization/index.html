@@ -1623,10 +1623,11 @@ what any consumer asks for</strong>.</p>
 </tbody>
 </table>
 <p>These are <strong>build-time decisions</strong>. When <code>pipeline(...)</code> is compiled, SynaFlow
-records which dependencies must be materialized in the <code>Dag</code>
-(<code>materialized_deps</code>) and resolves the materializer callable for each step.
-The runtime executors do not re-decide which branch is eager; they follow the
-compiled contract.</p>
+decides whether each producer output must be materialized and resolves the
+materializer callable for that producer. If a producer is marked for
+materialization, all of its consumers read from the materialized output. The
+runtime executors do not re-decide eager vs lazy edges; they follow the
+compiled DAG contract.</p>
 <h2 id="error-policies-onerrorcontinue-vs-onerrorstop">Error Policies: <code>OnError.CONTINUE</code> vs <code>OnError.STOP</code><a class="headerlink" href="#error-policies-onerrorcontinue-vs-onerrorstop" title="Permanent link">&para;</a></h2>
 <p>Every step has an <code>on_error</code> policy that controls what happens when the step's
 function raises an exception.</p>
@@ -1703,9 +1704,8 @@ function raises an exception.</p>
 </code></pre></div>
 <p>When <code>on_error=STOP</code> is set:</p>
 <ol>
-<li>All consumers downstream of this step have their <code>materialized_deps</code> updated
-   to include this step's output.</li>
-<li>The step's output is fully materialized <strong>before</strong> any consumer runs.</li>
+<li>This producer is marked to materialize its output before publication.</li>
+<li>All downstream consumers read from that materialized output.</li>
 <li>If the step fails partway through, consumers receive the partial data that
    was successfully produced.</li>
 <li>A <code>PipelineStopException</code> is raised with <code>step_name</code> and <code>cause</code>.</li>
@@ -1744,17 +1744,17 @@ partial output. Configure per-step or per-pipeline:</p>
 <tr>
 <td>Consumer type: <code>list[T]</code></td>
 <td>Always (build-time)</td>
-<td>Materializes stream for that consumer</td>
+<td>Marks the producer output for materialization</td>
 </tr>
 <tr>
 <td><code>force_materialize=True</code></td>
 <td>Always (build-time)</td>
-<td>Materializes regardless of consumers</td>
+<td>Marks the producer output for materialization</td>
 </tr>
 <tr>
 <td><code>on_error=STOP</code></td>
 <td>Build-time rule</td>
-<td>Materializes for all downstream consumers</td>
+<td>Marks the producer output for materialization</td>
 </tr>
 <tr>
 <td><code>on_error=CONTINUE</code></td>

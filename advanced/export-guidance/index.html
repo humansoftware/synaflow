@@ -1488,13 +1488,12 @@
 <a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a><span class="w">      </span><span class="nt">&quot;mode&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;all&quot;</span><span class="p">,</span>
 <a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a><span class="w">      </span><span class="nt">&quot;materializer&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;memory_materializer&quot;</span><span class="p">,</span>
 <a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a><span class="w">      </span><span class="nt">&quot;error_materializer&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;log_error_materializer&quot;</span><span class="p">,</span>
-<a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a><span class="w">      </span><span class="nt">&quot;materialized_deps&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[],</span>
-<a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a><span class="w">      </span><span class="nt">&quot;each_mode_deps&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[],</span>
-<a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a><span class="w">      </span><span class="nt">&quot;pipeline&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;example&quot;</span><span class="p">,</span>
-<a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a><span class="w">      </span><span class="nt">&quot;parent_pipeline&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span>
-<a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a><span class="w">    </span><span class="p">}</span>
-<a id="__codelineno-0-18" name="__codelineno-0-18" href="#__codelineno-0-18"></a><span class="w">  </span><span class="p">}</span>
-<a id="__codelineno-0-19" name="__codelineno-0-19" href="#__codelineno-0-19"></a><span class="p">}</span>
+<a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a><span class="w">      </span><span class="nt">&quot;each_mode_deps&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[],</span>
+<a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a><span class="w">      </span><span class="nt">&quot;pipeline&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;example&quot;</span><span class="p">,</span>
+<a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a><span class="w">      </span><span class="nt">&quot;parent_pipeline&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span>
+<a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a><span class="w">    </span><span class="p">}</span>
+<a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a><span class="w">  </span><span class="p">}</span>
+<a id="__codelineno-0-18" name="__codelineno-0-18" href="#__codelineno-0-18"></a><span class="p">}</span>
 </code></pre></div>
 <h2 id="field-reference">Field Reference<a class="headerlink" href="#field-reference" title="Permanent link">&para;</a></h2>
 <table>
@@ -1526,16 +1525,16 @@
 <td><code>"continue"</code> (skip failed items) or <code>"stop"</code> (halt pipeline).</td>
 </tr>
 <tr>
-<td><code>materialized_deps</code></td>
-<td>Which inputs must be fully materialized before this step runs.</td>
-</tr>
-<tr>
 <td><code>materializer</code></td>
 <td>Name of the materializer callable.</td>
 </tr>
 <tr>
 <td><code>error_materializer</code></td>
 <td>Name of the error handler callable.</td>
+</tr>
+<tr>
+<td><code>needs_materialize_reasons</code></td>
+<td>Optional debug-only reasons explaining why this producer was compiled as materialized.</td>
 </tr>
 </tbody>
 </table>
@@ -1570,7 +1569,7 @@
 <h2 id="key-guarantees">Key Guarantees<a class="headerlink" href="#key-guarantees" title="Permanent link">&para;</a></h2>
 <ul>
 <li>The JSON is <strong>deterministic</strong> — same pipeline always produces the same structure.</li>
-<li>All <strong>semantic decisions</strong> (mode, each_mode_deps, materialized_deps) are pre-computed at build time.</li>
+<li>All <strong>semantic decisions</strong> (mode, each_mode_deps, producer-level materialization) are pre-computed at build time.</li>
 <li>External runners do <strong>not</strong> need to re-infer semantics — they only need to execute the contract.</li>
 </ul>
 

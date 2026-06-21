@@ -1613,15 +1613,15 @@ deterministic behavior possible.</p>
 <a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a><span class="w">      </span><span class="nt">&quot;on_error&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;continue&quot;</span><span class="p">,</span>
 <a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a><span class="w">      </span><span class="nt">&quot;max_in_flight&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span>
 <a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a><span class="w">      </span><span class="nt">&quot;materializer&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;memory_materializer&quot;</span><span class="p">,</span>
-<a id="__codelineno-1-13" name="__codelineno-1-13" href="#__codelineno-1-13"></a><span class="w">      </span><span class="nt">&quot;materialized_deps&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[],</span>
-<a id="__codelineno-1-14" name="__codelineno-1-14" href="#__codelineno-1-14"></a><span class="w">      </span><span class="nt">&quot;each_mode_deps&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[]</span>
-<a id="__codelineno-1-15" name="__codelineno-1-15" href="#__codelineno-1-15"></a><span class="w">    </span><span class="p">}</span>
-<a id="__codelineno-1-16" name="__codelineno-1-16" href="#__codelineno-1-16"></a><span class="w">  </span><span class="p">}</span>
-<a id="__codelineno-1-17" name="__codelineno-1-17" href="#__codelineno-1-17"></a><span class="p">}</span>
+<a id="__codelineno-1-13" name="__codelineno-1-13" href="#__codelineno-1-13"></a><span class="w">      </span><span class="nt">&quot;each_mode_deps&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[]</span>
+<a id="__codelineno-1-14" name="__codelineno-1-14" href="#__codelineno-1-14"></a><span class="w">    </span><span class="p">}</span>
+<a id="__codelineno-1-15" name="__codelineno-1-15" href="#__codelineno-1-15"></a><span class="w">  </span><span class="p">}</span>
+<a id="__codelineno-1-16" name="__codelineno-1-16" href="#__codelineno-1-16"></a><span class="p">}</span>
 </code></pre></div>
 <p>All semantic decisions — mode, <code>max_in_flight</code>, <code>each_mode_deps</code>,
-<code>materialized_deps</code>, eager materialization triggered by <code>OnError.STOP</code> or
-<code>force_materialize</code>, and the resolved <code>node.materializer</code> callable — are
+producer-level materialization triggered by consumer requirements,
+<code>OnError.STOP</code>, or <code>force_materialize</code>, and the resolved
+<code>node.materializer</code> callable — are
 resolved at build time and frozen in the JSON or <code>Dag</code>. Runners don't re-infer
 semantics; they execute the contract.</p>
 <p><code>ExecutionOverrides</code> fits inside that boundary: it can swap the concrete
@@ -1715,7 +1715,7 @@ needs to check types or resolve ambiguities at runtime.</p>
 </tr>
 <tr>
 <td>Materialization</td>
-<td>Resolved at build time → <code>node.materializer</code>, <code>materialized_deps</code>, <code>Dag.needs_materialize(...)</code></td>
+<td>Resolved at build time → <code>node.materializer</code>, <code>Dag.needs_materialize(...)</code>, optional debug <code>needs_materialize_reasons</code></td>
 <td>Executor calls the resolved callable and follows the compiled plan</td>
 </tr>
 <tr>
