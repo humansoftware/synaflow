@@ -12,7 +12,7 @@ repos:
     -   id: ruff-format
         exclude: ^boilerplates/
     -   id: ruff-check
-        args: ["--fix", "--select", "F401"]
+        args: ["--fix"]
         exclude: ^boilerplates/
 -   repo: local
     hooks:
