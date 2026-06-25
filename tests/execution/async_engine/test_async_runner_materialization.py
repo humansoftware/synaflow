@@ -741,7 +741,6 @@ async def test_given_diamond_topology_with_multiple_lazy_streams_when_run_then_n
 
 import pytest
 from collections.abc import AsyncIterator
-from synaflow import async_run
 
 
 @pytest.mark.asyncio

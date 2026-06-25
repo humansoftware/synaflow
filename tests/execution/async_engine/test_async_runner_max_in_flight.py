@@ -535,8 +535,6 @@ async def test_runner_contract_uses_dag_node_max_in_flight_not_step_max_in_fligh
 
 
 import pytest
-from collections.abc import AsyncIterator
-from synaflow import async_run
 
 
 @pytest.mark.asyncio

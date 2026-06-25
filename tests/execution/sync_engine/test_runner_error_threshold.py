@@ -75,8 +75,7 @@ def test_absolute_threshold_not_exceeded_completes_normally():
             raise ValueError("boom")
         return items
 
-    p, P = _build_each_pipeline(
-        proc,error_threshold_absolute=5)
+    p, P = _build_each_pipeline(proc, error_threshold_absolute=5)
     # 1 error out of 5 invocations: 1 < 5, so no threshold violation
     run(p, P())
     # No exception expected; test passes by reaching here
@@ -88,8 +87,7 @@ def test_absolute_threshold_exceeded_raises():
             raise ValueError("boom")
         return items
 
-    p, P = _build_each_pipeline(
-        proc,error_threshold_absolute=2)
+    p, P = _build_each_pipeline(proc, error_threshold_absolute=2)
     with pytest.raises(ThresholdExceededException) as exc_info:
         run(p, P())
     # 3 errors out of 5 invocations: 3 >= 2, so threshold exceeded
@@ -110,8 +108,7 @@ def test_pct_threshold_not_exceeded_completes_normally():
         return items
 
     # 1 error out of 5: 1/5 = 0.2, threshold 0.5 not exceeded
-    p, P = _build_each_pipeline(
-        proc,error_threshold_pct=0.5)
+    p, P = _build_each_pipeline(proc, error_threshold_pct=0.5)
     run(p, P())
 
 
@@ -122,8 +119,7 @@ def test_pct_threshold_exceeded_raises():
         return items
 
     # 3 errors out of 5: 3/5 = 0.6, threshold 0.5 exceeded
-    p, P = _build_each_pipeline(
-        proc,error_threshold_pct=0.5)
+    p, P = _build_each_pipeline(proc, error_threshold_pct=0.5)
     with pytest.raises(ThresholdExceededException) as exc_info:
         run(p, P())
     assert exc_info.value.error_count == 3
@@ -218,8 +214,7 @@ def test_threshold_fires_after_all_consumed_not_mid_stream():
             raise ValueError("boom on item 2")
         return items
 
-    p, P = _build_each_pipeline(
-        proc,error_threshold_pct=0.2)
+    p, P = _build_each_pipeline(proc, error_threshold_pct=0.2)
     with pytest.raises(ThresholdExceededException):
         run(p, P())
     # All 5 items were processed before the exception
@@ -238,8 +233,7 @@ def test_pct_threshold_boundary_exact_match_triggers():
         return items
 
     # 2/5 = 0.4, threshold 0.4 -> 0.4 >= 0.4 -> triggers
-    p, P = _build_each_pipeline(
-        proc,error_threshold_pct=0.4)
+    p, P = _build_each_pipeline(proc, error_threshold_pct=0.4)
     with pytest.raises(ThresholdExceededException):
         run(p, P())
 
@@ -251,8 +245,7 @@ def test_pct_threshold_boundary_just_below_no_trigger():
         return items
 
     # 1/5 = 0.2, threshold 0.4 -> 0.2 >= 0.4 -> False, no trigger
-    p, P = _build_each_pipeline(
-        proc,error_threshold_pct=0.4)
+    p, P = _build_each_pipeline(proc, error_threshold_pct=0.4)
     run(p, P())
 
 
@@ -263,8 +256,7 @@ def test_pct_threshold_100_pct_only_fires_on_full_failure():
         return items
 
     # 4/5 = 0.8, threshold 1.0 -> 0.8 >= 1.0 -> False, no trigger
-    p, P = _build_each_pipeline(
-        proc,error_threshold_pct=1.0)
+    p, P = _build_each_pipeline(proc, error_threshold_pct=1.0)
     run(p, P())
 
     def proc_all_fail(items: int) -> int:
@@ -400,9 +392,7 @@ def test_observers_receive_failed_events_on_threshold():
 
     failed_events = [e for e in events if "FAILED" in e[0].name]
     step_failed = [e for e in failed_events if e[0] == StepEvent.FAILED]
-    pipeline_failed = [
-        e for e in failed_events if e[0] == PipelineEvent.FAILED
-    ]
+    pipeline_failed = [e for e in failed_events if e[0] == PipelineEvent.FAILED]
     assert len(step_failed) >= 1
     assert step_failed[0][1] == "proc"
     assert len(pipeline_failed) >= 1
@@ -468,9 +458,7 @@ def test_manual_threshold_exception_in_all_step_escape_hatch():
 
     def all_proc() -> int:
         # Manually raise after tracking own counts
-        raise ThresholdExceededException(
-            "all_proc", error_count=3, success_count=7
-        )
+        raise ThresholdExceededException("all_proc", error_count=3, success_count=7)
 
     class P(NamedTuple):
         pass
@@ -481,7 +469,9 @@ def test_manual_threshold_exception_in_all_step_escape_hatch():
         error_materializer=error_factory,
         steps=[step("all_proc", fn=all_proc)],
     )
-    print(f"DEBUG: node.error_materializer = {p.dag.steps['all_proc'].error_materializer}")
+    print(
+        f"DEBUG: node.error_materializer = {p.dag.steps['all_proc'].error_materializer}"
+    )
     with pytest.raises(ThresholdExceededException) as exc_info:
         run(p, P())
     # Error materializer was called
@@ -629,4 +619,9 @@ def test_on_error_stop_no_longer_forces_materialization():
     except PipelineStopException:
         pass
     assert captured_type, f"captured_type was empty: {captured_type}"
-    assert captured_type[0] in ("generator", "list_iterator", "SyncQueueIterator", "list")
+    assert captured_type[0] in (
+        "generator",
+        "list_iterator",
+        "SyncQueueIterator",
+        "list",
+    )

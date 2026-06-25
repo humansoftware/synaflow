@@ -112,9 +112,7 @@ def _wrap_threshold_raise_if_manual(
     wrap it so the error materializer logs a clear "you're misusing the API"
     message. The original is preserved as __cause__ for full traceback."""
     if isinstance(exc, ThresholdExceededException):
-        return InvalidThresholdRaiseInEACHStep(
-            step_name=step_name, original=exc
-        )
+        return InvalidThresholdRaiseInEACHStep(step_name=step_name, original=exc)
     return exc
 
 
@@ -126,10 +124,7 @@ def _check_threshold(
 ) -> None:
     """Called AFTER all inputs are consumed. Raises ThresholdExceededException
     if any threshold is violated. Not called mid-stream to avoid false positives."""
-    if (
-        node.error_threshold_absolute is None
-        and node.error_threshold_pct is None
-    ):
+    if node.error_threshold_absolute is None and node.error_threshold_pct is None:
         return
 
     success_count = invocation_count - error_count
@@ -144,9 +139,10 @@ def _check_threshold(
             )
 
     if node.error_threshold_pct is not None:
-        if invocation_count > 0 and (
-            error_count / invocation_count
-        ) >= node.error_threshold_pct:
+        if (
+            invocation_count > 0
+            and (error_count / invocation_count) >= node.error_threshold_pct
+        ):
             raise ThresholdExceededException(
                 step_name=step_name,
                 error_count=error_count,
@@ -583,6 +579,7 @@ class PipelineExecutor:
             iterators[dep] = iter(source if source is not None else [])
 
         on_err = node.on_error
+
         def generate():
             invocation_count = 0
             error_count = 0

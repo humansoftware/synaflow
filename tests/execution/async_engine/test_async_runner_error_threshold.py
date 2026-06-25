@@ -357,9 +357,7 @@ async def test_observers_receive_failed_events_on_threshold():
 
     failed_events = [e for e in events if "FAILED" in e[0].name]
     step_failed = [e for e in failed_events if e[0] == StepEvent.FAILED]
-    pipeline_failed = [
-        e for e in failed_events if e[0] == PipelineEvent.FAILED
-    ]
+    pipeline_failed = [e for e in failed_events if e[0] == PipelineEvent.FAILED]
     assert len(step_failed) >= 1
     assert step_failed[0][1] == "proc"
     assert len(pipeline_failed) >= 1
@@ -482,9 +480,7 @@ async def test_manual_threshold_exception_in_each_step_wraps_in_validator():
     await async_run(p, P())
     assert len(handled) == 1
     assert isinstance(handled[0], InvalidThresholdRaiseInEACHStep)
-    assert isinstance(
-        handled[0].original_exception, ThresholdExceededException
-    )
+    assert isinstance(handled[0].original_exception, ThresholdExceededException)
 
 
 # ---------------------------------------------------------------------------

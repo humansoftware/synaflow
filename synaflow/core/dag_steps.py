@@ -250,10 +250,7 @@ def _validate_threshold_values(step: Step, pipeline_name: str) -> None:
 
 
 def _validate_threshold_with_on_error_stop(step: Step, pipeline_name: str) -> None:
-    if (
-        _has_threshold_configured(step)
-        and step.on_error == OnError.STOP
-    ):
+    if _has_threshold_configured(step) and step.on_error == OnError.STOP:
         raise ValueError(
             f"Pipeline '{pipeline_name}': step '{step.name}' defines "
             f"'error_threshold_absolute' (or 'error_threshold_pct') together with "
