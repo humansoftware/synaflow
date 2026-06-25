@@ -47,6 +47,8 @@ class DagNode:
     observers: list = field(default_factory=list)
     dataset_param_names: dict[str, str] = field(default_factory=dict)
     max_in_flight: int = 1
+    error_threshold_absolute: int | None = None
+    error_threshold_pct: float | None = None
 
     def __getitem__(self, key):
         return getattr(self, key)
@@ -79,6 +81,10 @@ class DagNode:
             ret["observers"] = _serialize_observers(self.observers)
         if self.dataset_param_names:
             ret["dataset_param_names"] = dict(self.dataset_param_names)
+        if self.error_threshold_absolute is not None:
+            ret["error_threshold_absolute"] = self.error_threshold_absolute
+        if self.error_threshold_pct is not None:
+            ret["error_threshold_pct"] = self.error_threshold_pct
         return ret
 
 

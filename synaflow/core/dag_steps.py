@@ -15,7 +15,7 @@ from synaflow.core.type_compatibility import (
     is_scalar,
     is_sync_stream_type,
 )
-from synaflow.core.types import StepMode
+from synaflow.core.types import OnError, StepMode
 
 
 def validate_step_is_callable(step: Step, pipeline_name: str) -> None:
@@ -50,12 +50,15 @@ def validate_and_compile_step(
     hints = get_safe_type_hints(step.fn)
 
     _validate_max_in_flight(step, pipeline_name)
+    _validate_threshold_values(step, pipeline_name)
+    _validate_threshold_with_on_error_stop(step, pipeline_name)
 
     deps, dataset_param_names = validate_and_resolve_dependencies(
         step, sig, hints, produced, resources, pipeline_name
     )
 
     mode, each_mode_deps = resolve_step_mode(step, deps, produced, pipeline_name)
+    _validate_threshold_with_mode(step, mode, pipeline_name)
     output_type = resolve_step_output_type(sig, hints, deps, produced, mode)
 
     return DagNode(
@@ -73,6 +76,8 @@ def validate_and_compile_step(
         observers=list(observers or []),
         dataset_param_names=dataset_param_names,
         max_in_flight=step.max_in_flight,
+        error_threshold_absolute=step.error_threshold_absolute,
+        error_threshold_pct=step.error_threshold_pct,
     )
 
 
@@ -219,6 +224,61 @@ def _validate_max_in_flight(step: Step, pipeline_name: str) -> None:
         raise ValueError(
             f"Pipeline '{pipeline_name}': step '{step.name}' "
             f"max_in_flight must be >= 1, got {value}"
+        )
+
+
+def _has_threshold_configured(step: Step) -> bool:
+    return (
+        step.error_threshold_absolute is not None
+        or step.error_threshold_pct is not None
+    )
+
+
+def _validate_threshold_values(step: Step, pipeline_name: str) -> None:
+    if step.error_threshold_pct is not None and not (
+        0.0 < step.error_threshold_pct <= 1.0
+    ):
+        raise ValueError(
+            f"Pipeline '{pipeline_name}': step '{step.name}' "
+            f"error_threshold_pct must be in (0.0, 1.0], got {step.error_threshold_pct}"
+        )
+    if step.error_threshold_absolute is not None and step.error_threshold_absolute < 1:
+        raise ValueError(
+            f"Pipeline '{pipeline_name}': step '{step.name}' "
+            f"error_threshold_absolute must be >= 1, got {step.error_threshold_absolute}"
+        )
+
+
+def _validate_threshold_with_on_error_stop(step: Step, pipeline_name: str) -> None:
+    if (
+        _has_threshold_configured(step)
+        and step.on_error == OnError.STOP
+    ):
+        raise ValueError(
+            f"Pipeline '{pipeline_name}': step '{step.name}' defines "
+            f"'error_threshold_absolute' (or 'error_threshold_pct') together with "
+            f"'on_error=STOP'. This combination is meaningless: on_error=STOP halts "
+            f"the pipeline on the very first error, so the threshold counter can "
+            f"never reach 2. Use on_error=CONTINUE with a threshold to allow "
+            f"partial failures, or use on_error=STOP alone to halt immediately."
+        )
+
+
+def _validate_threshold_with_mode(
+    step: Step, mode: StepMode, pipeline_name: str
+) -> None:
+    if not _has_threshold_configured(step):
+        return
+    if mode == StepMode.ALL:
+        raise ValueError(
+            f"Pipeline '{pipeline_name}': step '{step.name}' defines "
+            f"'error_threshold_absolute' (or 'error_threshold_pct') but resolves "
+            f"to mode=ALL. Error thresholds track per-item failures and are only "
+            f"meaningful in EACH mode, where the step is called once per input "
+            f"item. In ALL mode, the step receives its entire input at once and "
+            f"manages its own iteration internally. If you need threshold "
+            f"enforcement in an ALL-mode step, raise ThresholdExceededException "
+            f"manually from within the step function."
         )
 
 
