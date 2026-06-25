@@ -2,6 +2,64 @@
 
 
 
+## v0.21.0 (2026-06-25)
+
+### Chore
+
+* chore: enable full ruff linting in pre-commit (#62) ([`e08f440`](https://github.com/humansoftware/synaflow/commit/e08f44047f5d0415077024db891d34314619be25))
+
+### Feature
+
+* feat: error threshold for EACH-mode steps + BREAKING: on_error=STOP no longer forces materialization (#63)
+
+* refactor: drop on_error=STOP forced materialization (breaking)
+
+- on_error=STOP no longer marks the producer for materialization in
+  _plan_materialization. It is now a pure runtime policy: raise
+  PipelineStopException on the first error.
+- Remove Dag.requires_eager_materialization() -- the method was buggy
+  (covered only 2 of 5 materialization reasons), was never called by
+  any executor or production code, and is superseded by
+  Dag.needs_materialize().
+- Re-raise PipelineStopException in the per-item except inside the
+  consumer&#39;s _unroll_step.generate() so that a STOP from an upstream
+  producer propagates to the consumer (matches the runtime promise
+  that &#39;consumers simply stop receiving items when the stream ends&#39;).
+- Update 4 tests that relied on forced materialization to add explicit
+  force_materialize=True (test_given_on_error_stop_with_downstream_*
+  in sync + async, test_given_scalar_output_with_on_error_stop_* in
+  sync + async).
+- Remove 4 tests that validated the removed behavior.
+- Drop now-unused OnError imports.
+- Document the breaking change in materialization.md and CHANGELOG.
+
+* feat: error threshold for EACH-mode steps (#)
+
+- error_threshold_absolute: fail step after N failed invocations
+- error_threshold_pct: (0, 1] fail step when error rate &gt;= P
+- ThresholdExceededException propagates from run()/async_run()
+- generate() dispatches StepEvent.FAILED/COMPLETED with actual counts
+- execute() dispatches PipelineEvent.FAILED with step_name
+- InvalidThresholdRaiseInEACHStep wraps manual raises from EACH steps
+- Build-time: rejects STOP+threshold, ALL+threshold, bad values
+- Sub-pipeline expansion propagates threshold fields
+- Bug fix: COMPLETED events populate real per-item error counts
+  for all on_error=CONTINUE steps (was always error_count=0)
+- Docs: new Error Thresholds section in materialization.md
+
+Design: threshold check runs pos-loop inside generate(), dispatches
+events directly (no _emit_deferred_completion bypass). Consumer&#39;s
+per-item except is never touched (exception propagates through
+next() calls outside the try/except). Async _pump_iterator puts
+ThresholdExceededException in consumer queue regardless of on_error.
+
+* fix: remove unused Iterator import in async threshold tests
+
+* chore: auto-format (ruff format)
+
+* chore: revert manual CHANGELOG update (auto-generated on merge) ([`39ca329`](https://github.com/humansoftware/synaflow/commit/39ca32933fd11c41bf5f9cc2a51cc6b539dd7dff))
+
+
 ## v0.20.4 (2026-06-21)
 
 ### Fix
