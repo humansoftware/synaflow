@@ -3,7 +3,7 @@
 Covers the spec's 15+ scenarios for the async engine.
 """
 
-from collections.abc import AsyncIterator, Iterator
+from collections.abc import AsyncIterator
 from typing import NamedTuple
 
 import pytest
