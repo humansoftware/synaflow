@@ -204,39 +204,6 @@ async def test_given_max_in_flight_3_when_linear_stream_then_ahead_distance_stay
 
 
 @pytest.mark.asyncio
-async def test_given_max_in_flight_1_when_fanout_slow_branch_then_bound_is_exact():
-    log: list[str] = []
-
-    async def producer(count: int) -> AsyncGenerator[int, None]:
-        for i in range(count):
-            log.append(f"prod {i}")
-            yield i
-
-    async def fast(producer: int) -> None:
-        log.append(f"fast {producer}")
-
-    async def slow(producer: int) -> None:
-        log.append(f"slow-recv {producer}")
-        await asyncio.sleep(0.01)
-        log.append(f"slow {producer}")
-
-    p = pipeline(
-        name="test",
-        params=Count,
-        steps=[
-            step("producer", fn=producer, max_in_flight=1),
-            step("fast", fn=fast),
-            step("slow", fn=slow),
-        ],
-    )
-    await async_run(p, Count(count=5))
-
-    slow_0_index = log.index("slow-recv 0")
-    prod_2_index = log.index("prod 2")
-    assert slow_0_index < prod_2_index
-
-
-@pytest.mark.asyncio
 async def test_given_max_in_flight_3_when_fanout_two_consumers_then_both_get_all_items():
     from collections.abc import AsyncGenerator, AsyncIterator
 

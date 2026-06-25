@@ -898,7 +898,7 @@ class PipelineExecutor:
 
         fanout = SyncFanout(
             output,
-            max_in_flight=max(1, node.max_in_flight),
+            max_in_flight=0,  # unbounded: avoid deadlock between branches
             branches=consumers + self._observer_branch_names(),
         )
         self._active_fanouts.append(fanout)

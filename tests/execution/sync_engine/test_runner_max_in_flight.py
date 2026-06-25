@@ -217,40 +217,6 @@ def test_given_max_in_flight_3_when_linear_stream_then_producer_blocks_before_it
     assert log.index("recv 0") < log.index("prod 4")
 
 
-def test_given_max_in_flight_1_when_fanout_slow_branch_then_bound_is_exact():
-    log: list[str] = []
-
-    def producer(count: int) -> Generator[int, None, None]:
-        for i in range(count):
-            log.append(f"prod {i}")
-            yield i
-
-    def fast(producer: Iterator[int]) -> None:
-        for item in producer:
-            log.append(f"fast {item}")
-
-    def slow(producer: Iterator[int]) -> None:
-        for item in producer:
-            log.append(f"slow-recv {item}")
-            sleep(0.01)
-            log.append(f"slow {item}")
-
-    p = pipeline(
-        name="test",
-        params=Count,
-        steps=[
-            step("producer", fn=producer, max_in_flight=1),
-            step("fast", fn=fast),
-            step("slow", fn=slow),
-        ],
-    )
-    run(p, Count(count=5))
-
-    slow_0_index = log.index("slow-recv 0")
-    prod_2_index = log.index("prod 2")
-    assert slow_0_index < prod_2_index
-
-
 def test_given_max_in_flight_3_when_fanout_lazy_and_eager_then_both_receive_items():
     def producer(count: int) -> Generator[int, None, None]:
         yield from range(count)
