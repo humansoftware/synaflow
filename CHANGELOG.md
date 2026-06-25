@@ -2,6 +2,29 @@
 
 
 
+## v0.21.0 (unreleased)
+
+### Breaking change
+
+* `on_error=STOP` no longer forces producer materialization at build time. Previously,
+  setting `on_error=STOP` had a side effect of marking the producer's output for
+  materialization so downstream consumers could inspect partial data after a failure.
+  This side effect is removed: `on_error=STOP` is now a pure runtime policy (raise
+  `PipelineStopException` on the first error). To restore the old "inspect partial data"
+  behavior, set `force_materialize=True` on the step explicitly.
+
+  Also removed `Dag.requires_eager_materialization()` — the method was buggy (covered
+  only 2 of 5 materialization reasons), was never called by any executor or production
+  code, and is superseded by `Dag.needs_materialize()`.
+
+  Lazy consumers now re-raise `PipelineStopException` propagated from an upstream
+  producer so the consumer also stops (matches the runtime promise that "consumers
+  simply stop receiving items when the stream ends").
+
+  Action required: if you relied on `on_error=STOP` to materialize for downstream
+  inspection, add `force_materialize=True` to the step.
+
+
 ## v0.20.4 (2026-06-21)
 
 ### Fix

@@ -468,6 +468,10 @@ class PipelineExecutor:
                         break
                     try:
                         yield node.fn(**item_args)
+                    except PipelineStopException:
+                        # Propagate STOP from upstream producer so the consumer
+                        # also stops, even without forced materialization.
+                        raise
                     except Exception as exc:
                         _handle_error(self.dag, step_name, exc)
                         if on_err == OnError.STOP:

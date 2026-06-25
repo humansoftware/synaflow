@@ -2,7 +2,6 @@ from collections.abc import Iterator
 from typing import NamedTuple
 
 from synaflow import pipeline, step
-from synaflow.core.types import OnError
 
 from .conftest import EmptyParams, build_minimal_dag
 
@@ -49,21 +48,6 @@ def test_given_consumer_wants_iterator_when_dag_built_then_producer_stays_lazy()
 
     p = build_minimal_dag(producer_fn=gen, consumer_fn=consumer)
     assert p.dag.needs_materialize("producer") is False
-
-
-def test_given_producer_on_error_stop_when_dag_built_then_producer_needs_materialization():
-    def gen() -> Iterator[int]:
-        yield 1
-
-    def consumer(producer: Iterator[int]) -> list[int]:
-        return list(producer)
-
-    p = build_minimal_dag(
-        producer_fn=gen,
-        consumer_fn=consumer,
-        producer_on_error=OnError.STOP,
-    )
-    assert p.dag.needs_materialize("producer") is True
 
 
 def test_given_mixed_consumers_when_dag_built_then_producer_materializes_for_all_consumers():

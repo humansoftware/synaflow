@@ -191,12 +191,6 @@ class Dag:
             return False
         return node.materialize_output
 
-    def requires_eager_materialization(self, step_name: str) -> bool:
-        node = self.steps.get(step_name)
-        if node is None:
-            return False
-        return node.on_error == OnError.STOP or node.force_materialize
-
     def get_execution_levels(self) -> list[list[str]]:
         in_degree: dict[str, int] = {name: 0 for name in self.steps}
         for name, node in self.steps.items():

@@ -122,7 +122,12 @@ async def test_given_on_error_stop_with_downstream_when_item_fails_then_downstre
         name="test",
         params=P,
         steps=[
-            step("s1", fn=s1, on_error=OnError.STOP),
+            step(
+                "s1",
+                fn=s1,
+                on_error=OnError.STOP,
+                force_materialize=True,
+            ),
             step("s2", fn=s2),
         ],
     )

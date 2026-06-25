@@ -80,7 +80,6 @@ Materialization also happens automatically when:
 |---|---|
 | Consumer asks for `list[T]`, `set[T]`, `dict[K,V]` | `def fn(data: list[int])` |
 | Consumer asks for `tuple[T, ...]` | `def fn(data: tuple[int, ...])` |
-| `on_error=STOP` on the producer (see below) | All downstream consumers materialize |
 
 These are **build-time decisions**. When `pipeline(...)` is compiled, SynaFlow
 decides whether each producer output must be materialized and resolves the
@@ -88,6 +87,14 @@ materializer callable for that producer. If a producer is marked for
 materialization, all of its consumers read from the materialized output. The
 runtime executors do not re-decide eager vs lazy edges; they follow the
 compiled DAG contract.
+
+!!! note "Breaking change (v0.21.0)"
+    `on_error=STOP` **no longer forces** the producer to materialize. Previously,
+    setting `on_error=STOP` had the side effect of marking the producer for
+    materialization so downstream consumers could inspect partial data on
+    failure. This side effect is now removed — `on_error=STOP` is purely a
+    runtime policy (raise `PipelineStopException` on first error). To get
+    partial data visibility, set `force_materialize=True` explicitly.
 
 ## Error Policies: `OnError.CONTINUE` vs `OnError.STOP`
 
@@ -164,26 +171,29 @@ The failing item is discarded and the pipeline continues with the next item.
 
 ### `OnError.STOP`
 
-The pipeline halts immediately. All downstream consumers have their inputs
-**materialized before execution** so they can inspect the partial data.
+The pipeline halts immediately on the first error and raises a
+`PipelineStopException` with `step_name` and `cause`. Lazy consumers simply
+stop receiving items (the upstream stream ends); consumers that have already
+received items keep what they have.
 
 ```python
 step("fragile", fn=fragile, on_error=OnError.STOP)
 ```
 
-When `on_error=STOP` is set:
+!!! warning "Breaking change (v0.21.0)"
+    `on_error=STOP` used to mark the producer for materialization so that
+    downstream consumers could inspect partial data after a failure. That
+    side effect is gone: `on_error=STOP` is now a **runtime-only** policy.
+    If you want consumers to receive a materialized snapshot of the partial
+    output (including items produced before the failure), set
+    `force_materialize=True` on the step explicitly.
 
-1. This producer is marked to materialize its output before publication.
-2. All downstream consumers read from that materialized output.
-3. If the step fails partway through, consumers receive the partial data that
-   was successfully produced.
-4. A `PipelineStopException` is raised with `step_name` and `cause`.
+    **Before (v0.20.x):** `on_error=STOP` forced materialization — consumers
+    could read partial data.
 
-This guarantees transactional integrity — you can inspect what was processed
-before the failure.
-
-In other words, `OnError.STOP` changes the compiled materialization plan, not
-just the runtime error behavior.
+    **After (v0.21.0+):** `on_error=STOP` halts on first error; the stream
+    simply ends. To restore the old "inspect partial data" behavior, add
+    `force_materialize=True`.
 
 ## Error Materializers
 
@@ -212,6 +222,6 @@ step("critical", fn=do_work,
 |---|---|---|
 | Consumer type: `list[T]` | Always (build-time) | Marks the producer output for materialization |
 | `force_materialize=True` | Always (build-time) | Marks the producer output for materialization |
-| `on_error=STOP` | Build-time rule | Marks the producer output for materialization |
 | `on_error=CONTINUE` | Runtime (per item) | Skips failed item, pipeline keeps running |
+| `on_error=STOP` | Runtime (first error) | Halts pipeline, raises `PipelineStopException` |
 | Error materializer | Runtime (per failure) | Captures exception + partial data |

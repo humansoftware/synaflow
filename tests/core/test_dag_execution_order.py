@@ -239,29 +239,6 @@ def test_given_dag_node_with_resolved_each_mode_when_each_inputs_then_reads_from
     assert dag.each_inputs("transform") == ["items"]
 
 
-def test_given_on_error_stop_when_requires_eager_materialization_then_true():
-    from synaflow.core.dag import Dag, DagNode
-    from synaflow.core.types import OnError
-
-    dag = Dag(name="test")
-    dag.steps = {
-        "producer": DagNode(deps={}, on_error=OnError.STOP),
-    }
-
-    assert dag.requires_eager_materialization("producer") is True
-
-
-def test_given_force_materialize_when_requires_eager_materialization_then_true():
-    from synaflow.core.dag import Dag, DagNode
-
-    dag = Dag(name="test")
-    dag.steps = {
-        "producer": DagNode(deps={}, force_materialize=True),
-    }
-
-    assert dag.requires_eager_materialization("producer") is True
-
-
 def test_given_materialized_producer_when_needs_materialize_then_true():
     from synaflow.core.dag import Dag, DagNode
 
