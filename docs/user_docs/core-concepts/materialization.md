@@ -80,7 +80,6 @@ Materialization also happens automatically when:
 |---|---|
 | Consumer asks for `list[T]`, `set[T]`, `dict[K,V]` | `def fn(data: list[int])` |
 | Consumer asks for `tuple[T, ...]` | `def fn(data: tuple[int, ...])` |
-| `on_error=STOP` on the producer (see below) | All downstream consumers materialize |
 
 These are **build-time decisions**. When `pipeline(...)` is compiled, SynaFlow
 decides whether each producer output must be materialized and resolves the
@@ -88,6 +87,14 @@ materializer callable for that producer. If a producer is marked for
 materialization, all of its consumers read from the materialized output. The
 runtime executors do not re-decide eager vs lazy edges; they follow the
 compiled DAG contract.
+
+!!! note "Breaking change (v0.21.0)"
+    `on_error=STOP` **no longer forces** the producer to materialize. Previously,
+    setting `on_error=STOP` had the side effect of marking the producer for
+    materialization so downstream consumers could inspect partial data on
+    failure. This side effect is now removed — `on_error=STOP` is purely a
+    runtime policy (raise `PipelineStopException` on first error). To get
+    partial data visibility, set `force_materialize=True` explicitly.
 
 ## Error Policies: `OnError.CONTINUE` vs `OnError.STOP`
 
@@ -164,26 +171,29 @@ The failing item is discarded and the pipeline continues with the next item.
 
 ### `OnError.STOP`
 
-The pipeline halts immediately. All downstream consumers have their inputs
-**materialized before execution** so they can inspect the partial data.
+The pipeline halts immediately on the first error and raises a
+`PipelineStopException` with `step_name` and `cause`. Lazy consumers simply
+stop receiving items (the upstream stream ends); consumers that have already
+received items keep what they have.
 
 ```python
 step("fragile", fn=fragile, on_error=OnError.STOP)
 ```
 
-When `on_error=STOP` is set:
+!!! warning "Breaking change (v0.21.0)"
+    `on_error=STOP` used to mark the producer for materialization so that
+    downstream consumers could inspect partial data after a failure. That
+    side effect is gone: `on_error=STOP` is now a **runtime-only** policy.
+    If you want consumers to receive a materialized snapshot of the partial
+    output (including items produced before the failure), set
+    `force_materialize=True` on the step explicitly.
 
-1. This producer is marked to materialize its output before publication.
-2. All downstream consumers read from that materialized output.
-3. If the step fails partway through, consumers receive the partial data that
-   was successfully produced.
-4. A `PipelineStopException` is raised with `step_name` and `cause`.
+    **Before (v0.20.x):** `on_error=STOP` forced materialization — consumers
+    could read partial data.
 
-This guarantees transactional integrity — you can inspect what was processed
-before the failure.
-
-In other words, `OnError.STOP` changes the compiled materialization plan, not
-just the runtime error behavior.
+    **After (v0.21.0+):** `on_error=STOP` halts on first error; the stream
+    simply ends. To restore the old "inspect partial data" behavior, add
+    `force_materialize=True`.
 
 ## Error Materializers
 
@@ -206,12 +216,55 @@ step("critical", fn=do_work,
      error_materializer=log_error_materializer)
 ```
 
+## Error Thresholds (v0.21.0)
+
+Steps in `EACH` mode can enforce an error threshold so the pipeline
+halts when too many invocations fail, even with `on_error=CONTINUE`.
+Two knobs are available:
+
+| Parameter | Meaning |
+|---|---|
+| `error_threshold_absolute: int` | Fail the step after `N` failed invocations |
+| `error_threshold_pct: float` | Fail the step when the failure rate reaches `P` |
+
+When the threshold is exceeded **after all inputs are consumed** (not mid-stream),
+a `ThresholdExceededException` is raised. It propagates out of `run()` /
+`async_run()` and emits `StepEvent.FAILED` + `PipelineEvent.FAILED` to
+configured observers.
+
+```python
+from synaflow import pipeline, step
+
+step("fragile", fn=process,
+     error_threshold_absolute=5)          # halt on 5th failure
+step("brittle", fn=validate,
+     error_threshold_pct=0.3)             # halt when 30%+ failed
+```
+
+### Constraints
+
+- Only meaningful with `mode=EACH` (the executor must know how many
+  invocations occurred). Build-time rejects `mode=ALL` + threshold.
+- Cannot be combined with `on_error=STOP` (logical conflict — STOP halts
+  on the first error, so the counter can never reach 2).
+- Values: `error_threshold_pct` must be in `(0.0, 1.0]`;
+  `error_threshold_absolute` must be `>= 1`.
+
+### Escape hatch — manual raise in `ALL`-mode steps
+
+When you manage your own iteration inside an `ALL`-mode step, you can
+`raise ThresholdExceededException(...)` manually with the counts you
+tracked. The executor treats this as a step failure and emits the same
+`FAILED` events. Configure an error materializer if you need those
+exceptions logged.
+
 ## Summary
 
 | Mechanism | When it triggers | Effect |
 |---|---|---|
 | Consumer type: `list[T]` | Always (build-time) | Marks the producer output for materialization |
 | `force_materialize=True` | Always (build-time) | Marks the producer output for materialization |
-| `on_error=STOP` | Build-time rule | Marks the producer output for materialization |
+| `error_threshold_absolute / pct` | Runtime (after all inputs consumed) | Halts pipeline when threshold exceeded, raises `ThresholdExceededException` |
 | `on_error=CONTINUE` | Runtime (per item) | Skips failed item, pipeline keeps running |
+| `on_error=STOP` | Runtime (first error) | Halts pipeline, raises `PipelineStopException` |
 | Error materializer | Runtime (per failure) | Captures exception + partial data |

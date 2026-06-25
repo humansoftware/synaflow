@@ -449,6 +449,7 @@ def test_given_scalar_output_with_on_error_stop_when_run_then_scalar_materialize
                 fn=produce,
                 on_error=OnError.STOP,
                 materializer=scalar_materializer,
+                force_materialize=True,
             ),
             step("consume", fn=consume),
         ],

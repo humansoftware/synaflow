@@ -138,4 +138,3 @@ In C#, when you need to let a producer task run ahead of a consumer task up to a
 *   **TPL Dataflow blocks** (using `BoundedCapacity` on blocks like `TransformBlock`).
 
 SynaFlow embeds this capability directly into your DAG definition via `max_in_flight=N` on the step without requiring you to write channel or queue plumbing.
-

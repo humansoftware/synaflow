@@ -603,6 +603,7 @@ async def test_given_scalar_output_with_on_error_stop_when_run_then_scalar_mater
                 fn=produce,
                 on_error=OnError.STOP,
                 materializer=scalar_materializer,
+                force_materialize=True,
             ),
             step("consume", fn=consume),
         ],
@@ -740,7 +741,6 @@ async def test_given_diamond_topology_with_multiple_lazy_streams_when_run_then_n
 
 import pytest
 from collections.abc import AsyncIterator
-from synaflow import async_run
 
 
 @pytest.mark.asyncio

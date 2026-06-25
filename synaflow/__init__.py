@@ -1,5 +1,10 @@
 from .core.definition import include, pipeline, step
 from .core.constants import PIPELINE_SCOPE
+from .core.exceptions import (
+    InvalidThresholdRaiseInEACHStep,
+    PipelineStopException,
+    ThresholdExceededException,
+)
 from .core.naming import Scope
 from .core.observers import (
     MaterializationEvent,
@@ -37,6 +42,9 @@ __all__ = [
     "PipelineEvent",
     "StepEvent",
     "MaterializationEvent",
+    "ThresholdExceededException",
+    "InvalidThresholdRaiseInEACHStep",
+    "PipelineStopException",
     "json_serializer",
     "jsonl_serializer",
     "csv_serializer",

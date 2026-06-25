@@ -10,7 +10,6 @@ from synaflow import (
     async_run,
     OnError,
 )
-from synaflow import pipeline, step
 from synaflow.materializers.composite import (
     composite_error_materializer,
     composite_materializer,

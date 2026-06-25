@@ -9,7 +9,11 @@ from synaflow.core.dag import Dag
 from synaflow.core.constants import PIPELINE_SCOPE
 from synaflow.execution.bounded_iterator import BoundedIterator
 from synaflow.core.definition import PipelineDef
-from synaflow.core.exceptions import PipelineStopException
+from synaflow.core.exceptions import (
+    InvalidThresholdRaiseInEACHStep,
+    PipelineStopException,
+    ThresholdExceededException,
+)
 from synaflow.core.observers import (
     MaterializationCompletedContext,
     MaterializationEvent,
@@ -99,6 +103,82 @@ def _handle_error(dag: Dag, step_name: str, exc: BaseException) -> None:
         raise TypeError(f"Error materializer for step '{step_name}' is not callable.")
 
     err_mat(exc)
+
+
+def _wrap_threshold_raise_if_manual(
+    exc: BaseException, step_name: str
+) -> BaseException:
+    """If the user manually raised ThresholdExceededException from inside fn(),
+    wrap it so the error materializer logs a clear "you're misusing the API"
+    message. The original is preserved as __cause__ for full traceback."""
+    if isinstance(exc, ThresholdExceededException):
+        return InvalidThresholdRaiseInEACHStep(step_name=step_name, original=exc)
+    return exc
+
+
+def _check_threshold(
+    step_name: str,
+    node: Any,
+    invocation_count: int,
+    error_count: int,
+) -> None:
+    """Called AFTER all inputs are consumed. Raises ThresholdExceededException
+    if any threshold is violated. Not called mid-stream to avoid false positives."""
+    if node.error_threshold_absolute is None and node.error_threshold_pct is None:
+        return
+
+    success_count = invocation_count - error_count
+
+    if node.error_threshold_absolute is not None:
+        if error_count >= node.error_threshold_absolute:
+            raise ThresholdExceededException(
+                step_name=step_name,
+                error_count=error_count,
+                success_count=success_count,
+                threshold_absolute=node.error_threshold_absolute,
+            )
+
+    if node.error_threshold_pct is not None:
+        if (
+            invocation_count > 0
+            and (error_count / invocation_count) >= node.error_threshold_pct
+        ):
+            raise ThresholdExceededException(
+                step_name=step_name,
+                error_count=error_count,
+                success_count=success_count,
+                threshold_pct=node.error_threshold_pct,
+            )
+
+
+def _compute_completed_all_inputs_for_all(
+    node: Any, arguments: dict, exc: ThresholdExceededException
+) -> bool:
+    """For an ALL step that manually raised ThresholdExceededException,
+    determine if the user processed all inputs before raising.
+
+    Total processed = exc.error_count + exc.success_count (user-supplied).
+    Total input = sum of len(arg) across deps, for sized collections only.
+    Returns False if input size is unknown (non-sized iterators).
+    """
+    total_input = 0
+    known = True
+    for value in arguments.values():
+        try:
+            total_input += len(value)
+        except TypeError:
+            known = False
+            break
+    if not known:
+        return False
+    return (exc.error_count + exc.success_count) == total_input
+
+
+def _has_threshold(node: Any) -> bool:
+    return (
+        node.error_threshold_absolute is not None
+        or node.error_threshold_pct is not None
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -288,6 +368,13 @@ class PipelineExecutor:
                 exception=exc.cause or exc,
             )
             raise
+        except ThresholdExceededException as exc:
+            self._dispatch_pipeline_event(
+                PipelineEvent.FAILED,
+                step_name=exc.step_name,
+                exception=exc,
+            )
+            raise
         except Exception as exc:
             self._dispatch_pipeline_event(
                 PipelineEvent.FAILED, step_name=None, exception=exc
@@ -399,6 +486,40 @@ class PipelineExecutor:
         except PipelineStopException as exc:
             self._dispatch_step_failure(node, step_name, exc.cause or exc)
             raise
+        except ThresholdExceededException as exc:
+            if exc.step_name != step_name:
+                # Upstream threshold propagating through this consumer:
+                # the producer's generate() already dispatched FAILED.
+                pass
+            elif unrolled and _has_threshold(node):
+                # This step's generate() already dispatched FAILED (path A).
+                pass
+            elif not unrolled:
+                # ALL-mode manual raise by this step (path B, escape hatch)
+                completed_all_inputs = _compute_completed_all_inputs_for_all(
+                    node, arguments, exc
+                )
+                _handle_error(self.dag, step_name, exc)
+                self._dispatch_step_failure(
+                    node,
+                    step_name,
+                    exc,
+                    success_count=exc.success_count,
+                    error_count=exc.error_count,
+                    completed_all_inputs=completed_all_inputs,
+                )
+            else:
+                # EACH mode, no threshold configured (should not reach here
+                # per build-time validation, but handle defensively)
+                self._dispatch_step_failure(
+                    node,
+                    step_name,
+                    exc,
+                    success_count=exc.success_count,
+                    error_count=exc.error_count,
+                    completed_all_inputs=True,
+                )
+            raise
         except Exception as exc:
             _handle_error(self.dag, step_name, exc)
             self._dispatch_step_failure(node, step_name, exc)
@@ -426,7 +547,15 @@ class PipelineExecutor:
             completed_all_inputs=True,
         )
 
-    def _dispatch_step_failure(self, node, step_name, exception):
+    def _dispatch_step_failure(
+        self,
+        node,
+        step_name,
+        exception,
+        success_count: int = 0,
+        error_count: int = 1,
+        completed_all_inputs: bool = False,
+    ):
         cause = exception
         if isinstance(cause, PipelineStopException):
             cause = cause.cause or cause
@@ -434,9 +563,9 @@ class PipelineExecutor:
             node,
             StepEvent.FAILED,
             step_name,
-            success_count=0,
-            error_count=1,
-            completed_all_inputs=False,
+            success_count=success_count,
+            error_count=error_count,
+            completed_all_inputs=completed_all_inputs,
             exception=cause,
         )
 
@@ -452,6 +581,12 @@ class PipelineExecutor:
         on_err = node.on_error
 
         def generate():
+            invocation_count = 0
+            error_count = 0
+            # Reset runtime stats on the node so multiple executor runs
+            # on the same pipeline don't leak counts across runs.
+            node._runtime_error_count = 0
+            node._runtime_invocation_count = 0
             try:
                 while True:
                     item_args = dict(base_args)
@@ -466,15 +601,53 @@ class PipelineExecutor:
                         item_args[param] = value
                     if exhausted == len(unrolled):
                         break
+
+                    invocation_count += 1
                     try:
                         yield node.fn(**item_args)
+                    except PipelineStopException:
+                        # Propagate STOP from upstream producer so the consumer
+                        # also stops, even without forced materialization.
+                        raise
                     except Exception as exc:
-                        _handle_error(self.dag, step_name, exc)
+                        error_count += 1
+                        _handle_error(
+                            self.dag,
+                            step_name,
+                            _wrap_threshold_raise_if_manual(exc, step_name),
+                        )
                         if on_err == OnError.STOP:
                             raise PipelineStopException(
                                 step_name=step_name, cause=exc
                             ) from exc
+                # pos-loop, before generator ends
+                if _has_threshold(node):
+                    try:
+                        _check_threshold(step_name, node, invocation_count, error_count)
+                    except ThresholdExceededException as exc:
+                        self._dispatch_step_failure(
+                            node,
+                            step_name,
+                            exc,
+                            success_count=exc.success_count,
+                            error_count=exc.error_count,
+                            completed_all_inputs=True,
+                        )
+                        raise
+                    success_count = invocation_count - error_count
+                    self._dispatch_step_event(
+                        node,
+                        StepEvent.COMPLETED,
+                        step_name,
+                        success_count=success_count,
+                        error_count=error_count,
+                        completed_all_inputs=True,
+                    )
+                else:
+                    _check_threshold(step_name, node, invocation_count, error_count)
             finally:
+                node._runtime_error_count = error_count
+                node._runtime_invocation_count = invocation_count
                 self._close_managed_stream_arguments(iterators)
 
         if self.dag.is_terminal_step(step_name):
@@ -616,14 +789,18 @@ class PipelineExecutor:
             raise
 
     def _emit_step_result(self, node, step_name, output, had_error, exception=None):
+        if _has_threshold(node):
+            return  # already dispatched by generate()
         success = len(output) if hasattr(output, "__len__") else 1
+        real_error_count = getattr(node, "_runtime_error_count", 0)
+        real_invocation_count = getattr(node, "_runtime_invocation_count", success)
         if had_error:
             self._dispatch_step_event(
                 node,
                 StepEvent.FAILED,
                 step_name,
                 success_count=success,
-                error_count=1,
+                error_count=max(real_error_count, 1),
                 completed_all_inputs=False,
                 exception=exception,
             )
@@ -632,18 +809,22 @@ class PipelineExecutor:
                 node,
                 StepEvent.COMPLETED,
                 step_name,
-                success_count=success,
-                error_count=0,
+                success_count=real_invocation_count - real_error_count,
+                error_count=real_error_count,
                 completed_all_inputs=True,
             )
 
     def _emit_deferred_completion(self, node, step_name):
+        if _has_threshold(node):
+            return  # already dispatched by generate()
+        real_error_count = getattr(node, "_runtime_error_count", 0)
+        real_invocation_count = getattr(node, "_runtime_invocation_count", 0)
         self._dispatch_step_event(
             node,
             StepEvent.COMPLETED,
             step_name,
-            success_count=0,
-            error_count=0,
+            success_count=real_invocation_count - real_error_count,
+            error_count=real_error_count,
             completed_all_inputs=True,
         )
 

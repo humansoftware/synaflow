@@ -26,6 +26,8 @@ class Step(BaseStep):
     parent_pipeline: str | None = None
     observers: list[Observer] = field(default_factory=list)
     max_in_flight: int = 1
+    error_threshold_absolute: int | None = None
+    error_threshold_pct: float | None = None
 
 
 @dataclass

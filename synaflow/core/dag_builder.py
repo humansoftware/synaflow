@@ -70,7 +70,7 @@ from synaflow.core.type_compatibility import (
     is_scalar,
     is_sync_stream_type,
 )
-from synaflow.core.types import ErrorMaterializeContext, MaterializeContext, OnError
+from synaflow.core.types import ErrorMaterializeContext, MaterializeContext
 
 
 def _identity(x):
@@ -423,8 +423,6 @@ def _plan_materialization(dag: dict[str, DagNode], indexes: _DagBuildIndexes) ->
         return True
 
     for producer_name, node in dag.items():
-        if node.on_error == OnError.STOP:
-            mark_materialize(producer_name, "producer_on_error_stop")
         if node.force_materialize:
             mark_materialize(producer_name, "producer_force_materialize")
 

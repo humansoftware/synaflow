@@ -237,7 +237,7 @@ To understand how `max_in_flight` bounds the producer progress, let's look at an
 
   function renderDag() {
     var f = frames[cur];
-    
+
     var prodEl = document.getElementById("svg-prod-state");
     prodEl.textContent = f[1];
     if (f[1].indexOf("Blocked") !== -1) {
