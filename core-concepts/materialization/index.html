@@ -915,6 +915,45 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#error-thresholds-v0210" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Error Thresholds (v0.21.0)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Error Thresholds (v0.21.0)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#constraints" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Constraints
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#escape-hatch-manual-raise-in-all-mode-steps" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Escape hatch — manual raise in ALL-mode steps
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#summary" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1498,6 +1537,45 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#error-thresholds-v0210" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Error Thresholds (v0.21.0)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Error Thresholds (v0.21.0)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#constraints" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Constraints
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#escape-hatch-manual-raise-in-all-mode-steps" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Escape hatch — manual raise in ALL-mode steps
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#summary" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1616,10 +1694,6 @@ what any consumer asks for</strong>.</p>
 <td>Consumer asks for <code>tuple[T, ...]</code></td>
 <td><code>def fn(data: tuple[int, ...])</code></td>
 </tr>
-<tr>
-<td><code>on_error=STOP</code> on the producer (see below)</td>
-<td>All downstream consumers materialize</td>
-</tr>
 </tbody>
 </table>
 <p>These are <strong>build-time decisions</strong>. When <code>pipeline(...)</code> is compiled, SynaFlow
@@ -1628,6 +1702,15 @@ materializer callable for that producer. If a producer is marked for
 materialization, all of its consumers read from the materialized output. The
 runtime executors do not re-decide eager vs lazy edges; they follow the
 compiled DAG contract.</p>
+<div class="admonition note">
+<p class="admonition-title">Breaking change (v0.21.0)</p>
+<p><code>on_error=STOP</code> <strong>no longer forces</strong> the producer to materialize. Previously,
+setting <code>on_error=STOP</code> had the side effect of marking the producer for
+materialization so downstream consumers could inspect partial data on
+failure. This side effect is now removed — <code>on_error=STOP</code> is purely a
+runtime policy (raise <code>PipelineStopException</code> on first error). To get
+partial data visibility, set <code>force_materialize=True</code> explicitly.</p>
+</div>
 <h2 id="error-policies-onerrorcontinue-vs-onerrorstop">Error Policies: <code>OnError.CONTINUE</code> vs <code>OnError.STOP</code><a class="headerlink" href="#error-policies-onerrorcontinue-vs-onerrorstop" title="Permanent link">&para;</a></h2>
 <p>Every step has an <code>on_error</code> policy that controls what happens when the step's
 function raises an exception.</p>
@@ -1698,22 +1781,26 @@ function raises an exception.</p>
 </div>
 </div>
 <h3 id="onerrorstop"><code>OnError.STOP</code><a class="headerlink" href="#onerrorstop" title="Permanent link">&para;</a></h3>
-<p>The pipeline halts immediately. All downstream consumers have their inputs
-<strong>materialized before execution</strong> so they can inspect the partial data.</p>
+<p>The pipeline halts immediately on the first error and raises a
+<code>PipelineStopException</code> with <code>step_name</code> and <code>cause</code>. Lazy consumers simply
+stop receiving items (the upstream stream ends); consumers that have already
+received items keep what they have.</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="n">step</span><span class="p">(</span><span class="s2">&quot;fragile&quot;</span><span class="p">,</span> <span class="n">fn</span><span class="o">=</span><span class="n">fragile</span><span class="p">,</span> <span class="n">on_error</span><span class="o">=</span><span class="n">OnError</span><span class="o">.</span><span class="n">STOP</span><span class="p">)</span>
 </code></pre></div>
-<p>When <code>on_error=STOP</code> is set:</p>
-<ol>
-<li>This producer is marked to materialize its output before publication.</li>
-<li>All downstream consumers read from that materialized output.</li>
-<li>If the step fails partway through, consumers receive the partial data that
-   was successfully produced.</li>
-<li>A <code>PipelineStopException</code> is raised with <code>step_name</code> and <code>cause</code>.</li>
-</ol>
-<p>This guarantees transactional integrity — you can inspect what was processed
-before the failure.</p>
-<p>In other words, <code>OnError.STOP</code> changes the compiled materialization plan, not
-just the runtime error behavior.</p>
+<div class="admonition warning">
+<p class="admonition-title">Breaking change (v0.21.0)</p>
+<p><code>on_error=STOP</code> used to mark the producer for materialization so that
+downstream consumers could inspect partial data after a failure. That
+side effect is gone: <code>on_error=STOP</code> is now a <strong>runtime-only</strong> policy.
+If you want consumers to receive a materialized snapshot of the partial
+output (including items produced before the failure), set
+<code>force_materialize=True</code> on the step explicitly.</p>
+<p><strong>Before (v0.20.x):</strong> <code>on_error=STOP</code> forced materialization — consumers
+could read partial data.</p>
+<p><strong>After (v0.21.0+):</strong> <code>on_error=STOP</code> halts on first error; the stream
+simply ends. To restore the old "inspect partial data" behavior, add
+<code>force_materialize=True</code>.</p>
+</div>
 <h2 id="error-materializers">Error Materializers<a class="headerlink" href="#error-materializers" title="Permanent link">&para;</a></h2>
 <p>When a step fails, an <strong>error materializer</strong> captures the exception and
 partial output. Configure per-step or per-pipeline:</p>
@@ -1731,6 +1818,54 @@ partial output. Configure per-step or per-pipeline:</p>
 <a id="__codelineno-5-12" name="__codelineno-5-12" href="#__codelineno-5-12"></a><span class="n">step</span><span class="p">(</span><span class="s2">&quot;critical&quot;</span><span class="p">,</span> <span class="n">fn</span><span class="o">=</span><span class="n">do_work</span><span class="p">,</span>
 <a id="__codelineno-5-13" name="__codelineno-5-13" href="#__codelineno-5-13"></a>     <span class="n">error_materializer</span><span class="o">=</span><span class="n">log_error_materializer</span><span class="p">)</span>
 </code></pre></div>
+<h2 id="error-thresholds-v0210">Error Thresholds (v0.21.0)<a class="headerlink" href="#error-thresholds-v0210" title="Permanent link">&para;</a></h2>
+<p>Steps in <code>EACH</code> mode can enforce an error threshold so the pipeline
+halts when too many invocations fail, even with <code>on_error=CONTINUE</code>.
+Two knobs are available:</p>
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>error_threshold_absolute: int</code></td>
+<td>Fail the step after <code>N</code> failed invocations</td>
+</tr>
+<tr>
+<td><code>error_threshold_pct: float</code></td>
+<td>Fail the step when the failure rate reaches <code>P</code></td>
+</tr>
+</tbody>
+</table>
+<p>When the threshold is exceeded <strong>after all inputs are consumed</strong> (not mid-stream),
+a <code>ThresholdExceededException</code> is raised. It propagates out of <code>run()</code> /
+<code>async_run()</code> and emits <code>StepEvent.FAILED</code> + <code>PipelineEvent.FAILED</code> to
+configured observers.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">synaflow</span><span class="w"> </span><span class="kn">import</span> <span class="n">pipeline</span><span class="p">,</span> <span class="n">step</span>
+<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>
+<a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="n">step</span><span class="p">(</span><span class="s2">&quot;fragile&quot;</span><span class="p">,</span> <span class="n">fn</span><span class="o">=</span><span class="n">process</span><span class="p">,</span>
+<a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a>     <span class="n">error_threshold_absolute</span><span class="o">=</span><span class="mi">5</span><span class="p">)</span>          <span class="c1"># halt on 5th failure</span>
+<a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a><span class="n">step</span><span class="p">(</span><span class="s2">&quot;brittle&quot;</span><span class="p">,</span> <span class="n">fn</span><span class="o">=</span><span class="n">validate</span><span class="p">,</span>
+<a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a>     <span class="n">error_threshold_pct</span><span class="o">=</span><span class="mf">0.3</span><span class="p">)</span>             <span class="c1"># halt when 30%+ failed</span>
+</code></pre></div>
+<h3 id="constraints">Constraints<a class="headerlink" href="#constraints" title="Permanent link">&para;</a></h3>
+<ul>
+<li>Only meaningful with <code>mode=EACH</code> (the executor must know how many
+  invocations occurred). Build-time rejects <code>mode=ALL</code> + threshold.</li>
+<li>Cannot be combined with <code>on_error=STOP</code> (logical conflict — STOP halts
+  on the first error, so the counter can never reach 2).</li>
+<li>Values: <code>error_threshold_pct</code> must be in <code>(0.0, 1.0]</code>;
+  <code>error_threshold_absolute</code> must be <code>&gt;= 1</code>.</li>
+</ul>
+<h3 id="escape-hatch-manual-raise-in-all-mode-steps">Escape hatch — manual raise in <code>ALL</code>-mode steps<a class="headerlink" href="#escape-hatch-manual-raise-in-all-mode-steps" title="Permanent link">&para;</a></h3>
+<p>When you manage your own iteration inside an <code>ALL</code>-mode step, you can
+<code>raise ThresholdExceededException(...)</code> manually with the counts you
+tracked. The executor treats this as a step failure and emits the same
+<code>FAILED</code> events. Configure an error materializer if you need those
+exceptions logged.</p>
 <h2 id="summary">Summary<a class="headerlink" href="#summary" title="Permanent link">&para;</a></h2>
 <table>
 <thead>
@@ -1752,14 +1887,19 @@ partial output. Configure per-step or per-pipeline:</p>
 <td>Marks the producer output for materialization</td>
 </tr>
 <tr>
-<td><code>on_error=STOP</code></td>
-<td>Build-time rule</td>
-<td>Marks the producer output for materialization</td>
+<td><code>error_threshold_absolute / pct</code></td>
+<td>Runtime (after all inputs consumed)</td>
+<td>Halts pipeline when threshold exceeded, raises <code>ThresholdExceededException</code></td>
 </tr>
 <tr>
 <td><code>on_error=CONTINUE</code></td>
 <td>Runtime (per item)</td>
 <td>Skips failed item, pipeline keeps running</td>
+</tr>
+<tr>
+<td><code>on_error=STOP</code></td>
+<td>Runtime (first error)</td>
+<td>Halts pipeline, raises <code>PipelineStopException</code></td>
 </tr>
 <tr>
 <td>Error materializer</td>
