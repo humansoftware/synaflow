@@ -2,6 +2,19 @@
 
 
 
+## v0.22.0 (2026-06-30)
+
+### Feature
+
+* feat: support dataclass params in pipeline definitions (#68)
+
+* feat: support dataclass params in pipeline definitions
+
+* fix: resolve dataclass execution bugs and add tests for complex object param injection
+
+* chore: remove temporary scratch files ([`902cfc4`](https://github.com/humansoftware/synaflow/commit/902cfc4fb68004e7c48072ec73a9619a9fe35bfa))
+
+
 ## v0.21.0 (2026-06-25)
 
 ### Chore
