@@ -68,6 +68,32 @@ class EventRecorder:
 
 
 @pytest.mark.asyncio
+async def test_given_pipeline_run_id_is_consistent_and_unique_per_run():
+    rec = EventRecorder()
+
+    def dummy(values: list[int]) -> int:
+        return values[0]
+
+    p = pipeline(
+        name="p1",
+        params=Params,
+        steps=[step("dummy", fn=dummy)],
+        observers=[Observer(rec.record)],
+    )
+
+    await AsyncPipelineExecutor(p.dag).execute(Params(values=[1]))
+    await AsyncPipelineExecutor(p.dag).execute(Params(values=[2]))
+
+    # Assert p run
+    run_ids = {ctx.run_id for _, ctx in rec.events}
+    assert len(run_ids) == 2
+
+    # Assert each run_id has events associated with it
+    for r_id in run_ids:
+        assert isinstance(r_id, str) and len(r_id) > 0
+
+
+@pytest.mark.asyncio
 async def test_given_pipeline_observer_when_run_completes_then_started_and_completed_emitted():
     rec = EventRecorder()
 

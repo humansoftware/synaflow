@@ -94,6 +94,7 @@ class ResolvedObserver:
 @dataclass(frozen=True)
 class BaseObserverContext:
     pipeline_name: str
+    run_id: str
     event: Enum
 
 

@@ -1,6 +1,7 @@
 import itertools
 import dataclasses
 import threading
+import uuid
 from contextlib import ExitStack
 from concurrent.futures import ThreadPoolExecutor
 from collections.abc import Iterator
@@ -203,6 +204,7 @@ class PipelineExecutor:
         self._observer_threads: list[threading.Thread] = []
         self._overrides = overrides
         self._resource_factories = dict(resource_factories or {})
+        self.run_id = str(uuid.uuid4())
 
     # ------------------------------------------------------------------
     # Lifecycle observer dispatch helpers
@@ -235,12 +237,17 @@ class PipelineExecutor:
             return
         ctx: Any
         if event is PipelineEvent.STARTED:
-            ctx = PipelineStartedContext(pipeline_name=self.dag.name, event=event)
+            ctx = PipelineStartedContext(
+                pipeline_name=self.dag.name, run_id=self.run_id, event=event
+            )
         elif event is PipelineEvent.COMPLETED:
-            ctx = PipelineCompletedContext(pipeline_name=self.dag.name, event=event)
+            ctx = PipelineCompletedContext(
+                pipeline_name=self.dag.name, run_id=self.run_id, event=event
+            )
         elif event is PipelineEvent.FAILED:
             ctx = PipelineFailedContext(
                 pipeline_name=self.dag.name,
+                run_id=self.run_id,
                 event=event,
                 step_name=step_name,
                 exception=exception,
@@ -266,6 +273,7 @@ class PipelineExecutor:
         if event is StepEvent.STARTED:
             ctx = StepStartedContext(
                 pipeline_name=self.dag.name,
+                run_id=self.run_id,
                 event=event,
                 step_name=step_name,
                 mode=node.mode,
@@ -274,6 +282,7 @@ class PipelineExecutor:
         elif event is StepEvent.COMPLETED:
             ctx = StepCompletedContext(
                 pipeline_name=self.dag.name,
+                run_id=self.run_id,
                 event=event,
                 step_name=step_name,
                 mode=node.mode,
@@ -285,6 +294,7 @@ class PipelineExecutor:
         elif event is StepEvent.FAILED:
             ctx = StepFailedContext(
                 pipeline_name=self.dag.name,
+                run_id=self.run_id,
                 event=event,
                 step_name=step_name,
                 mode=node.mode,
@@ -314,6 +324,7 @@ class PipelineExecutor:
         if event is MaterializationEvent.STARTED:
             ctx = MaterializationStartedContext(
                 pipeline_name=self.dag.name,
+                run_id=self.run_id,
                 event=event,
                 step_name=step_name,
                 dataset_name=step_name,
@@ -323,6 +334,7 @@ class PipelineExecutor:
         elif event is MaterializationEvent.COMPLETED:
             ctx = MaterializationCompletedContext(
                 pipeline_name=self.dag.name,
+                run_id=self.run_id,
                 event=event,
                 step_name=step_name,
                 dataset_name=step_name,
@@ -332,6 +344,7 @@ class PipelineExecutor:
         elif event is MaterializationEvent.FAILED:
             ctx = MaterializationFailedContext(
                 pipeline_name=self.dag.name,
+                run_id=self.run_id,
                 event=event,
                 step_name=step_name,
                 dataset_name=step_name,
