@@ -1,0 +1,29 @@
+from synaflow import pipeline, step, StepMode
+from typing import NamedTuple
+
+
+class SubParams(NamedTuple):
+    x: int
+    y: int
+
+
+class MasterParams(NamedTuple):
+    sub: SubParams
+
+
+def my_step(sub: int):
+    print("Received each item:", type(sub), sub)
+
+
+try:
+    p = pipeline(
+        "test",
+        params=MasterParams,
+        steps=[step("my_step", fn=my_step, mode=StepMode.EACH)],
+    )
+    print("Pipeline built successfully!")
+    from synaflow.execution.sync_engine import run
+
+    run(p, MasterParams(sub=SubParams(x=1, y=2)))
+except Exception as e:
+    print("Error:", e)

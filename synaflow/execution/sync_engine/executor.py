@@ -1,4 +1,5 @@
 import itertools
+import dataclasses
 import threading
 from contextlib import ExitStack
 from concurrent.futures import ThreadPoolExecutor
@@ -347,7 +348,13 @@ class PipelineExecutor:
     # ------------------------------------------------------------------
 
     def _seed_runtime_inputs(self, params: Any) -> None:
-        for field, value in params._asdict().items():
+        if dataclasses.is_dataclass(params):
+            param_dict = {
+                f.name: getattr(params, f.name) for f in dataclasses.fields(params)
+            }
+        else:
+            param_dict = params._asdict()
+        for field, value in param_dict.items():
             self.outputs[field] = value
 
     def _resolve_materializer(self, step_name: str, node: Any) -> Any:

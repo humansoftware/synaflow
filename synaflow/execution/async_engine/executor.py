@@ -1,5 +1,6 @@
 import asyncio
 import inspect
+import dataclasses
 from contextlib import AsyncExitStack
 from collections.abc import AsyncGenerator, AsyncIterator, Generator, Iterator
 from typing import Any
@@ -452,7 +453,13 @@ class AsyncPipelineExecutor:
     # ------------------------------------------------------------------
 
     def _seed_runtime_inputs(self, params: Any) -> None:
-        for field, value in params._asdict().items():
+        if dataclasses.is_dataclass(params):
+            param_dict = {
+                f.name: getattr(params, f.name) for f in dataclasses.fields(params)
+            }
+        else:
+            param_dict = params._asdict()
+        for field, value in param_dict.items():
             self.outputs[field] = value
 
     def _step_inputs_available(self, step_name: str) -> bool:
