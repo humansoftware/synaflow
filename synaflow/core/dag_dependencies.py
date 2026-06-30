@@ -3,6 +3,7 @@ from __future__ import annotations
 import inspect
 import types
 import typing
+import dataclasses
 from typing import Any, NamedTuple, Union
 
 from synaflow.core.dag import DagNode
@@ -25,7 +26,12 @@ def initialize_parameters(params: type[NamedTuple]) -> dict[str, DagNode]:
         hints = typing.get_type_hints(params)
     except (NameError, TypeError):
         hints = getattr(params, "__annotations__", {})
-    for field in getattr(params, "_fields", []):
+    if dataclasses.is_dataclass(params):
+        param_fields = [f.name for f in dataclasses.fields(params)]
+    else:
+        param_fields = getattr(params, "_fields", [])
+
+    for field in param_fields:
         tp = hints.get(field)
         produced[field] = DagNode(output=tp)
     return produced

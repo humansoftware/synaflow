@@ -1,4 +1,5 @@
 from typing import NamedTuple
+from dataclasses import dataclass
 
 import pytest
 
@@ -8,6 +9,17 @@ from synaflow.core.definition import include
 
 def test_given_scalar_params_when_constructed_then_passes():
     class P(NamedTuple):
+        x: int = 5
+
+    def fn(x: int) -> int:
+        return x
+
+    pipeline(name="t", params=P, steps=[step("s1", fn=fn)])
+
+
+def test_given_dataclass_params_when_constructed_then_passes():
+    @dataclass
+    class P:
         x: int = 5
 
     def fn(x: int) -> int:
@@ -319,8 +331,8 @@ def test_given_non_namedtuple_params_when_constructed_then_raises():
     def fn():
         pass
 
-    with pytest.raises(ValueError, match="must be a NamedTuple"):
-        my_pipeline = pipeline(
+    with pytest.raises(ValueError, match="must be a NamedTuple or dataclass"):
+        pipeline(
             name="t",
             params=P,
             steps=[step("s1", fn=fn)],
@@ -332,7 +344,7 @@ def test_given_non_callable_step_when_constructed_then_raises():
         pass
 
     with pytest.raises(ValueError, match="must have a callable 'fn'"):
-        my_pipeline = pipeline(
+        pipeline(
             name="t",
             params=P,
             steps=[step("s1", fn="not_a_function")],
@@ -347,7 +359,7 @@ def test_given_dependency_on_nonexistent_param_when_constructed_then_raises():
         pass
 
     with pytest.raises(ValueError, match="but no prior step or param produces it"):
-        my_pipeline = pipeline(
+        pipeline(
             name="t",
             params=P,
             steps=[step("s1", fn=fn)],
@@ -365,7 +377,7 @@ def test_given_explicit_none_producer_and_strict_consumer_when_constructed_then_
         pass
 
     with pytest.raises(ValueError, match="produces explicit NoneType"):
-        my_pipeline = pipeline(
+        pipeline(
             name="t",
             params=P,
             steps=[step("producer", fn=producer), step("consumer", fn=consumer)],

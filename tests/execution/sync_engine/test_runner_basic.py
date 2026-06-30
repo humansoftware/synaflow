@@ -1,5 +1,6 @@
 import inspect
 from typing import NamedTuple
+from dataclasses import dataclass
 from unittest.mock import MagicMock
 
 from synaflow.core.dag import Dag, DagNode
@@ -34,6 +35,57 @@ def test_given_single_step_when_run_then_step_called_with_params(run_pipeline):
     my_pipeline = pipeline(name="test", params=P, steps=[step("s1", fn=s1)])
     run_pipeline(my_pipeline, params=P(x=7))
     s1.assert_called_once_with(x=7)
+
+
+def test_given_namedtuple_param_field_when_run_then_injected_as_object(run_pipeline):
+    class MyNamedTuple(NamedTuple):
+        a: int
+        b: int
+
+    class P(NamedTuple):
+        obj: MyNamedTuple
+
+    s1 = mock_step(obj=MyNamedTuple)
+
+    my_pipeline = pipeline(name="test", params=P, steps=[step("s1", fn=s1)])
+    run_pipeline(my_pipeline, params=P(obj=MyNamedTuple(a=1, b=2)))
+    s1.assert_called_once_with(obj=MyNamedTuple(a=1, b=2))
+
+
+def test_given_dataclass_param_field_when_run_then_injected_as_object(run_pipeline):
+    @dataclass
+    class MyDataclass:
+        a: int
+        b: int
+
+    @dataclass
+    class P:
+        obj: MyDataclass
+
+    s1 = mock_step(obj=MyDataclass)
+
+    my_pipeline = pipeline(name="test", params=P, steps=[step("s1", fn=s1)])
+    run_pipeline(my_pipeline, params=P(obj=MyDataclass(a=1, b=2)))
+    s1.assert_called_once_with(obj=MyDataclass(a=1, b=2))
+
+
+def test_given_frozen_dataclass_param_field_when_run_then_injected_as_object(
+    run_pipeline,
+):
+    @dataclass(frozen=True)
+    class MyFrozenDataclass:
+        a: int
+        b: int
+
+    @dataclass(frozen=True)
+    class P:
+        obj: MyFrozenDataclass
+
+    s1 = mock_step(obj=MyFrozenDataclass)
+
+    my_pipeline = pipeline(name="test", params=P, steps=[step("s1", fn=s1)])
+    run_pipeline(my_pipeline, params=P(obj=MyFrozenDataclass(a=1, b=2)))
+    s1.assert_called_once_with(obj=MyFrozenDataclass(a=1, b=2))
 
 
 def test_given_multiple_steps_when_run_then_second_receives_first_output(run_pipeline):

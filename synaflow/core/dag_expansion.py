@@ -1,5 +1,6 @@
 import functools
 import inspect
+import dataclasses
 from typing import Any
 
 from synaflow.core.definition import IncludeStep, Step
@@ -87,6 +88,8 @@ def _build_adapter_step(
 
 
 def _extract_sub_pipeline_param_fields(params: Any) -> list[str]:
+    if dataclasses.is_dataclass(params):
+        return [f.name for f in dataclasses.fields(params)]
     if hasattr(params, "_fields"):
         return list(params._fields)
     return []
