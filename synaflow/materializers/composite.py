@@ -67,23 +67,21 @@ def composite_error_materializer(*error_materializers):
 
         if any_async:
 
-            async def run_composite_error_materializers_async(
-                exc: BaseException,
-            ) -> None:
+            async def run_composite_error_materializers_async(error_ctx) -> None:
                 for em in resolved:
                     if _is_async_callable(em):
-                        await em(exc)
+                        await em(error_ctx)
                     else:
-                        res = em(exc)
+                        res = em(error_ctx)
                         if inspect.iscoroutine(res):
                             await res
 
             return run_composite_error_materializers_async
         else:
 
-            def run_composite_error_materializers_sync(exc: BaseException) -> None:
+            def run_composite_error_materializers_sync(error_ctx) -> None:
                 for em in resolved:
-                    em(exc)
+                    em(error_ctx)
 
             return run_composite_error_materializers_sync
 

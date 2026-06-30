@@ -144,8 +144,14 @@ async def test_given_on_error_continue_when_step_fails_then_error_materializer_i
     handled = []
 
     def error_factory(ctx):
-        def handle(exc):
-            handled.append((ctx.dataset_name, type(exc).__name__, str(exc)))
+        def handle(error_ctx):
+            handled.append(
+                (
+                    ctx.dataset_name,
+                    type(error_ctx.exception).__name__,
+                    str(error_ctx.exception),
+                )
+            )
 
         return handle
 
@@ -172,6 +178,53 @@ async def test_given_on_error_continue_when_step_fails_then_error_materializer_i
     s2.assert_called_once_with(s1=[10, 30])
 
 
+async def test_given_error_context_when_step_fails_then_materializer_receives_runtime_fields():
+    class P(NamedTuple):
+        items: list[int] = [1]
+
+    handled = []
+
+    def error_factory(ctx):
+        async def handle(error_ctx):
+            handled.append(
+                (
+                    ctx.dataset_name,
+                    error_ctx.step_name,
+                    error_ctx.run_id,
+                    error_ctx.success_count,
+                    error_ctx.error_count,
+                    error_ctx.completed_all_inputs,
+                    str(error_ctx.exception),
+                )
+            )
+
+        return handle
+
+    async def fail(items: int):
+        raise ValueError("boom")
+
+    my_pipeline = pipeline(
+        name="test_async_runtime_error_ctx",
+        params=P,
+        error_materializer=error_factory,
+        steps=[step("s1", fn=fail, on_error=OnError.CONTINUE)],
+    )
+
+    await async_run(my_pipeline, params=P())
+
+    assert len(handled) == 1
+    dataset_name, step_name, run_id, success_count, error_count, completed, message = (
+        handled[0]
+    )
+    assert dataset_name == "s1"
+    assert step_name == "s1"
+    assert run_id
+    assert success_count == 0
+    assert error_count == 1
+    assert completed is False
+    assert message == "boom"
+
+
 async def test_given_on_error_stop_when_step_fails_then_error_materializer_is_called_before_pipeline_stops():
     class P(NamedTuple):
         items: list[int] = [1, 2, 3]
@@ -179,8 +232,14 @@ async def test_given_on_error_stop_when_step_fails_then_error_materializer_is_ca
     handled = []
 
     def error_factory(ctx):
-        def handle(exc):
-            handled.append((ctx.dataset_name, type(exc).__name__, str(exc)))
+        def handle(error_ctx):
+            handled.append(
+                (
+                    ctx.dataset_name,
+                    type(error_ctx.exception).__name__,
+                    str(error_ctx.exception),
+                )
+            )
 
         return handle
 
@@ -209,8 +268,8 @@ async def test_given_on_error_continue_when_stream_iteration_fails_then_previous
     handled = []
 
     def error_factory(ctx):
-        def handle(exc):
-            handled.append((ctx.dataset_name, type(exc).__name__))
+        def handle(error_ctx):
+            handled.append((ctx.dataset_name, type(error_ctx.exception).__name__))
 
         return handle
 
@@ -243,8 +302,8 @@ async def test_given_on_error_stop_when_stream_iteration_fails_then_pipeline_sto
     handled = []
 
     def error_factory(ctx):
-        def handle(exc):
-            handled.append((ctx.dataset_name, type(exc).__name__))
+        def handle(error_ctx):
+            handled.append((ctx.dataset_name, type(error_ctx.exception).__name__))
 
         return handle
 

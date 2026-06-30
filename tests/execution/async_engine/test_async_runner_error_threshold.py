@@ -411,8 +411,8 @@ async def test_manual_threshold_exception_in_all_step_escape_hatch():
     handled = []
 
     def error_factory(ctx):
-        async def handle(exc):
-            handled.append(exc)
+        async def handle(error_ctx):
+            handled.append(error_ctx.exception)
 
         return handle
 
@@ -446,8 +446,8 @@ async def test_manual_threshold_exception_in_each_step_wraps_in_validator():
     handled = []
 
     def error_factory(ctx):
-        async def handle(exc):
-            handled.append(exc)
+        async def handle(error_ctx):
+            handled.append(error_ctx.exception)
 
         return handle
 

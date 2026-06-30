@@ -70,6 +70,19 @@ step("processor", fn=process,
      error_materializer=disk_error_materializer("/tmp/errors"))
 ```
 
+Error materializer handlers receive a single `ErrorContext` object with the
+execution metadata and the exception.
+
+```python
+from synaflow import ErrorContext
+
+def error_factory(ctx):
+    def handle(error_ctx: ErrorContext):
+        print(error_ctx.run_id, error_ctx.step_name, error_ctx.exception)
+
+    return handle
+```
+
 ## Test-time swaps
 
 If a pipeline is already compiled, tests do not need to rebuild it just to

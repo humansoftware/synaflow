@@ -119,13 +119,15 @@ memory_materializer_factory.__name__ = "memory_materializer"
 def log_error_materializer_factory(ctx: ErrorMaterializeContext):
     log = logging.getLogger("synaflow")
 
-    def log_error(exc: BaseException) -> None:
+    def log_error(error_ctx) -> None:
         log.warning(
-            "[%s] [%s] %s: %s",
-            ctx.pipeline_name,
-            ctx.dataset_name,
-            type(exc).__name__,
-            exc,
+            "[%s] [%s] [%s] [%s] %s: %s",
+            error_ctx.pipeline_name,
+            error_ctx.dataset_name,
+            error_ctx.step_name,
+            error_ctx.run_id,
+            type(error_ctx.exception).__name__,
+            error_ctx.exception,
         )
         log.debug(traceback.format_exc())
 

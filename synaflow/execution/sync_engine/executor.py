@@ -32,6 +32,7 @@ from synaflow.core.observers import (
     dispatch_observers,
 )
 from synaflow.core.types import (
+    ErrorContext,
     OnError,
     StepMode,
 )
@@ -57,7 +58,10 @@ def _maybe_wrap_stream(output, node):
 
 
 def _collect_iterator(
-    dag: Dag, step_name: str, value: Iterator
+    dag: Dag,
+    step_name: str,
+    value: Iterator,
+    run_id: str,
 ) -> tuple[list[Any], bool, BaseException | None]:
     items = []
     while True:
@@ -66,7 +70,15 @@ def _collect_iterator(
         except StopIteration:
             return items, False, None
         except Exception as exc:
-            _handle_error(dag, step_name, exc)
+            _handle_error(
+                dag,
+                step_name,
+                exc,
+                run_id=run_id,
+                success_count=len(items),
+                error_count=1,
+                completed_all_inputs=False,
+            )
             if dag[step_name].on_error == OnError.STOP:
                 raise PipelineStopException(step_name=step_name, cause=exc) from exc
             return items, True, exc
@@ -77,22 +89,32 @@ def _apply_materializer(
     step_name: str,
     value: Any,
     materializer: Any,
+    run_id: str,
     consumer_type: Any = None,
 ) -> tuple[Any, bool, BaseException | None]:
     if materializer is None:
         if isinstance(value, Iterator):
-            items, had_error, exc = _collect_iterator(dag, step_name, value)
+            items, had_error, exc = _collect_iterator(dag, step_name, value, run_id)
             return items, had_error, exc
         return value, False, None
 
     if isinstance(value, Iterator):
-        items, had_error, exc = _collect_iterator(dag, step_name, value)
+        items, had_error, exc = _collect_iterator(dag, step_name, value, run_id)
         return materializer(items), had_error, exc
 
     return materializer(value), False, None
 
 
-def _handle_error(dag: Dag, step_name: str, exc: BaseException) -> None:
+def _handle_error(
+    dag: Dag,
+    step_name: str,
+    exc: BaseException,
+    *,
+    run_id: str,
+    success_count: int = 0,
+    error_count: int = 1,
+    completed_all_inputs: bool | None = None,
+) -> None:
     node = dag.steps.get(step_name)
     if not node:
         return
@@ -104,7 +126,19 @@ def _handle_error(dag: Dag, step_name: str, exc: BaseException) -> None:
     if not callable(err_mat):
         raise TypeError(f"Error materializer for step '{step_name}' is not callable.")
 
-    err_mat(exc)
+    error_ctx = ErrorContext(
+        pipeline_name=dag.name,
+        dataset_name=step_name,
+        step_name=step_name,
+        run_id=run_id,
+        exception=exc,
+        mode=getattr(node, "mode", None),
+        on_error=getattr(node, "on_error", None),
+        success_count=success_count,
+        error_count=error_count,
+        completed_all_inputs=completed_all_inputs,
+    )
+    err_mat(error_ctx)
 
 
 def _wrap_threshold_raise_if_manual(
@@ -519,7 +553,15 @@ class PipelineExecutor:
                 completed_all_inputs = _compute_completed_all_inputs_for_all(
                     node, arguments, exc
                 )
-                _handle_error(self.dag, step_name, exc)
+                _handle_error(
+                    self.dag,
+                    step_name,
+                    exc,
+                    run_id=self.run_id,
+                    success_count=exc.success_count,
+                    error_count=exc.error_count,
+                    completed_all_inputs=completed_all_inputs,
+                )
                 self._dispatch_step_failure(
                     node,
                     step_name,
@@ -541,7 +583,7 @@ class PipelineExecutor:
                 )
             raise
         except Exception as exc:
-            _handle_error(self.dag, step_name, exc)
+            _handle_error(self.dag, step_name, exc, run_id=self.run_id)
             self._dispatch_step_failure(node, step_name, exc)
             if node.on_error == OnError.STOP:
                 raise PipelineStopException(step_name=step_name, cause=exc) from exc
@@ -635,6 +677,10 @@ class PipelineExecutor:
                             self.dag,
                             step_name,
                             _wrap_threshold_raise_if_manual(exc, step_name),
+                            run_id=self.run_id,
+                            success_count=invocation_count - error_count,
+                            error_count=error_count,
+                            completed_all_inputs=False,
                         )
                         if on_err == OnError.STOP:
                             raise PipelineStopException(
@@ -785,6 +831,7 @@ class PipelineExecutor:
                 step_name,
                 output,
                 materializer,
+                self.run_id,
                 consumer_type=consumer_type,
             )
             self._dispatch_materialization_event(
