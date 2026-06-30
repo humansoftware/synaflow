@@ -170,6 +170,55 @@ def test_given_on_error_continue_when_step_fails_then_error_materializer_is_call
     s2.assert_called_once_with(s1=[10, 30])
 
 
+def test_given_runtime_aware_error_materializer_when_step_fails_then_receives_run_context(
+    run_pipeline,
+):
+    class P(NamedTuple):
+        items: list[int] = [1]
+
+    handled = []
+
+    def error_factory(ctx):
+        def handle(exc, runtime_context):
+            handled.append(
+                (
+                    ctx.dataset_name,
+                    runtime_context.step_name,
+                    runtime_context.run_id,
+                    runtime_context.success_count,
+                    runtime_context.error_count,
+                    runtime_context.completed_all_inputs,
+                    str(exc),
+                )
+            )
+
+        return handle
+
+    def fail(items: int):
+        raise ValueError("boom")
+
+    my_pipeline = pipeline(
+        name="test_runtime_error_ctx",
+        params=P,
+        error_materializer=error_factory,
+        steps=[step("s1", fn=fail, on_error=OnError.CONTINUE)],
+    )
+
+    run_pipeline(my_pipeline, params=P())
+
+    assert len(handled) == 1
+    dataset_name, step_name, run_id, success_count, error_count, completed, message = (
+        handled[0]
+    )
+    assert dataset_name == "s1"
+    assert step_name == "s1"
+    assert run_id
+    assert success_count == 0
+    assert error_count == 1
+    assert completed is False
+    assert message == "boom"
+
+
 def test_given_on_error_stop_when_step_fails_then_error_materializer_is_called_before_pipeline_stops(
     run_pipeline,
 ):

@@ -9,6 +9,10 @@ from typing import Any
 from synaflow.core.constants import PIPELINE_SCOPE
 from synaflow.core.dag import Dag
 from synaflow.core.definition import PipelineDef
+from synaflow.core.error_materializer_runtime import (
+    build_error_runtime_context,
+    invoke_error_handler,
+)
 from synaflow.core.exceptions import (
     InvalidThresholdRaiseInEACHStep,
     PipelineStopException,
@@ -46,7 +50,10 @@ from .iterator_utils import AsyncQueueBranch, queue_to_async_gen
 
 
 async def _collect_async_iterator(
-    dag: Dag, step_name: str, value: Any
+    dag: Dag,
+    step_name: str,
+    value: Any,
+    run_id: str,
 ) -> tuple[list[Any], bool, BaseException | None]:
     items = []
     try:
@@ -66,7 +73,15 @@ async def _collect_async_iterator(
                 except StopIteration:
                     break
     except Exception as exc:
-        await _handle_error(dag, step_name, exc)
+        await _handle_error(
+            dag,
+            step_name,
+            exc,
+            run_id=run_id,
+            success_count=len(items),
+            error_count=1,
+            completed_all_inputs=False,
+        )
         if dag[step_name].on_error == OnError.STOP:
             raise PipelineStopException(step_name=step_name, cause=exc) from exc
         return items, True, exc
@@ -78,11 +93,14 @@ async def _apply_materializer(
     step_name: str,
     value: Any,
     materializer: Any,
+    run_id: str,
     consumer_type: Any = None,
 ) -> tuple[Any, bool, BaseException | None]:
     if materializer is None:
         if isinstance(value, (AsyncIterator, AsyncGenerator, Iterator, Generator)):
-            items, had_error, exc = await _collect_async_iterator(dag, step_name, value)
+            items, had_error, exc = await _collect_async_iterator(
+                dag, step_name, value, run_id
+            )
             return items, had_error, exc
         return value, False, None
 
@@ -91,7 +109,9 @@ async def _apply_materializer(
         return result, False, None
 
     if isinstance(value, (AsyncIterator, AsyncGenerator, Iterator, Generator)):
-        items, had_error, exc = await _collect_async_iterator(dag, step_name, value)
+        items, had_error, exc = await _collect_async_iterator(
+            dag, step_name, value, run_id
+        )
         res = materializer(items)
         if inspect.iscoroutine(res):
             return await res, had_error, exc
@@ -103,7 +123,16 @@ async def _apply_materializer(
     return res, False, None
 
 
-async def _handle_error(dag: Dag, step_name: str, exc: BaseException) -> None:
+async def _handle_error(
+    dag: Dag,
+    step_name: str,
+    exc: BaseException,
+    *,
+    run_id: str,
+    success_count: int = 0,
+    error_count: int = 1,
+    completed_all_inputs: bool | None = None,
+) -> None:
     node = dag.steps.get(step_name)
     if not node:
         return
@@ -112,10 +141,19 @@ async def _handle_error(dag: Dag, step_name: str, exc: BaseException) -> None:
     if err_mat is None:
         return
 
+    runtime_context = build_error_runtime_context(
+        dag,
+        node,
+        step_name,
+        run_id,
+        success_count=success_count,
+        error_count=error_count,
+        completed_all_inputs=completed_all_inputs,
+    )
     if inspect.iscoroutinefunction(err_mat):
-        await err_mat(exc)
+        await invoke_error_handler(err_mat, exc, runtime_context)
     elif callable(err_mat):
-        res = err_mat(exc)
+        res = invoke_error_handler(err_mat, exc, runtime_context)
         if inspect.iscoroutine(res):
             await res
     else:
@@ -204,6 +242,7 @@ async def _pump_iterator(
     queues: dict[str, Any],
     on_error: Any,
     dag: Dag | None = None,
+    run_id: str | None = None,
 ) -> None:
     try:
         async for item in _safe_iterate(name, iterator):
@@ -211,7 +250,8 @@ async def _pump_iterator(
                 await q.put(item)
     except StepExecutionError as e:
         cause = e.__cause__ or e
-        await _handle_error(dag, name, cause)
+        if dag is not None and run_id is not None:
+            await _handle_error(dag, name, cause, run_id=run_id)
         if isinstance(cause, ThresholdExceededException):
             # Threshold violation from the producer: propagate regardless of on_error.
             for q in queues.values():
@@ -599,7 +639,15 @@ class AsyncPipelineExecutor:
                 completed_all_inputs = _compute_completed_all_inputs_for_all(
                     node, arguments, exc
                 )
-                await _handle_error(self.dag, step_name, exc)
+                await _handle_error(
+                    self.dag,
+                    step_name,
+                    exc,
+                    run_id=self.run_id,
+                    success_count=exc.success_count,
+                    error_count=exc.error_count,
+                    completed_all_inputs=completed_all_inputs,
+                )
                 await self._dispatch_step_failure(
                     node,
                     step_name,
@@ -621,7 +669,7 @@ class AsyncPipelineExecutor:
                 )
             raise
         except Exception as exc:
-            await _handle_error(self.dag, step_name, exc)
+            await _handle_error(self.dag, step_name, exc, run_id=self.run_id)
             await self._dispatch_step_failure(node, step_name, exc)
             if node.on_error == OnError.STOP:
                 raise PipelineStopException(step_name=step_name, cause=exc) from exc
@@ -745,6 +793,10 @@ class AsyncPipelineExecutor:
                             self.dag,
                             step_name,
                             _wrap_threshold_raise_if_manual(exc, step_name),
+                            run_id=self.run_id,
+                            success_count=invocation_count - error_count,
+                            error_count=error_count,
+                            completed_all_inputs=False,
                         )
                         if node.on_error == OnError.STOP:
                             raise PipelineStopException(
@@ -879,6 +931,7 @@ class AsyncPipelineExecutor:
                 step_name,
                 output,
                 materializer,
+                self.run_id,
                 consumer_type=consumer_type,
             )
             await self._dispatch_materialization_event(
@@ -968,7 +1021,7 @@ class AsyncPipelineExecutor:
             await self._emit_step_result(node, step_name, items, had_error, exc)
 
     async def _handle_stream_publish_error(self, step_name, node, exc):
-        await _handle_error(self.dag, step_name, exc)
+        await _handle_error(self.dag, step_name, exc, run_id=self.run_id)
         if node.on_error == OnError.STOP:
             raise PipelineStopException(step_name=step_name, cause=exc) from exc
 
@@ -1002,6 +1055,7 @@ class AsyncPipelineExecutor:
                 queues,
                 node.on_error,
                 dag=self.dag,
+                run_id=self.run_id,
             )
         )
         self._pump_tasks.append(task)
@@ -1015,7 +1069,7 @@ class AsyncPipelineExecutor:
             )
         elif self._step_output_observers:
             output, had_error, exc = await _collect_async_iterator(
-                self.dag, step_name, output
+                self.dag, step_name, output, self.run_id
             )
         else:
             self._notify_observers(step_name, output)

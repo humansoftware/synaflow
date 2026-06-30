@@ -70,6 +70,19 @@ step("processor", fn=process,
      error_materializer=disk_error_materializer("/tmp/errors"))
 ```
 
+Error materializer handlers may optionally accept a second runtime context
+argument. Existing one-argument handlers still work.
+
+```python
+from synaflow import ErrorRuntimeContext
+
+def error_factory(ctx):
+    def handle(exc: BaseException, runtime_context: ErrorRuntimeContext):
+        print(runtime_context.run_id, runtime_context.step_name)
+
+    return handle
+```
+
 ## Test-time swaps
 
 If a pipeline is already compiled, tests do not need to rebuild it just to

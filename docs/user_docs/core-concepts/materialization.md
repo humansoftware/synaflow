@@ -216,6 +216,10 @@ step("critical", fn=do_work,
      error_materializer=log_error_materializer)
 ```
 
+Error handlers can also receive a second runtime context argument with
+execution metadata such as `run_id`, `step_name`, `mode`, `on_error`,
+and current success/error counters.
+
 ## Error Thresholds (v0.21.0)
 
 Steps in `EACH` mode can enforce an error threshold so the pipeline

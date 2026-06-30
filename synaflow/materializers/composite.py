@@ -2,6 +2,7 @@ import inspect
 from collections.abc import Iterator
 from typing import Any
 
+from synaflow.core.error_materializer_runtime import invoke_error_handler
 from synaflow.core.type_compatibility import is_factory
 
 
@@ -69,21 +70,25 @@ def composite_error_materializer(*error_materializers):
 
             async def run_composite_error_materializers_async(
                 exc: BaseException,
+                runtime_context=None,
             ) -> None:
                 for em in resolved:
                     if _is_async_callable(em):
-                        await em(exc)
+                        await invoke_error_handler(em, exc, runtime_context)
                     else:
-                        res = em(exc)
+                        res = invoke_error_handler(em, exc, runtime_context)
                         if inspect.iscoroutine(res):
                             await res
 
             return run_composite_error_materializers_async
         else:
 
-            def run_composite_error_materializers_sync(exc: BaseException) -> None:
+            def run_composite_error_materializers_sync(
+                exc: BaseException,
+                runtime_context=None,
+            ) -> None:
                 for em in resolved:
-                    em(exc)
+                    invoke_error_handler(em, exc, runtime_context)
 
             return run_composite_error_materializers_sync
 

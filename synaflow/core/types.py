@@ -42,6 +42,20 @@ class MaterializeContext:
 class ErrorMaterializeContext:
     pipeline_name: str
     dataset_name: str
+    step_name: str | None = None
+
+
+@dataclass(frozen=True)
+class ErrorRuntimeContext:
+    pipeline_name: str
+    dataset_name: str
+    step_name: str
+    run_id: str
+    mode: StepMode | None = None
+    on_error: OnError | None = None
+    success_count: int = 0
+    error_count: int = 1
+    completed_all_inputs: bool | None = None
 
 
 @dataclass
@@ -51,3 +65,5 @@ class ErrorRecord:
     exception_type: str
     exception_message: str
     traceback: str
+    step_name: str | None = None
+    run_id: str | None = None

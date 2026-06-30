@@ -390,6 +390,8 @@ def test_given_disk_error_materializer_when_run_then_appends_error_records(tmp_p
     first_record = json.loads(lines[0])
     assert first_record["pipeline_name"] == "disk_err_test"
     assert first_record["dataset_name"] == "s1"
+    assert first_record["step_name"] == "s1"
+    assert first_record["run_id"]
     assert first_record["exception_type"] == "ValueError"
     assert first_record["exception_message"] == "err 1"
     assert "traceback" in first_record
@@ -573,6 +575,8 @@ async def test_given_async_disk_error_materializer_when_run_then_appends_error_r
     first_record = json.loads(lines[0])
     assert first_record["pipeline_name"] == "async_disk_err_test"
     assert first_record["dataset_name"] == "s1"
+    assert first_record["step_name"] == "s1"
+    assert first_record["run_id"]
     assert first_record["exception_type"] == "ValueError"
     assert first_record["exception_message"] == "err 1"
     assert "traceback" in first_record
