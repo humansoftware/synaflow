@@ -1818,6 +1818,9 @@ partial output. Configure per-step or per-pipeline:</p>
 <a id="__codelineno-5-12" name="__codelineno-5-12" href="#__codelineno-5-12"></a><span class="n">step</span><span class="p">(</span><span class="s2">&quot;critical&quot;</span><span class="p">,</span> <span class="n">fn</span><span class="o">=</span><span class="n">do_work</span><span class="p">,</span>
 <a id="__codelineno-5-13" name="__codelineno-5-13" href="#__codelineno-5-13"></a>     <span class="n">error_materializer</span><span class="o">=</span><span class="n">log_error_materializer</span><span class="p">)</span>
 </code></pre></div>
+<p>Error handlers receive a single error context object with execution metadata
+such as <code>run_id</code>, <code>step_name</code>, <code>mode</code>, <code>on_error</code>, current success/error
+counters, and the captured exception.</p>
 <h2 id="error-thresholds-v0210">Error Thresholds (v0.21.0)<a class="headerlink" href="#error-thresholds-v0210" title="Permanent link">&para;</a></h2>
 <p>Steps in <code>EACH</code> mode can enforce an error threshold so the pipeline
 halts when too many invocations fail, even with <code>on_error=CONTINUE</code>.

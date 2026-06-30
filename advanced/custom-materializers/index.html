@@ -1563,14 +1563,24 @@
 <a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="n">step</span><span class="p">(</span><span class="s2">&quot;processor&quot;</span><span class="p">,</span> <span class="n">fn</span><span class="o">=</span><span class="n">process</span><span class="p">,</span>
 <a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>     <span class="n">error_materializer</span><span class="o">=</span><span class="n">disk_error_materializer</span><span class="p">(</span><span class="s2">&quot;/tmp/errors&quot;</span><span class="p">))</span>
 </code></pre></div>
+<p>Error materializer handlers receive a single <code>ErrorContext</code> object with the
+execution metadata and the exception.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">synaflow</span><span class="w"> </span><span class="kn">import</span> <span class="n">ErrorContext</span>
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>
+<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="k">def</span><span class="w"> </span><span class="nf">error_factory</span><span class="p">(</span><span class="n">ctx</span><span class="p">):</span>
+<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">handle</span><span class="p">(</span><span class="n">error_ctx</span><span class="p">:</span> <span class="n">ErrorContext</span><span class="p">):</span>
+<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>        <span class="nb">print</span><span class="p">(</span><span class="n">error_ctx</span><span class="o">.</span><span class="n">run_id</span><span class="p">,</span> <span class="n">error_ctx</span><span class="o">.</span><span class="n">step_name</span><span class="p">,</span> <span class="n">error_ctx</span><span class="o">.</span><span class="n">exception</span><span class="p">)</span>
+<a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a>
+<a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a>    <span class="k">return</span> <span class="n">handle</span>
+</code></pre></div>
 <h2 id="test-time-swaps">Test-time swaps<a class="headerlink" href="#test-time-swaps" title="Permanent link">&para;</a></h2>
 <p>If a pipeline is already compiled, tests do not need to rebuild it just to
 change one materializer. Use <code>ExecutionOverrides</code> to replace the concrete
 runtime callable for one compiled step key:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">synaflow</span><span class="w"> </span><span class="kn">import</span> <span class="n">ExecutionOverrides</span>
-<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>
-<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="n">overrides</span> <span class="o">=</span> <span class="n">ExecutionOverrides</span><span class="o">.</span><span class="n">from_production</span><span class="p">(</span><span class="n">p</span><span class="p">)</span>
-<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="n">overrides</span><span class="o">.</span><span class="n">materializers</span><span class="p">[</span><span class="s2">&quot;records&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">tuple</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">synaflow</span><span class="w"> </span><span class="kn">import</span> <span class="n">ExecutionOverrides</span>
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>
+<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="n">overrides</span> <span class="o">=</span> <span class="n">ExecutionOverrides</span><span class="o">.</span><span class="n">from_production</span><span class="p">(</span><span class="n">p</span><span class="p">)</span>
+<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="n">overrides</span><span class="o">.</span><span class="n">materializers</span><span class="p">[</span><span class="s2">&quot;records&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">tuple</span>
 </code></pre></div>
 <p>This keeps the DAG topology and materialization plan intact. It only swaps the
 runtime implementation for that compiled key.</p>
