@@ -24,6 +24,7 @@ All functions are stateless — no classes, no self.
 import logging
 import traceback
 import types as _types
+import dataclasses
 from dataclasses import dataclass
 from collections.abc import (
     AsyncIterable as AbcAsyncIterable,
@@ -190,10 +191,10 @@ def _build_dag_indexes(dag: dict[str, DagNode]) -> _DagBuildIndexes:
     )
 
 
-def _validate_params_is_namedtuple(params: Any, pipeline_name: str) -> None:
-    if not hasattr(params, "_fields"):
+def _validate_params_type(params: Any, pipeline_name: str) -> None:
+    if not (hasattr(params, "_fields") or dataclasses.is_dataclass(params)):
         raise ValueError(
-            f"Pipeline '{pipeline_name}': 'params' must be a NamedTuple, got {type(params).__name__}"
+            f"Pipeline '{pipeline_name}': 'params' must be a NamedTuple or dataclass, got {type(params).__name__}"
         )
 
 
@@ -209,7 +210,10 @@ def _validate_resource_names(
     expanded_steps: list[Any],
     pipeline_name: str,
 ) -> None:
-    param_fields = set(getattr(params, "_fields", []))
+    if dataclasses.is_dataclass(params):
+        param_fields = {f.name for f in dataclasses.fields(params)}
+    else:
+        param_fields = set(getattr(params, "_fields", []))
     step_names = {step.name for step in expanded_steps}
 
     for resource_name in resources:
@@ -571,7 +575,7 @@ def build_dag(
     if error_materializer_factory is None:
         error_materializer_factory = log_error_materializer_factory
 
-    _validate_params_is_namedtuple(params, pipeline_name)
+    _validate_params_type(params, pipeline_name)
     pipeline_obs_resolved = _resolve_pipeline_observers(pipeline_observers or [])
     expanded_steps = _expand_and_validate_steps(steps, pipeline_name)
     effective_resources = _collect_pipeline_resources(
