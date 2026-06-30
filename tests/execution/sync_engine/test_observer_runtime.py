@@ -62,40 +62,28 @@ class EventRecorder:
 
 
 def test_given_pipeline_run_id_is_consistent_and_unique_per_run():
-    rec1 = EventRecorder()
-    rec2 = EventRecorder()
+    rec = EventRecorder()
 
     def dummy(values: list[int]) -> int:
         return values[0]
 
-    p1 = pipeline(
+    p = pipeline(
         name="p1",
         params=Params,
         steps=[step("dummy", fn=dummy)],
-        observers=[Observer(rec1.record)],
-    )
-    p2 = pipeline(
-        name="p2",
-        params=Params,
-        steps=[step("dummy", fn=dummy)],
-        observers=[Observer(rec2.record)],
+        observers=[Observer(rec.record)],
     )
 
-    run(p1, Params(values=[1]))
-    run(p2, Params(values=[2]))
+    run(p, Params(values=[1]))
+    run(p, Params(values=[2]))
 
-    # Assert p1 run
-    run_ids_1 = {ctx.run_id for _, ctx in rec1.events}
-    assert len(run_ids_1) == 1
-    run_id_1 = run_ids_1.pop()
-    assert isinstance(run_id_1, str) and len(run_id_1) > 0
+    # Assert p run
+    run_ids = {ctx.run_id for _, ctx in rec.events}
+    assert len(run_ids) == 2
 
-    # Assert p2 run
-    run_ids_2 = {ctx.run_id for _, ctx in rec2.events}
-    assert len(run_ids_2) == 1
-    run_id_2 = run_ids_2.pop()
-
-    assert run_id_1 != run_id_2
+    # Assert each run_id has events associated with it
+    for r_id in run_ids:
+        assert isinstance(r_id, str) and len(r_id) > 0
 
 
 def test_given_pipeline_observer_when_run_completes_then_started_and_completed_emitted():
