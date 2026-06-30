@@ -1,6 +1,7 @@
 import asyncio
 import inspect
 import dataclasses
+import uuid
 from contextlib import AsyncExitStack
 from collections.abc import AsyncGenerator, AsyncIterator, Generator, Iterator
 from typing import Any
@@ -296,6 +297,7 @@ class AsyncPipelineExecutor:
         self._step_output_observers = step_output_observers or []
         self._overrides = overrides
         self._resource_factories = dict(resource_factories or {})
+        self.run_id = str(uuid.uuid4())
 
     # ------------------------------------------------------------------
     # Lifecycle observer dispatch helpers (async)
@@ -333,12 +335,17 @@ class AsyncPipelineExecutor:
             return
         ctx: Any
         if event is PipelineEvent.STARTED:
-            ctx = PipelineStartedContext(pipeline_name=self.dag.name, event=event)
+            ctx = PipelineStartedContext(
+                pipeline_name=self.dag.name, run_id=self.run_id, event=event
+            )
         elif event is PipelineEvent.COMPLETED:
-            ctx = PipelineCompletedContext(pipeline_name=self.dag.name, event=event)
+            ctx = PipelineCompletedContext(
+                pipeline_name=self.dag.name, run_id=self.run_id, event=event
+            )
         elif event is PipelineEvent.FAILED:
             ctx = PipelineFailedContext(
                 pipeline_name=self.dag.name,
+                run_id=self.run_id,
                 event=event,
                 step_name=step_name,
                 exception=exception,
@@ -371,6 +378,7 @@ class AsyncPipelineExecutor:
         if event is StepEvent.STARTED:
             ctx = StepStartedContext(
                 pipeline_name=self.dag.name,
+                run_id=self.run_id,
                 event=event,
                 step_name=step_name,
                 mode=node.mode,
@@ -379,6 +387,7 @@ class AsyncPipelineExecutor:
         elif event is StepEvent.COMPLETED:
             ctx = StepCompletedContext(
                 pipeline_name=self.dag.name,
+                run_id=self.run_id,
                 event=event,
                 step_name=step_name,
                 mode=node.mode,
@@ -390,6 +399,7 @@ class AsyncPipelineExecutor:
         elif event is StepEvent.FAILED:
             ctx = StepFailedContext(
                 pipeline_name=self.dag.name,
+                run_id=self.run_id,
                 event=event,
                 step_name=step_name,
                 mode=node.mode,
@@ -419,6 +429,7 @@ class AsyncPipelineExecutor:
         if event is MaterializationEvent.STARTED:
             ctx = MaterializationStartedContext(
                 pipeline_name=self.dag.name,
+                run_id=self.run_id,
                 event=event,
                 step_name=step_name,
                 dataset_name=step_name,
@@ -428,6 +439,7 @@ class AsyncPipelineExecutor:
         elif event is MaterializationEvent.COMPLETED:
             ctx = MaterializationCompletedContext(
                 pipeline_name=self.dag.name,
+                run_id=self.run_id,
                 event=event,
                 step_name=step_name,
                 dataset_name=step_name,
@@ -437,6 +449,7 @@ class AsyncPipelineExecutor:
         elif event is MaterializationEvent.FAILED:
             ctx = MaterializationFailedContext(
                 pipeline_name=self.dag.name,
+                run_id=self.run_id,
                 event=event,
                 step_name=step_name,
                 dataset_name=step_name,
