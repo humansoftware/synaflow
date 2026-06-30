@@ -30,16 +30,16 @@ def disk_error_materializer(
         fname = file_name or f"{ctx.dataset_name}.{ext}"
         target_path = base_path / fname
 
-        def append_error_to_disk(exc: BaseException, runtime_context=None) -> None:
+        def append_error_to_disk(error_ctx) -> None:
             target_path.parent.mkdir(parents=True, exist_ok=True)
 
             record = ErrorRecord(
-                pipeline_name=ctx.pipeline_name,
-                dataset_name=ctx.dataset_name,
-                step_name=getattr(runtime_context, "step_name", ctx.step_name),
-                run_id=getattr(runtime_context, "run_id", None),
-                exception_type=type(exc).__name__,
-                exception_message=str(exc),
+                pipeline_name=error_ctx.pipeline_name,
+                dataset_name=error_ctx.dataset_name,
+                step_name=error_ctx.step_name,
+                run_id=error_ctx.run_id,
+                exception_type=type(error_ctx.exception).__name__,
+                exception_message=str(error_ctx.exception),
                 traceback=traceback.format_exc(),
             )
 

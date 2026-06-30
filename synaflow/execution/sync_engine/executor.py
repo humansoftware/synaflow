@@ -11,10 +11,6 @@ from synaflow.core.dag import Dag
 from synaflow.core.constants import PIPELINE_SCOPE
 from synaflow.execution.bounded_iterator import BoundedIterator
 from synaflow.core.definition import PipelineDef
-from synaflow.core.error_materializer_runtime import (
-    build_error_runtime_context,
-    invoke_error_handler,
-)
 from synaflow.core.exceptions import (
     InvalidThresholdRaiseInEACHStep,
     PipelineStopException,
@@ -36,6 +32,7 @@ from synaflow.core.observers import (
     dispatch_observers,
 )
 from synaflow.core.types import (
+    ErrorContext,
     OnError,
     StepMode,
 )
@@ -129,16 +126,19 @@ def _handle_error(
     if not callable(err_mat):
         raise TypeError(f"Error materializer for step '{step_name}' is not callable.")
 
-    runtime_context = build_error_runtime_context(
-        dag,
-        node,
-        step_name,
-        run_id,
+    error_ctx = ErrorContext(
+        pipeline_name=dag.name,
+        dataset_name=step_name,
+        step_name=step_name,
+        run_id=run_id,
+        exception=exc,
+        mode=getattr(node, "mode", None),
+        on_error=getattr(node, "on_error", None),
         success_count=success_count,
         error_count=error_count,
         completed_all_inputs=completed_all_inputs,
     )
-    invoke_error_handler(err_mat, exc, runtime_context)
+    err_mat(error_ctx)
 
 
 def _wrap_threshold_raise_if_manual(

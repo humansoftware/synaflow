@@ -42,15 +42,15 @@ class MaterializeContext:
 class ErrorMaterializeContext:
     pipeline_name: str
     dataset_name: str
-    step_name: str | None = None
 
 
 @dataclass(frozen=True)
-class ErrorRuntimeContext:
+class ErrorContext:
     pipeline_name: str
     dataset_name: str
     step_name: str
     run_id: str
+    exception: BaseException
     mode: StepMode | None = None
     on_error: OnError | None = None
     success_count: int = 0

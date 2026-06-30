@@ -9,10 +9,6 @@ from typing import Any
 from synaflow.core.constants import PIPELINE_SCOPE
 from synaflow.core.dag import Dag
 from synaflow.core.definition import PipelineDef
-from synaflow.core.error_materializer_runtime import (
-    build_error_runtime_context,
-    invoke_error_handler,
-)
 from synaflow.core.exceptions import (
     InvalidThresholdRaiseInEACHStep,
     PipelineStopException,
@@ -35,6 +31,7 @@ from synaflow.core.observers import (
     dispatch_observers_async,
 )
 from synaflow.core.types import (
+    ErrorContext,
     OnError,
     StepMode,
 )
@@ -141,19 +138,22 @@ async def _handle_error(
     if err_mat is None:
         return
 
-    runtime_context = build_error_runtime_context(
-        dag,
-        node,
-        step_name,
-        run_id,
+    error_ctx = ErrorContext(
+        pipeline_name=dag.name,
+        dataset_name=step_name,
+        step_name=step_name,
+        run_id=run_id,
+        exception=exc,
+        mode=getattr(node, "mode", None),
+        on_error=getattr(node, "on_error", None),
         success_count=success_count,
         error_count=error_count,
         completed_all_inputs=completed_all_inputs,
     )
     if inspect.iscoroutinefunction(err_mat):
-        await invoke_error_handler(err_mat, exc, runtime_context)
+        await err_mat(error_ctx)
     elif callable(err_mat):
-        res = invoke_error_handler(err_mat, exc, runtime_context)
+        res = err_mat(error_ctx)
         if inspect.iscoroutine(res):
             await res
     else:

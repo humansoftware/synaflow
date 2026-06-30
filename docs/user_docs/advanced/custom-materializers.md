@@ -70,15 +70,15 @@ step("processor", fn=process,
      error_materializer=disk_error_materializer("/tmp/errors"))
 ```
 
-Error materializer handlers may optionally accept a second runtime context
-argument. Existing one-argument handlers still work.
+Error materializer handlers receive a single `ErrorContext` object with the
+execution metadata and the exception.
 
 ```python
-from synaflow import ErrorRuntimeContext
+from synaflow import ErrorContext
 
 def error_factory(ctx):
-    def handle(exc: BaseException, runtime_context: ErrorRuntimeContext):
-        print(runtime_context.run_id, runtime_context.step_name)
+    def handle(error_ctx: ErrorContext):
+        print(error_ctx.run_id, error_ctx.step_name, error_ctx.exception)
 
     return handle
 ```

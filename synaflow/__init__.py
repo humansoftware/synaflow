@@ -12,7 +12,7 @@ from .core.observers import (
     PipelineEvent,
     StepEvent,
 )
-from .core.types import ErrorRuntimeContext, OnError, StepMode, StepParams, StepResult
+from .core.types import ErrorContext, OnError, StepMode, StepParams, StepResult
 from .execution import ExecutionOverrides, ResourceRegistry
 from .execution.async_engine.executor import async_run
 from .execution.sync_engine.executor import run
@@ -38,7 +38,7 @@ __all__ = [
     "StepMode",
     "StepParams",
     "StepResult",
-    "ErrorRuntimeContext",
+    "ErrorContext",
     "Observer",
     "PipelineEvent",
     "StepEvent",

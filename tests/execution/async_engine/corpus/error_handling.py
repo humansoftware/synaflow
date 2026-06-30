@@ -10,8 +10,8 @@ class ErrorHandlingParams(NamedTuple):
 errors_list = []
 
 
-def custom_error_handler(exc: BaseException) -> None:
-    errors_list.append(str(exc))
+def custom_error_handler(error_ctx) -> None:
+    errors_list.append(str(error_ctx.exception))
 
 
 def custom_err_mat(ctx):

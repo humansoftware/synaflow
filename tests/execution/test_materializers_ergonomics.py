@@ -112,8 +112,8 @@ def test_given_wrapped_callable_error_materializer_when_step_fails_then_runs_on_
     errors = []
 
     # Direct handler (not a factory)
-    def my_handler(exc: BaseException):
-        errors.append(str(exc))
+    def my_handler(error_ctx):
+        errors.append(str(error_ctx.exception))
 
     def failing_step():
         raise ValueError("failed")
@@ -141,8 +141,8 @@ def test_given_error_materializer_factory_when_step_fails_then_runs_on_failure()
     errors = []
 
     def my_factory(ctx: ErrorMaterializeContext):
-        def handler(exc: BaseException):
-            errors.append((ctx.dataset_name, str(exc)))
+        def handler(error_ctx):
+            errors.append((ctx.dataset_name, str(error_ctx.exception)))
 
         return handler
 
@@ -171,8 +171,8 @@ def test_given_each_mode_step_with_error_materializer_when_item_fails_then_runs_
 
     errors = []
 
-    def my_handler(exc: BaseException):
-        errors.append(str(exc))
+    def my_handler(error_ctx):
+        errors.append(str(error_ctx.exception))
 
     def fail_on_2(items: int):
         if items == 2:
@@ -201,8 +201,8 @@ def test_given_generator_step_with_error_materializer_when_downstream_fails_then
 
     errors = []
 
-    def my_handler(exc: BaseException):
-        errors.append(str(exc))
+    def my_handler(error_ctx):
+        errors.append(str(error_ctx.exception))
 
     def generator_step() -> Iterator[int]:
         yield 1
@@ -235,9 +235,9 @@ async def test_given_async_error_materializer_when_async_step_fails_then_invoked
 
     errors = []
 
-    async def async_handler(exc: BaseException):
+    async def async_handler(error_ctx):
         await asyncio.sleep(0.01)
-        errors.append(str(exc))
+        errors.append(str(error_ctx.exception))
 
     async def failing_step():
         raise ValueError("async failed")
@@ -447,10 +447,10 @@ def test_given_composite_error_materializer_when_fails_then_calls_all_underlying
 
     calls = []
 
-    def handler1(exc):
+    def handler1(error_ctx):
         calls.append("one")
 
-    def handler2(exc):
+    def handler2(error_ctx):
         calls.append("two")
 
     comp = composite_error_materializer(
@@ -589,10 +589,10 @@ async def test_given_async_composite_error_materializer_when_fails_then_calls_al
 
     calls = []
 
-    def handler1(exc):
+    def handler1(error_ctx):
         calls.append("one")
 
-    def handler2(exc):
+    def handler2(error_ctx):
         calls.append("two")
 
     comp = composite_error_materializer(

@@ -142,8 +142,14 @@ def test_given_on_error_continue_when_step_fails_then_error_materializer_is_call
     handled = []
 
     def error_factory(ctx):
-        def handle(exc):
-            handled.append((ctx.dataset_name, type(exc).__name__, str(exc)))
+        def handle(error_ctx):
+            handled.append(
+                (
+                    ctx.dataset_name,
+                    type(error_ctx.exception).__name__,
+                    str(error_ctx.exception),
+                )
+            )
 
         return handle
 
@@ -170,7 +176,7 @@ def test_given_on_error_continue_when_step_fails_then_error_materializer_is_call
     s2.assert_called_once_with(s1=[10, 30])
 
 
-def test_given_runtime_aware_error_materializer_when_step_fails_then_receives_run_context(
+def test_given_error_context_when_step_fails_then_materializer_receives_runtime_fields(
     run_pipeline,
 ):
     class P(NamedTuple):
@@ -179,16 +185,16 @@ def test_given_runtime_aware_error_materializer_when_step_fails_then_receives_ru
     handled = []
 
     def error_factory(ctx):
-        def handle(exc, runtime_context):
+        def handle(error_ctx):
             handled.append(
                 (
                     ctx.dataset_name,
-                    runtime_context.step_name,
-                    runtime_context.run_id,
-                    runtime_context.success_count,
-                    runtime_context.error_count,
-                    runtime_context.completed_all_inputs,
-                    str(exc),
+                    error_ctx.step_name,
+                    error_ctx.run_id,
+                    error_ctx.success_count,
+                    error_ctx.error_count,
+                    error_ctx.completed_all_inputs,
+                    str(error_ctx.exception),
                 )
             )
 
@@ -228,8 +234,14 @@ def test_given_on_error_stop_when_step_fails_then_error_materializer_is_called_b
     handled = []
 
     def error_factory(ctx):
-        def handle(exc):
-            handled.append((ctx.dataset_name, type(exc).__name__, str(exc)))
+        def handle(error_ctx):
+            handled.append(
+                (
+                    ctx.dataset_name,
+                    type(error_ctx.exception).__name__,
+                    str(error_ctx.exception),
+                )
+            )
 
         return handle
 
@@ -260,8 +272,8 @@ def test_given_on_error_continue_when_stream_iteration_fails_then_previous_items
     handled = []
 
     def error_factory(ctx):
-        def handle(exc):
-            handled.append((ctx.dataset_name, type(exc).__name__))
+        def handle(error_ctx):
+            handled.append((ctx.dataset_name, type(error_ctx.exception).__name__))
 
         return handle
 
@@ -296,8 +308,8 @@ def test_given_on_error_stop_when_stream_iteration_fails_then_pipeline_stops_and
     handled = []
 
     def error_factory(ctx):
-        def handle(exc):
-            handled.append((ctx.dataset_name, type(exc).__name__))
+        def handle(error_ctx):
+            handled.append((ctx.dataset_name, type(error_ctx.exception).__name__))
 
         return handle
 
