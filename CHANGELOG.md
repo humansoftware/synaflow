@@ -2,6 +2,19 @@
 
 
 
+## v0.23.0 (2026-06-30)
+
+### Feature
+
+* feat: expose execution run_id in BaseObserverContext (#69)
+
+* feat: expose execution run_id in BaseObserverContext
+
+* test: add test suite for run_id consistency
+
+* test: refine run_id test to reuse same pipeline instance ([`2cd3a6c`](https://github.com/humansoftware/synaflow/commit/2cd3a6c071a84e1ccc9c53f6076ac46388b66ab3))
+
+
 ## v0.22.0 (2026-06-30)
 
 ### Feature
