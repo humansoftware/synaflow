@@ -2,6 +2,23 @@
 
 
 
+## v0.23.1 (2026-07-01)
+
+### Fix
+
+* fix: trigger release for observer completion events ([`8122fc6`](https://github.com/humansoftware/synaflow/commit/8122fc6a461eb56e90ecb7bec65c1a4969541368))
+
+### Unknown
+
+* fix observer completion events (#73) ([`996333b`](https://github.com/humansoftware/synaflow/commit/996333b9b80822819099535b284f96f13317391c))
+
+* [codex] add runtime context to error materializers (#71)
+
+* add runtime context to error materializers
+
+* simplify error materializer context api ([`08e8d34`](https://github.com/humansoftware/synaflow/commit/08e8d34dfaf46e8744cfe20ce5cfc92ce9c35ef2))
+
+
 ## v0.23.0 (2026-06-30)
 
 ### Feature
