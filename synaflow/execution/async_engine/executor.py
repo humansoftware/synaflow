@@ -997,6 +997,38 @@ class AsyncPipelineExecutor:
             completed_all_inputs=True,
         )
 
+    def _wrap_deferred_output(self, step_name, output, node):
+        if _has_threshold(node):
+            return output
+
+        if isinstance(output, (AsyncIterator, AsyncGenerator)):
+
+            async def wrapped_async():
+                yielded_count = 0
+                async for item in output:
+                    yielded_count += 1
+                    yield item
+
+                if node.mode == StepMode.ALL:
+                    node._runtime_invocation_count = yielded_count
+                    node._runtime_error_count = 0
+                await self._emit_deferred_completion(node, step_name)
+
+            return wrapped_async()
+
+        async def wrapped_sync():
+            yielded_count = 0
+            for item in output:
+                yielded_count += 1
+                yield item
+
+            if node.mode == StepMode.ALL:
+                node._runtime_invocation_count = yielded_count
+                node._runtime_error_count = 0
+            await self._emit_deferred_completion(node, step_name)
+
+        return wrapped_sync()
+
     def _is_stream_output(self, output):
         return isinstance(output, (Iterator, Generator, AsyncIterator, AsyncGenerator))
 
@@ -1059,8 +1091,6 @@ class AsyncPipelineExecutor:
             )
         )
         self._pump_tasks.append(task)
-        if deferred:
-            await self._emit_deferred_completion(node, step_name)
 
     async def _publish_terminal_stream(self, step_name, output, node, deferred):
         if self.dag.needs_materialize(step_name):
@@ -1114,6 +1144,9 @@ class AsyncPipelineExecutor:
             except Exception as exc:
                 await self._handle_stream_publish_error(step_name, node, exc)
             return
+
+        if deferred:
+            output = self._wrap_deferred_output(step_name, output, node)
 
         if consumers:
             await self._publish_stream_to_queues(

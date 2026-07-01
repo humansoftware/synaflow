@@ -1,4 +1,6 @@
+import asyncio
 import inspect
+from time import monotonic_ns
 from typing import NamedTuple
 from unittest.mock import AsyncMock as MagicMock
 
@@ -328,6 +330,52 @@ async def test_given_on_error_stop_when_stream_iteration_fails_then_pipeline_sto
 
     sink.assert_not_called()
     assert handled == [("source", "ValueError")]
+
+
+async def test_given_terminal_last_step_with_error_materializer_when_fails_then_executor_waits_for_handler():
+    class P(NamedTuple):
+        pass
+
+    state = {
+        "error_materializer_finished_at": None,
+        "returned_to_caller_at": None,
+    }
+
+    def error_factory(ctx):
+        async def handle(error_ctx):
+            assert ctx.dataset_name == "terminal"
+            assert str(error_ctx.exception) == "boom"
+            await asyncio.sleep(0.01)
+            state["error_materializer_finished_at"] = monotonic_ns()
+
+        return handle
+
+    async def source() -> int:
+        return 1
+
+    async def middle(source: int) -> int:
+        return source + 1
+
+    async def terminal(middle: int) -> int:
+        raise ValueError("boom")
+
+    my_pipeline = pipeline(
+        name="terminal_async_error_stop",
+        params=P,
+        error_materializer=error_factory,
+        steps=[
+            step("source", fn=source),
+            step("middle", fn=middle),
+            step("terminal", fn=terminal, on_error=OnError.STOP),
+        ],
+    )
+
+    with pytest.raises(PipelineStopException, match="terminal"):
+        await async_run(my_pipeline, params=P())
+    state["returned_to_caller_at"] = monotonic_ns()
+
+    assert state["error_materializer_finished_at"] is not None
+    assert state["returned_to_caller_at"] >= state["error_materializer_finished_at"]
 
 
 async def test_given_non_callable_error_materializer_when_step_fails_then_raises_type_error():
