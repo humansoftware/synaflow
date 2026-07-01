@@ -2,6 +2,8 @@ import asyncio
 import functools
 import logging
 from collections.abc import AsyncIterator, Iterator as Iter
+from time import monotonic_ns
+from time import sleep
 from typing import Iterator, NamedTuple
 
 import pytest
@@ -27,6 +29,10 @@ from synaflow.execution.async_engine.executor import AsyncPipelineExecutor
 
 class Params(NamedTuple):
     values: list[int]
+
+
+class EmptyParams(NamedTuple):
+    pass
 
 
 # ---------------------------------------------------------------------------
@@ -504,6 +510,136 @@ async def test_given_step_output_observer_when_bounded_stream_then_observer_does
     await executor.execute(Params(values=[0, 1, 2, 3]))
 
     assert log.index("recv 0") < log.index("prod 2")
+
+
+@pytest.mark.asyncio
+async def test_given_lazy_stream_drained_by_output_observer_when_run_completes_then_completion_events_wait_for_drain():
+    state = {
+        "generator_exhausted_at": None,
+        "observer_finished_at": None,
+        "pipeline_completed_at": None,
+        "step_completed_at": None,
+        "step_completed_counts": None,
+    }
+
+    async def source() -> AsyncIterator[int]:
+        try:
+            for value in [1, 2, 3]:
+                await asyncio.sleep(0.01)
+                yield value
+        finally:
+            state["generator_exhausted_at"] = monotonic_ns()
+
+    async def done(source: AsyncIterator[int]) -> None:
+        return None
+
+    def lifecycle_observer(ctx) -> None:
+        now = monotonic_ns()
+        if isinstance(ctx, StepCompletedContext) and ctx.step_name == "source":
+            state["step_completed_at"] = now
+            state["step_completed_counts"] = (
+                ctx.success_count,
+                ctx.error_count,
+                ctx.completed_all_inputs,
+            )
+        if type(ctx).__name__ == "PipelineCompletedContext":
+            state["pipeline_completed_at"] = now
+
+    def output_observer(step_name: str, output) -> None:
+        if step_name != "source":
+            return
+        assert output == [1, 2, 3]
+        state["observer_finished_at"] = monotonic_ns()
+
+    p = pipeline(
+        name="p",
+        params=EmptyParams,
+        observers=[Observer(lifecycle_observer)],
+        steps=[
+            step("source", fn=source),
+            step("done", fn=done),
+        ],
+    )
+
+    executor = AsyncPipelineExecutor(
+        p.dag,
+        step_output_observers=[output_observer],
+    )
+    await executor.execute(EmptyParams())
+
+    assert state["generator_exhausted_at"] is not None
+    assert state["observer_finished_at"] is not None
+    assert state["step_completed_at"] is not None
+    assert state["pipeline_completed_at"] is not None
+    assert state["step_completed_at"] >= state["generator_exhausted_at"]
+    assert state["pipeline_completed_at"] >= state["observer_finished_at"]
+    assert state["step_completed_counts"] == (3, 0, True)
+
+
+@pytest.mark.asyncio
+async def test_given_terminal_last_step_with_output_observer_when_run_completes_then_pipeline_waits_for_observer():
+    state = {
+        "observer_finished_at": None,
+        "pipeline_completed_at": None,
+        "step_completed_counts": None,
+        "error_materializer_called": False,
+    }
+
+    async def source() -> int:
+        return 1
+
+    async def middle(source: int) -> int:
+        return source + 1
+
+    async def terminal(middle: int) -> list[int]:
+        return [middle, middle + 1, middle + 2]
+
+    def error_factory(ctx):
+        async def handle(error_ctx):
+            state["error_materializer_called"] = True
+
+        return handle
+
+    def lifecycle_observer(ctx) -> None:
+        now = monotonic_ns()
+        if isinstance(ctx, StepCompletedContext) and ctx.step_name == "terminal":
+            state["step_completed_counts"] = (
+                ctx.success_count,
+                ctx.error_count,
+                ctx.completed_all_inputs,
+            )
+        if type(ctx).__name__ == "PipelineCompletedContext":
+            state["pipeline_completed_at"] = now
+
+    def output_observer(step_name: str, output) -> None:
+        if step_name != "terminal":
+            return
+        assert output == [2, 3, 4]
+        sleep(0.01)
+        state["observer_finished_at"] = monotonic_ns()
+
+    p = pipeline(
+        name="p",
+        params=EmptyParams,
+        observers=[Observer(lifecycle_observer)],
+        steps=[
+            step("source", fn=source),
+            step("middle", fn=middle),
+            step("terminal", fn=terminal, error_materializer=error_factory),
+        ],
+    )
+
+    executor = AsyncPipelineExecutor(
+        p.dag,
+        step_output_observers=[output_observer],
+    )
+    await executor.execute(EmptyParams())
+
+    assert state["observer_finished_at"] is not None
+    assert state["pipeline_completed_at"] is not None
+    assert state["pipeline_completed_at"] >= state["observer_finished_at"]
+    assert state["step_completed_counts"] == (1, 0, True)
+    assert state["error_materializer_called"] is False
 
 
 # ---------------------------------------------------------------------------

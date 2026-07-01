@@ -413,8 +413,10 @@ class PipelineExecutor:
         self._seed_runtime_inputs(params)
 
         self._dispatch_pipeline_event(PipelineEvent.STARTED)
+        completed_cleanly = False
         try:
             self._run_graph()
+            completed_cleanly = True
         except PipelineStopException as exc:
             self._dispatch_pipeline_event(
                 PipelineEvent.FAILED,
@@ -434,10 +436,10 @@ class PipelineExecutor:
                 PipelineEvent.FAILED, step_name=None, exception=exc
             )
             raise
-        else:
-            self._dispatch_pipeline_event(PipelineEvent.COMPLETED)
         finally:
             self._cleanup_fanouts()
+        if completed_cleanly:
+            self._dispatch_pipeline_event(PipelineEvent.COMPLETED)
 
     def _step_inputs_available(self, step_name: str) -> bool:
         node = self.dag[step_name]
@@ -895,6 +897,23 @@ class PipelineExecutor:
             completed_all_inputs=True,
         )
 
+    def _wrap_deferred_output(self, step_name, output, node):
+        if _has_threshold(node):
+            return output
+
+        def wrapped():
+            yielded_count = 0
+            for item in output:
+                yielded_count += 1
+                yield item
+
+            if node.mode == StepMode.ALL:
+                node._runtime_invocation_count = yielded_count
+                node._runtime_error_count = 0
+            self._emit_deferred_completion(node, step_name)
+
+        return wrapped()
+
     def _materialize_stream_output(
         self,
         step_name,
@@ -938,8 +957,6 @@ class PipelineExecutor:
             )
             self._start_observer_threads(step_name, fanout, observer_branches)
             fanout.start()
-            if deferred:
-                self._emit_deferred_completion(node, step_name)
             return
         output, had_error, exc = self._materialize_with_events(
             step_name, output, node, consumer_type=consumer_type
@@ -1005,6 +1022,9 @@ class PipelineExecutor:
             )
             return
 
+        if deferred:
+            output = self._wrap_deferred_output(step_name, output, node)
+
         if len(consumers) == 1 and self._step_output_observers:
             self._publish_stream_to_single_consumer(
                 step_name, output, node, consumers[0], deferred
@@ -1015,12 +1035,7 @@ class PipelineExecutor:
             self._publish_stream_to_multiple_consumers(
                 step_name, output, node, consumers
             )
-            if deferred:
-                self._emit_deferred_completion(node, step_name)
             return
-
-        if deferred:
-            self._emit_deferred_completion(node, step_name)
 
         output = self._notify_observers(step_name, output)
         self.outputs[step_name] = _maybe_wrap_stream(output, node)
