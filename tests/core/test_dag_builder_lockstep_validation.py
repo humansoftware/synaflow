@@ -9,14 +9,6 @@ class P(NamedTuple):
     pass
 
 
-from typing import NamedTuple
-
-
-
-class P(NamedTuple):
-    pass
-
-
 def test_original_case_1_all_stream_validates_successfully():
     def p1() -> Iterator[int]:
         yield 1

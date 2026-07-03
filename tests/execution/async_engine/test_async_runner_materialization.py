@@ -1,7 +1,7 @@
 import inspect
+import pytest
 from typing import AsyncGenerator, AsyncIterator, NamedTuple
 from unittest.mock import AsyncMock as MagicMock
-
 
 from synaflow import async_run, pipeline, step
 from synaflow.core.types import OnError
@@ -745,8 +745,6 @@ async def test_given_diamond_topology_with_multiple_lazy_streams_when_run_then_n
     await async_run(my_pipeline, params=P())
     assert len(call_order) == 20
     assert len(audit_seen) == 10
-
-
 
 
 @pytest.mark.asyncio

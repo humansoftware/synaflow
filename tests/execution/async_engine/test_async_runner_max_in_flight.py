@@ -533,8 +533,6 @@ async def test_runner_contract_uses_dag_node_max_in_flight_not_step_max_in_fligh
     assert max_seen_ahead <= 3
 
 
-
-
 @pytest.mark.asyncio
 async def test_given_multilevel_each_fanout_when_run_max_in_flight_1_then_completes():
     class P(NamedTuple):

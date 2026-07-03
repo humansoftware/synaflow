@@ -372,7 +372,8 @@ def test_given_invalid_observer_override_value_when_assigned_then_raises():
 
     overrides = ExecutionOverrides.empty(p)
 
-    record = lambda ctx: None
+    def record(ctx):
+        return None
 
     with pytest.raises(TypeError, match="must be a list of observers"):
         overrides.observers[PIPELINE_SCOPE] = record
