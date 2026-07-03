@@ -594,11 +594,14 @@ class PipelineExecutor:
     def _emit_immediate_completion(self, step_name, node, output, unrolled):
         if unrolled or isinstance(output, Iterator):
             return
+        success_count = 1
+        if isinstance(output, (list, tuple, set)):
+            success_count = len(output)
         self._dispatch_step_event(
             node,
             StepEvent.COMPLETED,
             step_name,
-            success_count=1,
+            success_count=success_count,
             error_count=0,
             completed_all_inputs=True,
         )

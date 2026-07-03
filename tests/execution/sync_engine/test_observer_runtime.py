@@ -661,7 +661,7 @@ def test_given_terminal_last_step_with_output_observer_when_run_completes_then_p
     assert state["observer_finished_at"] is not None
     assert state["pipeline_completed_at"] is not None
     assert state["pipeline_completed_at"] >= state["observer_finished_at"]
-    assert state["step_completed_counts"] == (1, 0, True)
+    assert state["step_completed_counts"] == (3, 0, True)
     assert state["error_materializer_called"] is False
 
 
@@ -918,3 +918,29 @@ def test_given_stream_with_no_consumers_but_has_observers_then_stream_is_consume
     executor.execute(Params(values=[1, 2, 3]))
 
     # Let the test pass without crashing!
+
+
+def test_given_step_returning_list_when_observed_then_success_count_reflects_logical_item_count():
+    rec = EventRecorder()
+
+    def producer(values: list[int]) -> Iterator[int]:
+        yield from values
+
+    def consumer(prod: list[int]) -> list[int]:
+        return prod
+
+    p = pipeline(
+        name="test_p",
+        params=Params,
+        steps=[step("prod", fn=producer), step("cons", fn=consumer)],
+        observers=[Observer(rec.record)],
+    )
+
+    run(p, params=Params(values=[1, 2, 3]))
+
+    cons_event = next(
+        ctx
+        for name, ctx in rec.events
+        if isinstance(ctx, StepCompletedContext) and ctx.step_name == "cons"
+    )
+    assert cons_event.success_count == 3

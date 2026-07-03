@@ -638,7 +638,7 @@ async def test_given_terminal_last_step_with_output_observer_when_run_completes_
     assert state["observer_finished_at"] is not None
     assert state["pipeline_completed_at"] is not None
     assert state["pipeline_completed_at"] >= state["observer_finished_at"]
-    assert state["step_completed_counts"] == (1, 0, True)
+    assert state["step_completed_counts"] == (3, 0, True)
     assert state["error_materializer_called"] is False
 
 
@@ -1001,3 +1001,31 @@ async def test_given_callable_object_with_async_call_when_dispatched_then_awaite
     )
     await async_run(p, Params(values=[42]))
     assert len(rec.events) == 1
+
+
+@pytest.mark.asyncio
+async def test_given_step_returning_list_when_observed_then_success_count_reflects_logical_item_count():
+    rec = EventRecorder()
+
+    async def producer(values: list[int]) -> AsyncIterator[int]:
+        for v in values:
+            yield v
+
+    async def consumer(prod: list[int]) -> list[int]:
+        return prod
+
+    p = pipeline(
+        name="test_p",
+        params=Params,
+        steps=[step("prod", fn=producer), step("cons", fn=consumer)],
+        observers=[Observer(rec.record)],
+    )
+
+    await async_run(p, params=Params(values=[1, 2, 3]))
+
+    cons_event = next(
+        ctx
+        for name, ctx in rec.events
+        if isinstance(ctx, StepCompletedContext) and ctx.step_name == "cons"
+    )
+    assert cons_event.success_count == 3
