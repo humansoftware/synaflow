@@ -681,11 +681,14 @@ class AsyncPipelineExecutor:
             output, (Iterator, Generator, AsyncIterator, AsyncGenerator)
         ):
             return
+        success_count = 1
+        if isinstance(output, (list, tuple, set)):
+            success_count = len(output)
         await self._dispatch_step_event(
             node,
             StepEvent.COMPLETED,
             step_name,
-            success_count=1,
+            success_count=success_count,
             error_count=0,
             completed_all_inputs=True,
         )
