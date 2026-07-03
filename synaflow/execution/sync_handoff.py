@@ -4,7 +4,7 @@ import queue
 import threading
 from collections.abc import Iterator
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Callable
 
 
 EOF_MARKER = object()
@@ -56,10 +56,11 @@ class SyncFanout:
         *,
         max_in_flight: int,
         branches: list[str],
+        queue_factory: Callable[..., queue.Queue] = queue.Queue,
     ) -> None:
         self._source = source
         self._queues = {
-            branch: queue.Queue(maxsize=max_in_flight) for branch in branches
+            branch: queue_factory(maxsize=max_in_flight) for branch in branches
         }
         self._active_branches = set(branches)
         self._lock = threading.Lock()
@@ -82,8 +83,8 @@ class SyncFanout:
     def abort(self, exception: BaseException | None = None) -> None:
         self._stop.set()
         marker: object = EOF_MARKER if exception is None else ExceptionMarker(exception)
-        for q in self._queues.values():
-            self._put_terminal(q, marker)
+        for branch_name, q in self._queues.items():
+            self._put_terminal(branch_name, q, marker)
 
     def join(self) -> None:
         if self._thread is not None:
@@ -100,8 +101,8 @@ class SyncFanout:
             self.abort(exc)
             return
 
-        for q in self._queues.values():
-            self._put_terminal(q, EOF_MARKER)
+        for branch_name, q in self._queues.items():
+            self._put_terminal(branch_name, q, EOF_MARKER)
 
     def _put_item(self, branch_name: str, q: queue.Queue, item: Any) -> None:
         while not self._stop.is_set():
@@ -114,13 +115,19 @@ class SyncFanout:
             except queue.Full:
                 continue
 
-    def _put_terminal(self, q: queue.Queue, marker: object) -> None:
+    def _put_terminal(self, branch_name: str, q: queue.Queue, marker: object) -> None:
         while True:
+            with self._lock:
+                if branch_name not in self._active_branches:
+                    return
             try:
                 q.put(marker, timeout=0.05)
                 return
             except queue.Full:
-                try:
-                    q.get_nowait()
-                except queue.Empty:
-                    continue
+                if marker is not EOF_MARKER:
+                    # For exceptions, fail fast by dropping unread items to make room
+                    try:
+                        q.get_nowait()
+                    except queue.Empty:
+                        pass
+                continue
