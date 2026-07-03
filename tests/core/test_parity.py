@@ -46,6 +46,7 @@ def test_sync_async_test_parity():
         "test_given_threadpool_start_and_await_when_max_in_flight_5_then_only_five_tasks_start",
         "test_given_user_resource_with_close_when_used_as_param_then_executor_does_not_close_it",
         "test_itertools_tee_concurrent_reentry_crash",
+        "test_given_stream_with_no_consumers_but_has_observers_then_stream_is_consumed",
     }
 
     expected_async_only = {
@@ -57,6 +58,7 @@ def test_sync_async_test_parity():
         "test_given_async_def_handler_when_dispatched_then_awaited",
         "test_given_partial_async_handler_when_dispatched_then_awaited",
         "test_given_callable_object_with_async_call_when_dispatched_then_awaited",
+        "test_given_terminal_stream_with_no_observers_bypass_validation",
     }
 
     # Remove expected differences

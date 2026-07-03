@@ -1,3 +1,5 @@
+from typing import Any
+from synaflow.execution.sync_engine.executor import PipelineExecutor
 import logging
 from collections.abc import Iterator as Iter
 from time import monotonic_ns
@@ -22,7 +24,6 @@ from synaflow.core.observers import (
     StepFailedContext,
 )
 from synaflow.core.types import OnError, StepMode
-from synaflow.execution.sync_engine.executor import PipelineExecutor
 
 
 class Params(NamedTuple):
@@ -366,7 +367,6 @@ def test_given_each_mode_step_when_item_fails_stop_then_failed_with_partial_coun
 
 def test_given_step_output_observers_when_run_then_not_affected_by_lifecycle_observers():
     """step_output_observers (low-level) coexist with lifecycle observers."""
-    from synaflow.execution.sync_engine.executor import PipelineExecutor
 
     output_records = []
 
@@ -391,7 +391,6 @@ def test_given_step_output_observers_when_run_then_not_affected_by_lifecycle_obs
 
 
 def test_given_step_output_observer_when_branch_stops_early_then_observer_sees_full_stream():
-    from synaflow.execution.sync_engine.executor import PipelineExecutor
 
     output_records = []
 
@@ -428,7 +427,6 @@ def test_given_step_output_observer_when_branch_stops_early_then_observer_sees_f
 
 
 def test_given_step_output_observer_and_bounded_lazy_stream_then_observer_does_not_force_eager():
-    from synaflow.execution.sync_engine.executor import PipelineExecutor
 
     rec = EventRecorder(MaterializationEvent.STARTED)
     output_records = []
@@ -467,7 +465,6 @@ def test_given_step_output_observer_and_bounded_lazy_stream_then_observer_does_n
 
 
 def test_given_step_output_observer_when_bounded_stream_then_observer_does_not_consume_slots():
-    from synaflow.execution.sync_engine.executor import PipelineExecutor
 
     log: list[str] = []
 
@@ -502,7 +499,6 @@ def test_given_step_output_observer_when_bounded_stream_then_observer_does_not_c
 
 
 def test_given_step_output_observer_when_bounded_stream_then_bound_is_unchanged():
-    from synaflow.execution.sync_engine.executor import PipelineExecutor
 
     output_records = []
     produced: list[int] = []
@@ -901,3 +897,24 @@ def test_given_materialization_observer_when_lazy_step_then_materialization_not_
     )
     run(p, Params(values=[1, 2]))
     assert len(rec.events) == 0
+
+
+def test_given_stream_with_no_consumers_but_has_observers_then_stream_is_consumed():
+    rec = EventRecorder()
+
+    def producer(values: list[int]) -> Any:
+        yield from values
+
+    p = pipeline(
+        name="p1",
+        params=Params,
+        steps=[step("p", fn=producer)],
+    )
+
+    executor = PipelineExecutor(
+        p.dag,
+        step_output_observers=[lambda step_name, output: rec.record(step_name, output)],
+    )
+    executor.execute(Params(values=[1, 2, 3]))
+
+    # Let the test pass without crashing!

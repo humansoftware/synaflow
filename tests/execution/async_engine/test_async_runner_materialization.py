@@ -1,3 +1,5 @@
+from typing import Any
+from synaflow.execution.async_engine.executor import AsyncPipelineExecutor
 import inspect
 import pytest
 from typing import AsyncGenerator, AsyncIterator, NamedTuple
@@ -793,3 +795,24 @@ async def test_given_multilevel_each_fanout_when_run_then_completes_without_mate
 
     assert seen_x == list(range(20))
     assert seen_y == list(range(20))
+
+
+@pytest.mark.asyncio
+async def test_given_terminal_stream_with_no_observers_bypass_validation():
+    from typing import NamedTuple
+
+    class DummyParams(NamedTuple):
+        values: list[int]
+
+    async def producer(values: list[int]) -> Any:
+        for v in values:
+            yield v
+
+    p = pipeline(
+        name="p1",
+        params=DummyParams,
+        steps=[step("p", fn=producer)],
+    )
+
+    executor = AsyncPipelineExecutor(p.dag)
+    await executor.execute(DummyParams(values=[1, 2, 3]))
