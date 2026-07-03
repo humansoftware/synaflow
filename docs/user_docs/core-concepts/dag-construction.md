@@ -7,7 +7,11 @@ SynaFlow builds a Directed Acyclic Graph from your function type hints — no ma
 1. **Parameters** (a `NamedTuple`) become input nodes.
 2. Each **step** is inspected — its parameter types are matched against all previously declared outputs.
 3. If a match is found, a **dependency edge** is created.
-4. The full graph is validated for circular dependencies, type compatibility, and execution mode.
+4. The full graph is validated for:
+   - Circular dependencies
+   - Type compatibility
+   - Execution mode compatibility
+   - **Lockstep Symmetry** (Detects structural topologies that guarantee runtime deadlocks. See [Asymmetric Lockstep Deadlocks](../advanced/asymmetric-lockstep-deadlocks.md))
 
 ```python
 from synaflow import pipeline, step

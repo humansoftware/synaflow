@@ -459,36 +459,20 @@ def _plan_materialization(dag: dict[str, DagNode], indexes: _DagBuildIndexes) ->
                             or changed
                         )
 
-            lazy_stream_deps = [
-                dep_name
-                for dep_name in node.deps
-                if dep_name in indexes.stream_nodes
-                and dep_name not in node.each_mode_deps
-                and not producer_needs_materialize[dep_name]
-            ]
-            if len(lazy_stream_deps) >= 2:
-                for dep_name in lazy_stream_deps:
-                    changed = (
-                        mark_materialize(dep_name, "multiple_lazy_stream_dependencies")
-                        or changed
-                    )
-
-            # If this stream producer is already compiled as materialized,
-            # every lazy upstream stream it drains must also materialize.
-            # This keeps the policy producer-level while avoiding runtime
-            # deadlocks in merging/fanout chains.
-            if producer_needs_materialize[consumer_name] and _is_stream_output(
-                node.output
-            ):
-                for dep_name in lazy_stream_deps:
-                    changed = (
-                        mark_materialize(dep_name, "upstream_of_materialized_stream")
-                        or changed
-                    )
-
     for producer_name, node in dag.items():
         node.materialize_output = producer_needs_materialize[producer_name]
         node._materialize_reasons = sorted(producer_reasons[producer_name])
+
+    from synaflow.core.lockstep_validation import validate_lockstep_symmetry
+
+    # Extract pipeline name from the first node that has it
+    pipeline_name = "unknown"
+    for n in dag.values():
+        if getattr(n, "pipeline", None):
+            pipeline_name = n.pipeline
+            break
+
+    validate_lockstep_symmetry(dag, pipeline_name)
 
     for consumer_name, node in dag.items():
         if node.fn is None:

@@ -71,6 +71,7 @@ what any consumer asks for**.
 - **Caching** — persist an expensive computation so it's not re-run.
 - **Audit logging** — write a snapshot of data at a specific pipeline stage.
 - **Side effects** — materialize to trigger a write to disk or database.
+- **Temporal Barrier** — force materialization to shield an upstream stream from structural deadlocks in complex topologies. See [Asymmetric Lockstep Deadlocks](../advanced/asymmetric-lockstep-deadlocks.md).
 
 ## Implicit Materialization
 

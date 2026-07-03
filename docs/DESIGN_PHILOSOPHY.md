@@ -32,6 +32,9 @@ The serialized DAG is not a lossy debug artifact. It is the externalized executi
 ### 1.6. Type Safety at Build Time
 The DAG builder validates all type compatibility at compile time. Silent type coercion (e.g., wrapping a `str` into a `list[str]`) is forbidden — the user must explicitly declare correct types. If a consumer expects `Iterator[str]` but the producer outputs `str`, a validation error is raised.
 
+### 1.7. Structural Validation and Lockstep Symmetry
+Because Synaflow pushes data strictly in lockstep, the framework enforces topological rules at build time. When a stream branches out and rejoins later (a Fan-Out / Fan-In Diamond), mixing purely lazy paths with materialized (eager) paths creates a mathematically guaranteed deadlock. The DAG builder maps the entire graph and strictly enforces "Symmetry of Barriers", throwing a design-time exception if an asymmetric topology is detected, saving the user from impossible-to-debug runtime locks.
+
 ## 2. Conceptual Analogies
 
 Synaflow draws inspiration from established data processing paradigms. Understanding these analogies clarifies the framework's design choices.

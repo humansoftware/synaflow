@@ -68,6 +68,7 @@ nav:
       - Sync & Async Parity: core-concepts/sync-async.md
       - Examples: core-concepts/examples.md
   - Advanced:
+      - Asymmetric Lockstep Deadlocks: advanced/asymmetric-lockstep-deadlocks.md
       - Testability & Overrides: advanced/testability.md
       - Resources & Factories: advanced/resources.md
       - Custom Materializers: advanced/custom-materializers.md

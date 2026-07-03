@@ -461,3 +461,11 @@ coexist without forcing each other.
 ## Next
 
 Start building in the [Hello World tutorial](../tutorial/hello-world.md).
+
+## Lockstep and DAG Topologies
+
+Perfect lockstep execution requires streams to flow smoothly. When a stream branches into multiple parallel paths that later rejoin (a "Diamond" pattern), SynaFlow enforces a strict topological requirement known as **Symmetry of Barriers**.
+
+If one path of your diamond consumes the stream iteratively (lazy), but another path requires the entire stream to finish before proceeding (eager materialization), your pipeline contains an **Asymmetric Lockstep Materialization**.
+
+SynaFlow will detect this at design-time and throw an exception, because this topology mathematically guarantees a deadlock. To understand why, and how to fix it, see the [Asymmetric Lockstep Deadlocks](../advanced/asymmetric-lockstep-deadlocks.md) advanced guide.
