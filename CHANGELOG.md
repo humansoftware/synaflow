@@ -2,6 +2,13 @@
 
 
 
+## v0.25.1 (2026-07-03)
+
+### Fix
+
+* fix(sync_handoff): do not drop item when enqueueing EOF on full branch queue (#77) ([`1c338b6`](https://github.com/humansoftware/synaflow/commit/1c338b6c66cb336d84d18548cb4280db868f9fd4))
+
+
 ## v0.25.0 (2026-07-03)
 
 ### Breaking
