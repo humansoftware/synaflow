@@ -2,6 +2,13 @@
 
 
 
+## v0.24.0 (2026-07-03)
+
+### Feature
+
+* feat: Add Lockstep Symmetry Validation and prevent asymmetric deadlocks at design time ([`64529cc`](https://github.com/humansoftware/synaflow/commit/64529ccd04ab15d49dd6f53b655301da368c3c49))
+
+
 ## v0.23.1 (2026-07-01)
 
 ### Fix
