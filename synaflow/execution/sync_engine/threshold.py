@@ -1,3 +1,11 @@
+"""
+Implements error threshold checking and validation for the synchronous execution engine.
+
+This module evaluates step-level error thresholds (absolute or percentage-based)
+to determine if a step has failed beyond acceptable limits, triggering a pipeline
+failure. It also handles validation of manually raised threshold exceptions.
+"""
+
 from typing import Any
 from synaflow.core.exceptions import (
     ThresholdExceededException,

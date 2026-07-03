@@ -1,3 +1,11 @@
+"""
+Provides event dispatching capabilities for the synchronous execution engine.
+
+This module encapsulates the logic for resolving and invoking pipeline-level and
+step-level observers. It triggers lifecycle events (started, completed, failed)
+and handles error contexts during pipeline execution.
+"""
+
 from typing import Any
 
 from synaflow.core.dag import Dag
@@ -22,6 +30,16 @@ from synaflow.core.observers import (
 
 
 class EventDispatcher:
+    """
+    Dispatches execution lifecycle events to registered observers.
+
+    The EventDispatcher is responsible for notifying external observers about the
+    state transitions of the pipeline and its individual steps. It constructs the
+    appropriate context objects for each event type (e.g., PipelineStartedContext,
+    StepFailedContext) and routes them to observers, applying any execution overrides
+    that may modify the observer lists.
+    """
+
     def __init__(
         self, dag: Dag, run_id: str, overrides: ExecutionOverrides | None = None
     ):

@@ -1,3 +1,11 @@
+"""
+Manages the publication and routing of step outputs in the synchronous execution engine.
+
+This module handles the complex logic of distributing a step's output to its downstream
+consumers. It supports progressive stream handoffs, scalar values, materialization, and
+broadcasting outputs to pipeline observers while maintaining execution integrity.
+"""
+
 import threading
 from collections.abc import Iterator
 from typing import Any
@@ -7,19 +15,31 @@ from synaflow.core.types import StepMode, OnError
 from synaflow.core.exceptions import PipelineStopException
 from synaflow.execution.sync_handoff import SyncFanout
 from synaflow.execution.sync_engine.event_dispatch import EventDispatcher
-from synaflow.execution.sync_engine.step_scope import StepScope
+from synaflow.execution.sync_engine.dependency_resolver import DependencyResolver
 from synaflow.execution.sync_engine.threshold import has_threshold
 from synaflow.execution.bounded_iterator import BoundedIterator
 
 
 class StreamPublisher:
+    """
+    Handles publishing, materialization, and fan-out of step outputs.
+
+    This class coordinates how the output of a step is delivered to its dependents.
+    It manages:
+    - Wrapping outputs in bounded iterators to control in-flight data.
+    - Applying materializers if the DAG definition or overrides require it.
+    - Distributing progressive streams to multiple consumers via SyncFanout.
+    - Delivering step results to configured output observers in background threads.
+    - Propagating pipeline abortion signals to active fanouts.
+    """
+
     def __init__(
         self,
         dag: Dag,
         outputs: dict,
         events: EventDispatcher,
         step_output_observers: list,
-        scope: StepScope,
+        scope: DependencyResolver,
     ):
         self._dag = dag
         self._outputs = outputs

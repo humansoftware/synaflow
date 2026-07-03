@@ -1,3 +1,10 @@
+"""
+Provides dependency resolution capabilities for the synchronous execution engine.
+
+This module ensures that step functions receive the correct arguments by extracting outputs
+from upstream dependencies, resolving required resources, and managing their lifecycles.
+"""
+
 import dataclasses
 from collections.abc import Iterator
 from contextlib import ExitStack
@@ -8,7 +15,19 @@ from synaflow.execution.overrides import ExecutionOverrides
 from synaflow.execution.sync_handoff import SyncQueueIterator
 
 
-class StepScope:
+class DependencyResolver:
+    """
+    Resolves inputs, resources, and materializers for a pipeline step during execution.
+
+    The DependencyResolver bridges the static pipeline definition (DAG) with the runtime
+    execution context. It is responsible for:
+    - Seeding initial runtime inputs into the execution context.
+    - Resolving and applying step materializers, respecting execution overrides.
+    - Instantiating and managing the lifecycle of resources (via context managers).
+    - Building the argument dictionary for step function invocation.
+    - Ensuring managed streams are properly closed during cleanup.
+    """
+
     def __init__(
         self,
         dag: Dag,
