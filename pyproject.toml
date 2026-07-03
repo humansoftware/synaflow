@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "synaflow"
-version = "0.24.0"
+version = "0.25.0"
 description = "A lightweight, type-hint driven engine for executing Directed Acyclic Graphs (DAGs) and lockstep pipelines in Python."
 readme = "README.md"
 requires-python = ">=3.10"
@@ -58,8 +58,10 @@ Repository = "https://github.com/humansoftware/synaflow.git"
 
 
 
+
 [tool.coverage.run]
 omit = ["tests/*", "scripts/*"]
+
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
@@ -69,8 +71,10 @@ pythonpath = ["."]
 timeout = 10
 timeout_method = "thread"
 
+
 [tool.hatch.build.targets.wheel]
 packages = ["synaflow"]
+
 
 [tool.semantic_release]
 version_toml = [
@@ -112,6 +116,10 @@ major_on_zero = false
 
 
 
+[tool.ruff]
+exclude = ["boilerplates"]
+
+
 [dependency-groups]
 dev = [
     "mkdocs-material>=9.5",
@@ -120,7 +128,4 @@ dev = [
     "pytest-timeout>=2.4.0",
     "ruff>=0.15.17",
 ]
-
-[tool.ruff]
-exclude = ["boilerplates"]
 

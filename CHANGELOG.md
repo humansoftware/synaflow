@@ -2,6 +2,25 @@
 
 
 
+## v0.25.0 (2026-07-03)
+
+### Breaking
+
+* refactor!: redesign lockstep execution engine and DAG materialization validation (#75)
+
+* fix: update lockstep validation and fix tests
+
+* fix: lint and coverage issues
+
+* fix(tests): cover unmaterialized terminal streams branch with step_output_observers
+
+* test: move cross-level bypass test to dag validation suite ([`41d6070`](https://github.com/humansoftware/synaflow/commit/41d6070358976eb04036d844d7c62fc103e973b6))
+
+### Style
+
+* style: format after imports fix ([`6f868d3`](https://github.com/humansoftware/synaflow/commit/6f868d3d6beaefb66b14e38316b417215e736be8))
+
+
 ## v0.24.0 (2026-07-03)
 
 ### Feature
