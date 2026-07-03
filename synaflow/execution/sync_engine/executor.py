@@ -1,4 +1,3 @@
-import itertools
 import dataclasses
 import threading
 import uuid
@@ -504,13 +503,6 @@ class PipelineExecutor:
         if fatal_error is not None:
             raise fatal_error
 
-    def _consumers_share_execution_level(self, consumers: list[str]) -> bool:
-        level_index = {}
-        for index, level in enumerate(self.dag.get_execution_levels()):
-            for step_name in level:
-                level_index[step_name] = index
-        return len({level_index.get(consumer) for consumer in consumers}) <= 1
-
     def _abort_fanouts(self, exception: BaseException | None = None) -> None:
         for fanout in self._active_fanouts:
             fanout.abort(exception)
@@ -779,11 +771,18 @@ class PipelineExecutor:
     def _notify_observers(self, step_name, output):
         if not self._step_output_observers:
             return output
-        for observer in self._step_output_observers:
-            if isinstance(output, Iterator):
-                observed, output = itertools.tee(output)
-                observer(step_name, observed)
-            else:
+        if isinstance(output, Iterator):
+            # We can't safely tee the output here if it's purely lazy,
+            # because an observer might be slow and cause memory to blow up.
+            # However, if this stream is NOT consumed by multiple steps later,
+            # we should use SyncFanout here. But if it IS consumed later,
+            # the _publish_output methods handle observers by adding branches
+            # to the SyncFanout!
+            # So _notify_observers should ONLY notify for SCALAR values.
+            # For iterators, observers are handled during fanout construction.
+            pass
+        else:
+            for observer in self._step_output_observers:
                 observer(step_name, output)
         return output
 
@@ -968,18 +967,6 @@ class PipelineExecutor:
         self.outputs[self.dag.output_key(step_name, consumer)] = output
 
     def _publish_stream_to_multiple_consumers(self, step_name, output, node, consumers):
-        if not self._consumers_share_execution_level(consumers):
-            output = _maybe_wrap_stream(output, node)
-            observer_count = len(self._step_output_observers)
-            branches = itertools.tee(output, len(consumers) + observer_count)
-            consumer_branches = branches[: len(consumers)]
-            observer_branches = branches[len(consumers) :]
-            for consumer, branch in zip(consumers, consumer_branches):
-                self.outputs[self.dag.output_key(step_name, consumer)] = branch
-            for observer, branch in zip(self._step_output_observers, observer_branches):
-                observer(step_name, self._collect_observer_items(branch))
-            return
-
         fanout = SyncFanout(
             output,
             max_in_flight=max(1, node.max_in_flight),
@@ -1035,6 +1022,19 @@ class PipelineExecutor:
             self._publish_stream_to_multiple_consumers(
                 step_name, output, node, consumers
             )
+            return
+
+        if len(consumers) == 0 and self._step_output_observers:
+            fanout = SyncFanout(
+                output,
+                max_in_flight=max(1, node.max_in_flight),
+                branches=self._observer_branch_names(),
+            )
+            self._active_fanouts.append(fanout)
+            self._start_observer_threads(
+                step_name, fanout, self._observer_branch_names()
+            )
+            fanout.start()
             return
 
         output = self._notify_observers(step_name, output)

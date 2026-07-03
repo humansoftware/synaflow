@@ -394,13 +394,6 @@ class AsyncPipelineExecutor:
             return
         await dispatch_observers_async(registrations, ctx)
 
-    def _consumers_share_execution_level(self, consumers: list[str]) -> bool:
-        level_index = {}
-        for index, level in enumerate(self.dag.get_execution_levels()):
-            for step_name in level:
-                level_index[step_name] = index
-        return len({level_index.get(consumer) for consumer in consumers}) <= 1
-
     async def _dispatch_step_event(
         self,
         node: Any,
@@ -1071,8 +1064,6 @@ class AsyncPipelineExecutor:
         self, step_name, output, node, consumers, deferred
     ):
         queue_maxsize = max(1, node.max_in_flight)
-        if not self._consumers_share_execution_level(consumers):
-            queue_maxsize = 0
         queues = {
             consumer: AsyncQueueBranch(asyncio.Queue(maxsize=queue_maxsize))
             for consumer in consumers

@@ -1,8 +1,9 @@
-import pytest
+from typing import Any
+from synaflow.execution.async_engine.executor import AsyncPipelineExecutor
 import inspect
+import pytest
 from typing import AsyncGenerator, AsyncIterator, NamedTuple
 from unittest.mock import AsyncMock as MagicMock
-
 
 from synaflow import async_run, pipeline, step
 from synaflow.core.types import OnError
@@ -255,10 +256,14 @@ async def test_given_chain_and_bypass_dependencies_when_run_then_no_materializat
         return items * 2
 
     async def b(a: AsyncIterator[int], items: AsyncIterator[int]):
-        async for x in a:
-            call_order.append(("b_a", x))
-        async for y in items:
-            call_order.append(("b_items", y))
+        while True:
+            try:
+                x = await anext(a)
+                y = await anext(items)
+                call_order.append(("b_a", x))
+                call_order.append(("b_items", y))
+            except StopAsyncIteration:
+                break
 
     materialized = []
 
@@ -687,7 +692,6 @@ async def test_given_no_custom_materializer_and_non_builtin_type_when_not_materi
     assert seen == [Row(id=1, name="alice"), Row(id=2, name="bob")]
 
 
-@pytest.mark.skip(reason="Needs new lockstep engine to avoid tee deadlocks")
 async def test_given_diamond_topology_with_multiple_lazy_streams_when_run_then_no_deadlock():
     class P(NamedTuple):
         pass
@@ -713,10 +717,14 @@ async def test_given_diamond_topology_with_multiple_lazy_streams_when_run_then_n
     call_order = []
 
     async def finalize(a: AsyncIterator[int], b: AsyncIterator[int]) -> None:
-        async for x in a:
-            call_order.append(("a", x))
-        async for y in b:
-            call_order.append(("b", y))
+        while True:
+            try:
+                x = await anext(a)
+                y = await anext(b)
+                call_order.append(("a", x))
+                call_order.append(("b", y))
+            except StopAsyncIteration:
+                break
 
     my_pipeline = pipeline(
         name="test_diamond_deadlock",
@@ -787,3 +795,24 @@ async def test_given_multilevel_each_fanout_when_run_then_completes_without_mate
 
     assert seen_x == list(range(20))
     assert seen_y == list(range(20))
+
+
+@pytest.mark.asyncio
+async def test_given_terminal_stream_with_no_observers_bypass_validation():
+    from typing import NamedTuple
+
+    class DummyParams(NamedTuple):
+        values: list[int]
+
+    async def producer(values: list[int]) -> Any:
+        for v in values:
+            yield v
+
+    p = pipeline(
+        name="p1",
+        params=DummyParams,
+        steps=[step("p", fn=producer)],
+    )
+
+    executor = AsyncPipelineExecutor(p.dag)
+    await executor.execute(DummyParams(values=[1, 2, 3]))

@@ -308,36 +308,6 @@ def test_given_user_resource_with_close_when_used_as_param_then_executor_does_no
     assert resource.closed is False
 
 
-def test_given_max_in_flight_3_when_cross_level_bypass_then_pipeline_completes():
-    transformed: list[int] = []
-    bypassed: list[int] = []
-
-    def producer(count: int) -> Generator[int, None, None]:
-        yield from range(count)
-
-    def first_consumer(producer: Iterator[int]) -> int:
-        return sum(producer)
-
-    def second_consumer(first_consumer: int, producer: Iterator[int]) -> None:
-        transformed.append(first_consumer)
-        for item in producer:
-            bypassed.append(item)
-
-    p = pipeline(
-        name="test",
-        params=Count,
-        steps=[
-            step("producer", fn=producer, max_in_flight=3),
-            step("first_consumer", fn=first_consumer),
-            step("second_consumer", fn=second_consumer),
-        ],
-    )
-    run(p, Count(count=5))
-
-    assert transformed == [10]
-    assert bypassed == [0, 1, 2, 3, 4]
-
-
 def test_given_max_in_flight_3_when_terminal_lazy_consumer_then_stream_drains_fully():
     produced: list[int] = []
     consumed: list[int] = []

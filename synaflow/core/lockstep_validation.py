@@ -28,9 +28,11 @@ def validate_lockstep_symmetry(dag: dict[str, DagNode], pipeline_name: str) -> N
             for child in children[current]:
                 new_path = current_path + [child]
                 new_has_barrier = has_barrier
-                # If current is NOT the start node, check if it acts as a barrier
-                if current != f_name and dag[current].materialize_output:
-                    new_has_barrier = True
+                if current != f_name:
+                    if dag[current].materialize_output or not is_iterable_type(
+                        dag[current].output
+                    ):
+                        new_has_barrier = True
 
                 paths_to[child].append((new_has_barrier, new_path))
                 dfs(child, new_path, new_has_barrier)
