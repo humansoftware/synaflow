@@ -846,6 +846,17 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#lockstep-and-dag-topologies" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Lockstep and DAG Topologies
+      
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -1111,6 +1122,34 @@
 
           </label>
           <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../advanced/asymmetric-lockstep-deadlocks/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Asymmetric Lockstep Deadlocks
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
             
               
                 
@@ -1512,6 +1551,17 @@
     <span class="md-ellipsis">
       
         Next
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#lockstep-and-dag-topologies" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Lockstep and DAG Topologies
       
     </span>
   </a>
@@ -1989,6 +2039,10 @@ mechanism, applied to fan-in.</p>
 coexist without forcing each other.</p>
 <h2 id="next">Next<a class="headerlink" href="#next" title="Permanent link">&para;</a></h2>
 <p>Start building in the <a href="../../tutorial/hello-world/">Hello World tutorial</a>.</p>
+<h2 id="lockstep-and-dag-topologies">Lockstep and DAG Topologies<a class="headerlink" href="#lockstep-and-dag-topologies" title="Permanent link">&para;</a></h2>
+<p>Perfect lockstep execution requires streams to flow smoothly. When a stream branches into multiple parallel paths that later rejoin (a "Diamond" pattern), SynaFlow enforces a strict topological requirement known as <strong>Symmetry of Barriers</strong>.</p>
+<p>If one path of your diamond consumes the stream iteratively (lazy), but another path requires the entire stream to finish before proceeding (eager materialization), your pipeline contains an <strong>Asymmetric Lockstep Materialization</strong>.</p>
+<p>SynaFlow will detect this at design-time and throw an exception, because this topology mathematically guarantees a deadlock. To understand why, and how to fix it, see the <a href="../../advanced/asymmetric-lockstep-deadlocks/">Asymmetric Lockstep Deadlocks</a> advanced guide.</p>
 
 
 

@@ -12,13 +12,13 @@
         <meta name="author" content="humansoftware">
       
       
-        <link rel="canonical" href="https://humansoftware.github.io/synaflow/advanced/export-guidance/">
+        <link rel="canonical" href="https://humansoftware.github.io/synaflow/advanced/asymmetric-lockstep-deadlocks/">
       
       
-        <link rel="prev" href="../custom-observers/">
+        <link rel="prev" href="../../core-concepts/examples/">
       
       
-        <link rel="next" href="../../comparisons/hamilton/">
+        <link rel="next" href="../testability/">
       
       
         
@@ -29,7 +29,7 @@
     
     
       
-        <title>Export Guidance - SynaFlow</title>
+        <title>Asymmetric Lockstep Deadlocks - SynaFlow</title>
       
     
     
@@ -88,7 +88,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#export-guidance" class="md-skip">
+        <a href="#asymmetric-lockstep-deadlocks" class="md-skip">
           Skip to content
         </a>
       
@@ -124,7 +124,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Export Guidance
+              Asymmetric Lockstep Deadlocks
             
           </span>
         </div>
@@ -981,10 +981,37 @@
                 
   
   
+    
   
   
-    <li class="md-nav__item">
-      <a href="../asymmetric-lockstep-deadlocks/" class="md-nav__link">
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Asymmetric Lockstep Deadlocks
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
         
   
   
@@ -1000,6 +1027,87 @@
   
 
       </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#the-temporal-diamond-problem" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The Temporal Diamond Problem
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#the-universal-lockstep-rule" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The Universal Lockstep Rule
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#how-to-fix-an-asymmetric-pipeline" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        How to Fix an Asymmetric Pipeline
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="How to Fix an Asymmetric Pipeline">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#1-materialize-the-source" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. Materialize the Source
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#2-materialize-the-lazy-paths" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. Materialize the Lazy Paths
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
     </li>
   
 
@@ -1121,37 +1229,10 @@
                 
   
   
-    
   
   
-  
-    <li class="md-nav__item md-nav__item--active">
-      
-      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
-      
-      
-        
-      
-      
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Export Guidance
-  
-
-    
-  </span>
-  
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
-      <a href="./" class="md-nav__link md-nav__link--active">
+    <li class="md-nav__item">
+      <a href="../export-guidance/" class="md-nav__link">
         
   
   
@@ -1167,81 +1248,6 @@
   
 
       </a>
-      
-        
-
-<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
-  
-  
-  
-    
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#the-contract" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        The Contract
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#field-reference" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Field Reference
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#exporting-to-airflow" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Exporting to Airflow
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#exporting-to-prefect" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Exporting to Prefect
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#key-guarantees" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Key Guarantees
-      
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
-</nav>
-      
     </li>
   
 
@@ -1426,10 +1432,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#the-contract" class="md-nav__link">
+  <a href="#the-temporal-diamond-problem" class="md-nav__link">
     <span class="md-ellipsis">
       
-        The Contract
+        The Temporal Diamond Problem
       
     </span>
   </a>
@@ -1437,10 +1443,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#field-reference" class="md-nav__link">
+  <a href="#the-universal-lockstep-rule" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Field Reference
+        The Universal Lockstep Rule
       
     </span>
   </a>
@@ -1448,35 +1454,41 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#exporting-to-airflow" class="md-nav__link">
+  <a href="#how-to-fix-an-asymmetric-pipeline" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Exporting to Airflow
+        How to Fix an Asymmetric Pipeline
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="How to Fix an Asymmetric Pipeline">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#1-materialize-the-source" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. Materialize the Source
       
     </span>
   </a>
   
 </li>
-      
-        <li class="md-nav__item">
-  <a href="#exporting-to-prefect" class="md-nav__link">
+        
+          <li class="md-nav__item">
+  <a href="#2-materialize-the-lazy-paths" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Exporting to Prefect
+        2. Materialize the Lazy Paths
       
     </span>
   </a>
   
 </li>
-      
-        <li class="md-nav__item">
-  <a href="#key-guarantees" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Key Guarantees
-      
-    </span>
-  </a>
+        
+      </ul>
+    </nav>
   
 </li>
       
@@ -1500,106 +1512,69 @@
   
 
 
-<h1 id="export-guidance">Export Guidance<a class="headerlink" href="#export-guidance" title="Permanent link">&para;</a></h1>
-<p>SynaFlow's DAG JSON is a <strong>strict execution contract</strong> for downstream orchestrators.</p>
-<h2 id="the-contract">The Contract<a class="headerlink" href="#the-contract" title="Permanent link">&para;</a></h2>
-<p>Every pipeline exports a deterministic JSON via <code>pipeline.to_dict()</code>:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="p">{</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="w">  </span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;example&quot;</span><span class="p">,</span>
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="w">  </span><span class="nt">&quot;params&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">&quot;count&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;int&quot;</span><span class="p">},</span>
-<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="w">  </span><span class="nt">&quot;steps&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="w">    </span><span class="nt">&quot;producer&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="w">      </span><span class="nt">&quot;deps&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">&quot;count&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;int&quot;</span><span class="p">},</span>
-<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="w">      </span><span class="nt">&quot;output&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Stream[int, None, None]&quot;</span><span class="p">,</span>
-<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="w">      </span><span class="nt">&quot;fn&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;producer&quot;</span><span class="p">,</span>
-<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="w">      </span><span class="nt">&quot;on_error&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;continue&quot;</span><span class="p">,</span>
-<a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a><span class="w">      </span><span class="nt">&quot;mode&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;all&quot;</span><span class="p">,</span>
-<a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a><span class="w">      </span><span class="nt">&quot;materializer&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;memory_materializer&quot;</span><span class="p">,</span>
-<a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a><span class="w">      </span><span class="nt">&quot;error_materializer&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;log_error_materializer&quot;</span><span class="p">,</span>
-<a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a><span class="w">      </span><span class="nt">&quot;each_mode_deps&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[],</span>
-<a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a><span class="w">      </span><span class="nt">&quot;pipeline&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;example&quot;</span><span class="p">,</span>
-<a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a><span class="w">      </span><span class="nt">&quot;parent_pipeline&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span>
-<a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a><span class="w">    </span><span class="p">}</span>
-<a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a><span class="w">  </span><span class="p">}</span>
-<a id="__codelineno-0-18" name="__codelineno-0-18" href="#__codelineno-0-18"></a><span class="p">}</span>
+<h1 id="asymmetric-lockstep-deadlocks">Asymmetric Lockstep Deadlocks<a class="headerlink" href="#asymmetric-lockstep-deadlocks" title="Permanent link">&para;</a></h1>
+<p>One of the most elegant architectural properties of SynaFlow is its <strong>strict lockstep execution</strong>. When dealing with streams of data (<code>Iterator</code>, <code>Generator</code>), SynaFlow will naturally push each item through the DAG node by node, avoiding the accumulation of items in memory.</p>
+<p>However, lockstep flow combined with complex DAG topologies (specifically split/join diamonds) can lead to a condition called a <strong>Lockstep Deadlock</strong>.</p>
+<p>SynaFlow protects you against this by throwing a <code>ValueError: Asymmetric lockstep materialization detected</code> at pipeline build time if it detects a dangerous topological pattern.</p>
+<p>This page explains the theory behind this deadlock and how the "Universal Lockstep Rule" protects your streams.</p>
+<h2 id="the-temporal-diamond-problem">The Temporal Diamond Problem<a class="headerlink" href="#the-temporal-diamond-problem" title="Permanent link">&para;</a></h2>
+<p>Consider a basic Fan-Out / Fan-In "Diamond" topology:
+1. <code>p1</code> produces a stream of items.
+2. <code>p1</code> branches into two parallel paths: Path A (<code>s2</code>) and Path B (<code>s3</code>).
+3. Path A and Path B rejoin at a single consumer step <code>s4</code>.</p>
+<pre class="mermaid"><code>graph TD
+    p1 --&gt; s2
+    p1 --&gt; s3
+    s2 --&gt; s4
+    s3 --&gt; s4</code></pre>
+<p>In a purely lockstep flow, <code>s4</code> needs an item from Path A and an item from Path B to execute.
+<code>p1</code> produces Item 1, pushes it to <code>s2</code> and <code>s3</code>. <code>s4</code> consumes both, and execution proceeds smoothly.</p>
+<p><strong>What happens if Path A is Eager (materializes), but Path B is purely Lazy (stream)?</strong></p>
+<p>If <code>s2</code> requires the entire stream to execute (e.g. <code>s2</code> takes a <code>list[int]</code>), it becomes a <strong>Materialization Barrier</strong>.</p>
+<ol>
+<li><code>p1</code> generates Item 1.</li>
+<li>Path A (<code>s2</code>) holds it in memory, waiting for the rest of the stream.</li>
+<li>Path B (<code>s3</code>) receives Item 1 and forwards it to <code>s4</code>.</li>
+<li><code>s4</code> receives Item 1 from Path B. However, <code>s4</code> <strong>cannot</strong> execute yet, because it is waiting for the result of Path A (<code>s2</code>).</li>
+<li>Because <code>s4</code> is blocked, it stops pulling from Path B.</li>
+<li>Path B stops pulling from <code>p1</code>.</li>
+<li><code>p1</code> is frozen. <code>s2</code> will never receive the rest of the stream.</li>
+</ol>
+<p><strong>Result: Structural Deadlock.</strong> The eager branch demands the stream to finish, but the lazy branch propagates the downstream lock back to the source, halting the stream.</p>
+<h2 id="the-universal-lockstep-rule">The Universal Lockstep Rule<a class="headerlink" href="#the-universal-lockstep-rule" title="Permanent link">&para;</a></h2>
+<p>To prevent deadlocks without aggressively forcing materialization where it isn't wanted, SynaFlow evaluates your DAG using the <strong>Universal Lockstep Rule</strong> at design time.</p>
+<p>Given a stream producer (P) whose stream splits into multiple paths that rejoin at a final consumer (D):</p>
+<ol>
+<li><strong>Purely Lazy (Symmetric)</strong>: If NO path contains a materialization barrier, the stream flows in lockstep perfectly. <strong>(VALID)</strong></li>
+<li><strong>Fully Buffered (Symmetric)</strong>: If ALL paths contain at least one materialization node (regardless of where in the path it is), the materialized nodes act as temporal shields. They protect P from the downstream locks of D. <strong>(VALID)</strong></li>
+<li><strong>Asymmetric Paths</strong>: If at least one path is purely lazy AND at least one path contains a materialization barrier, the lazy path will reflect the downstream lock back to P, strangling the eager path. <strong>(INVALID)</strong></li>
+</ol>
+<h2 id="how-to-fix-an-asymmetric-pipeline">How to Fix an Asymmetric Pipeline<a class="headerlink" href="#how-to-fix-an-asymmetric-pipeline" title="Permanent link">&para;</a></h2>
+<p>If SynaFlow throws an <code>Asymmetric lockstep materialization detected</code> exception, you have a topology that guarantees a runtime deadlock.</p>
+<p>To fix it, you must restore <strong>Symmetry of Barriers</strong>. You have two options:</p>
+<h3 id="1-materialize-the-source">1. Materialize the Source<a class="headerlink" href="#1-materialize-the-source" title="Permanent link">&para;</a></h3>
+<p>If you force materialization right at the source (<code>p1</code>), the stream ceases to be a stream before it splits. All downstream paths receive the scalar data at the same time.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="n">pipeline</span><span class="p">(</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">steps</span><span class="o">=</span><span class="p">[</span>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>        <span class="n">step</span><span class="p">(</span><span class="s2">&quot;p1&quot;</span><span class="p">,</span> <span class="n">p1</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="n">StepMode</span><span class="o">.</span><span class="n">ALL</span><span class="p">,</span> <span class="n">force_materialize</span><span class="o">=</span><span class="kc">True</span><span class="p">),</span>
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>        <span class="n">step</span><span class="p">(</span><span class="s2">&quot;s2&quot;</span><span class="p">,</span> <span class="n">s2</span><span class="p">),</span> <span class="c1"># Eager</span>
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>        <span class="n">step</span><span class="p">(</span><span class="s2">&quot;s3&quot;</span><span class="p">,</span> <span class="n">s3</span><span class="p">),</span> <span class="c1"># Lazy</span>
+<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>        <span class="n">step</span><span class="p">(</span><span class="s2">&quot;s4&quot;</span><span class="p">,</span> <span class="n">s4</span><span class="p">),</span>
+<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>    <span class="p">]</span>
+<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="p">)</span>
 </code></pre></div>
-<h2 id="field-reference">Field Reference<a class="headerlink" href="#field-reference" title="Permanent link">&para;</a></h2>
-<table>
-<thead>
-<tr>
-<th>Field</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>deps</code></td>
-<td>Parameter name → expected type. Dependencies to resolve before executing.</td>
-</tr>
-<tr>
-<td><code>output</code></td>
-<td>The type this step produces.</td>
-</tr>
-<tr>
-<td><code>mode</code></td>
-<td><code>"all"</code> (single call with full input) or <code>"each"</code> (called per item).</td>
-</tr>
-<tr>
-<td><code>each_mode_deps</code></td>
-<td>Which deps must be unrolled item-by-item in EACH mode.</td>
-</tr>
-<tr>
-<td><code>on_error</code></td>
-<td><code>"continue"</code> (skip failed items) or <code>"stop"</code> (halt pipeline).</td>
-</tr>
-<tr>
-<td><code>materializer</code></td>
-<td>Name of the materializer callable.</td>
-</tr>
-<tr>
-<td><code>error_materializer</code></td>
-<td>Name of the error handler callable.</td>
-</tr>
-<tr>
-<td><code>needs_materialize_reasons</code></td>
-<td>Optional debug-only reasons explaining why this producer was compiled as materialized.</td>
-</tr>
-</tbody>
-</table>
-<h2 id="exporting-to-airflow">Exporting to Airflow<a class="headerlink" href="#exporting-to-airflow" title="Permanent link">&para;</a></h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="n">dag_json</span> <span class="o">=</span> <span class="n">pipeline</span><span class="o">.</span><span class="n">to_dict</span><span class="p">()</span>
-<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>
-<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="c1"># Compile into an Airflow DAG</span>
-<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="k">for</span> <span class="n">step_name</span><span class="p">,</span> <span class="n">node</span> <span class="ow">in</span> <span class="n">dag_json</span><span class="p">[</span><span class="s2">&quot;steps&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
-<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>    <span class="n">task</span> <span class="o">=</span> <span class="n">PythonOperator</span><span class="p">(</span>
-<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>        <span class="n">task_id</span><span class="o">=</span><span class="n">step_name</span><span class="p">,</span>
-<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a>        <span class="n">python_callable</span><span class="o">=</span><span class="n">node</span><span class="p">[</span><span class="s2">&quot;fn&quot;</span><span class="p">],</span>
-<a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a>    <span class="p">)</span>
-<a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a>    <span class="k">for</span> <span class="n">dep</span> <span class="ow">in</span> <span class="n">node</span><span class="p">[</span><span class="s2">&quot;deps&quot;</span><span class="p">]:</span>
-<a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a>        <span class="n">task</span><span class="o">.</span><span class="n">set_upstream</span><span class="p">(</span><span class="n">dag</span><span class="o">.</span><span class="n">get_task</span><span class="p">(</span><span class="n">dep</span><span class="p">))</span>
+<h3 id="2-materialize-the-lazy-paths">2. Materialize the Lazy Paths<a class="headerlink" href="#2-materialize-the-lazy-paths" title="Permanent link">&para;</a></h3>
+<p>You can introduce a materialization barrier into the lazy paths to act as a temporal shield. This allows the source stream to be exhausted smoothly.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="n">pipeline</span><span class="p">(</span>
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>    <span class="n">steps</span><span class="o">=</span><span class="p">[</span>
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>        <span class="n">step</span><span class="p">(</span><span class="s2">&quot;p1&quot;</span><span class="p">,</span> <span class="n">p1</span><span class="p">),</span>
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>        <span class="n">step</span><span class="p">(</span><span class="s2">&quot;s2&quot;</span><span class="p">,</span> <span class="n">s2</span><span class="p">),</span> <span class="c1"># Inherently Eager (e.g. returns a list)</span>
+<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>        <span class="n">step</span><span class="p">(</span><span class="s2">&quot;s3&quot;</span><span class="p">,</span> <span class="n">s3</span><span class="p">,</span> <span class="n">force_materialize</span><span class="o">=</span><span class="kc">True</span><span class="p">),</span> <span class="c1"># Forced to be a shield</span>
+<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>        <span class="n">step</span><span class="p">(</span><span class="s2">&quot;s4&quot;</span><span class="p">,</span> <span class="n">s4</span><span class="p">),</span>
+<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a>    <span class="p">]</span>
+<a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a><span class="p">)</span>
 </code></pre></div>
-<h2 id="exporting-to-prefect">Exporting to Prefect<a class="headerlink" href="#exporting-to-prefect" title="Permanent link">&para;</a></h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">prefect</span><span class="w"> </span><span class="kn">import</span> <span class="n">flow</span><span class="p">,</span> <span class="n">task</span>
-<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>
-<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="nd">@flow</span>
-<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="k">def</span><span class="w"> </span><span class="nf">synaflow_to_prefect</span><span class="p">(</span><span class="n">dag_json</span><span class="p">):</span>
-<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>    <span class="n">tasks</span> <span class="o">=</span> <span class="p">{}</span>
-<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>    <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">node</span> <span class="ow">in</span> <span class="n">dag_json</span><span class="p">[</span><span class="s2">&quot;steps&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
-<a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a>        <span class="nd">@task</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="n">name</span><span class="p">)</span>
-<a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a>        <span class="k">def</span><span class="w"> </span><span class="nf">step_fn</span><span class="p">():</span>
-<a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a>            <span class="o">...</span>
-<a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a>        <span class="n">tasks</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">step_fn</span>
-<a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a>
-<a id="__codelineno-2-12" name="__codelineno-2-12" href="#__codelineno-2-12"></a>    <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">node</span> <span class="ow">in</span> <span class="n">dag_json</span><span class="p">[</span><span class="s2">&quot;steps&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
-<a id="__codelineno-2-13" name="__codelineno-2-13" href="#__codelineno-2-13"></a>        <span class="k">for</span> <span class="n">dep</span> <span class="ow">in</span> <span class="n">node</span><span class="p">[</span><span class="s2">&quot;deps&quot;</span><span class="p">]:</span>
-<a id="__codelineno-2-14" name="__codelineno-2-14" href="#__codelineno-2-14"></a>            <span class="n">tasks</span><span class="p">[</span><span class="n">name</span><span class="p">]</span><span class="o">.</span><span class="n">set_upstream</span><span class="p">(</span><span class="n">tasks</span><span class="p">[</span><span class="n">dep</span><span class="p">])</span>
-</code></pre></div>
-<h2 id="key-guarantees">Key Guarantees<a class="headerlink" href="#key-guarantees" title="Permanent link">&para;</a></h2>
-<ul>
-<li>The JSON is <strong>deterministic</strong> — same pipeline always produces the same structure.</li>
-<li>All <strong>semantic decisions</strong> (mode, each_mode_deps, producer-level materialization) are pre-computed at build time.</li>
-<li>External runners do <strong>not</strong> need to re-infer semantics — they only need to execute the contract.</li>
-</ul>
+<p>By enforcing topological symmetry, SynaFlow guarantees that any pipeline you can successfully build will execute safely.</p>
 
 
 
