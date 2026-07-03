@@ -642,23 +642,20 @@ class AsyncPipelineExecutor:
                 output = _wrap_started_async(output)
             elif isinstance(output, (Iterator, Generator)):
 
-                def _wrap_started_sync(it):
+                async def _wrap_started_sync_as_async(it):
+                    iterator = iter(it)
                     try:
-                        for item in it:
-                            # Cannot await fire_started() here cleanly if it's a sync generator.
-                            # We just let it run. But since the pipeline started event was removed,
-                            # we must at least emit it when we evaluate the wrapper?
-                            # Since it's a sync generator in async context, it's evaluated in thread.
+                        while True:
+                            try:
+                                item = next(iterator)
+                            except StopIteration:
+                                break
+                            await fire_started()
                             yield item
                     finally:
-                        pass
+                        await fire_started()
 
-                # Hack for sync generators in async context
-                # Actually _execute_step uses run_in_executor for sync functions,
-                # but if they return sync generators, they might cause issues.
-                output = _wrap_started_sync(output)
-                # Just emit started unconditionally if it's a sync generator
-                await fire_started()
+                output = _wrap_started_sync_as_async(output)
             output = self._attach_argument_cleanup(output, arguments)
             await self._emit_immediate_completion(step_name, node, output, unrolled)
             if not self.dag.is_hidden_step(step_name):
