@@ -239,3 +239,31 @@ def test_ultra_complex_diamond_staggered_joins_throws_design_time_error():
                 step("s9", s9, mode=StepMode.EACH),
             ],
         )
+
+
+def test_given_cross_level_stream_bypass_throws_design_time_error():
+    from typing import Generator
+
+    def producer() -> Generator[int, None, None]:
+        for i in range(10):
+            yield i
+
+    def first_consumer(producer: Iterator[int]) -> int:
+        total = 0
+        for item in producer:
+            total += item
+        return total
+
+    def second_consumer(first_consumer: int, producer: Iterator[int]) -> None:
+        pass
+
+    with pytest.raises(ValueError, match="Asymmetric lockstep materialization"):
+        pipeline(
+            name="test",
+            params=P,
+            steps=[
+                step("producer", fn=producer, mode=StepMode.ALL),
+                step("first_consumer", fn=first_consumer, mode=StepMode.ALL),
+                step("second_consumer", fn=second_consumer, mode=StepMode.ALL),
+            ],
+        )

@@ -301,42 +301,6 @@ async def test_given_max_in_flight_3_when_fanout_lazy_and_eager_then_both_receiv
 
 
 @pytest.mark.asyncio
-async def test_given_max_in_flight_3_when_cross_level_bypass_then_pipeline_fails_validation():
-    transformed: list[int] = []
-    bypassed: list[int] = []
-
-    async def producer(count: int) -> AsyncGenerator[int, None]:
-        for i in range(count):
-            yield i
-
-    async def first_consumer(producer: AsyncIterator[int]) -> int:
-        total = 0
-        async for item in producer:
-            total += item
-        return total
-
-    async def second_consumer(
-        first_consumer: int, producer: AsyncIterator[int]
-    ) -> None:
-        transformed.append(first_consumer)
-        async for item in producer:
-            bypassed.append(item)
-
-    with pytest.raises(
-        ValueError, match="Asymmetric lockstep materialization detected"
-    ):
-        pipeline(
-            name="test",
-            params=Count,
-            steps=[
-                step("producer", fn=producer, max_in_flight=3),
-                step("first_consumer", fn=first_consumer),
-                step("second_consumer", fn=second_consumer),
-            ],
-        )
-
-
-@pytest.mark.asyncio
 async def test_given_max_in_flight_3_when_terminal_lazy_consumer_then_stream_drains_fully():
     produced: list[int] = []
     consumed: list[int] = []
