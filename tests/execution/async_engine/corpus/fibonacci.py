@@ -26,7 +26,7 @@ async def consumer(square_numbers: AsyncIterator[int]) -> None:
     pass
 
 
-from tests.common.pipeline_pack import PipelinePack
+from tests.common.pipeline_pack import PipelinePack  # noqa: E402
 
 pipeline_def = pipeline(
     name="fibonacci",

@@ -28,7 +28,7 @@ async def consumer(gen: AsyncIterator[int]) -> None:
         pass
 
 
-from tests.common.pipeline_pack import PipelinePack
+from tests.common.pipeline_pack import PipelinePack  # noqa: E402
 
 error_pipeline = pipeline(
     name="error_handling_example",

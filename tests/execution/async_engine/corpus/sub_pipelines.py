@@ -45,7 +45,7 @@ pipe = pipeline(
     ],
 )
 
-from tests.common.pipeline_pack import PipelinePack
+from tests.common.pipeline_pack import PipelinePack  # noqa: E402
 
 pack = PipelinePack(
     json_dag={

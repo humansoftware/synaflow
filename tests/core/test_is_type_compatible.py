@@ -16,7 +16,7 @@ class OtherDataclass:
     x: int
 
 
-from typing import NamedTuple
+from typing import NamedTuple  # noqa: E402
 
 
 class MyNamedTuple(NamedTuple):

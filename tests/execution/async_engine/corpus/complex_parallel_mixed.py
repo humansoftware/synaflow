@@ -36,7 +36,7 @@ async def step5(step2: AsyncIterator[int], step4: AsyncIterator[int]) -> None:
 #       \       \
 #        \       -> step5
 #         -> step4 /
-from tests.common.pipeline_pack import PipelinePack
+from tests.common.pipeline_pack import PipelinePack  # noqa: E402
 
 pipeline_def = pipeline(
     name="complex_parallel_mixed",

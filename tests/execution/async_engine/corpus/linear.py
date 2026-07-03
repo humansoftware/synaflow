@@ -22,7 +22,7 @@ async def consumer(transformer: AsyncIterator[int]) -> None:
         pass
 
 
-from tests.common.pipeline_pack import PipelinePack
+from tests.common.pipeline_pack import PipelinePack  # noqa: E402
 
 linear_pipeline = pipeline(
     name="linear_example",

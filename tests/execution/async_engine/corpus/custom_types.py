@@ -31,7 +31,7 @@ async def async_list(async_iterator) -> list:
     return items
 
 
-from tests.common.pipeline_pack import PipelinePack
+from tests.common.pipeline_pack import PipelinePack  # noqa: E402
 
 custom_types_pipeline = pipeline(
     name="custom_types_example",

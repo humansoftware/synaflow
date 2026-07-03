@@ -35,7 +35,7 @@ async def step5(step3: AsyncIterator[int], step4: AsyncIterator[int]) -> None:
 # Topology:
 # step1 -> step2 -> step3 \
 #       -> step4 --------> step5
-from tests.common.pipeline_pack import PipelinePack
+from tests.common.pipeline_pack import PipelinePack  # noqa: E402
 
 pipeline_def = pipeline(
     name="complex_parallel",

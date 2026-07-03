@@ -2,7 +2,7 @@ from collections.abc import AsyncGenerator, AsyncIterator
 from typing import NamedTuple
 
 from synaflow import pipeline, step
-from tests.common.pipeline_pack import PipelinePack
+from tests.common.pipeline_pack import PipelinePack  # noqa: E402
 
 
 class MixedFanoutParams(NamedTuple):

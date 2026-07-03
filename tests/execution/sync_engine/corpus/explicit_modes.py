@@ -2,7 +2,7 @@ from collections.abc import Generator
 from typing import NamedTuple
 
 from synaflow import StepMode, pipeline, step
-from tests.common.pipeline_pack import PipelinePack
+from tests.common.pipeline_pack import PipelinePack  # noqa: E402
 
 
 class ExplicitModesParams(NamedTuple):

@@ -4,7 +4,7 @@ from threading import Event
 from typing import NamedTuple
 
 from synaflow import pipeline, step
-from tests.common.pipeline_pack import PipelinePack
+from tests.common.pipeline_pack import PipelinePack  # noqa: E402
 
 _POOL = ThreadPoolExecutor(max_workers=10)
 _RELEASE = Event()
