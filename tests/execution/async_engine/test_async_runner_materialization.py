@@ -816,3 +816,69 @@ async def test_given_terminal_stream_with_no_observers_bypass_validation():
 
     executor = AsyncPipelineExecutor(p.dag)
     await executor.execute(DummyParams(values=[1, 2, 3]))
+
+
+@pytest.mark.asyncio
+async def test_given_custom_iterable_materializer_when_consumed_by_multiple_each_steps_then_iter_is_called_multiple_times():
+    class P(NamedTuple):
+        pass
+
+    class MockDiskBackedSet(set):
+        def __init__(self, data):
+            super().__init__(data)
+            self.data = set(data)
+            self.iter_count = 0
+
+        def __len__(self):
+            return len(self.data)
+
+        def __iter__(self):
+            self.iter_count += 1
+            yield from self.data
+
+    captured_mock = []
+
+    def my_disk_materializer(ctx):
+        async def mat(g):
+            instance = MockDiskBackedSet([x async for x in g])
+            captured_mock.append(instance)
+            return instance
+
+        return mat
+
+    async def producer() -> AsyncGenerator[int, None]:
+        yield 1
+        yield 2
+        yield 1
+
+    seen_c1 = []
+    seen_c2 = []
+
+    async def consumer_1(producer: int) -> int:
+        seen_c1.append(producer)
+        return producer
+
+    async def consumer_2(producer: int) -> int:
+        seen_c2.append(producer)
+        return producer
+
+    my_pipeline = pipeline(
+        name="test_out_of_core_async",
+        params=P,
+        materializer=my_disk_materializer,
+        steps=[
+            step("producer", fn=producer, force_materialize=True),
+            step("c1", fn=consumer_1),
+            step("c2", fn=consumer_2),
+        ],
+    )
+
+    await async_run(my_pipeline, params=P())
+
+    # Asserting both consumers got the de-duplicated elements (order is arbitrary since it's a set)
+    assert set(seen_c1) == {1, 2}
+    assert set(seen_c2) == {1, 2}
+
+    # Verify the materializer was invoked only once but __iter__ was called twice (once for each EACH consumer)
+    assert len(captured_mock) == 1
+    assert captured_mock[0].iter_count == 2
