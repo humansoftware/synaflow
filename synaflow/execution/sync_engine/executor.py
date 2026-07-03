@@ -217,6 +217,15 @@ def _has_threshold(node: Any) -> bool:
     )
 
 
+def _wrap_started_stream(it: Any, fire_started: Any) -> Any:
+    try:
+        for item in it:
+            fire_started()
+            yield item
+    finally:
+        fire_started()
+
+
 # ---------------------------------------------------------------------------
 # Executor
 # ---------------------------------------------------------------------------
@@ -538,16 +547,7 @@ class PipelineExecutor:
                 fire_started()
             output = self._execute_step(step_name, node, arguments, unrolled)
             if isinstance(output, Iterator):
-
-                def _wrap_started(it):
-                    try:
-                        for item in it:
-                            fire_started()
-                            yield item
-                    finally:
-                        fire_started()
-
-                output = _wrap_started(output)
+                output = _wrap_started_stream(output, fire_started)
             output = self._attach_argument_cleanup(output, arguments)
             self._emit_immediate_completion(step_name, node, output, unrolled)
             if not self.dag.is_hidden_step(step_name):
