@@ -2,6 +2,25 @@
 
 
 
+## v0.25.2 (2026-07-03)
+
+### Fix
+
+* fix(core): make observer success_count reflect logical item count for… (#81)
+
+* fix(core): make observer success_count reflect logical item count for list outputs
+
+* test(core): add regression test for logical item count observer logic (issue 80)
+
+* test(core): add observer regression tests for logical item count (issue 80)
+
+* fix(test): correct logical count in terminal step tests ([`4b8eb1d`](https://github.com/humansoftware/synaflow/commit/4b8eb1dc06bc69e545521690019cb8c6e401465d))
+
+### Test
+
+* test(core): add out-of-core custom materialization tests (#79) ([`2b186b3`](https://github.com/humansoftware/synaflow/commit/2b186b3d0715ffb7ed291a8a3d0a8f829f233599))
+
+
 ## v0.25.1 (2026-07-03)
 
 ### Fix
