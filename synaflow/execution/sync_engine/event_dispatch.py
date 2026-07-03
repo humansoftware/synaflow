@@ -3,6 +3,7 @@ from typing import Any
 from synaflow.core.dag import Dag
 from synaflow.execution.overrides import ExecutionOverrides
 from synaflow.core.constants import PIPELINE_SCOPE
+from synaflow.core.types import ErrorContext
 from synaflow.core.observers import (
     MaterializationCompletedContext,
     MaterializationEvent,
@@ -213,3 +214,38 @@ class EventDispatcher:
             exception=exception,
         )
         dispatch_observers(registrations, ctx)
+
+    def handle_error(
+        self,
+        step_name: str,
+        exc: BaseException,
+        success_count: int = 0,
+        error_count: int = 1,
+        completed_all_inputs: bool | None = None,
+    ) -> None:
+        node = self._dag.steps.get(step_name)
+        if not node:
+            return
+
+        err_mat = getattr(node, "error_materializer", None)
+        if err_mat is None:
+            return
+
+        if not callable(err_mat):
+            raise TypeError(
+                f"Error materializer for step '{step_name}' is not callable."
+            )
+
+        error_ctx = ErrorContext(
+            pipeline_name=self._dag.name,
+            dataset_name=step_name,
+            step_name=step_name,
+            run_id=self._run_id,
+            exception=exc,
+            mode=getattr(node, "mode", None),
+            on_error=getattr(node, "on_error", None),
+            success_count=success_count,
+            error_count=error_count,
+            completed_all_inputs=completed_all_inputs,
+        )
+        err_mat(error_ctx)

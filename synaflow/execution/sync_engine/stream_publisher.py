@@ -3,16 +3,13 @@ from collections.abc import Iterator
 from typing import Any
 
 from synaflow.core.dag import Dag
-from synaflow.core.types import StepMode
+from synaflow.core.types import StepMode, OnError
 from synaflow.core.exceptions import PipelineStopException
 from synaflow.execution.sync_handoff import SyncFanout
 from synaflow.execution.sync_engine.event_dispatch import EventDispatcher
 from synaflow.execution.sync_engine.step_scope import StepScope
 from synaflow.execution.sync_engine.threshold import has_threshold
-from synaflow.execution.sync_engine.utils import (
-    _maybe_wrap_stream,
-    _apply_materializer,
-)
+from synaflow.execution.bounded_iterator import BoundedIterator
 
 
 class StreamPublisher:
@@ -31,6 +28,56 @@ class StreamPublisher:
         self._scope = scope
         self._active_fanouts: list[SyncFanout] = []
         self._observer_threads: list[threading.Thread] = []
+
+    def _maybe_wrap_stream(self, output: Any, node: Any) -> Any:
+        """Wrap a progressive stream output with bounded handoff if needed."""
+        if node.max_in_flight <= 1:
+            return output
+        if not isinstance(output, Iterator):
+            return output
+        return BoundedIterator(output, node.max_in_flight)
+
+    def _collect_iterator(
+        self,
+        step_name: str,
+        value: Iterator,
+    ) -> tuple[list[Any], bool, BaseException | None]:
+        items = []
+        while True:
+            try:
+                items.append(next(value))
+            except StopIteration:
+                return items, False, None
+            except Exception as exc:
+                self._events.handle_error(
+                    step_name,
+                    exc,
+                    success_count=len(items),
+                    error_count=1,
+                    completed_all_inputs=False,
+                )
+                if self._dag[step_name].on_error == OnError.STOP:
+                    raise PipelineStopException(step_name=step_name, cause=exc) from exc
+                return items, True, exc
+
+    def _apply_materializer(
+        self,
+        step_name: str,
+        value: Any,
+        materializer: Any,
+        consumer_type: Any = None,
+    ) -> tuple[Any, bool, BaseException | None]:
+        if materializer is None:
+            if isinstance(value, Iterator):
+                items, had_error, exc = self._collect_iterator(step_name, value)
+                return items, had_error, exc
+            return value, False, None
+
+        if isinstance(value, Iterator):
+            items, had_error, exc = self._collect_iterator(step_name, value)
+            return materializer(items), had_error, exc
+
+        return materializer(value), False, None
 
     def publish(self, step_name: str, output: Any, node: Any) -> None:
         deferred = node.mode == StepMode.EACH or (
@@ -79,7 +126,7 @@ class StreamPublisher:
             return
 
         output = self._notify_observers(step_name, output)
-        self._outputs[step_name] = _maybe_wrap_stream(output, node)
+        self._outputs[step_name] = self._maybe_wrap_stream(output, node)
 
     def abort(self, exception: BaseException | None = None) -> None:
         for fanout in self._active_fanouts:
@@ -143,12 +190,10 @@ class StreamPublisher:
             mat_name,
         )
         try:
-            result, had_error, exc = _apply_materializer(
-                self._dag,
+            result, had_error, exc = self._apply_materializer(
                 step_name,
                 output,
                 materializer,
-                self._events.run_id,
                 consumer_type=consumer_type,
             )
             self._events.materialization_completed(
@@ -220,7 +265,7 @@ class StreamPublisher:
         output = self._notify_observers(step_name, output)
         if deferred:
             self._emit_step_result(node, step_name, output, had_error, exc)
-        output = _maybe_wrap_stream(output, node)
+        output = self._maybe_wrap_stream(output, node)
         self._outputs[self._dag.output_key(step_name, consumer)] = output
 
     def _publish_stream_to_multiple_consumers(self, step_name, output, node, consumers):

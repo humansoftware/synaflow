@@ -14,7 +14,6 @@ from synaflow.core.exceptions import (
 from synaflow.execution.sync_engine.event_dispatch import EventDispatcher
 from synaflow.core.types import (
     OnError,
-    StepMode,
 )
 from synaflow.execution.overrides import ExecutionOverrides
 from .threshold import (
@@ -32,10 +31,16 @@ from .step_scope import StepScope
 
 
 from .stream_publisher import StreamPublisher
-from .utils import (
-    _handle_error,
-    _wrap_started_stream,
-)
+
+
+def _wrap_started_stream(it: Any, fire_started: Any) -> Any:
+    try:
+        for item in it:
+            fire_started()
+            yield item
+    finally:
+        fire_started()
+
 
 # ---------------------------------------------------------------------------
 # Executor
@@ -205,11 +210,9 @@ class PipelineExecutor:
                 completed_all_inputs = compute_completed_all_inputs_for_all(
                     node, arguments, exc
                 )
-                _handle_error(
-                    self.dag,
+                self.events.handle_error(
                     step_name,
                     exc,
-                    run_id=self.run_id,
                     success_count=exc.success_count,
                     error_count=exc.error_count,
                     completed_all_inputs=completed_all_inputs,
@@ -235,7 +238,7 @@ class PipelineExecutor:
                 )
             raise
         except Exception as exc:
-            _handle_error(self.dag, step_name, exc, run_id=self.run_id)
+            self.events.handle_error(step_name, exc)
             self._dispatch_step_failure(node, step_name, exc)
             if node.on_error == OnError.STOP:
                 raise PipelineStopException(step_name=step_name, cause=exc) from exc
@@ -326,11 +329,9 @@ class PipelineExecutor:
                         raise
                     except Exception as exc:
                         error_count += 1
-                        _handle_error(
-                            self.dag,
+                        self.events.handle_error(
                             step_name,
                             wrap_threshold_raise_if_manual(exc, step_name),
-                            run_id=self.run_id,
                             success_count=invocation_count - error_count,
                             error_count=error_count,
                             completed_all_inputs=False,
