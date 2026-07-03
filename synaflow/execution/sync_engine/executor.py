@@ -19,9 +19,6 @@ from synaflow.core.types import (
     StepMode,
 )
 from synaflow.execution.overrides import ExecutionOverrides
-from synaflow.execution.sync_handoff import (
-    SyncFanout,
-)
 from .threshold import (
     check_threshold,
     wrap_threshold_raise_if_manual,
@@ -154,9 +151,6 @@ class PipelineExecutor:
     ):
         self.dag = dag
         self.outputs = {}
-        self._step_output_observers = step_output_observers or []
-        self._active_fanouts: list[SyncFanout] = []
-        self._observer_threads: list[threading.Thread] = []
         self._overrides = overrides
         self._resource_factories = dict(resource_factories or {})
         self.run_id = str(uuid.uuid4())
@@ -164,6 +158,12 @@ class PipelineExecutor:
             self.dag, self.outputs, self._overrides, self._resource_factories
         )
         self.events = EventDispatcher(self.dag, self.run_id, self._overrides)
+        from .stream_publisher import StreamPublisher
+
+        self.publisher = StreamPublisher(
+            self.dag, self.outputs, self.events, step_output_observers or [], self.scope
+        )
+        self.publisher._executor = self
 
     # ------------------------------------------------------------------
     # Execution
@@ -193,7 +193,7 @@ class PipelineExecutor:
             self.events.pipeline_failed(step_name=None, exception=exc)
             raise
         finally:
-            self._cleanup_fanouts()
+            self.publisher.cleanup()
         if completed_cleanly:
             self.events.pipeline_completed()
 
@@ -246,7 +246,7 @@ class PipelineExecutor:
                         if fatal_error is None:
                             fatal_error = exc
                         completed_cleanly = False
-                        self._abort_fanouts(exc)
+                        self.publisher.abort(exc)
 
                     if completed_cleanly:
                         check_new_ready_steps()
@@ -259,18 +259,6 @@ class PipelineExecutor:
 
         if fatal_error is not None:
             raise fatal_error
-
-    def _abort_fanouts(self, exception: BaseException | None = None) -> None:
-        for fanout in self._active_fanouts:
-            fanout.abort(exception)
-
-    def _cleanup_fanouts(self) -> None:
-        for fanout in self._active_fanouts:
-            fanout.join()
-        self._active_fanouts.clear()
-        for thread in self._observer_threads:
-            thread.join()
-        self._observer_threads.clear()
 
     def _run_step(self, step_name: str) -> None:
         node = self.dag[step_name]
@@ -297,7 +285,7 @@ class PipelineExecutor:
             output = self.scope.attach_cleanup(output, arguments)
             self._emit_immediate_completion(step_name, node, output, unrolled)
             if not self.dag.is_hidden_step(step_name):
-                self._publish_output(step_name, output, node)
+                self.publisher.publish(step_name, output, node)
         except PipelineStopException as exc:
             self._dispatch_step_failure(node, step_name, exc.cause or exc)
             raise
@@ -483,91 +471,6 @@ class PipelineExecutor:
             return None
         return generate()
 
-    def _notify_observers(self, step_name, output):
-        if not self._step_output_observers:
-            return output
-        if isinstance(output, Iterator):
-            # We can't safely tee the output here if it's purely lazy,
-            # because an observer might be slow and cause memory to blow up.
-            # However, if this stream is NOT consumed by multiple steps later,
-            # we should use SyncFanout here. But if it IS consumed later,
-            # the _publish_output methods handle observers by adding branches
-            # to the SyncFanout!
-            # So _notify_observers should ONLY notify for SCALAR values.
-            # For iterators, observers are handled during fanout construction.
-            pass
-        else:
-            for observer in self._step_output_observers:
-                observer(step_name, output)
-        return output
-
-    def _observer_branch_names(self) -> list[str]:
-        return [f"__obs{i}" for i, _observer in enumerate(self._step_output_observers)]
-
-    def _collect_observer_items(self, branch) -> list[Any]:
-        items = []
-        try:
-            for item in branch:
-                items.append(item)
-        except Exception:
-            pass
-        return items
-
-    def _start_observer_threads(
-        self,
-        step_name: str,
-        fanout: SyncFanout,
-        observer_branch_names: list[str],
-    ) -> None:
-        for branch_name, observer in zip(
-            observer_branch_names, self._step_output_observers
-        ):
-            iterator = fanout.lazy_iterator(branch_name)
-
-            def run_observer(obs=observer, branch_iter=iterator):
-                obs(step_name, self._collect_observer_items(branch_iter))
-
-            thread = threading.Thread(target=run_observer, daemon=True)
-            thread.start()
-            self._observer_threads.append(thread)
-
-    def _materialize_with_events(self, step_name, output, node, consumer_type=None):
-        materializer = self.scope.resolve_materializer(step_name, node)
-        mat_name = materializer.__name__ if callable(materializer) else None
-        self.events.materialization_started(
-            step_name,
-            node,
-            consumer_type,
-            mat_name,
-        )
-        try:
-            result, had_error, exc = _apply_materializer(
-                self.dag,
-                step_name,
-                output,
-                materializer,
-                self.run_id,
-                consumer_type=consumer_type,
-            )
-            self.events.materialization_completed(
-                step_name,
-                node,
-                consumer_type,
-                mat_name,
-            )
-            return result, had_error, exc
-        except PipelineStopException:
-            raise
-        except Exception as exc:
-            self.events.materialization_failed(
-                step_name,
-                node,
-                consumer_type,
-                mat_name,
-                exception=exc,
-            )
-            raise
-
     def _emit_step_result(self, node, step_name, output, had_error, exception=None):
         if has_threshold(node):
             return  # already dispatched by generate()
@@ -621,133 +524,6 @@ class PipelineExecutor:
             self._emit_deferred_completion(node, step_name)
 
         return wrapped()
-
-    def _materialize_stream_output(
-        self,
-        step_name,
-        output,
-        node,
-        consumers,
-        deferred,
-    ):
-        consumer_type = None
-        if consumers:
-            consumer_type = self.dag[consumers[0]].deps.get(step_name)
-        output, had_error, exc = self._materialize_with_events(
-            step_name, output, node, consumer_type=consumer_type
-        )
-        output = self._notify_observers(step_name, output)
-        if deferred:
-            self._emit_step_result(node, step_name, output, had_error, exc)
-        for consumer in consumers:
-            self.outputs[self.dag.output_key(step_name, consumer)] = output
-
-    def _publish_stream_to_single_consumer(
-        self,
-        step_name,
-        output,
-        node,
-        consumer,
-        deferred,
-    ):
-        consumer_type = self.dag[consumer].deps.get(step_name)
-
-        if self._step_output_observers and not self.dag.needs_materialize(step_name):
-            observer_branches = self._observer_branch_names()
-            fanout = SyncFanout(
-                output,
-                max_in_flight=max(1, node.max_in_flight),
-                branches=[consumer, *observer_branches],
-            )
-            self._active_fanouts.append(fanout)
-            self.outputs[self.dag.output_key(step_name, consumer)] = (
-                fanout.lazy_iterator(consumer)
-            )
-            self._start_observer_threads(step_name, fanout, observer_branches)
-            fanout.start()
-            return
-        output, had_error, exc = self._materialize_with_events(
-            step_name, output, node, consumer_type=consumer_type
-        )
-        output = self._notify_observers(step_name, output)
-        if deferred:
-            self._emit_step_result(node, step_name, output, had_error, exc)
-        output = _maybe_wrap_stream(output, node)
-        self.outputs[self.dag.output_key(step_name, consumer)] = output
-
-    def _publish_stream_to_multiple_consumers(self, step_name, output, node, consumers):
-        fanout = SyncFanout(
-            output,
-            max_in_flight=max(1, node.max_in_flight),
-            branches=consumers + self._observer_branch_names(),
-        )
-        self._active_fanouts.append(fanout)
-        for consumer in consumers:
-            self.outputs[self.dag.output_key(step_name, consumer)] = (
-                fanout.lazy_iterator(consumer)
-            )
-        self._start_observer_threads(step_name, fanout, self._observer_branch_names())
-        fanout.start()
-
-    def _publish_scalar_output(self, step_name, output, node, deferred):
-        if self.dag.needs_materialize(step_name):
-            output, _, _ = self._materialize_with_events(
-                step_name, output, node, consumer_type=node.output
-            )
-        self.outputs[step_name] = output
-        if deferred:
-            self._emit_step_result(
-                node, step_name, output, had_error=False, exception=None
-            )
-
-    def _publish_output(self, step_name, output, node):
-        deferred = node.mode == StepMode.EACH or (
-            node.mode == StepMode.ALL and isinstance(output, Iterator)
-        )
-
-        if not isinstance(output, Iterator):
-            output = self._notify_observers(step_name, output)
-            self._publish_scalar_output(step_name, output, node, deferred)
-            return
-
-        consumers = self.dag.consumers_of(step_name)
-
-        if self.dag.needs_materialize(step_name):
-            self._materialize_stream_output(
-                step_name, output, node, consumers, deferred
-            )
-            return
-
-        if deferred:
-            output = self._wrap_deferred_output(step_name, output, node)
-
-        if len(consumers) == 1 and self._step_output_observers:
-            self._publish_stream_to_single_consumer(
-                step_name, output, node, consumers[0], deferred
-            )
-            return
-
-        if len(consumers) > 1:
-            self._publish_stream_to_multiple_consumers(
-                step_name, output, node, consumers
-            )
-            return
-
-        if len(consumers) == 0 and self._step_output_observers:
-            fanout = SyncFanout(
-                output,
-                max_in_flight=max(1, node.max_in_flight),
-                branches=self._observer_branch_names(),
-            )
-            self._active_fanouts.append(fanout)
-            self._start_observer_threads(
-                step_name, fanout, self._observer_branch_names()
-            )
-            fanout.start()
-            return
-
-        output = self._notify_observers(step_name, output)
-        self.outputs[step_name] = _maybe_wrap_stream(output, node)
 
 
 # ---------------------------------------------------------------------------
