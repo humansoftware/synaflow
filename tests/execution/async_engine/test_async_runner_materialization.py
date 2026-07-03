@@ -1,4 +1,3 @@
-import pytest
 import inspect
 from typing import AsyncGenerator, AsyncIterator, NamedTuple
 from unittest.mock import AsyncMock as MagicMock
@@ -255,10 +254,14 @@ async def test_given_chain_and_bypass_dependencies_when_run_then_no_materializat
         return items * 2
 
     async def b(a: AsyncIterator[int], items: AsyncIterator[int]):
-        async for x in a:
-            call_order.append(("b_a", x))
-        async for y in items:
-            call_order.append(("b_items", y))
+        while True:
+            try:
+                x = await anext(a)
+                y = await anext(items)
+                call_order.append(("b_a", x))
+                call_order.append(("b_items", y))
+            except StopAsyncIteration:
+                break
 
     materialized = []
 
@@ -687,7 +690,6 @@ async def test_given_no_custom_materializer_and_non_builtin_type_when_not_materi
     assert seen == [Row(id=1, name="alice"), Row(id=2, name="bob")]
 
 
-@pytest.mark.skip(reason="Needs new lockstep engine to avoid tee deadlocks")
 async def test_given_diamond_topology_with_multiple_lazy_streams_when_run_then_no_deadlock():
     class P(NamedTuple):
         pass
@@ -713,10 +715,14 @@ async def test_given_diamond_topology_with_multiple_lazy_streams_when_run_then_n
     call_order = []
 
     async def finalize(a: AsyncIterator[int], b: AsyncIterator[int]) -> None:
-        async for x in a:
-            call_order.append(("a", x))
-        async for y in b:
-            call_order.append(("b", y))
+        while True:
+            try:
+                x = await anext(a)
+                y = await anext(b)
+                call_order.append(("a", x))
+                call_order.append(("b", y))
+            except StopAsyncIteration:
+                break
 
     my_pipeline = pipeline(
         name="test_diamond_deadlock",
@@ -739,6 +745,8 @@ async def test_given_diamond_topology_with_multiple_lazy_streams_when_run_then_n
     await async_run(my_pipeline, params=P())
     assert len(call_order) == 20
     assert len(audit_seen) == 10
+
+
 
 
 @pytest.mark.asyncio

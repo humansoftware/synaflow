@@ -1,13 +1,10 @@
-from itertools import tee
 from typing import NamedTuple, Iterator
-import pytest
 import time
 
 from synaflow import pipeline, step
 from synaflow.core.types import StepMode
 
 
-@pytest.mark.skip(reason="We are fixing the engine now")
 def test_itertools_tee_concurrent_reentry_crash(run_pipeline):
     class P(NamedTuple):
         pass
@@ -51,22 +48,3 @@ def test_itertools_tee_concurrent_reentry_crash(run_pipeline):
         f"Expected 5 calls to file, got {call_counts['file']}"
     )
     assert call_counts["db"] == 5, f"Expected 5 calls to db, got {call_counts['db']}"
-
-
-def test_marcelo():
-
-    def fibonacci_stream(n: int) -> Iterator[int]:
-        """Retorna uma stream com os N primeiros números de Fibonacci."""
-        a, b = 0, 1
-        for _ in range(n):
-            yield a
-            a, b = b, a + b
-
-    fib = fibonacci_stream(10)
-    c1, c2, c3, c4 = tee(fib, 4)
-    print(next(c1))
-    print(next(c1))
-    print(next(c2))
-    print(next(c3))
-    print(next(c4))
-    print(next(c1))

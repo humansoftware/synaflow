@@ -301,7 +301,7 @@ async def test_given_max_in_flight_3_when_fanout_lazy_and_eager_then_both_receiv
 
 
 @pytest.mark.asyncio
-async def test_given_max_in_flight_3_when_cross_level_bypass_then_pipeline_completes():
+async def test_given_max_in_flight_3_when_cross_level_bypass_then_pipeline_fails_validation():
     transformed: list[int] = []
     bypassed: list[int] = []
 
@@ -322,19 +322,18 @@ async def test_given_max_in_flight_3_when_cross_level_bypass_then_pipeline_compl
         async for item in producer:
             bypassed.append(item)
 
-    p = pipeline(
-        name="test",
-        params=Count,
-        steps=[
-            step("producer", fn=producer, max_in_flight=3),
-            step("first_consumer", fn=first_consumer),
-            step("second_consumer", fn=second_consumer),
-        ],
-    )
-    await async_run(p, Count(count=5))
-
-    assert transformed == [10]
-    assert bypassed == [0, 1, 2, 3, 4]
+    with pytest.raises(
+        ValueError, match="Asymmetric lockstep materialization detected"
+    ):
+        pipeline(
+            name="test",
+            params=Count,
+            steps=[
+                step("producer", fn=producer, max_in_flight=3),
+                step("first_consumer", fn=first_consumer),
+                step("second_consumer", fn=second_consumer),
+            ],
+        )
 
 
 @pytest.mark.asyncio
@@ -532,6 +531,8 @@ async def test_runner_contract_uses_dag_node_max_in_flight_not_step_max_in_fligh
     assert produced == list(range(20))
     assert consumed == list(range(20))
     assert max_seen_ahead <= 3
+
+
 
 
 @pytest.mark.asyncio

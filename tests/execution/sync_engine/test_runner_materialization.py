@@ -1,4 +1,3 @@
-import pytest
 import inspect
 from typing import Generator, Iterator, NamedTuple
 from unittest.mock import MagicMock
@@ -262,9 +261,8 @@ def test_given_chain_and_bypass_dependencies_when_run_then_no_materialization(
         return items * 2
 
     def b(a: Iterator[int], items: Iterator[int]):
-        for x in a:
+        for x, y in zip(a, items):
             call_order.append(("b_a", x))
-        for y in items:
             call_order.append(("b_items", y))
 
     materialized = []
@@ -687,7 +685,6 @@ def test_given_no_custom_materializer_and_non_builtin_type_when_not_materialized
     assert seen == [Row(id=1, name="alice"), Row(id=2, name="bob")]
 
 
-@pytest.mark.skip(reason="Needs new lockstep engine to avoid tee deadlocks")
 def test_given_diamond_topology_with_multiple_lazy_streams_when_run_then_no_deadlock(
     run_pipeline,
 ):
@@ -713,9 +710,8 @@ def test_given_diamond_topology_with_multiple_lazy_streams_when_run_then_no_dead
     call_order = []
 
     def finalize(a: Iterator[int], b: Iterator[int]) -> None:
-        for x in a:
+        for x, y in zip(a, b):
             call_order.append(("a", x))
-        for y in b:
             call_order.append(("b", y))
 
     my_pipeline = pipeline(
@@ -730,7 +726,7 @@ def test_given_diamond_topology_with_multiple_lazy_streams_when_run_then_no_dead
         ],
     )
 
-    # Materialization is no longer forced arbitrarily.
+    # Materialization propagates upstream through lazy stream chains.
     assert my_pipeline.dag.steps["a"]._materialized_deps == []
     assert my_pipeline.dag.steps["b"]._materialized_deps == []
     assert my_pipeline.dag.steps["audit"]._materialized_deps == []
