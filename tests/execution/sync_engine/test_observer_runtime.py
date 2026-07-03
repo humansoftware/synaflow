@@ -914,7 +914,9 @@ def test_given_stream_with_no_consumers_but_has_observers_then_stream_is_consume
 
     executor = PipelineExecutor(
         p.dag,
-        step_output_observers=[lambda step_name, output: rec.record(step_name, output)],
+        step_output_observers=[
+            lambda step_name, output: rec.events.append((step_name, output))
+        ],
     )
     executor.execute(Params(values=[1, 2, 3]))
 
