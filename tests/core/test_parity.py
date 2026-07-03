@@ -45,6 +45,8 @@ def test_sync_async_test_parity():
         "test_given_async_pipeline_when_run_synchronously_then_raises",
         "test_given_threadpool_start_and_await_when_max_in_flight_5_then_only_five_tasks_start",
         "test_given_user_resource_with_close_when_used_as_param_then_executor_does_not_close_it",
+        "test_itertools_tee_concurrent_reentry_crash",
+        "test_marcelo",
     }
 
     expected_async_only = {

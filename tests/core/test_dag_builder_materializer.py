@@ -1,3 +1,4 @@
+import pytest
 from collections.abc import Iterator
 from typing import NamedTuple
 
@@ -73,7 +74,6 @@ def test_given_default_factory_when_consumer_type_is_scalar_then_returns_identit
 def test_given_default_factory_when_consumer_type_is_none_then_raises():
     from synaflow.core.dag_builder import memory_materializer_factory as _def
     from synaflow.core.types import MaterializeContext
-    import pytest
 
     ctx = MaterializeContext(
         pipeline_name="test",

@@ -1,3 +1,4 @@
+import pytest
 import inspect
 from typing import NamedTuple
 from dataclasses import dataclass
@@ -140,8 +141,6 @@ async def test_given_params_with_defaults_when_run_then_uses_defaults():
 
 async def test_given_sync_stream_pipeline_when_run_asynchronously_then_raises():
     from typing import Iterator, NamedTuple
-
-    import pytest
 
     from synaflow import pipeline, step
     from synaflow.execution.async_engine.executor import async_run

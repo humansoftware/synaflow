@@ -617,8 +617,7 @@ async def test_given_scalar_output_with_on_error_stop_when_run_then_scalar_mater
 
 async def test_given_step_non_builtin_type_and_iterator_consumer_when_run_then_executes_successfully():
     from dataclasses import dataclass
-    
-from collections.abc import AsyncGenerator, AsyncIterator
+    from collections.abc import AsyncGenerator, AsyncIterator
     from synaflow import async_run
 
     @dataclass
@@ -740,10 +739,6 @@ async def test_given_diamond_topology_with_multiple_lazy_streams_when_run_then_n
     await async_run(my_pipeline, params=P())
     assert len(call_order) == 20
     assert len(audit_seen) == 10
-
-
-
-from collections.abc import AsyncIterator
 
 
 @pytest.mark.asyncio
