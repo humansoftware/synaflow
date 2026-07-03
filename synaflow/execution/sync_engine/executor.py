@@ -66,8 +66,6 @@ class PipelineExecutor:
             self.events,
             step_output_observers or [],
             self.scope,
-            emit_step_result_cb=self._emit_step_result,
-            wrap_deferred_output_cb=self._wrap_deferred_output,
         )
 
     # ------------------------------------------------------------------
@@ -375,60 +373,6 @@ class PipelineExecutor:
                 pass
             return None
         return generate()
-
-    def _emit_step_result(self, node, step_name, output, had_error, exception=None):
-        if has_threshold(node):
-            return  # already dispatched by generate()
-        success = len(output) if hasattr(output, "__len__") else 1
-        real_error_count = getattr(node, "_runtime_error_count", 0)
-        real_invocation_count = getattr(node, "_runtime_invocation_count", success)
-        if had_error:
-            self.events.step_failed(
-                node,
-                step_name,
-                success_count=success,
-                error_count=max(real_error_count, 1),
-                completed_all_inputs=False,
-                exception=exception,
-            )
-        else:
-            self.events.step_completed(
-                node,
-                step_name,
-                success_count=real_invocation_count - real_error_count,
-                error_count=real_error_count,
-                completed_all_inputs=True,
-            )
-
-    def _emit_deferred_completion(self, node, step_name):
-        if has_threshold(node):
-            return  # already dispatched by generate()
-        real_error_count = getattr(node, "_runtime_error_count", 0)
-        real_invocation_count = getattr(node, "_runtime_invocation_count", 0)
-        self.events.step_completed(
-            node,
-            step_name,
-            success_count=real_invocation_count - real_error_count,
-            error_count=real_error_count,
-            completed_all_inputs=True,
-        )
-
-    def _wrap_deferred_output(self, step_name, output, node):
-        if has_threshold(node):
-            return output
-
-        def wrapped():
-            yielded_count = 0
-            for item in output:
-                yielded_count += 1
-                yield item
-
-            if node.mode == StepMode.ALL:
-                node._runtime_invocation_count = yielded_count
-                node._runtime_error_count = 0
-            self._emit_deferred_completion(node, step_name)
-
-        return wrapped()
 
 
 # ---------------------------------------------------------------------------

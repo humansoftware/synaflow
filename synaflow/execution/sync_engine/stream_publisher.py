@@ -8,6 +8,7 @@ from synaflow.core.exceptions import PipelineStopException
 from synaflow.execution.sync_handoff import SyncFanout
 from synaflow.execution.sync_engine.event_dispatch import EventDispatcher
 from synaflow.execution.sync_engine.step_scope import StepScope
+from synaflow.execution.sync_engine.threshold import has_threshold
 from synaflow.execution.sync_engine.utils import (
     _maybe_wrap_stream,
     _apply_materializer,
@@ -22,8 +23,6 @@ class StreamPublisher:
         events: EventDispatcher,
         step_output_observers: list,
         scope: StepScope,
-        emit_step_result_cb,
-        wrap_deferred_output_cb,
     ):
         self._dag = dag
         self._outputs = outputs
@@ -32,8 +31,6 @@ class StreamPublisher:
         self._scope = scope
         self._active_fanouts: list[SyncFanout] = []
         self._observer_threads: list[threading.Thread] = []
-        self._emit_step_result_cb = emit_step_result_cb
-        self._wrap_deferred_output_cb = wrap_deferred_output_cb
 
     def publish(self, step_name: str, output: Any, node: Any) -> None:
         deferred = node.mode == StepMode.EACH or (
@@ -54,7 +51,7 @@ class StreamPublisher:
             return
 
         if deferred:
-            output = self._wrap_deferred_output_cb(step_name, output, node)
+            output = self._wrap_deferred_output(step_name, output, node)
 
         if len(consumers) == 1 and self._step_output_observers:
             self._publish_stream_to_single_consumer(
@@ -189,7 +186,7 @@ class StreamPublisher:
         )
         output = self._notify_observers(step_name, output)
         if deferred:
-            self._emit_step_result_cb(node, step_name, output, had_error, exc)
+            self._emit_step_result(node, step_name, output, had_error, exc)
         for consumer in consumers:
             self._outputs[self._dag.output_key(step_name, consumer)] = output
 
@@ -222,7 +219,7 @@ class StreamPublisher:
         )
         output = self._notify_observers(step_name, output)
         if deferred:
-            self._emit_step_result_cb(node, step_name, output, had_error, exc)
+            self._emit_step_result(node, step_name, output, had_error, exc)
         output = _maybe_wrap_stream(output, node)
         self._outputs[self._dag.output_key(step_name, consumer)] = output
 
@@ -247,6 +244,60 @@ class StreamPublisher:
             )
         self._outputs[step_name] = output
         if deferred:
-            self._emit_step_result_cb(
+            self._emit_step_result(
                 node, step_name, output, had_error=False, exception=None
             )
+
+    def _emit_step_result(self, node, step_name, output, had_error, exception=None):
+        if has_threshold(node):
+            return  # already dispatched by generate()
+        success = len(output) if hasattr(output, "__len__") else 1
+        real_error_count = getattr(node, "_runtime_error_count", 0)
+        real_invocation_count = getattr(node, "_runtime_invocation_count", success)
+        if had_error:
+            self._events.step_failed(
+                node,
+                step_name,
+                success_count=success,
+                error_count=max(real_error_count, 1),
+                completed_all_inputs=False,
+                exception=exception,
+            )
+        else:
+            self._events.step_completed(
+                node,
+                step_name,
+                success_count=real_invocation_count - real_error_count,
+                error_count=real_error_count,
+                completed_all_inputs=True,
+            )
+
+    def _emit_deferred_completion(self, node, step_name):
+        if has_threshold(node):
+            return  # already dispatched by generate()
+        real_error_count = getattr(node, "_runtime_error_count", 0)
+        real_invocation_count = getattr(node, "_runtime_invocation_count", 0)
+        self._events.step_completed(
+            node,
+            step_name,
+            success_count=real_invocation_count - real_error_count,
+            error_count=real_error_count,
+            completed_all_inputs=True,
+        )
+
+    def _wrap_deferred_output(self, step_name, output, node):
+        if has_threshold(node):
+            return output
+
+        def wrapped():
+            yielded_count = 0
+            for item in output:
+                yielded_count += 1
+                yield item
+
+            if node.mode == StepMode.ALL:
+                node._runtime_invocation_count = yielded_count
+                node._runtime_error_count = 0
+            self._emit_deferred_completion(node, step_name)
+
+        return wrapped()
