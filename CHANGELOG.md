@@ -2,6 +2,33 @@
 
 
 
+## v0.25.3 (2026-07-03)
+
+### Fix
+
+* fix(core): StepStarted fires on first input consumption (issue 78) (#82)
+
+* fix(core): StepStarted fires on first input consumption (issue 78)
+
+* style(tests): fix linting issues
+
+* test(core): fix EventRecorder.record signature mismatch in sync tests
+
+* style(core): format executor files
+
+* fix(core): remove async engine hack for sync generators
+
+* refactor(core): cleanup inline imports and simplify generator wrappers
+
+* refactor(core): extract inline wrapper functions to module level
+
+* refactor(tests): move PipelinePack imports to top of corpus files
+
+* refactor(tests): move NamedTuple import to top of test_is_type_compatible.py and remove noqa
+
+* refactor(tests): move inline imports to top in test_pep563_annotations.py ([`d1c5ab2`](https://github.com/humansoftware/synaflow/commit/d1c5ab2f44e1f3bee69ff54040c5a68a5abef5e8))
+
+
 ## v0.25.2 (2026-07-03)
 
 ### Fix
