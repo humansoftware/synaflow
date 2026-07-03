@@ -610,8 +610,8 @@ class AsyncPipelineExecutor:
         )
         await self._dispatch_step_event(node, StepEvent.STARTED, step_name)
 
-
         started = False
+
         async def fire_started():
             nonlocal started
             if not started:
@@ -621,10 +621,16 @@ class AsyncPipelineExecutor:
         try:
             import inspect
             from typing import AsyncIterator, AsyncGenerator, Iterator, Generator
-            if not unrolled and not inspect.isasyncgenfunction(node.fn) and not inspect.isgeneratorfunction(node.fn):
+
+            if (
+                not unrolled
+                and not inspect.isasyncgenfunction(node.fn)
+                and not inspect.isgeneratorfunction(node.fn)
+            ):
                 await fire_started()
             output = await self._execute_step(step_name, node, arguments, unrolled)
             if isinstance(output, (AsyncIterator, AsyncGenerator)):
+
                 async def _wrap_started_async(it):
                     try:
                         async for item in it:
@@ -632,8 +638,10 @@ class AsyncPipelineExecutor:
                             yield item
                     finally:
                         await fire_started()
+
                 output = _wrap_started_async(output)
             elif isinstance(output, (Iterator, Generator)):
+
                 def _wrap_started_sync(it):
                     try:
                         for item in it:
@@ -644,6 +652,7 @@ class AsyncPipelineExecutor:
                             yield item
                     finally:
                         pass
+
                 # Hack for sync generators in async context
                 # Actually _execute_step uses run_in_executor for sync functions,
                 # but if they return sync generators, they might cause issues.
