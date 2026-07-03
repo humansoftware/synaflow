@@ -1,8 +1,6 @@
 import inspect
-import dataclasses
 import threading
 import uuid
-from contextlib import ExitStack
 from concurrent.futures import ThreadPoolExecutor
 from collections.abc import Iterator
 from typing import Any
@@ -23,7 +21,6 @@ from synaflow.core.types import (
 from synaflow.execution.overrides import ExecutionOverrides
 from synaflow.execution.sync_handoff import (
     SyncFanout,
-    SyncQueueIterator,
 )
 from .threshold import (
     check_threshold,
@@ -31,6 +28,7 @@ from .threshold import (
     compute_completed_all_inputs_for_all,
     has_threshold,
 )
+from .step_scope import StepScope
 
 
 # ---------------------------------------------------------------------------
@@ -162,29 +160,17 @@ class PipelineExecutor:
         self._overrides = overrides
         self._resource_factories = dict(resource_factories or {})
         self.run_id = str(uuid.uuid4())
+        self.scope = StepScope(
+            self.dag, self.outputs, self._overrides, self._resource_factories
+        )
         self.events = EventDispatcher(self.dag, self.run_id, self._overrides)
 
     # ------------------------------------------------------------------
     # Execution
     # ------------------------------------------------------------------
 
-    def _seed_runtime_inputs(self, params: Any) -> None:
-        if dataclasses.is_dataclass(params):
-            param_dict = {
-                f.name: getattr(params, f.name) for f in dataclasses.fields(params)
-            }
-        else:
-            param_dict = params._asdict()
-        for field, value in param_dict.items():
-            self.outputs[field] = value
-
-    def _resolve_materializer(self, step_name: str, node: Any) -> Any:
-        if self._overrides is None:
-            return node.materializer
-        return self._overrides.materializers.resolve(step_name, node.materializer)
-
     def execute(self, params: Any) -> None:
-        self._seed_runtime_inputs(params)
+        self.scope.seed_runtime_inputs(params)
 
         self.events.pipeline_started()
         completed_cleanly = False
@@ -291,8 +277,7 @@ class PipelineExecutor:
         if not node.fn:
             return
 
-        resource_stack = ExitStack()
-        arguments = self._build_arguments(step_name, node, resource_stack)
+        arguments, resource_stack = self.scope.build_arguments(step_name, node)
         unrolled = self.dag.each_inputs(step_name)
 
         started = False
@@ -309,7 +294,7 @@ class PipelineExecutor:
             output = self._execute_step(step_name, node, arguments, unrolled)
             if isinstance(output, Iterator):
                 output = _wrap_started_stream(output, fire_started)
-            output = self._attach_argument_cleanup(output, arguments)
+            output = self.scope.attach_cleanup(output, arguments)
             self._emit_immediate_completion(step_name, node, output, unrolled)
             if not self.dag.is_hidden_step(step_name):
                 self._publish_output(step_name, output, node)
@@ -365,7 +350,7 @@ class PipelineExecutor:
                 raise PipelineStopException(step_name=step_name, cause=exc) from exc
         finally:
             if "output" not in locals() or not isinstance(output, Iterator):
-                self._close_managed_stream_arguments(arguments)
+                self.scope.close_managed_streams(arguments)
             resource_stack.close()
 
     def _execute_step(self, step_name, node, arguments, unrolled):
@@ -490,65 +475,13 @@ class PipelineExecutor:
             finally:
                 node._runtime_error_count = error_count
                 node._runtime_invocation_count = invocation_count
-                self._close_managed_stream_arguments(iterators)
+                self.scope.close_managed_streams(iterators)
 
         if self.dag.is_terminal_step(step_name):
             for _ in generate():
                 pass
             return None
         return generate()
-
-    def _resolve_resource_argument(self, resource_name: str, resource_stack: ExitStack):
-        provider = None
-        if self._overrides is not None:
-            provider = self._overrides.resources.resolve(resource_name)
-        if provider is None:
-            provider = self._resource_factories.get(resource_name)
-        if provider is None:
-            raise ValueError(
-                f"Pipeline '{self.dag.name}' requires resource '{resource_name}' at runtime."
-            )
-
-        value = provider() if callable(provider) else provider
-        if hasattr(value, "__aenter__") and hasattr(value, "__aexit__"):
-            raise TypeError(
-                f"Pipeline '{self.dag.name}': resource '{resource_name}' produced an async context manager in sync run()."
-            )
-        if hasattr(value, "__enter__") and hasattr(value, "__exit__"):
-            return resource_stack.enter_context(value)
-        return value
-
-    def _build_arguments(self, consumer, node, resource_stack: ExitStack):
-        args = {}
-        for dep_name in node.deps:
-            if dep_name in self.dag.resources:
-                value = self._resolve_resource_argument(dep_name, resource_stack)
-            else:
-                key = self.dag.output_key(dep_name, consumer)
-                value = self.outputs.get(key, self.outputs.get(dep_name))
-            param = node.dataset_param_names.get(dep_name, dep_name)
-            args[param] = value
-        return args
-
-    def _attach_argument_cleanup(self, output, arguments):
-        if not isinstance(output, Iterator):
-            return output
-
-        def wrapped():
-            try:
-                yield from output
-            finally:
-                self._close_managed_stream_arguments(arguments)
-
-        return wrapped()
-
-    def _close_managed_stream_arguments(self, arguments):
-        for value in arguments.values():
-            if isinstance(value, SyncQueueIterator):
-                try:
-                    value.close()
-                except Exception:
-                    pass
 
     def _notify_observers(self, step_name, output):
         if not self._step_output_observers:
@@ -599,7 +532,7 @@ class PipelineExecutor:
             self._observer_threads.append(thread)
 
     def _materialize_with_events(self, step_name, output, node, consumer_type=None):
-        materializer = self._resolve_materializer(step_name, node)
+        materializer = self.scope.resolve_materializer(step_name, node)
         mat_name = materializer.__name__ if callable(materializer) else None
         self.events.materialization_started(
             step_name,
