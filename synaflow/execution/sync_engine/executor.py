@@ -8,28 +8,13 @@ from collections.abc import Iterator
 from typing import Any
 
 from synaflow.core.dag import Dag
-from synaflow.core.constants import PIPELINE_SCOPE
 from synaflow.execution.bounded_iterator import BoundedIterator
 from synaflow.core.definition import PipelineDef
 from synaflow.core.exceptions import (
     PipelineStopException,
     ThresholdExceededException,
 )
-from synaflow.core.observers import (
-    MaterializationCompletedContext,
-    MaterializationEvent,
-    MaterializationFailedContext,
-    MaterializationStartedContext,
-    PipelineCompletedContext,
-    PipelineEvent,
-    PipelineFailedContext,
-    PipelineStartedContext,
-    StepCompletedContext,
-    StepEvent,
-    StepFailedContext,
-    StepStartedContext,
-    dispatch_observers,
-)
+from synaflow.execution.sync_engine.event_dispatch import EventDispatcher
 from synaflow.core.types import (
     ErrorContext,
     OnError,
@@ -177,156 +162,7 @@ class PipelineExecutor:
         self._overrides = overrides
         self._resource_factories = dict(resource_factories or {})
         self.run_id = str(uuid.uuid4())
-
-    # ------------------------------------------------------------------
-    # Lifecycle observer dispatch helpers
-    # ------------------------------------------------------------------
-
-    def _resolve_pipeline_observers(self) -> list:
-        if self._overrides is None:
-            return self.dag.pipeline_observers
-        return self._overrides.observers.resolve(
-            PIPELINE_SCOPE, self.dag.pipeline_observers
-        )
-
-    def _resolve_step_observers(self, node: Any, step_name: str) -> list:
-        pipeline_observers = self._resolve_pipeline_observers()
-        step_observers = [obs for obs in node.observers if obs.source == "step"]
-        if self._overrides is not None:
-            step_observers = self._overrides.observers.resolve(
-                step_name, step_observers
-            )
-        return [*pipeline_observers, *step_observers]
-
-    def _dispatch_pipeline_event(
-        self,
-        event: PipelineEvent,
-        step_name: str | None = None,
-        exception: BaseException | None = None,
-    ) -> None:
-        registrations = self._resolve_pipeline_observers()
-        if not registrations:
-            return
-        ctx: Any
-        if event is PipelineEvent.STARTED:
-            ctx = PipelineStartedContext(
-                pipeline_name=self.dag.name, run_id=self.run_id, event=event
-            )
-        elif event is PipelineEvent.COMPLETED:
-            ctx = PipelineCompletedContext(
-                pipeline_name=self.dag.name, run_id=self.run_id, event=event
-            )
-        elif event is PipelineEvent.FAILED:
-            ctx = PipelineFailedContext(
-                pipeline_name=self.dag.name,
-                run_id=self.run_id,
-                event=event,
-                step_name=step_name,
-                exception=exception,
-            )
-        else:
-            return
-        dispatch_observers(registrations, ctx)
-
-    def _dispatch_step_event(
-        self,
-        node: Any,
-        event: StepEvent,
-        step_name: str,
-        success_count: int = 0,
-        error_count: int = 0,
-        completed_all_inputs: bool = True,
-        exception: BaseException | None = None,
-    ) -> None:
-        registrations = self._resolve_step_observers(node, step_name)
-        if not registrations:
-            return
-        ctx: Any
-        if event is StepEvent.STARTED:
-            ctx = StepStartedContext(
-                pipeline_name=self.dag.name,
-                run_id=self.run_id,
-                event=event,
-                step_name=step_name,
-                mode=node.mode,
-                on_error=node.on_error,
-            )
-        elif event is StepEvent.COMPLETED:
-            ctx = StepCompletedContext(
-                pipeline_name=self.dag.name,
-                run_id=self.run_id,
-                event=event,
-                step_name=step_name,
-                mode=node.mode,
-                on_error=node.on_error,
-                success_count=success_count,
-                error_count=error_count,
-                completed_all_inputs=completed_all_inputs,
-            )
-        elif event is StepEvent.FAILED:
-            ctx = StepFailedContext(
-                pipeline_name=self.dag.name,
-                run_id=self.run_id,
-                event=event,
-                step_name=step_name,
-                mode=node.mode,
-                on_error=node.on_error,
-                success_count=success_count,
-                error_count=error_count,
-                completed_all_inputs=completed_all_inputs,
-                exception=exception,
-            )
-        else:
-            return
-        dispatch_observers(registrations, ctx)
-
-    def _dispatch_materialization_event(
-        self,
-        step_name: str,
-        node: Any,
-        event: MaterializationEvent,
-        consumer_type: Any = None,
-        materializer_name: str | None = None,
-        exception: BaseException | None = None,
-    ) -> None:
-        registrations = self._resolve_step_observers(node, step_name)
-        if not registrations:
-            return
-        ctx: Any
-        if event is MaterializationEvent.STARTED:
-            ctx = MaterializationStartedContext(
-                pipeline_name=self.dag.name,
-                run_id=self.run_id,
-                event=event,
-                step_name=step_name,
-                dataset_name=step_name,
-                consumer_type=consumer_type,
-                materializer_name=materializer_name,
-            )
-        elif event is MaterializationEvent.COMPLETED:
-            ctx = MaterializationCompletedContext(
-                pipeline_name=self.dag.name,
-                run_id=self.run_id,
-                event=event,
-                step_name=step_name,
-                dataset_name=step_name,
-                consumer_type=consumer_type,
-                materializer_name=materializer_name,
-            )
-        elif event is MaterializationEvent.FAILED:
-            ctx = MaterializationFailedContext(
-                pipeline_name=self.dag.name,
-                run_id=self.run_id,
-                event=event,
-                step_name=step_name,
-                dataset_name=step_name,
-                consumer_type=consumer_type,
-                materializer_name=materializer_name,
-                exception=exception,
-            )
-        else:
-            return
-        dispatch_observers(registrations, ctx)
+        self.events = EventDispatcher(self.dag, self.run_id, self._overrides)
 
     # ------------------------------------------------------------------
     # Execution
@@ -350,34 +186,30 @@ class PipelineExecutor:
     def execute(self, params: Any) -> None:
         self._seed_runtime_inputs(params)
 
-        self._dispatch_pipeline_event(PipelineEvent.STARTED)
+        self.events.pipeline_started()
         completed_cleanly = False
         try:
             self._run_graph()
             completed_cleanly = True
         except PipelineStopException as exc:
-            self._dispatch_pipeline_event(
-                PipelineEvent.FAILED,
+            self.events.pipeline_failed(
                 step_name=exc.step_name,
                 exception=exc.cause or exc,
             )
             raise
         except ThresholdExceededException as exc:
-            self._dispatch_pipeline_event(
-                PipelineEvent.FAILED,
+            self.events.pipeline_failed(
                 step_name=exc.step_name,
                 exception=exc,
             )
             raise
         except Exception as exc:
-            self._dispatch_pipeline_event(
-                PipelineEvent.FAILED, step_name=None, exception=exc
-            )
+            self.events.pipeline_failed(step_name=None, exception=exc)
             raise
         finally:
             self._cleanup_fanouts()
         if completed_cleanly:
-            self._dispatch_pipeline_event(PipelineEvent.COMPLETED)
+            self.events.pipeline_completed()
 
     def _step_inputs_available(self, step_name: str) -> bool:
         node = self.dag[step_name]
@@ -468,7 +300,7 @@ class PipelineExecutor:
         def fire_started():
             nonlocal started
             if not started:
-                self._dispatch_step_event(node, StepEvent.STARTED, step_name)
+                self.events.step_started(node, step_name)
                 started = True
 
         try:
@@ -547,9 +379,8 @@ class PipelineExecutor:
         success_count = 1
         if isinstance(output, (list, tuple, set)):
             success_count = len(output)
-        self._dispatch_step_event(
+        self.events.step_completed(
             node,
-            StepEvent.COMPLETED,
             step_name,
             success_count=success_count,
             error_count=0,
@@ -568,9 +399,8 @@ class PipelineExecutor:
         cause = exception
         if isinstance(cause, PipelineStopException):
             cause = cause.cause or cause
-        self._dispatch_step_event(
+        self.events.step_failed(
             node,
-            StepEvent.FAILED,
             step_name,
             success_count=success_count,
             error_count=error_count,
@@ -648,9 +478,8 @@ class PipelineExecutor:
                         )
                         raise
                     success_count = invocation_count - error_count
-                    self._dispatch_step_event(
+                    self.events.step_completed(
                         node,
-                        StepEvent.COMPLETED,
                         step_name,
                         success_count=success_count,
                         error_count=error_count,
@@ -772,10 +601,9 @@ class PipelineExecutor:
     def _materialize_with_events(self, step_name, output, node, consumer_type=None):
         materializer = self._resolve_materializer(step_name, node)
         mat_name = materializer.__name__ if callable(materializer) else None
-        self._dispatch_materialization_event(
+        self.events.materialization_started(
             step_name,
             node,
-            MaterializationEvent.STARTED,
             consumer_type,
             mat_name,
         )
@@ -788,10 +616,9 @@ class PipelineExecutor:
                 self.run_id,
                 consumer_type=consumer_type,
             )
-            self._dispatch_materialization_event(
+            self.events.materialization_completed(
                 step_name,
                 node,
-                MaterializationEvent.COMPLETED,
                 consumer_type,
                 mat_name,
             )
@@ -799,10 +626,9 @@ class PipelineExecutor:
         except PipelineStopException:
             raise
         except Exception as exc:
-            self._dispatch_materialization_event(
+            self.events.materialization_failed(
                 step_name,
                 node,
-                MaterializationEvent.FAILED,
                 consumer_type,
                 mat_name,
                 exception=exc,
@@ -816,9 +642,8 @@ class PipelineExecutor:
         real_error_count = getattr(node, "_runtime_error_count", 0)
         real_invocation_count = getattr(node, "_runtime_invocation_count", success)
         if had_error:
-            self._dispatch_step_event(
+            self.events.step_failed(
                 node,
-                StepEvent.FAILED,
                 step_name,
                 success_count=success,
                 error_count=max(real_error_count, 1),
@@ -826,9 +651,8 @@ class PipelineExecutor:
                 exception=exception,
             )
         else:
-            self._dispatch_step_event(
+            self.events.step_completed(
                 node,
-                StepEvent.COMPLETED,
                 step_name,
                 success_count=real_invocation_count - real_error_count,
                 error_count=real_error_count,
@@ -840,9 +664,8 @@ class PipelineExecutor:
             return  # already dispatched by generate()
         real_error_count = getattr(node, "_runtime_error_count", 0)
         real_invocation_count = getattr(node, "_runtime_invocation_count", 0)
-        self._dispatch_step_event(
+        self.events.step_completed(
             node,
-            StepEvent.COMPLETED,
             step_name,
             success_count=real_invocation_count - real_error_count,
             error_count=real_error_count,
