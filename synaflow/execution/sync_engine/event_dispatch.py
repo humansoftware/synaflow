@@ -28,6 +28,10 @@ class EventDispatcher:
         self._run_id = run_id
         self._overrides = overrides
 
+    @property
+    def run_id(self) -> str:
+        return self._run_id
+
     def resolve_pipeline_observers(self) -> list:
         if self._overrides is None:
             return self._dag.pipeline_observers
