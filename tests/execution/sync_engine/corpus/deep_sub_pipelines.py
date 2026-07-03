@@ -1,7 +1,7 @@
+from tests.common.pipeline_pack import PipelinePack
 from typing import Iterator, NamedTuple
 
 from synaflow import include, pipeline, step
-from tests.common.pipeline_pack import PipelinePack  # noqa: E402
 
 
 # Level 3 (Deepest)

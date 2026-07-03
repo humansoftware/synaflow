@@ -1,3 +1,4 @@
+from tests.common.pipeline_pack import PipelinePack
 from collections.abc import Generator, Iterator
 from typing import NamedTuple
 
@@ -20,8 +21,6 @@ def consumer(transformer: Iterator[int]) -> None:
     for x in transformer:
         pass
 
-
-from tests.common.pipeline_pack import PipelinePack  # noqa: E402
 
 linear_pipeline = pipeline(
     name="linear_example",

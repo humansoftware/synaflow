@@ -1,3 +1,4 @@
+from tests.common.pipeline_pack import PipelinePack
 from collections.abc import Generator, Iterator
 from typing import NamedTuple
 from synaflow import pipeline, step
@@ -27,8 +28,6 @@ def consumer(gen: Iterator[int]) -> None:
     for x in gen:
         pass
 
-
-from tests.common.pipeline_pack import PipelinePack  # noqa: E402
 
 error_pipeline = pipeline(
     name="error_handling_example",

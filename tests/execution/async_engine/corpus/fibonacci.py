@@ -1,3 +1,4 @@
+from tests.common.pipeline_pack import PipelinePack
 from collections.abc import AsyncGenerator, AsyncIterator
 from typing import NamedTuple
 
@@ -25,8 +26,6 @@ async def square_numbers(
 async def consumer(square_numbers: AsyncIterator[int]) -> None:
     pass
 
-
-from tests.common.pipeline_pack import PipelinePack  # noqa: E402
 
 pipeline_def = pipeline(
     name="fibonacci",
