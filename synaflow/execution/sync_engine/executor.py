@@ -1,3 +1,4 @@
+import inspect
 import dataclasses
 import threading
 import uuid
@@ -533,8 +534,6 @@ class PipelineExecutor:
                 started = True
 
         try:
-            import inspect
-
             if not unrolled and not inspect.isgeneratorfunction(node.fn):
                 fire_started()
             output = self._execute_step(step_name, node, arguments, unrolled)

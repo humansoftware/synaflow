@@ -619,9 +619,6 @@ class AsyncPipelineExecutor:
                 started = True
 
         try:
-            import inspect
-            from typing import AsyncIterator, AsyncGenerator, Iterator, Generator
-
             if (
                 not unrolled
                 and not inspect.isasyncgenfunction(node.fn)
@@ -629,33 +626,30 @@ class AsyncPipelineExecutor:
             ):
                 await fire_started()
             output = await self._execute_step(step_name, node, arguments, unrolled)
-            if isinstance(output, (AsyncIterator, AsyncGenerator)):
+            if self._is_stream_output(output):
 
-                async def _wrap_started_async(it):
-                    try:
-                        async for item in it:
+                async def _wrap_started_stream(it):
+                    if isinstance(it, (AsyncIterator, AsyncGenerator)):
+                        try:
+                            async for item in it:
+                                await fire_started()
+                                yield item
+                        finally:
                             await fire_started()
-                            yield item
-                    finally:
-                        await fire_started()
-
-                output = _wrap_started_async(output)
-            elif isinstance(output, (Iterator, Generator)):
-
-                async def _wrap_started_sync_as_async(it):
-                    iterator = iter(it)
-                    try:
-                        while True:
-                            try:
-                                item = next(iterator)
-                            except StopIteration:
-                                break
+                    else:
+                        iterator = iter(it)
+                        try:
+                            while True:
+                                try:
+                                    item = next(iterator)
+                                except StopIteration:
+                                    break
+                                await fire_started()
+                                yield item
+                        finally:
                             await fire_started()
-                            yield item
-                    finally:
-                        await fire_started()
 
-                output = _wrap_started_sync_as_async(output)
+                output = _wrap_started_stream(output)
             output = self._attach_argument_cleanup(output, arguments)
             await self._emit_immediate_completion(step_name, node, output, unrolled)
             if not self.dag.is_hidden_step(step_name):
