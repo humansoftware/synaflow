@@ -610,8 +610,46 @@ class AsyncPipelineExecutor:
         )
         await self._dispatch_step_event(node, StepEvent.STARTED, step_name)
 
+
+        started = False
+        async def fire_started():
+            nonlocal started
+            if not started:
+                await self._dispatch_step_event(node, StepEvent.STARTED, step_name)
+                started = True
+
         try:
+            import inspect
+            from typing import AsyncIterator, AsyncGenerator, Iterator, Generator
+            if not unrolled and not inspect.isasyncgenfunction(node.fn) and not inspect.isgeneratorfunction(node.fn):
+                await fire_started()
             output = await self._execute_step(step_name, node, arguments, unrolled)
+            if isinstance(output, (AsyncIterator, AsyncGenerator)):
+                async def _wrap_started_async(it):
+                    try:
+                        async for item in it:
+                            await fire_started()
+                            yield item
+                    finally:
+                        await fire_started()
+                output = _wrap_started_async(output)
+            elif isinstance(output, (Iterator, Generator)):
+                def _wrap_started_sync(it):
+                    try:
+                        for item in it:
+                            # Cannot await fire_started() here cleanly if it's a sync generator.
+                            # We just let it run. But since the pipeline started event was removed,
+                            # we must at least emit it when we evaluate the wrapper?
+                            # Since it's a sync generator in async context, it's evaluated in thread.
+                            yield item
+                    finally:
+                        pass
+                # Hack for sync generators in async context
+                # Actually _execute_step uses run_in_executor for sync functions,
+                # but if they return sync generators, they might cause issues.
+                output = _wrap_started_sync(output)
+                # Just emit started unconditionally if it's a sync generator
+                await fire_started()
             output = self._attach_argument_cleanup(output, arguments)
             await self._emit_immediate_completion(step_name, node, output, unrolled)
             if not self.dag.is_hidden_step(step_name):

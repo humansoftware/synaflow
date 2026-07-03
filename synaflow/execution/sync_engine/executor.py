@@ -523,10 +523,29 @@ class PipelineExecutor:
         resource_stack = ExitStack()
         arguments = self._build_arguments(step_name, node, resource_stack)
         unrolled = self.dag.each_inputs(step_name)
-        self._dispatch_step_event(node, StepEvent.STARTED, step_name)
+
+
+        started = False
+        def fire_started():
+            nonlocal started
+            if not started:
+                self._dispatch_step_event(node, StepEvent.STARTED, step_name)
+                started = True
 
         try:
+            import inspect
+            if not unrolled and not inspect.isgeneratorfunction(node.fn):
+                fire_started()
             output = self._execute_step(step_name, node, arguments, unrolled)
+            if isinstance(output, Iterator):
+                def _wrap_started(it):
+                    try:
+                        for item in it:
+                            fire_started()
+                            yield item
+                    finally:
+                        fire_started()
+                output = _wrap_started(output)
             output = self._attach_argument_cleanup(output, arguments)
             self._emit_immediate_completion(step_name, node, output, unrolled)
             if not self.dag.is_hidden_step(step_name):

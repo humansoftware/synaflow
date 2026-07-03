@@ -22,6 +22,7 @@ from synaflow.core.observers import (
     PipelineFailedContext,
     StepCompletedContext,
     StepFailedContext,
+    StepStartedContext,
 )
 from synaflow.core.types import OnError, StepMode
 
@@ -944,3 +945,40 @@ def test_given_step_returning_list_when_observed_then_success_count_reflects_log
         if isinstance(ctx, StepCompletedContext) and ctx.step_name == "cons"
     )
     assert cons_event.success_count == 3
+
+
+def test_given_lazy_generator_step_when_observed_then_step_started_event_fires_on_first_input_consumption():
+    state = {"generator_started": False, "step_started_event_fired": False}
+
+    def producer() -> Iterator[int]:
+        state["generator_started"] = True
+        yield 1
+        yield 2
+
+    def observer(ctx):
+        if (
+            isinstance(ctx, StepStartedContext)
+            and getattr(ctx, "step_name", None) == "prod"
+        ):
+            # the step started event should ONLY fire after the generator actually starts!
+            # or at the same time it is pulled.
+            assert state["generator_started"] is True, (
+                "StepStarted fired before generator actually started!"
+            )
+            state["step_started_event_fired"] = True
+
+    def consumer(prod: Iterator[int]) -> list[int]:
+        return list(prod)
+
+    p = pipeline(
+        name="test_p",
+        params=Params,
+        steps=[
+            step("prod", fn=producer),
+            step("cons", fn=consumer),
+        ],
+        observers=[Observer(observer)],
+    )
+
+    run(p, params=Params(values=[]))
+    assert state["step_started_event_fired"] is True

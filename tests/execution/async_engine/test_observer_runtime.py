@@ -22,6 +22,7 @@ from synaflow.core.observers import (
     PipelineFailedContext,
     StepCompletedContext,
     StepFailedContext,
+    StepStartedContext,
 )
 from synaflow.core.types import OnError, StepMode
 from synaflow.execution.async_engine.executor import AsyncPipelineExecutor
@@ -1029,3 +1030,39 @@ async def test_given_step_returning_list_when_observed_then_success_count_reflec
         if isinstance(ctx, StepCompletedContext) and ctx.step_name == "cons"
     )
     assert cons_event.success_count == 3
+
+
+@pytest.mark.asyncio
+async def test_given_lazy_generator_step_when_observed_then_step_started_event_fires_on_first_input_consumption():
+    state = {"generator_started": False, "step_started_event_fired": False}
+
+    async def producer() -> AsyncIterator[int]:
+        state["generator_started"] = True
+        yield 1
+        yield 2
+
+    def observer(ctx):
+        if (
+            isinstance(ctx, StepStartedContext)
+            and getattr(ctx, "step_name", None) == "prod"
+        ):
+            assert state["generator_started"] is True, (
+                "StepStarted fired before generator actually started!"
+            )
+            state["step_started_event_fired"] = True
+
+    async def consumer(prod: AsyncIterator[int]) -> list[int]:
+        return [x async for x in prod]
+
+    p = pipeline(
+        name="test_p",
+        params=Params,
+        steps=[
+            step("prod", fn=producer),
+            step("cons", fn=consumer),
+        ],
+        observers=[Observer(observer)],
+    )
+
+    await async_run(p, params=Params(values=[]))
+    assert state["step_started_event_fired"] is True
