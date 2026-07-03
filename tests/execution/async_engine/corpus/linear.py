@@ -1,3 +1,4 @@
+from tests.common.pipeline_pack import PipelinePack
 from collections.abc import AsyncGenerator, AsyncIterator
 from typing import NamedTuple
 
@@ -21,8 +22,6 @@ async def consumer(transformer: AsyncIterator[int]) -> None:
     async for x in transformer:
         pass
 
-
-from tests.common.pipeline_pack import PipelinePack
 
 linear_pipeline = pipeline(
     name="linear_example",

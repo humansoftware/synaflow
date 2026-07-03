@@ -1,10 +1,10 @@
+from tests.common.pipeline_pack import PipelinePack
 from collections.abc import Generator, Iterator
 from concurrent.futures import Future, ThreadPoolExecutor
 from threading import Event
 from typing import NamedTuple
 
 from synaflow import pipeline, step
-from tests.common.pipeline_pack import PipelinePack
 
 _POOL = ThreadPoolExecutor(max_workers=10)
 _RELEASE = Event()

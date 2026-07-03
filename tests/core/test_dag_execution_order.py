@@ -93,10 +93,10 @@ def _normalize_exported_dag_for_contract_assertions(dag_dict: dict) -> dict:
     if "pipeline_observers" in dag_dict:
         normalized["pipeline_observers"] = list(dag_dict["pipeline_observers"])
 
-    for step_name, step in dag_dict["steps"].items():
+    for step_name, step_def in dag_dict["steps"].items():
         normalized["steps"][step_name] = {
             key: value
-            for key, value in step.items()
+            for key, value in step_def.items()
             if key not in {"materialized_deps", "needs_materialize_reasons"}
         }
     return normalized

@@ -1,3 +1,4 @@
+from tests.common.pipeline_pack import PipelinePack
 from typing import Iterator, NamedTuple
 
 from synaflow import include, pipeline, step
@@ -45,7 +46,6 @@ pipe = pipeline(
     ],
 )
 
-from tests.common.pipeline_pack import PipelinePack
 
 pack = PipelinePack(
     json_dag={

@@ -1,3 +1,4 @@
+from tests.common.pipeline_pack import PipelinePack
 from collections.abc import Generator, Iterator
 from typing import NamedTuple
 
@@ -23,8 +24,6 @@ def square_numbers(fibonacci_generator: Iterator[int]) -> Generator[int, None, N
 def consumer(square_numbers: Iterator[int]) -> None:
     pass
 
-
-from tests.common.pipeline_pack import PipelinePack
 
 pipeline_def = pipeline(
     name="fibonacci",

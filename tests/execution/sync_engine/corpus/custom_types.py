@@ -1,3 +1,4 @@
+from tests.common.pipeline_pack import PipelinePack
 from collections.abc import Generator
 from typing import NamedTuple
 from dataclasses import dataclass
@@ -23,8 +24,6 @@ def records() -> Generator[CustomRecord, None, None]:
 def process(records: list[CustomRecord]) -> int:
     return len(records)
 
-
-from tests.common.pipeline_pack import PipelinePack
 
 custom_types_pipeline = pipeline(
     name="custom_types_example",

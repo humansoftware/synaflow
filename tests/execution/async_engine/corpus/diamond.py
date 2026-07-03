@@ -1,3 +1,4 @@
+from tests.common.pipeline_pack import PipelinePack
 from typing import NamedTuple
 
 from synaflow import pipeline, step
@@ -22,8 +23,6 @@ async def branch_b(start: int) -> int:
 async def merge(branch_a: int, branch_b: int) -> int:
     return branch_a + branch_b
 
-
-from tests.common.pipeline_pack import PipelinePack
 
 diamond_pipeline = pipeline(
     name="diamond_example",

@@ -1,7 +1,7 @@
+from tests.common.pipeline_pack import PipelinePack
 from typing import AsyncIterator, NamedTuple
 
 from synaflow import include, pipeline, step
-from tests.common.pipeline_pack import PipelinePack
 
 
 # Level 3 (Deepest)

@@ -1,3 +1,4 @@
+from tests.common.pipeline_pack import PipelinePack
 from collections.abc import AsyncGenerator, AsyncIterator
 from typing import NamedTuple
 from synaflow import pipeline, step
@@ -27,8 +28,6 @@ async def consumer(gen: AsyncIterator[int]) -> None:
     async for x in gen:
         pass
 
-
-from tests.common.pipeline_pack import PipelinePack
 
 error_pipeline = pipeline(
     name="error_handling_example",

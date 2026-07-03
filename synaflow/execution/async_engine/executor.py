@@ -317,6 +317,28 @@ async def _resolve_queue(
     return queue_to_async_gen(queue)
 
 
+async def _wrap_started_stream(it: Any, fire_started: Any) -> Any:
+    if isinstance(it, (AsyncIterator, AsyncGenerator)):
+        try:
+            async for item in it:
+                await fire_started()
+                yield item
+        finally:
+            await fire_started()
+    else:
+        iterator = iter(it)
+        try:
+            while True:
+                try:
+                    item = next(iterator)
+                except StopIteration:
+                    break
+                await fire_started()
+                yield item
+        finally:
+            await fire_started()
+
+
 # ---------------------------------------------------------------------------
 # Executor
 # ---------------------------------------------------------------------------
@@ -610,8 +632,24 @@ class AsyncPipelineExecutor:
         )
         await self._dispatch_step_event(node, StepEvent.STARTED, step_name)
 
+        started = False
+
+        async def fire_started():
+            nonlocal started
+            if not started:
+                await self._dispatch_step_event(node, StepEvent.STARTED, step_name)
+                started = True
+
         try:
+            if (
+                not unrolled
+                and not inspect.isasyncgenfunction(node.fn)
+                and not inspect.isgeneratorfunction(node.fn)
+            ):
+                await fire_started()
             output = await self._execute_step(step_name, node, arguments, unrolled)
+            if self._is_stream_output(output):
+                output = _wrap_started_stream(output, fire_started)
             output = self._attach_argument_cleanup(output, arguments)
             await self._emit_immediate_completion(step_name, node, output, unrolled)
             if not self.dag.is_hidden_step(step_name):

@@ -1,3 +1,4 @@
+from tests.common.pipeline_pack import PipelinePack
 from collections.abc import AsyncGenerator
 from typing import NamedTuple
 from dataclasses import dataclass
@@ -30,8 +31,6 @@ async def async_list(async_iterator) -> list:
         items.append(item)
     return items
 
-
-from tests.common.pipeline_pack import PipelinePack
 
 custom_types_pipeline = pipeline(
     name="custom_types_example",

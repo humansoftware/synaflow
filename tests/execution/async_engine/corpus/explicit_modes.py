@@ -1,8 +1,8 @@
+from tests.common.pipeline_pack import PipelinePack
 from collections.abc import AsyncGenerator
 from typing import NamedTuple
 
 from synaflow import StepMode, pipeline, step
-from tests.common.pipeline_pack import PipelinePack
 
 
 class ExplicitModesParams(NamedTuple):

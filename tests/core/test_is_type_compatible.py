@@ -1,7 +1,7 @@
 from collections.abc import Generator, Iterator
 from dataclasses import dataclass
 from concurrent.futures import Future
-from typing import Any
+from typing import Any, NamedTuple
 import pytest
 from synaflow.core.type_compatibility import is_type_compatible
 
@@ -14,9 +14,6 @@ class MyDataclass:
 @dataclass
 class OtherDataclass:
     x: int
-
-
-from typing import NamedTuple
 
 
 class MyNamedTuple(NamedTuple):
