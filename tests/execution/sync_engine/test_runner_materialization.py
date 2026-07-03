@@ -786,3 +786,66 @@ def test_given_multilevel_each_fanout_when_run_then_completes_without_materializ
     # Asserting that terminal consumers receive all items
     assert seen_x == list(range(20))
     assert seen_y == list(range(20))
+
+
+def test_given_custom_iterable_materializer_when_consumed_by_multiple_each_steps_then_iter_is_called_multiple_times(
+    run_pipeline,
+):
+    class P(NamedTuple):
+        pass
+
+    class MockDiskBackedSet:
+        def __init__(self, data):
+            self.data = set(data)
+            self.iter_count = 0
+
+        def __iter__(self):
+            self.iter_count += 1
+            yield from self.data
+
+    captured_mock = []
+
+    def my_disk_materializer(ctx):
+        def mat(g):
+            instance = MockDiskBackedSet(g)
+            captured_mock.append(instance)
+            return instance
+
+        return mat
+
+    def producer() -> Generator[int, None, None]:
+        yield 1
+        yield 2
+        yield 1
+
+    seen_c1 = []
+    seen_c2 = []
+
+    def consumer_1(producer: int) -> int:
+        seen_c1.append(producer)
+        return producer
+
+    def consumer_2(producer: int) -> int:
+        seen_c2.append(producer)
+        return producer
+
+    my_pipeline = pipeline(
+        name="test_out_of_core",
+        params=P,
+        materializer=my_disk_materializer,
+        steps=[
+            step("producer", fn=producer, force_materialize=True),
+            step("c1", fn=consumer_1),
+            step("c2", fn=consumer_2),
+        ],
+    )
+
+    run_pipeline(my_pipeline, params=P())
+
+    # Asserting both consumers got the de-duplicated elements (order is arbitrary since it's a set)
+    assert set(seen_c1) == {1, 2}
+    assert set(seen_c2) == {1, 2}
+
+    # Verify the materializer was invoked only once but __iter__ was called twice (once for each EACH consumer)
+    assert len(captured_mock) == 1
+    assert captured_mock[0].iter_count == 2
