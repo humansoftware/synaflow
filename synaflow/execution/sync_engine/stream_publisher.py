@@ -16,7 +16,7 @@ from synaflow.core.exceptions import PipelineStopException
 from synaflow.execution.sync_handoff import SyncFanout
 from synaflow.execution.sync_engine.event_dispatch import EventDispatcher
 from synaflow.execution.sync_engine.dependency_resolver import DependencyResolver
-from synaflow.execution.sync_engine.threshold import has_threshold
+from synaflow.execution.threshold import has_threshold
 from synaflow.execution.bounded_iterator import BoundedIterator
 
 

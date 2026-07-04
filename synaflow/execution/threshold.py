@@ -1,6 +1,7 @@
 """
-Implements error threshold checking and validation for the synchronous execution engine.
+Shared threshold logic for both sync and async execution engines.
 
+Implements error threshold checking and validation for pipeline steps.
 This module evaluates step-level error thresholds (absolute or percentage-based)
 to determine if a step has failed beyond acceptable limits, triggering a pipeline
 failure. It also handles validation of manually raised threshold exceptions.
@@ -81,6 +82,7 @@ def compute_completed_all_inputs_for_all(
 
 
 def has_threshold(node: Any) -> bool:
+    """Return True if the node has any error threshold configured."""
     return (
         node.error_threshold_absolute is not None
         or node.error_threshold_pct is not None
