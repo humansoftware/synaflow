@@ -32,5 +32,7 @@ def async_adapter(fn):
     async def wrapper(*args, **kwargs):
         return fn(*args, **kwargs)
 
+    # We delete __wrapped__ because inspect.iscoroutinefunction follows it.
+    # If we don't, the wrapper will incorrectly be identified as synchronous.
     del wrapper.__wrapped__
     return wrapper

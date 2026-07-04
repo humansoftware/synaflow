@@ -358,11 +358,13 @@ def _resolve_materializers(
             elif is_stream:
                 if has_consumers:
                     mat = memory_materializer_factory
+                    node._has_default_materializer = True
                 else:
                     mat = None
             elif is_untyped:
                 if has_consumers:
                     mat = memory_materializer_factory
+                    node._has_default_materializer = True
                 else:
                     mat = None
 
@@ -376,11 +378,19 @@ def _resolve_materializers(
             node.materializer = mat(ctx)
         else:
             node.materializer = mat
+
+        is_default_err_mat = node.error_materializer is None and (
+            pipeline_error_materializer is None
+            or pipeline_error_materializer is log_error_materializer_factory
+        )
         err_mat = (
             node.error_materializer
             or pipeline_error_materializer
             or log_error_materializer_factory
         )
+        if is_default_err_mat:
+            node._has_default_error_materializer = True
+
         if err_mat and is_factory(err_mat):
             err_ctx = ErrorMaterializeContext(
                 pipeline_name=dag.name,
@@ -606,16 +616,5 @@ def build_dag(
         memory_materializer_factory,
         is_default_factory=is_default_factory,
     )
-
-    if dag_obj.requires_async_runner and not dag_obj.requires_sync_runner:
-        from synaflow.execution.adapters import async_adapter, is_async_callable
-
-        for node in dag_obj.steps.values():
-            if (
-                node.error_materializer
-                and callable(node.error_materializer)
-                and not is_async_callable(node.error_materializer)
-            ):
-                node.error_materializer = async_adapter(node.error_materializer)
 
     return dag_obj
