@@ -22,12 +22,16 @@ class AsyncStepLifecycle:
     def record_error(self, count: int = 1):
         self.error_count += count
 
+    def set_counts(self, success_count: int, error_count: int):
+        self.success_count = success_count
+        self.error_count = error_count
+
     async def finish(self, exception=None, completed_all_inputs: bool = True):
         self.completed_all_inputs = completed_all_inputs
         if exception:
             cause = exception
-            if isinstance(cause, PipelineStopException):
-                cause = cause.cause or cause
+            while isinstance(cause, PipelineStopException) and cause.cause:
+                cause = cause.cause
             await self.events.step_failed(
                 self.node,
                 self.step_name,

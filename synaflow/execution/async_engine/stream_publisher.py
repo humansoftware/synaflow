@@ -81,8 +81,6 @@ class AsyncStreamPublisher:
                         items.append(item)
                     except StopIteration:
                         break
-        except PipelineStopException:
-            raise
         except Exception as exc:
             await self._events.handle_error(
                 step_name,

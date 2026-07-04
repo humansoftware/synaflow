@@ -182,7 +182,7 @@ class PipelineExecutor:
         try:
             if not unrolled and not inspect.isgeneratorfunction(node.fn):
                 lifecycle.start()
-            output = self._execute_step(step_name, node, arguments, unrolled)
+            output = self._execute_step(step_name, node, arguments, unrolled, lifecycle)
             if isinstance(output, Iterator):
                 output = _wrap_started_stream(output, lifecycle.start)
             output = self.scope.attach_cleanup(output, arguments)
@@ -213,16 +213,14 @@ class PipelineExecutor:
                     error_count=exc.error_count,
                     completed_all_inputs=completed_all_inputs,
                 )
-                lifecycle.record_success(exc.success_count - lifecycle.success_count)
-                lifecycle.record_error(exc.error_count - lifecycle.error_count)
+                lifecycle.set_counts(exc.success_count, exc.error_count)
                 lifecycle.finish(
                     exception=exc, completed_all_inputs=completed_all_inputs
                 )
             else:
                 # EACH mode, no threshold configured (should not reach here
                 # per build-time validation, but handle defensively)
-                lifecycle.record_success(exc.success_count - lifecycle.success_count)
-                lifecycle.record_error(exc.error_count - lifecycle.error_count)
+                lifecycle.set_counts(exc.success_count, exc.error_count)
                 lifecycle.finish(exception=exc, completed_all_inputs=True)
             raise
         except Exception as exc:
@@ -236,9 +234,9 @@ class PipelineExecutor:
                 self.scope.close_managed_streams(arguments)
             resource_stack.close()
 
-    def _execute_step(self, step_name, node, arguments, unrolled):
+    def _execute_step(self, step_name, node, arguments, unrolled, lifecycle):
         if unrolled:
-            return self._unroll_step(step_name, node, arguments, unrolled)
+            return self._unroll_step(step_name, node, arguments, unrolled, lifecycle)
         return node.fn(**arguments)
 
     def _emit_immediate_completion(self, output, unrolled, lifecycle: StepLifecycle):
@@ -250,7 +248,7 @@ class PipelineExecutor:
         lifecycle.record_success(success_count)
         lifecycle.finish(completed_all_inputs=True)
 
-    def _unroll_step(self, step_name, node, base_args, unrolled):
+    def _unroll_step(self, step_name, node, base_args, unrolled, lifecycle):
         """Call fn once per item-tuple. Exhausted streams yield None.
         If terminal (sink), consume eagerly without producing output."""
         iterators = {}
@@ -308,19 +306,12 @@ class PipelineExecutor:
                     try:
                         check_threshold(step_name, node, invocation_count, error_count)
                     except ThresholdExceededException as exc:
-                        lifecycle = StepLifecycle(node, step_name, self.events)
-                        lifecycle.record_success(exc.success_count)
-                        lifecycle.record_error(exc.error_count)
+                        lifecycle.set_counts(exc.success_count, exc.error_count)
                         lifecycle.finish(exception=exc, completed_all_inputs=True)
                         raise
                     success_count = invocation_count - error_count
-                    self.events.step_completed(
-                        node,
-                        step_name,
-                        success_count=success_count,
-                        error_count=error_count,
-                        completed_all_inputs=True,
-                    )
+                    lifecycle.set_counts(success_count, error_count)
+                    lifecycle.finish(completed_all_inputs=True)
                 else:
                     check_threshold(step_name, node, invocation_count, error_count)
             finally:

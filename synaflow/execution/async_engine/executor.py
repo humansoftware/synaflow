@@ -206,7 +206,9 @@ class AsyncPipelineExecutor:
                 and not inspect.isgeneratorfunction(node.fn)
             ):
                 await lifecycle.start()
-            output = await self._execute_step(step_name, node, arguments, unrolled)
+            output = await self._execute_step(
+                step_name, node, arguments, unrolled, lifecycle
+            )
             if self.publisher._is_stream_output(output):
                 output = _wrap_started_stream(output, lifecycle.start)
             output = self.scope.attach_cleanup(output, arguments)
@@ -237,16 +239,14 @@ class AsyncPipelineExecutor:
                     error_count=exc.error_count,
                     completed_all_inputs=completed_all_inputs,
                 )
-                lifecycle.record_success(exc.success_count - lifecycle.success_count)
-                lifecycle.record_error(exc.error_count - lifecycle.error_count)
+                lifecycle.set_counts(exc.success_count, exc.error_count)
                 await lifecycle.finish(
                     exception=exc, completed_all_inputs=completed_all_inputs
                 )
             else:
                 # EACH mode, no threshold configured (should not reach here
                 # per build-time validation, but handle defensively)
-                lifecycle.record_success(exc.success_count - lifecycle.success_count)
-                lifecycle.record_error(exc.error_count - lifecycle.error_count)
+                lifecycle.set_counts(exc.success_count, exc.error_count)
                 await lifecycle.finish(exception=exc, completed_all_inputs=True)
             raise
         except Exception as exc:
@@ -260,9 +260,11 @@ class AsyncPipelineExecutor:
                 await self.scope.close_stream_arguments(arguments)
             await resource_stack.aclose()
 
-    async def _execute_step(self, step_name, node, arguments, unrolled):
+    async def _execute_step(self, step_name, node, arguments, unrolled, lifecycle):
         if unrolled:
-            return await self._unroll_step(step_name, node, arguments, unrolled)
+            return await self._unroll_step(
+                step_name, node, arguments, unrolled, lifecycle
+            )
         return await self._call_fn(node.fn, arguments)
 
     async def _emit_immediate_completion(
@@ -283,7 +285,7 @@ class AsyncPipelineExecutor:
             return await fn(**kwargs)
         return fn(**kwargs)
 
-    async def _unroll_step(self, step_name, node, base_args, unrolled):
+    async def _unroll_step(self, step_name, node, base_args, unrolled, lifecycle):
         queues = {}
         for dep in unrolled:
             key = self.dag.output_key(dep, step_name)
@@ -364,19 +366,12 @@ class AsyncPipelineExecutor:
                     try:
                         check_threshold(step_name, node, invocation_count, error_count)
                     except ThresholdExceededException as exc:
-                        lifecycle = AsyncStepLifecycle(node, step_name, self.events)
-                        lifecycle.record_success(exc.success_count)
-                        lifecycle.record_error(exc.error_count)
+                        lifecycle.set_counts(exc.success_count, exc.error_count)
                         await lifecycle.finish(exception=exc, completed_all_inputs=True)
                         raise
                     success_count = invocation_count - error_count
-                    await self.events.step_completed(
-                        node,
-                        step_name,
-                        success_count=success_count,
-                        error_count=error_count,
-                        completed_all_inputs=True,
-                    )
+                    lifecycle.set_counts(success_count, error_count)
+                    await lifecycle.finish(completed_all_inputs=True)
                 else:
                     check_threshold(step_name, node, invocation_count, error_count)
             finally:
