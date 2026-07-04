@@ -149,7 +149,7 @@ def _validate_no_sync_handlers(pipeline_def: PipelineDef) -> None:
 
     for obs in all_observers:
         handler = obs.handler
-        if not is_async_callable(handler):
+        if callable(handler) and not is_async_callable(handler):
             handler_name = getattr(handler, "__name__", str(handler))
             func = getattr(handler, "func", None)
             if func is not None:
@@ -161,7 +161,7 @@ def _validate_no_sync_handlers(pipeline_def: PipelineDef) -> None:
             )
 
     for node in pipeline_def.dag.steps.values():
-        if node.materializer is not None and not is_async_callable(node.materializer):
+        if callable(node.materializer) and not is_async_callable(node.materializer):
             mat_name = getattr(node.materializer, "__name__", str(node.materializer))
             raise TypeError(
                 f"Pipeline '{pipeline_def.name}': materializer "
@@ -169,7 +169,7 @@ def _validate_no_sync_handlers(pipeline_def: PipelineDef) -> None:
                 f"asynchronously."
             )
 
-        if node.error_materializer is not None and not is_async_callable(
+        if callable(node.error_materializer) and not is_async_callable(
             node.error_materializer
         ):
             mat_name = getattr(
@@ -181,7 +181,7 @@ def _validate_no_sync_handlers(pipeline_def: PipelineDef) -> None:
                 f"asynchronously."
             )
 
-        if node.fn is not None and not is_async_callable(node.fn):
+        if callable(node.fn) and not is_async_callable(node.fn):
             fn_name = getattr(node.fn, "__name__", str(node.fn))
             raise TypeError(
                 f"Pipeline '{pipeline_def.name}': step function "

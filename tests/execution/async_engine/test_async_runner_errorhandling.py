@@ -385,16 +385,20 @@ async def test_given_non_callable_error_materializer_when_step_fails_then_raises
     class P(NamedTuple):
         pass
 
-    with pytest.raises(TypeError, match=".*synchronous but the pipeline runs.*"):
-        pipeline(
-            name="test",
-            params=P,
-            steps=[
-                step(
-                    "producer",
-                    fn=producer,
-                    on_error=OnError.CONTINUE,
-                    error_materializer="not a callable string",
-                )
-            ],
-        )
+    my_pipeline = pipeline(
+        name="test",
+        params=P,
+        steps=[
+            step(
+                "producer",
+                fn=producer,
+                on_error=OnError.CONTINUE,
+                error_materializer="not a callable string",
+            )
+        ],
+    )
+
+    with pytest.raises(
+        TypeError, match="Error materializer for step 'producer' is not callable"
+    ):
+        await async_run(my_pipeline, params=P())
