@@ -58,7 +58,7 @@ pack = PipelinePack(
                 "fn": "prepare_b_each",
                 "on_error": "stop",
                 "mode": "all",
-                "materializer": "_identity",
+                "materializer": "async_collection",
                 "error_materializer": "log_error",
                 "each_mode_deps": [],
                 "pipeline": "MainPipeline",

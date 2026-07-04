@@ -124,12 +124,9 @@ def resolve_step_mode(
     )
 
 
-def validate_sync_async_consistency(
+def compute_sync_async_requirements(
     dag: Dag,
     pipeline_name: str,
-    steps: list[Step],
-    memory_materializer_factory: Any,
-    is_default_factory: bool = False,
 ) -> None:
     has_sync = False
     has_async = False
@@ -152,29 +149,37 @@ def validate_sync_async_consistency(
             if is_async_stream_type(dep_type):
                 has_async = True
 
+    if has_sync and has_async:
+        raise ValueError(
+            f"Pipeline '{pipeline_name}' is UNRUNNABLE. It contains synchronous streams (Iterator) "
+            "and asynchronous features (async def or AsyncIterator). "
+            "You must convert all streams to AsyncIterator to run it asynchronously, "
+            "or remove async functions to run it synchronously."
+        )
+
+    dag.requires_sync_runner = has_sync
+    dag.requires_async_runner = has_async
+
+
+def validate_materializers_consistency(
+    dag: Dag,
+    pipeline_name: str,
+) -> None:
+    has_sync = dag.requires_sync_runner
+    has_async = dag.requires_async_runner
+
     has_async_materializer = False
     has_sync_materializer = False
 
-    def _register_materializer(materializer: Any) -> None:
-        nonlocal has_async_materializer, has_sync_materializer
-        if materializer is None:
-            return
-        if inspect.iscoroutinefunction(materializer) or (
-            hasattr(materializer, "__call__")
-            and inspect.iscoroutinefunction(materializer.__call__)
-        ):
-            has_async_materializer = True
-        else:
-            has_sync_materializer = True
+    from synaflow.execution.adapters import is_async_callable
 
-    if not is_default_factory:
-        for step in steps:
-            if getattr(step, "materializer", None) is None:
-                _register_materializer(dag.steps[step.name].materializer)
-
-    for step in steps:
-        if getattr(step, "materializer", None) is not None:
-            _register_materializer(dag.steps[step.name].materializer)
+    for node in dag.steps.values():
+        mat = node.materializer
+        if mat is not None:
+            if is_async_callable(mat):
+                has_async_materializer = True
+            else:
+                has_sync_materializer = True
 
     if has_sync and has_async_materializer:
         raise ValueError(
@@ -187,17 +192,6 @@ def validate_sync_async_consistency(
             f"Pipeline '{pipeline_name}' is UNRUNNABLE. It contains asynchronous streams "
             "but has a synchronous materializer."
         )
-
-    if has_sync and has_async:
-        raise ValueError(
-            f"Pipeline '{pipeline_name}' is UNRUNNABLE. It contains synchronous streams (Iterator) "
-            "and asynchronous features (async def or AsyncIterator). "
-            "You must convert all streams to AsyncIterator to run it asynchronously, "
-            "or remove async functions to run it synchronously."
-        )
-
-    dag.requires_sync_runner = has_sync
-    dag.requires_async_runner = has_async
 
 
 def validate_no_duplicate_base_datasets(

@@ -62,7 +62,6 @@ class PipelineDef:
             self.steps,
             self.resources,
             self.materializer,
-            is_default_factory=(self.materializer is None),
             error_materializer_factory=self.error_materializer,
             pipeline_observers=self.observers,
             exports=self.exports,
@@ -136,29 +135,21 @@ def _validate_no_sync_handlers(pipeline_def: PipelineDef) -> None:
 
     for node in pipeline_def.dag.steps.values():
         if node.materializer is not None and not is_async_callable(node.materializer):
-            if not getattr(node, "_has_default_materializer", False):
-                mat_name = getattr(
-                    node.materializer, "__name__", str(node.materializer)
-                )
-                raise TypeError(
-                    f"Pipeline '{pipeline_def.name}': materializer "
-                    f"'{mat_name}' is synchronous but the pipeline runs "
-                    f"asynchronously."
-                )
+            mat_name = getattr(node.materializer, "__name__", str(node.materializer))
+            raise TypeError(
+                f"Pipeline '{pipeline_def.name}': materializer "
+                f"'{mat_name}' is synchronous but the pipeline runs "
+                f"asynchronously."
+            )
 
         if node.error_materializer is not None and not is_async_callable(
             node.error_materializer
         ):
-            if getattr(node, "_has_default_error_materializer", False):
-                from synaflow.execution.adapters import async_adapter
-
-                node.error_materializer = async_adapter(node.error_materializer)
-            else:
-                mat_name = getattr(
-                    node.error_materializer, "__name__", str(node.error_materializer)
-                )
-                raise TypeError(
-                    f"Pipeline '{pipeline_def.name}': error_materializer "
-                    f"'{mat_name}' is synchronous but the pipeline runs "
-                    f"asynchronously."
-                )
+            mat_name = getattr(
+                node.error_materializer, "__name__", str(node.error_materializer)
+            )
+            raise TypeError(
+                f"Pipeline '{pipeline_def.name}': error_materializer "
+                f"'{mat_name}' is synchronous but the pipeline runs "
+                f"asynchronously."
+            )
