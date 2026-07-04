@@ -1,12 +1,13 @@
 from typing import NamedTuple
 
+from collections.abc import Iterator, AsyncIterator
+
 import pytest
 
-from synaflow import StepMode, pipeline, step, Observer
+from synaflow import StepMode, pipeline, step, Observer, OnError
 
 
 def test_given_sync_step_in_async_pipeline_then_raises():
-    from collections.abc import AsyncIterator
 
     class Empty(NamedTuple):
         pass
@@ -32,7 +33,6 @@ def test_given_sync_step_in_async_pipeline_then_raises():
 
 
 def test_given_async_observer_in_sync_pipeline_then_raises():
-    from collections.abc import Iterator
 
     class Empty(NamedTuple):
         pass
@@ -62,7 +62,6 @@ def test_given_async_observer_in_sync_pipeline_then_raises():
 
 
 def test_given_sync_observer_in_async_pipeline_then_raises():
-    from collections.abc import AsyncIterator
 
     class Empty(NamedTuple):
         pass
@@ -92,7 +91,6 @@ def test_given_sync_observer_in_async_pipeline_then_raises():
 
 
 def test_given_async_materializer_in_sync_pipeline_then_raises():
-    from collections.abc import Iterator
 
     class Empty(NamedTuple):
         pass
@@ -120,7 +118,6 @@ def test_given_async_materializer_in_sync_pipeline_then_raises():
 
 
 def test_given_sync_materializer_in_async_pipeline_then_raises():
-    from collections.abc import AsyncIterator
 
     class Empty(NamedTuple):
         pass
@@ -148,8 +145,6 @@ def test_given_sync_materializer_in_async_pipeline_then_raises():
 
 
 def test_given_async_error_materializer_in_sync_pipeline_then_raises():
-    from collections.abc import Iterator
-    from synaflow import OnError
 
     class Empty(NamedTuple):
         pass
@@ -183,8 +178,6 @@ def test_given_async_error_materializer_in_sync_pipeline_then_raises():
 
 
 def test_given_sync_error_materializer_in_async_pipeline_then_raises():
-    from collections.abc import AsyncIterator
-    from synaflow import OnError
 
     class Empty(NamedTuple):
         pass
