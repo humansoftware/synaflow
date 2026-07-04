@@ -120,7 +120,7 @@ def memory_materializer_factory(ctx: MaterializeContext):
 
     if ctx.is_async_pipeline:
 
-        async def async_collection(stream):
+        async def async_collection(stream: Any) -> Any:
             if isinstance(stream, (AsyncIterator, AbcAsyncIterator, AsyncGenerator)):
                 items = [x async for x in stream]
             else:
@@ -402,10 +402,6 @@ def _resolve_materializers(
         else:
             node.materializer = mat
 
-        is_default_err_mat = node.error_materializer is None and (
-            pipeline_error_materializer is None
-            or pipeline_error_materializer is log_error_materializer_factory
-        )
         err_mat = (
             node.error_materializer
             or pipeline_error_materializer
