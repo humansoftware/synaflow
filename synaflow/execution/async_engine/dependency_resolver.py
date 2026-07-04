@@ -1,3 +1,9 @@
+"""
+Async dependency resolution logic.
+
+Resolves dependencies, resource arguments, and materializers for the async engine.
+"""
+
 import asyncio
 import dataclasses
 import inspect

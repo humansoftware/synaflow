@@ -1,3 +1,9 @@
+"""
+Async stream publication logic.
+
+Publishes stream outputs, applies materialization, and manages fan-out for the async engine.
+"""
+
 import asyncio
 import inspect
 from collections.abc import AsyncGenerator, AsyncIterator, Generator, Iterator

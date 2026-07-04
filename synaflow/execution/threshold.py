@@ -82,6 +82,7 @@ def compute_completed_all_inputs_for_all(
 
 
 def has_threshold(node: Any) -> bool:
+    """Return True if the node has any error threshold configured."""
     return (
         node.error_threshold_absolute is not None
         or node.error_threshold_pct is not None

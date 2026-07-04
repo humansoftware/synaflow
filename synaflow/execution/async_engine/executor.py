@@ -26,6 +26,7 @@ from synaflow.execution.threshold import (
 
 from .constants import EOF_MARKER
 from .iterator_utils import AsyncQueueBranch
+from .dependency_resolver import AsyncDependencyResolver
 
 
 # ---------------------------------------------------------------------------
@@ -85,7 +86,6 @@ class AsyncPipelineExecutor:
         self._step_output_observers = step_output_observers or []
         self._overrides = overrides
         self._resource_factories = dict(resource_factories or {})
-        from .dependency_resolver import AsyncDependencyResolver
 
         self.scope = AsyncDependencyResolver(
             self.dag, self.outputs, self._overrides, self._resource_factories
@@ -110,7 +110,6 @@ class AsyncPipelineExecutor:
             key = self.dag.output_key(dep_name, step_name)
             if key not in self.outputs and dep_name not in self.outputs:
                 return False
-        return True
         return True
 
     async def _run_graph(self) -> None:
