@@ -92,6 +92,20 @@ step = Step
 include = IncludeStep
 
 
+def _is_async_handler(handler: Any) -> bool:
+    if inspect.iscoroutinefunction(handler):
+        return True
+    if hasattr(handler, "__call__") and inspect.iscoroutinefunction(handler.__call__):
+        return True
+    func = getattr(handler, "func", None)
+    if func is not None and (
+        inspect.iscoroutinefunction(func)
+        or (hasattr(func, "__call__") and inspect.iscoroutinefunction(func.__call__))
+    ):
+        return True
+    return False
+
+
 def _validate_no_async_observers(pipeline_def: PipelineDef) -> None:
     all_observers: list = list(pipeline_def.dag.pipeline_observers)
     for node in pipeline_def.dag.steps.values():
@@ -99,17 +113,13 @@ def _validate_no_async_observers(pipeline_def: PipelineDef) -> None:
 
     for obs in all_observers:
         handler = obs.handler
-        handler_name = getattr(handler, "__name__", str(handler))
-        if inspect.iscoroutinefunction(handler):
+        if _is_async_handler(handler):
+            handler_name = getattr(handler, "__name__", str(handler))
+            func = getattr(handler, "func", None)
+            if func is not None:
+                handler_name = f"partial of '{func.__name__}'"
             raise ValueError(
                 f"Pipeline '{pipeline_def.name}': observer handler "
                 f"'{handler_name}' is async but the pipeline runs "
-                f"synchronously. Use sync handlers or switch to async_run()."
-            )
-        func = getattr(handler, "func", None)
-        if func is not None and inspect.iscoroutinefunction(func):
-            raise ValueError(
-                f"Pipeline '{pipeline_def.name}': observer handler "
-                f"(partial of '{func.__name__}') is async but the pipeline runs "
                 f"synchronously. Use sync handlers or switch to async_run()."
             )

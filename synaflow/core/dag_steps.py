@@ -159,7 +159,10 @@ def validate_sync_async_consistency(
         nonlocal has_async_materializer, has_sync_materializer
         if materializer is None:
             return
-        if inspect.iscoroutinefunction(materializer):
+        if inspect.iscoroutinefunction(materializer) or (
+            hasattr(materializer, "__call__")
+            and inspect.iscoroutinefunction(materializer.__call__)
+        ):
             has_async_materializer = True
         else:
             has_sync_materializer = True

@@ -1,4 +1,5 @@
 import inspect
+import functools
 
 
 def async_adapter(fn):
@@ -17,8 +18,8 @@ def async_adapter(fn):
     ):
         return fn
 
+    @functools.wraps(fn)
     async def wrapper(*args, **kwargs):
         return fn(*args, **kwargs)
 
-    wrapper.__name__ = getattr(fn, "__name__", "wrapper")
     return wrapper
