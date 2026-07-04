@@ -46,7 +46,7 @@ pack = PipelinePack(
                 "fn": "gen",
                 "on_error": "continue",
                 "mode": "all",
-                "materializer": "async_collection",
+                "materializer": "list",
                 "error_materializer": "log_error",
                 "each_mode_deps": [],
                 "pipeline": "mixed_fanout",

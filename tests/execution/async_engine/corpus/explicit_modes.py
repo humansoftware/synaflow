@@ -43,7 +43,7 @@ pack = PipelinePack(
                 "fn": "emit",
                 "on_error": "continue",
                 "mode": "all",
-                "materializer": "async_collection",
+                "materializer": "_identity",
                 "error_materializer": "log_error",
                 "each_mode_deps": [],
                 "pipeline": "explicit_modes",

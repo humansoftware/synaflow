@@ -55,8 +55,7 @@ from synaflow.core.dag_steps import (
     validate_no_duplicate_base_datasets,
     validate_no_unmaterialized_terminal_streams,
     validate_step_is_callable,
-    compute_sync_async_requirements,
-    validate_materializers_consistency,
+    validate_sync_async_consistency,
     validate_unique_step_name,
 )
 from synaflow.core.dag_topology import check_circular_dependencies
@@ -582,6 +581,7 @@ def build_dag(
     steps: list[Any],
     resources: dict[str, Any] | None = None,
     memory_materializer_factory: Any = None,
+    is_default_factory: bool = False,
     error_materializer_factory: Any = None,
     pipeline_observers: list[Observer] | None = None,
     exports: str | None = None,
@@ -620,9 +620,12 @@ def build_dag(
 
     validate_no_unmaterialized_terminal_streams(dag_obj, pipeline_name, exports)
 
-    compute_sync_async_requirements(
+    validate_sync_async_consistency(
         dag_obj,
         pipeline_name,
+        steps,
+        memory_materializer_factory,
+        is_default_factory=is_default_factory,
     )
 
     _resolve_materializers(
@@ -630,11 +633,6 @@ def build_dag(
         indexes,
         memory_materializer_factory,
         error_materializer_factory,
-    )
-
-    validate_materializers_consistency(
-        dag_obj,
-        pipeline_name,
     )
 
     return dag_obj

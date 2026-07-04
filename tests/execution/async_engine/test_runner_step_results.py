@@ -112,7 +112,6 @@ async def test_given_mixed_fanout_when_observed_then_producer_observer_sees_stre
 
 
 @pytest.mark.asyncio
-@pytest.mark.xfail(reason="Async materializer loses items on stream iteration failure")
 async def test_given_partial_stream_iteration_error_with_continue_when_observed_then_observer_sees_preserved_items():
     class P(NamedTuple):
         pass

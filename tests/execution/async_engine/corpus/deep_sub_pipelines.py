@@ -85,7 +85,7 @@ pack = PipelinePack(
                 "fn": "prep_l2_each",
                 "on_error": "stop",
                 "mode": "all",
-                "materializer": "async_collection",
+                "materializer": "_identity",
                 "error_materializer": "log_error",
                 "each_mode_deps": [],
                 "pipeline": "DeepSubPipelines",

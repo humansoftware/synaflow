@@ -62,6 +62,7 @@ class PipelineDef:
             self.steps,
             self.resources,
             self.materializer,
+            is_default_factory=(self.materializer is None),
             error_materializer_factory=self.error_materializer,
             pipeline_observers=self.observers,
             exports=self.exports,
