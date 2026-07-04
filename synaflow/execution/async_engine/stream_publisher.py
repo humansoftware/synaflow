@@ -5,7 +5,6 @@ Publishes stream outputs, applies materialization, and manages fan-out for the a
 """
 
 import asyncio
-import inspect
 from collections.abc import AsyncGenerator, AsyncIterator, Generator, Iterator
 from typing import Any
 
@@ -109,21 +108,13 @@ class AsyncStreamPublisher:
                 return items, had_error, exc
             return value, False, None
 
-        if inspect.iscoroutinefunction(materializer):
+        # Materializer is guaranteed to be async by validation.
+        # It natively handles consuming the stream if needed.
+        try:
             result = await materializer(value)
             return result, False, None
-
-        if isinstance(value, (AsyncIterator, AsyncGenerator, Iterator, Generator)):
-            items, had_error, exc = await self._collect_async_iterator(step_name, value)
-            res = materializer(items)
-            if inspect.iscoroutine(res):
-                return await res, had_error, exc
-            return res, had_error, exc
-
-        res = materializer(value)
-        if inspect.iscoroutine(res):
-            return await res, False, None
-        return res, False, None
+        except Exception as e:
+            return None, True, e
 
     async def _pump_iterator(
         self,
