@@ -16,7 +16,7 @@ from synaflow.core.types import (
     OnError,
 )
 from synaflow.execution.overrides import ExecutionOverrides
-from .threshold import (
+from synaflow.execution.threshold import (
     check_threshold,
     wrap_threshold_raise_if_manual,
     compute_completed_all_inputs_for_all,

@@ -10,7 +10,6 @@ from synaflow.core.constants import PIPELINE_SCOPE
 from synaflow.core.dag import Dag
 from synaflow.core.definition import PipelineDef
 from synaflow.core.exceptions import (
-    InvalidThresholdRaiseInEACHStep,
     PipelineStopException,
     StepExecutionError,
     ThresholdExceededException,
@@ -36,6 +35,12 @@ from synaflow.core.types import (
     StepMode,
 )
 from synaflow.execution.overrides import ExecutionOverrides
+from synaflow.execution.threshold import (
+    check_threshold,
+    wrap_threshold_raise_if_manual,
+    compute_completed_all_inputs_for_all,
+    has_threshold,
+)
 
 from .constants import EOF_MARKER
 from .iterator_utils import AsyncQueueBranch, queue_to_async_gen
@@ -158,82 +163,6 @@ async def _handle_error(
             await res
     else:
         raise TypeError(f"Error materializer for step '{step_name}' is not callable.")
-
-
-def _wrap_threshold_raise_if_manual(
-    exc: BaseException, step_name: str
-) -> BaseException:
-    """If the user manually raised ThresholdExceededException from inside fn(),
-    wrap it so the error materializer logs a clear "you're misusing the API"
-    message. The original is preserved as __cause__ for full traceback."""
-    if isinstance(exc, ThresholdExceededException):
-        return InvalidThresholdRaiseInEACHStep(step_name=step_name, original=exc)
-    return exc
-
-
-async def _check_threshold(
-    step_name: str,
-    node: Any,
-    invocation_count: int,
-    error_count: int,
-) -> None:
-    """Called AFTER all inputs are consumed. Raises ThresholdExceededException
-    if any threshold is violated. Not called mid-stream to avoid false positives."""
-    if node.error_threshold_absolute is None and node.error_threshold_pct is None:
-        return
-
-    success_count = invocation_count - error_count
-
-    if node.error_threshold_absolute is not None:
-        if error_count >= node.error_threshold_absolute:
-            raise ThresholdExceededException(
-                step_name=step_name,
-                error_count=error_count,
-                success_count=success_count,
-                threshold_absolute=node.error_threshold_absolute,
-            )
-
-    if node.error_threshold_pct is not None:
-        if (
-            invocation_count > 0
-            and (error_count / invocation_count) >= node.error_threshold_pct
-        ):
-            raise ThresholdExceededException(
-                step_name=step_name,
-                error_count=error_count,
-                success_count=success_count,
-                threshold_pct=node.error_threshold_pct,
-            )
-
-
-def _compute_completed_all_inputs_for_all(
-    node: Any, arguments: dict, exc: ThresholdExceededException
-) -> bool:
-    """For an ALL step that manually raised ThresholdExceededException,
-    determine if the user processed all inputs before raising.
-
-    Total processed = exc.error_count + exc.success_count (user-supplied).
-    Total input = sum of len(arg) across deps, for sized collections only.
-    Returns False if input size is unknown (non-sized iterators).
-    """
-    total_input = 0
-    known = True
-    for value in arguments.values():
-        try:
-            total_input += len(value)
-        except TypeError:
-            known = False
-            break
-    if not known:
-        return False
-    return (exc.error_count + exc.success_count) == total_input
-
-
-def _has_threshold(node: Any) -> bool:
-    return (
-        node.error_threshold_absolute is not None
-        or node.error_threshold_pct is not None
-    )
 
 
 async def _pump_iterator(
@@ -662,12 +591,12 @@ class AsyncPipelineExecutor:
                 # Upstream threshold propagating through this consumer:
                 # the producer's generate() already dispatched FAILED.
                 pass
-            elif unrolled and _has_threshold(node):
+            elif unrolled and has_threshold(node):
                 # This step's generate() already dispatched FAILED (path A).
                 pass
             elif not unrolled:
                 # ALL-mode manual raise by this step (path B, escape hatch)
-                completed_all_inputs = _compute_completed_all_inputs_for_all(
+                completed_all_inputs = compute_completed_all_inputs_for_all(
                     node, arguments, exc
                 )
                 await _handle_error(
@@ -826,7 +755,7 @@ class AsyncPipelineExecutor:
                         await _handle_error(
                             self.dag,
                             step_name,
-                            _wrap_threshold_raise_if_manual(exc, step_name),
+                            wrap_threshold_raise_if_manual(exc, step_name),
                             run_id=self.run_id,
                             success_count=invocation_count - error_count,
                             error_count=error_count,
@@ -837,11 +766,9 @@ class AsyncPipelineExecutor:
                                 step_name=step_name, cause=exc
                             ) from exc
                 # pos-loop, before generator ends
-                if _has_threshold(node):
+                if has_threshold(node):
                     try:
-                        await _check_threshold(
-                            step_name, node, invocation_count, error_count
-                        )
+                        check_threshold(step_name, node, invocation_count, error_count)
                     except ThresholdExceededException as exc:
                         await self._dispatch_step_failure(
                             node,
@@ -862,9 +789,7 @@ class AsyncPipelineExecutor:
                         completed_all_inputs=True,
                     )
                 else:
-                    await _check_threshold(
-                        step_name, node, invocation_count, error_count
-                    )
+                    check_threshold(step_name, node, invocation_count, error_count)
             finally:
                 node._runtime_error_count = error_count
                 node._runtime_invocation_count = invocation_count
@@ -992,7 +917,7 @@ class AsyncPipelineExecutor:
     async def _emit_step_result(
         self, node, step_name, output, had_error, exception=None
     ):
-        if _has_threshold(node):
+        if has_threshold(node):
             return  # already dispatched by generate()
         success = len(output) if hasattr(output, "__len__") else 1
         real_error_count = getattr(node, "_runtime_error_count", 0)
@@ -1018,7 +943,7 @@ class AsyncPipelineExecutor:
             )
 
     async def _emit_deferred_completion(self, node, step_name):
-        if _has_threshold(node):
+        if has_threshold(node):
             return  # already dispatched by generate()
         real_error_count = getattr(node, "_runtime_error_count", 0)
         real_invocation_count = getattr(node, "_runtime_invocation_count", 0)
@@ -1032,7 +957,7 @@ class AsyncPipelineExecutor:
         )
 
     def _wrap_deferred_output(self, step_name, output, node):
-        if _has_threshold(node):
+        if has_threshold(node):
             return output
 
         if isinstance(output, (AsyncIterator, AsyncGenerator)):
