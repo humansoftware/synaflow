@@ -1,3 +1,4 @@
+from synaflow.execution.adapters import async_adapter
 import asyncio
 import functools
 import logging
@@ -43,6 +44,7 @@ class EmptyParams(NamedTuple):
 
 def on_event(event_type, handler):
     from synaflow.execution.adapters import async_adapter
+
     async_handler = async_adapter(handler)
 
     async def wrapper(ctx):
@@ -88,7 +90,7 @@ async def test_given_pipeline_run_id_is_consistent_and_unique_per_run():
         name="p1",
         params=Params,
         steps=[step("dummy", fn=dummy)],
-        observers=[Observer(rec.record)],
+        observers=[Observer(async_adapter(rec.record))],
     )
 
     await AsyncPipelineExecutor(p.dag).execute(Params(values=[1]))
@@ -121,7 +123,7 @@ async def test_given_pipeline_observer_when_run_completes_then_started_and_compl
             step("gen", fn=gen),
             step("consumer", fn=consumer),
         ],
-        observers=[Observer(rec.record)],
+        observers=[Observer(async_adapter(rec.record))],
     )
     await AsyncPipelineExecutor(p.dag).execute(Params(values=[1, 2]))
 
@@ -194,7 +196,7 @@ async def test_given_all_mode_step_when_succeeds_then_started_and_completed_emit
     p = pipeline(
         name="p",
         params=Params,
-        steps=[step("s", fn=identity, observers=[Observer(rec.record)])],
+        steps=[step("s", fn=identity, observers=[Observer(async_adapter(rec.record))])],
     )
     await AsyncPipelineExecutor(p.dag).execute(Params(values=[42]))
 
@@ -563,7 +565,7 @@ async def test_given_lazy_stream_drained_by_output_observer_when_run_completes_t
     p = pipeline(
         name="p",
         params=EmptyParams,
-        observers=[Observer(lifecycle_observer)],
+        observers=[Observer(async_adapter(lifecycle_observer))],
         steps=[
             step("source", fn=source),
             step("done", fn=done),
@@ -630,7 +632,7 @@ async def test_given_terminal_last_step_with_output_observer_when_run_completes_
     p = pipeline(
         name="p",
         params=EmptyParams,
-        observers=[Observer(lifecycle_observer)],
+        observers=[Observer(async_adapter(lifecycle_observer))],
         steps=[
             step("source", fn=source),
             step("middle", fn=middle),
@@ -671,7 +673,7 @@ async def test_given_step_with_list_consumer_when_materialized_then_events_emitt
         name="p",
         params=Params,
         steps=[
-            step("gen", fn=gen, observers=[Observer(rec.record)]),
+            step("gen", fn=gen, observers=[Observer(async_adapter(rec.record))]),
             step("collect", fn=collect),
         ],
     )
@@ -862,7 +864,7 @@ async def test_given_observers_when_lazy_step_then_output_remains_iterator():
         name="p",
         params=Params,
         steps=[
-            step("gen", fn=gen, observers=[Observer(lambda ctx: None)]),
+            step("gen", fn=gen, observers=[Observer(async_adapter(lambda ctx: None))]),
             step("lazy_consumer", fn=lazy_consumer),
         ],
     )
@@ -1034,7 +1036,7 @@ async def test_given_step_returning_list_when_observed_then_success_count_reflec
         name="test_p",
         params=Params,
         steps=[step("prod", fn=producer), step("cons", fn=consumer)],
-        observers=[Observer(rec.record)],
+        observers=[Observer(async_adapter(rec.record))],
     )
 
     await async_run(p, params=Params(values=[1, 2, 3]))
@@ -1076,7 +1078,7 @@ async def test_given_lazy_generator_step_when_observed_then_step_started_event_f
             step("prod", fn=producer),
             step("cons", fn=consumer),
         ],
-        observers=[Observer(observer)],
+        observers=[Observer(async_adapter(observer))],
     )
 
     await async_run(p, params=Params(values=[]))

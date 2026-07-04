@@ -1,3 +1,4 @@
+from synaflow.execution.adapters import async_adapter
 from tests.common.pipeline_pack import PipelinePack
 from collections.abc import AsyncGenerator, AsyncIterator
 from typing import NamedTuple
@@ -11,8 +12,11 @@ class ErrorHandlingParams(NamedTuple):
 errors_list = []
 
 
-def custom_error_handler(error_ctx) -> None:
-    errors_list.append(str(error_ctx.exception))
+def custom_error_handler(ctx) -> None:
+    errors_list.append(str(ctx.exception))
+
+
+custom_error_handler = async_adapter(custom_error_handler)
 
 
 def custom_err_mat(ctx):

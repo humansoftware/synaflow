@@ -1,3 +1,4 @@
+
 """Runtime tests for error_threshold_absolute and error_threshold_pct.
 
 Covers the spec's 15+ scenarios for the async engine.
@@ -7,6 +8,7 @@ from collections.abc import AsyncIterator
 from typing import NamedTuple
 
 import pytest
+from synaflow.execution.adapters import async_adapter
 
 from synaflow import (
     InvalidThresholdRaiseInEACHStep,
@@ -350,7 +352,7 @@ async def test_observers_receive_failed_events_on_threshold():
             step("numbers", fn=numbers),
             step("proc", fn=proc, error_threshold_absolute=2),
         ],
-        observers=[Observer(on_event)],
+        observers=[Observer(async_adapter(on_event))],
     )
     with pytest.raises(ThresholdExceededException):
         await async_run(p, P())

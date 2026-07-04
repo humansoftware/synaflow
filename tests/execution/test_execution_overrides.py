@@ -1,3 +1,4 @@
+from synaflow.execution.adapters import async_adapter
 from contextlib import asynccontextmanager, contextmanager
 from typing import AsyncGenerator, Iterator, NamedTuple
 
@@ -322,7 +323,7 @@ async def test_given_pipeline_observer_override_when_async_run_then_pipeline_and
         name="async_observer_pipeline_override",
         params=Params,
         steps=[step("emit", fn=emit)],
-        observers=[Observer(lambda ctx: None)],
+        observers=[Observer(async_adapter(lambda ctx: None))],
     )
 
     overrides = ExecutionOverrides.empty(p)

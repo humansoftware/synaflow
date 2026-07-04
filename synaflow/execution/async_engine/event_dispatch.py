@@ -265,6 +265,4 @@ class AsyncEventDispatcher:
             raise TypeError(
                 f"Error materializer for step '{step_name}' is not callable."
             )
-        from synaflow.execution.adapters import async_adapter
-
-        await async_adapter(err_mat)(error_ctx)
+        await err_mat(error_ctx)

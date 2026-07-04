@@ -607,4 +607,35 @@ def build_dag(
         is_default_factory=is_default_factory,
     )
 
+    if dag_obj.requires_async_runner and not dag_obj.requires_sync_runner:
+        # The prompt says: apply async_adapter to the materializer in the test setup or DAG registration.
+        # We will wrap the default error materializer and memory materializers on the nodes
+        from synaflow.execution.adapters import async_adapter
+
+        # We need to wrap node materializers if they are built-ins and not async
+        def _is_async(h: Any) -> bool:
+            import inspect
+
+            if inspect.iscoroutinefunction(h):
+                return True
+            if hasattr(h, "__call__") and inspect.iscoroutinefunction(h.__call__):
+                return True
+            func = getattr(h, "func", None)
+            if func is not None and (
+                inspect.iscoroutinefunction(func)
+                or (
+                    hasattr(func, "__call__")
+                    and inspect.iscoroutinefunction(func.__call__)
+                )
+            ):
+                return True
+            return False
+
+        for node in dag_obj.steps.values():
+            if getattr(node.error_materializer, "__name__", "") in [
+                "log_error",
+                "log_error_materializer",
+            ]:
+                node.error_materializer = async_adapter(node.error_materializer)
+
     return dag_obj

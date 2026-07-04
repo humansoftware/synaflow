@@ -11,7 +11,7 @@ async def test_given_future_annotations_when_run_then_executes_successfully():
 
     captured = None
 
-    def my_step(name: str) -> str:
+    async def my_step(name: str) -> str:
         nonlocal captured
         captured = name
         return name
