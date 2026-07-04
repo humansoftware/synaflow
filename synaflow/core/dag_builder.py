@@ -29,6 +29,7 @@ from dataclasses import dataclass
 from collections.abc import (
     AsyncIterable as AbcAsyncIterable,
     AsyncIterator as AbcAsyncIterator,
+    AsyncGenerator,
     Iterable as AbcIterable,
     Iterator as AbcIterator,
     MutableMapping,
@@ -80,6 +81,8 @@ def _identity(x):
 
 def memory_materializer_factory(ctx: MaterializeContext):
     tp = getattr(ctx.consumer_type, "__origin__", None) or ctx.consumer_type
+
+    constructor = None
     if tp is not None:
         for candidate in (
             (list, MutableSequence),
@@ -88,29 +91,45 @@ def memory_materializer_factory(ctx: MaterializeContext):
         ):
             try:
                 if issubclass(tp, candidate):
-                    return candidate[0]
+                    constructor = candidate[0]
+                    break
             except TypeError:
                 continue
-        if tp is tuple:
-            return tuple
-        if is_scalar(tp):
-            return _identity
-        if tp in (
-            AsyncIterator,
-            Iterator,
-            Iterable,
-            AsyncIterable,
-            AbcAsyncIterator,
-            AbcIterator,
-            AbcIterable,
-            AbcAsyncIterable,
-        ):
-            return list
+        if constructor is None:
+            if tp is tuple:
+                constructor = tuple
+            elif is_scalar(tp):
+                constructor = _identity
+            elif tp in (
+                AsyncIterator,
+                Iterator,
+                Iterable,
+                AsyncIterable,
+                AbcAsyncIterator,
+                AbcIterator,
+                AbcIterable,
+                AbcAsyncIterable,
+            ):
+                constructor = list
 
-    raise ValueError(
-        f"Cannot infer memory materializer for consumer type: '{tp}'. "
-        "Please provide explicit type hints for your consumer parameters, or use a step-level materializer."
-    )
+    if constructor is None:
+        raise ValueError(
+            f"Cannot infer memory materializer for consumer type: '{tp}'. "
+            "Please provide explicit type hints for your consumer parameters, or use a step-level materializer."
+        )
+
+    if ctx.is_async_pipeline:
+
+        async def async_collection(stream):
+            if isinstance(stream, (AsyncIterator, AbcAsyncIterator, AsyncGenerator)):
+                items = [x async for x in stream]
+            else:
+                items = list(stream)
+            return constructor(items)
+
+        return async_collection
+
+    return constructor
 
 
 memory_materializer_factory.__name__ = "memory_materializer"
@@ -130,6 +149,11 @@ def log_error_materializer_factory(ctx: ErrorMaterializeContext):
             error_ctx.exception,
         )
         log.debug(traceback.format_exc())
+
+    if ctx.is_async_pipeline:
+        from synaflow.execution.adapters import async_adapter
+
+        return async_adapter(log_error)
 
     return log_error
 
@@ -358,13 +382,11 @@ def _resolve_materializers(
             elif is_stream:
                 if has_consumers:
                     mat = memory_materializer_factory
-                    node._has_default_materializer = True
                 else:
                     mat = None
             elif is_untyped:
                 if has_consumers:
                     mat = memory_materializer_factory
-                    node._has_default_materializer = True
                 else:
                     mat = None
 
@@ -374,6 +396,7 @@ def _resolve_materializers(
                 dataset_name=name,
                 item_type=node.output,
                 consumer_type=resolve_materializer_consumer_type(name),
+                is_async_pipeline=dag.requires_async_runner,
             )
             node.materializer = mat(ctx)
         else:
@@ -388,13 +411,12 @@ def _resolve_materializers(
             or pipeline_error_materializer
             or log_error_materializer_factory
         )
-        if is_default_err_mat:
-            node._has_default_error_materializer = True
 
         if err_mat and is_factory(err_mat):
             err_ctx = ErrorMaterializeContext(
                 pipeline_name=dag.name,
                 dataset_name=name,
+                is_async_pipeline=dag.requires_async_runner,
             )
             node.error_materializer = err_mat(err_ctx)
         else:
@@ -598,13 +620,6 @@ def build_dag(
         error_materializer_factory,
         pipeline_obs_resolved,
     )
-    _resolve_materializers(
-        dag_obj,
-        indexes,
-        memory_materializer_factory,
-        error_materializer_factory,
-    )
-
     check_circular_dependencies(dag_obj, pipeline_name)
 
     validate_no_unmaterialized_terminal_streams(dag_obj, pipeline_name, exports)
@@ -615,6 +630,13 @@ def build_dag(
         steps,
         memory_materializer_factory,
         is_default_factory=is_default_factory,
+    )
+
+    _resolve_materializers(
+        dag_obj,
+        indexes,
+        memory_materializer_factory,
+        error_materializer_factory,
     )
 
     return dag_obj
