@@ -1,7 +1,6 @@
 from __future__ import annotations
 import asyncio
 import inspect
-import dataclasses
 import uuid
 from contextlib import AsyncExitStack
 from collections.abc import AsyncGenerator, AsyncIterator, Generator, Iterator
@@ -28,7 +27,7 @@ from synaflow.execution.threshold import (
 )
 
 from .constants import EOF_MARKER
-from .iterator_utils import AsyncQueueBranch, queue_to_async_gen
+from .iterator_utils import AsyncQueueBranch
 
 
 # ---------------------------------------------------------------------------
@@ -176,19 +175,6 @@ async def _safe_iterate(name: str, iterable: Any):
                 raise StepExecutionError(f"Error iterating step '{name}'") from e
 
 
-async def _list_to_async_gen(lst):
-    for item in lst:
-        yield item
-
-
-async def _resolve_queue(
-    queue: asyncio.Queue,
-) -> Any:
-    if isinstance(queue, AsyncQueueBranch):
-        return queue
-    return queue_to_async_gen(queue)
-
-
 async def _wrap_started_stream(it: Any, fire_started: Any) -> Any:
     if isinstance(it, (AsyncIterator, AsyncGenerator)):
         try:
@@ -231,31 +217,13 @@ class AsyncPipelineExecutor:
         self._step_output_observers = step_output_observers or []
         self._overrides = overrides
         self._resource_factories = dict(resource_factories or {})
+        from .dependency_resolver import AsyncDependencyResolver
+
+        self.scope = AsyncDependencyResolver(
+            self.dag, self.outputs, self._overrides, self._resource_factories
+        )
         self.run_id = str(uuid.uuid4())
         self.events = AsyncEventDispatcher(self.dag, self.run_id, self._overrides)
-
-    # ------------------------------------------------------------------
-    # Lifecycle observer dispatch helpers (async)
-    # ------------------------------------------------------------------
-
-    def _resolve_materializer(self, step_name: str, node: Any) -> Any:
-        if self._overrides is None:
-            return node.materializer
-        return self._overrides.materializers.resolve(step_name, node.materializer)
-
-    # ------------------------------------------------------------------
-    # Execution
-    # ------------------------------------------------------------------
-
-    def _seed_runtime_inputs(self, params: Any) -> None:
-        if dataclasses.is_dataclass(params):
-            param_dict = {
-                f.name: getattr(params, f.name) for f in dataclasses.fields(params)
-            }
-        else:
-            param_dict = params._asdict()
-        for field, value in param_dict.items():
-            self.outputs[field] = value
 
     def _step_inputs_available(self, step_name: str) -> bool:
         node = self.dag[step_name]
@@ -265,6 +233,7 @@ class AsyncPipelineExecutor:
             key = self.dag.output_key(dep_name, step_name)
             if key not in self.outputs and dep_name not in self.outputs:
                 return False
+        return True
         return True
 
     async def _run_graph(self) -> None:
@@ -317,7 +286,7 @@ class AsyncPipelineExecutor:
             raise fatal_error
 
     async def execute(self, params: Any) -> None:
-        self._seed_runtime_inputs(params)
+        self.scope.seed_runtime_inputs(params)
 
         await self.events.pipeline_started()
         try:
@@ -350,7 +319,7 @@ class AsyncPipelineExecutor:
 
         unrolled = self.dag.each_inputs(step_name)
         resource_stack = AsyncExitStack()
-        arguments = await self._build_arguments(
+        arguments = await self.scope.build_arguments(
             step_name, node, unrolled, resource_stack
         )
         await self.events.step_started(node, step_name)
@@ -373,7 +342,7 @@ class AsyncPipelineExecutor:
             output = await self._execute_step(step_name, node, arguments, unrolled)
             if self._is_stream_output(output):
                 output = _wrap_started_stream(output, fire_started)
-            output = self._attach_argument_cleanup(output, arguments)
+            output = self.scope.attach_cleanup(output, arguments)
             await self._emit_immediate_completion(step_name, node, output, unrolled)
             if not self.dag.is_hidden_step(step_name):
                 await self._publish_output(step_name, output, node)
@@ -427,7 +396,7 @@ class AsyncPipelineExecutor:
                 raise PipelineStopException(step_name=step_name, cause=exc) from exc
         finally:
             if "output" not in locals() or not self._is_stream_output(output):
-                await self._close_stream_arguments(arguments)
+                await self.scope.close_stream_arguments(arguments)
             await resource_stack.aclose()
 
     async def _execute_step(self, step_name, node, arguments, unrolled):
@@ -587,74 +556,6 @@ class AsyncPipelineExecutor:
             return None
         return generate()
 
-    async def _resolve_resource_argument(
-        self, resource_name: str, resource_stack: AsyncExitStack
-    ):
-        provider = None
-        if self._overrides is not None:
-            provider = self._overrides.resources.resolve(resource_name)
-        if provider is None:
-            provider = self._resource_factories.get(resource_name)
-        if provider is None:
-            raise ValueError(
-                f"Pipeline '{self.dag.name}' requires resource '{resource_name}' at runtime."
-            )
-
-        value = provider() if callable(provider) else provider
-        if inspect.isawaitable(value):
-            value = await value
-        if hasattr(value, "__aenter__") and hasattr(value, "__aexit__"):
-            return await resource_stack.enter_async_context(value)
-        if hasattr(value, "__enter__") and hasattr(value, "__exit__"):
-            return resource_stack.enter_context(value)
-        return value
-
-    async def _build_arguments(self, consumer, node, unrolled, resource_stack):
-        args = {}
-        for dep_name in node.deps:
-            if dep_name in self.dag.resources:
-                value = await self._resolve_resource_argument(dep_name, resource_stack)
-            else:
-                key = self.dag.output_key(dep_name, consumer)
-                value = self.outputs.get(key, self.outputs.get(dep_name))
-                if (
-                    isinstance(value, (asyncio.Queue, AsyncQueueBranch))
-                    and dep_name not in unrolled
-                ):
-                    value = await _resolve_queue(value)
-                if isinstance(value, (list, tuple, set)) and dep_name not in unrolled:
-                    dep_type = node.deps.get(dep_name)
-                    origin = getattr(dep_type, "__origin__", dep_type)
-                    if origin in (AsyncIterator, AsyncGenerator):
-                        value = _list_to_async_gen(value)
-            param = node.dataset_param_names.get(dep_name, dep_name)
-            args[param] = value
-        return args
-
-    def _attach_argument_cleanup(self, output, arguments):
-        if not isinstance(output, (AsyncIterator, AsyncGenerator)):
-            return output
-
-        async def wrapped():
-            try:
-                async for item in output:
-                    yield item
-            finally:
-                await self._close_stream_arguments(arguments)
-
-        return wrapped()
-
-    async def _close_stream_arguments(self, arguments):
-        for value in arguments.values():
-            if isinstance(value, AsyncQueueBranch):
-                value.close()
-                continue
-            if inspect.isasyncgen(value):
-                try:
-                    await value.aclose()
-                except Exception:
-                    pass
-
     def _notify_observers(self, step_name, output):
         for observer in self._step_output_observers:
             observer(step_name, output)
@@ -662,7 +563,7 @@ class AsyncPipelineExecutor:
     async def _materialize_with_events(
         self, step_name, output, node, consumer_type=None
     ):
-        materializer = self._resolve_materializer(step_name, node)
+        materializer = self.scope.resolve_materializer(step_name, node)
         mat_name = materializer.__name__ if callable(materializer) else None
         await self.events.materialization_started(
             step_name,
