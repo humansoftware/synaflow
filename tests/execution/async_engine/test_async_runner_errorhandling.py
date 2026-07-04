@@ -146,7 +146,7 @@ async def test_given_on_error_continue_when_step_fails_then_error_materializer_i
     handled = []
 
     def error_factory(ctx):
-        def handle(error_ctx):
+        async def handle(error_ctx):
             handled.append(
                 (
                     ctx.dataset_name,
@@ -234,7 +234,7 @@ async def test_given_on_error_stop_when_step_fails_then_error_materializer_is_ca
     handled = []
 
     def error_factory(ctx):
-        def handle(error_ctx):
+        async def handle(error_ctx):
             handled.append(
                 (
                     ctx.dataset_name,
@@ -270,7 +270,7 @@ async def test_given_on_error_continue_when_stream_iteration_fails_then_previous
     handled = []
 
     def error_factory(ctx):
-        def handle(error_ctx):
+        async def handle(error_ctx):
             handled.append((ctx.dataset_name, type(error_ctx.exception).__name__))
 
         return handle
@@ -304,7 +304,7 @@ async def test_given_on_error_stop_when_stream_iteration_fails_then_pipeline_sto
     handled = []
 
     def error_factory(ctx):
-        def handle(error_ctx):
+        async def handle(error_ctx):
             handled.append((ctx.dataset_name, type(error_ctx.exception).__name__))
 
         return handle

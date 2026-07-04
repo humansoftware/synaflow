@@ -281,9 +281,9 @@ class AsyncPipelineExecutor:
         await lifecycle.finish(completed_all_inputs=True)
 
     async def _call_fn(self, fn: Any, kwargs: dict) -> Any:
-        if inspect.iscoroutinefunction(fn):
-            return await fn(**kwargs)
-        return fn(**kwargs)
+        if inspect.isasyncgenfunction(fn) or inspect.isgeneratorfunction(fn):
+            return fn(**kwargs)
+        return await fn(**kwargs)
 
     async def _unroll_step(self, step_name, node, base_args, unrolled, lifecycle):
         queues = {}

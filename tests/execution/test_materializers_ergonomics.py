@@ -1,3 +1,4 @@
+from synaflow.execution.adapters import async_adapter
 import json
 import pickle
 import pytest
@@ -551,7 +552,11 @@ async def test_given_async_disk_error_materializer_when_run_then_appends_error_r
     async def fail_always(items: int):
         raise ValueError(f"err {items}")
 
-    my_err_mat = disk_error_materializer(path=tmp_path, serializer=jsonl_serializer)
+    def my_err_mat(ctx):
+        handler = disk_error_materializer(path=tmp_path, serializer=jsonl_serializer)(
+            ctx
+        )
+        return async_adapter(handler)
 
     my_pipeline = pipeline(
         name="async_disk_err_test",
@@ -595,10 +600,9 @@ async def test_given_async_composite_error_materializer_when_fails_then_calls_al
     def handler2(error_ctx):
         calls.append("two")
 
-    comp = composite_error_materializer(
-        handler1,
-        handler2,
-    )
+    def comp(ctx):
+        handler = composite_error_materializer(handler1, handler2)(ctx)
+        return async_adapter(handler)
 
     async def step_fn():
         raise ValueError("boom")

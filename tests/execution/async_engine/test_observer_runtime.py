@@ -1,10 +1,10 @@
 import asyncio
 import functools
 import logging
-from collections.abc import AsyncIterator, Iterator as Iter
+from collections.abc import AsyncIterator
 from time import monotonic_ns
 from time import sleep
-from typing import Iterator, NamedTuple
+from typing import NamedTuple
 
 import pytest
 
@@ -42,9 +42,12 @@ class EmptyParams(NamedTuple):
 
 
 def on_event(event_type, handler):
-    def wrapper(ctx):
+    async def wrapper(ctx):
         if ctx.event is event_type:
-            return handler(ctx)
+            res = handler(ctx)
+            if __import__("inspect").isawaitable(res):
+                await res
+            return res
 
     wrapper.__name__ = getattr(handler, "__name__", "on_event")
     return wrapper
@@ -78,7 +81,7 @@ class EventRecorder:
 async def test_given_pipeline_run_id_is_consistent_and_unique_per_run():
     rec = EventRecorder()
 
-    def dummy(values: list[int]) -> int:
+    async def dummy(values: list[int]) -> int:
         return values[0]
 
     p = pipeline(
@@ -104,11 +107,12 @@ async def test_given_pipeline_run_id_is_consistent_and_unique_per_run():
 async def test_given_pipeline_observer_when_run_completes_then_started_and_completed_emitted():
     rec = EventRecorder()
 
-    def gen(values: list[int]) -> Iterator[int]:
-        yield from values
+    async def gen(values: list[int]) -> AsyncIterator[int]:
+        for v in values:
+            yield v
 
-    def consumer(gen: Iterator[int]) -> list[int]:
-        return list(gen)
+    async def consumer(gen: AsyncIterator[int]) -> list[int]:
+        return [x async for x in gen]
 
     p = pipeline(
         name="p",
@@ -134,7 +138,7 @@ async def test_given_pipeline_observer_when_run_completes_then_started_and_compl
 async def test_given_pipeline_observer_when_step_fails_stop_then_failed_emitted():
     rec = EventRecorder(PipelineEvent.FAILED)
 
-    def failing(values: list[int]) -> int:
+    async def failing(values: list[int]) -> int:
         raise ValueError("boom")
 
     p = pipeline(
@@ -158,7 +162,7 @@ async def test_given_pipeline_observer_when_step_fails_stop_then_failed_emitted(
 async def test_given_pipeline_failed_context_then_has_fields():
     rec = EventRecorder(PipelineEvent.FAILED)
 
-    def failing(values: list[int]) -> int:
+    async def failing(values: list[int]) -> int:
         raise ValueError("boom")
 
     p = pipeline(
@@ -184,7 +188,7 @@ async def test_given_pipeline_failed_context_then_has_fields():
 async def test_given_all_mode_step_when_succeeds_then_started_and_completed_emitted():
     rec = EventRecorder()
 
-    def identity(values: list[int]) -> int:
+    async def identity(values: list[int]) -> int:
         return values[0]
 
     p = pipeline(
@@ -204,7 +208,7 @@ async def test_given_all_mode_step_when_succeeds_then_started_and_completed_emit
 async def test_given_all_mode_step_completed_then_counts_correct():
     rec = EventRecorder(StepEvent.COMPLETED)
 
-    def identity(values: list[int]) -> int:
+    async def identity(values: list[int]) -> int:
         return values[0]
 
     p = pipeline(
@@ -231,7 +235,7 @@ async def test_given_all_mode_step_completed_then_counts_correct():
 async def test_given_all_mode_step_when_fails_stop_then_failed_emitted():
     rec = EventRecorder(StepEvent.FAILED)
 
-    def failing(values: list[int]) -> int:
+    async def failing(values: list[int]) -> int:
         raise ValueError("boom")
 
     p = pipeline(
@@ -264,13 +268,14 @@ async def test_given_all_mode_step_when_fails_stop_then_failed_emitted():
 async def test_given_each_mode_step_when_all_items_succeed_then_completed_with_counts():
     rec = EventRecorder(StepEvent.COMPLETED)
 
-    def gen(values: list[int]) -> Iterator[int]:
-        yield from values
+    async def gen(values: list[int]) -> AsyncIterator[int]:
+        for v in values:
+            yield v
 
-    def double(gen: int) -> int:
+    async def double(gen: int) -> int:
         return gen * 2
 
-    def collect(double: list[int]) -> int:
+    async def collect(double: list[int]) -> int:
         return len(double)
 
     p = pipeline(
@@ -301,15 +306,16 @@ async def test_given_each_mode_step_when_some_fail_continue_then_completed_not_f
     rec_comp = EventRecorder(StepEvent.COMPLETED)
     rec_fail = EventRecorder(StepEvent.FAILED)
 
-    def gen(values: list[int]) -> Iterator[int]:
-        yield from values
+    async def gen(values: list[int]) -> AsyncIterator[int]:
+        for v in values:
+            yield v
 
-    def maybe_fail(gen: int) -> int:
+    async def maybe_fail(gen: int) -> int:
         if gen == 2:
             raise ValueError("skip")
         return gen
 
-    def collect(maybe_fail: list[int]) -> int:
+    async def collect(maybe_fail: list[int]) -> int:
         return len(maybe_fail)
 
     p = pipeline(
@@ -342,15 +348,16 @@ async def test_given_each_mode_step_when_some_fail_continue_then_completed_not_f
 async def test_given_each_mode_step_when_item_fails_stop_then_failed_with_partial_counts():
     rec = EventRecorder(StepEvent.FAILED)
 
-    def gen(values: list[int]) -> Iterator[int]:
-        yield from values
+    async def gen(values: list[int]) -> AsyncIterator[int]:
+        for v in values:
+            yield v
 
-    def fail_on_second(gen: int) -> int:
+    async def fail_on_second(gen: int) -> int:
         if gen == 2:
             raise ValueError("stop")
         return gen
 
-    def collect(fail_on_second: list[int]) -> int:
+    async def collect(fail_on_second: list[int]) -> int:
         return len(fail_on_second)
 
     p = pipeline(
@@ -386,8 +393,9 @@ async def test_given_step_output_observers_when_run_then_not_affected_by_lifecyc
     """step_output_observers (low-level) coexist with lifecycle observers."""
     output_records = []
 
-    def gen(values: list[int]) -> Iterator[int]:
-        yield from values
+    async def gen(values: list[int]) -> AsyncIterator[int]:
+        for v in values:
+            yield v
 
     p = pipeline(
         name="p",
@@ -652,10 +660,11 @@ async def test_given_terminal_last_step_with_output_observer_when_run_completes_
 async def test_given_step_with_list_consumer_when_materialized_then_events_emitted():
     rec = EventRecorder()
 
-    def gen(values: list[int]) -> Iterator[int]:
-        yield from values
+    async def gen(values: list[int]) -> AsyncIterator[int]:
+        for v in values:
+            yield v
 
-    def collect(gen: list[int]) -> int:
+    async def collect(gen: list[int]) -> int:
         return len(gen)
 
     p = pipeline(
@@ -680,10 +689,11 @@ async def test_given_step_with_list_consumer_when_materialized_then_events_emitt
 async def test_given_materialization_context_then_has_fields():
     rec = EventRecorder(MaterializationEvent.STARTED)
 
-    def gen(values: list[int]) -> Iterator[int]:
-        yield from values
+    async def gen(values: list[int]) -> AsyncIterator[int]:
+        for v in values:
+            yield v
 
-    def collect(gen: list[int]) -> int:
+    async def collect(gen: list[int]) -> int:
         return len(gen)
 
     p = pipeline(
@@ -714,17 +724,18 @@ async def test_given_materialization_when_fails_then_failed_emitted():
     rec = EventRecorder(MaterializationEvent.FAILED)
 
     def bad_mat(ctx):
-        def fail(value):
+        async def fail(value):
             raise ValueError("mat failed")
 
         return fail
 
     bad_mat.__name__ = "bad_mat"
 
-    def gen(values: list[int]) -> Iterator[int]:
-        yield from values
+    async def gen(values: list[int]) -> AsyncIterator[int]:
+        for v in values:
+            yield v
 
-    def collect(gen: list[int]) -> int:
+    async def collect(gen: list[int]) -> int:
         return len(gen)
 
     p = pipeline(
@@ -754,11 +765,12 @@ async def test_given_materialization_when_fails_then_failed_emitted():
 async def test_given_lazy_consumer_when_no_materialization_then_no_materialization_events():
     rec = EventRecorder(MaterializationEvent.STARTED)
 
-    def gen(values: list[int]) -> Iterator[int]:
-        yield from values
+    async def gen(values: list[int]) -> AsyncIterator[int]:
+        for v in values:
+            yield v
 
-    def passthrough(gen: Iterator[int]) -> None:
-        for _item in gen:
+    async def passthrough(gen: AsyncIterator[int]) -> None:
+        async for _item in gen:
             pass
 
     p = pipeline(
@@ -787,10 +799,10 @@ async def test_given_lazy_consumer_when_no_materialization_then_no_materializati
 
 @pytest.mark.asyncio
 async def test_given_observer_raises_when_dispatched_then_step_still_succeeds(caplog):
-    def bad_observer(ctx):
+    async def bad_observer(ctx):
         raise RuntimeError("observer failure")
 
-    def ok_step(values: list[int]) -> int:
+    async def ok_step(values: list[int]) -> int:
         return values[0]
 
     p = pipeline(
@@ -807,10 +819,10 @@ async def test_given_observer_raises_when_dispatched_then_step_still_succeeds(ca
 async def test_given_observer_raises_when_dispatched_then_other_observers_still_called():
     rec = EventRecorder(StepEvent.COMPLETED)
 
-    def bad_observer(ctx):
+    async def bad_observer(ctx):
         raise RuntimeError("fail")
 
-    def identity(values: list[int]) -> int:
+    async def identity(values: list[int]) -> int:
         return values[0]
 
     p = pipeline(
@@ -838,11 +850,12 @@ async def test_given_observer_raises_when_dispatched_then_other_observers_still_
 
 @pytest.mark.asyncio
 async def test_given_observers_when_lazy_step_then_output_remains_iterator():
-    def gen(values: list[int]) -> Iter[int]:
-        yield from values
+    async def gen(values: list[int]) -> AsyncIterator[int]:
+        for v in values:
+            yield v
 
-    def lazy_consumer(gen: Iter[int]) -> None:
-        for _item in gen:
+    async def lazy_consumer(gen: AsyncIterator[int]) -> None:
+        async for _item in gen:
             pass
 
     p = pipeline(
@@ -860,11 +873,12 @@ async def test_given_observers_when_lazy_step_then_output_remains_iterator():
 async def test_given_materialization_observer_when_lazy_step_then_materialization_not_triggered():
     rec = EventRecorder(MaterializationEvent.STARTED)
 
-    def gen(values: list[int]) -> Iterator[int]:
-        yield from values
+    async def gen(values: list[int]) -> AsyncIterator[int]:
+        for v in values:
+            yield v
 
-    def lazy_consumer(gen: Iterator[int]) -> None:
-        for _item in gen:
+    async def lazy_consumer(gen: AsyncIterator[int]) -> None:
+        async for _item in gen:
             pass
 
     p = pipeline(
@@ -890,11 +904,12 @@ async def test_given_step_output_observer_and_bounded_lazy_stream_then_observer_
     rec = EventRecorder(MaterializationEvent.STARTED)
     output_records = []
 
-    def gen(values: list[int]) -> Iterator[int]:
-        yield from values
+    async def gen(values: list[int]) -> AsyncIterator[int]:
+        for v in values:
+            yield v
 
-    def lazy_consumer(gen: Iterator[int]) -> None:
-        for _item in gen:
+    async def lazy_consumer(gen: AsyncIterator[int]) -> None:
+        async for _item in gen:
             pass
 
     p = pipeline(

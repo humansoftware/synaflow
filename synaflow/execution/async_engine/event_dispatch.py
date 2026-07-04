@@ -6,7 +6,6 @@ step-level observers. It triggers lifecycle events (started, completed, failed)
 and handles error contexts during pipeline execution.
 """
 
-import inspect
 from typing import Any
 
 from synaflow.core.dag import Dag
@@ -262,13 +261,8 @@ class AsyncEventDispatcher:
             error_count=error_count,
             completed_all_inputs=completed_all_inputs,
         )
-        if inspect.iscoroutinefunction(err_mat):
-            await err_mat(error_ctx)
-        elif callable(err_mat):
-            res = err_mat(error_ctx)
-            if inspect.iscoroutine(res):
-                await res
-        else:
+        if not callable(err_mat):
             raise TypeError(
                 f"Error materializer for step '{step_name}' is not callable."
             )
+        await err_mat(error_ctx)
