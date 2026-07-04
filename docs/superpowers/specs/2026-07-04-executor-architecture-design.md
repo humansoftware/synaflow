@@ -21,20 +21,14 @@ This spec outlines the structural refinements needed before unit tests can be wr
 - **Scope:**
   - Created by the `Executor` when a step starts.
   - Holds `success_count`, `error_count`, and `completed_all_inputs`.
-  - Exposes `record_success()` and `record_error()` methods. The `StreamPublisher` calls these instead of mutating `node._runtime_error_count`.
+  - Exposes `record_success()` and `record_error()` methods.
   - Exposes `start()` and `finish(exception=None)` which internally invoke the `EventDispatcher` to emit the correct `step_started`, `step_completed`, or `step_failed` events.
 
 ### 2.3 EventDispatcher
 - **Role:** Pure event dispatching.
 - **Scope:** Receives pre-built contextual data and notifies all registered observers. It no longer contains logic to execute error materializers.
 
-### 2.4 Error Materialization Flow
-- The `Executor` is responsible for handling step errors.
-- Flow: `Executor` captures error -> `Executor` uses `ArgumentBuilder` to resolve `error_materializer` args -> `Executor` invokes `error_materializer` -> `Executor` passes the resulting `ErrorContext` to `EventDispatcher`.
 
-### 2.5 StreamPublisher
-- **Role:** Responsible for routing outputs, managing observer fan-out, and materializing streams.
-- **Scope:** It receives the `StepLifecycle` object to track progress. It calls `lifecycle.finish()` when the stream is fully consumed.
 
 ## 3. Strict Sync/Async Boundaries
 
@@ -48,5 +42,5 @@ This spec outlines the structural refinements needed before unit tests can be wr
 This architecture ensures that each component can be unit-tested in isolation:
 - `ArgumentBuilder` can be tested with mock outputs and dependencies.
 - `StepLifecycle` can be tested by mocking the `EventDispatcher`.
-- `StreamPublisher` can be tested by passing a mock `StepLifecycle`.
+
 - The strict sync/async boundaries remove the need for testing mixed-type resolution inside the engine itself.
