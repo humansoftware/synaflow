@@ -119,7 +119,7 @@ memory_materializer_factory.__name__ = "memory_materializer"
 def log_error_materializer_factory(ctx: ErrorMaterializeContext):
     log = logging.getLogger("synaflow")
 
-    async def log_error(error_ctx) -> None:
+    def log_error(error_ctx) -> None:
         log.warning(
             "[%s] [%s] [%s] [%s] %s: %s",
             error_ctx.pipeline_name,

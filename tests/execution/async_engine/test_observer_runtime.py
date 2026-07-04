@@ -42,12 +42,12 @@ class EmptyParams(NamedTuple):
 
 
 def on_event(event_type, handler):
+    from synaflow.execution.adapters import async_adapter
+    async_handler = async_adapter(handler)
+
     async def wrapper(ctx):
         if ctx.event is event_type:
-            res = handler(ctx)
-            if __import__("inspect").isawaitable(res):
-                await res
-            return res
+            return await async_handler(ctx)
 
     wrapper.__name__ = getattr(handler, "__name__", "on_event")
     return wrapper

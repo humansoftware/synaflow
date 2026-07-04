@@ -13,7 +13,6 @@ semantics, laziness, or materialization decisions.
 
 from __future__ import annotations
 
-import inspect
 import logging
 from dataclasses import dataclass
 from enum import Enum
@@ -201,8 +200,6 @@ async def dispatch_observers_async(
     """
     for reg in registrations:
         try:
-            result = reg.handler(context)
-            if inspect.isawaitable(result):
-                await result
+            await reg.handler(context)
         except Exception:
             _log.exception("Observer handler failed for event %r", context.event.value)

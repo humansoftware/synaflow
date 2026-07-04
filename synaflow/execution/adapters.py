@@ -13,6 +13,7 @@ def async_adapter(fn):
         inspect.iscoroutinefunction(fn)
         or inspect.isgeneratorfunction(fn)
         or inspect.isasyncgenfunction(fn)
+        or (hasattr(fn, "__call__") and inspect.iscoroutinefunction(fn.__call__))
     ):
         return fn
 

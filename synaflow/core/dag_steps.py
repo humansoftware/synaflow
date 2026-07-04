@@ -173,6 +173,18 @@ def validate_sync_async_consistency(
         if getattr(step, "materializer", None) is not None:
             _register_materializer(dag.steps[step.name].materializer)
 
+    if has_sync and has_async_materializer:
+        raise ValueError(
+            f"Pipeline '{pipeline_name}' is UNRUNNABLE. It contains synchronous streams "
+            "but has an asynchronous materializer."
+        )
+
+    if has_async and has_sync_materializer:
+        raise ValueError(
+            f"Pipeline '{pipeline_name}' is UNRUNNABLE. It contains asynchronous streams "
+            "but has a synchronous materializer."
+        )
+
     if has_sync and has_async:
         raise ValueError(
             f"Pipeline '{pipeline_name}' is UNRUNNABLE. It contains synchronous streams (Iterator) "
