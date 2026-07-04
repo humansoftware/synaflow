@@ -23,6 +23,7 @@ from synaflow.execution.threshold import (
     has_threshold,
 )
 from .argument_builder import ArgumentBuilder
+from .step_lifecycle import StepLifecycle
 
 
 # ---------------------------------------------------------------------------
@@ -176,26 +177,23 @@ class PipelineExecutor:
         arguments, resource_stack = self.scope.build_arguments(step_name, node)
         unrolled = self.dag.each_inputs(step_name)
 
-        started = False
-
-        def fire_started():
-            nonlocal started
-            if not started:
-                self.events.step_started(node, step_name)
-                started = True
+        lifecycle = StepLifecycle(node, step_name, self.events)
 
         try:
             if not unrolled and not inspect.isgeneratorfunction(node.fn):
-                fire_started()
+                lifecycle.start()
             output = self._execute_step(step_name, node, arguments, unrolled)
             if isinstance(output, Iterator):
-                output = _wrap_started_stream(output, fire_started)
+                output = _wrap_started_stream(output, lifecycle.start)
             output = self.scope.attach_cleanup(output, arguments)
-            self._emit_immediate_completion(step_name, node, output, unrolled)
+            self._emit_immediate_completion(
+                step_name, node, output, unrolled, lifecycle
+            )
             if not self.dag.is_hidden_step(step_name):
                 self.publisher.publish(step_name, output, node)
         except PipelineStopException as exc:
-            self._dispatch_step_failure(node, step_name, exc.cause or exc)
+            lifecycle.record_error(1)
+            lifecycle.finish(exception=exc.cause or exc, completed_all_inputs=False)
             raise
         except ThresholdExceededException as exc:
             if exc.step_name != step_name:
@@ -217,29 +215,22 @@ class PipelineExecutor:
                     error_count=exc.error_count,
                     completed_all_inputs=completed_all_inputs,
                 )
-                self._dispatch_step_failure(
-                    node,
-                    step_name,
-                    exc,
-                    success_count=exc.success_count,
-                    error_count=exc.error_count,
-                    completed_all_inputs=completed_all_inputs,
+                lifecycle.success_count = exc.success_count
+                lifecycle.error_count = exc.error_count
+                lifecycle.finish(
+                    exception=exc, completed_all_inputs=completed_all_inputs
                 )
             else:
                 # EACH mode, no threshold configured (should not reach here
                 # per build-time validation, but handle defensively)
-                self._dispatch_step_failure(
-                    node,
-                    step_name,
-                    exc,
-                    success_count=exc.success_count,
-                    error_count=exc.error_count,
-                    completed_all_inputs=True,
-                )
+                lifecycle.success_count = exc.success_count
+                lifecycle.error_count = exc.error_count
+                lifecycle.finish(exception=exc, completed_all_inputs=True)
             raise
         except Exception as exc:
             self.events.handle_error(step_name, exc)
-            self._dispatch_step_failure(node, step_name, exc)
+            lifecycle.record_error(1)
+            lifecycle.finish(exception=exc, completed_all_inputs=False)
             if node.on_error == OnError.STOP:
                 raise PipelineStopException(step_name=step_name, cause=exc) from exc
         finally:
@@ -252,19 +243,16 @@ class PipelineExecutor:
             return self._unroll_step(step_name, node, arguments, unrolled)
         return node.fn(**arguments)
 
-    def _emit_immediate_completion(self, step_name, node, output, unrolled):
+    def _emit_immediate_completion(
+        self, step_name, node, output, unrolled, lifecycle: StepLifecycle
+    ):
         if unrolled or isinstance(output, Iterator):
             return
         success_count = 1
         if isinstance(output, (list, tuple, set)):
             success_count = len(output)
-        self.events.step_completed(
-            node,
-            step_name,
-            success_count=success_count,
-            error_count=0,
-            completed_all_inputs=True,
-        )
+        lifecycle.record_success(success_count)
+        lifecycle.finish(completed_all_inputs=True)
 
     def _dispatch_step_failure(
         self,

@@ -27,6 +27,7 @@ from synaflow.execution.threshold import (
 from .constants import EOF_MARKER
 from .iterator_utils import AsyncQueueBranch
 from .argument_builder import AsyncArgumentBuilder
+from .step_lifecycle import AsyncStepLifecycle
 
 
 # ---------------------------------------------------------------------------
@@ -196,15 +197,7 @@ class AsyncPipelineExecutor:
         arguments = await self.scope.build_arguments(
             step_name, node, unrolled, resource_stack
         )
-        await self.events.step_started(node, step_name)
-
-        started = False
-
-        async def fire_started():
-            nonlocal started
-            if not started:
-                await self.events.step_started(node, step_name)
-                started = True
+        lifecycle = AsyncStepLifecycle(node, step_name, self.events)
 
         try:
             if (
@@ -212,16 +205,21 @@ class AsyncPipelineExecutor:
                 and not inspect.isasyncgenfunction(node.fn)
                 and not inspect.isgeneratorfunction(node.fn)
             ):
-                await fire_started()
+                await lifecycle.start()
             output = await self._execute_step(step_name, node, arguments, unrolled)
             if self.publisher._is_stream_output(output):
-                output = _wrap_started_stream(output, fire_started)
+                output = _wrap_started_stream(output, lifecycle.start)
             output = self.scope.attach_cleanup(output, arguments)
-            await self._emit_immediate_completion(step_name, node, output, unrolled)
+            await self._emit_immediate_completion(
+                step_name, node, output, unrolled, lifecycle
+            )
             if not self.dag.is_hidden_step(step_name):
                 await self.publisher.publish(step_name, output, node)
         except PipelineStopException as exc:
-            await self._dispatch_step_failure(node, step_name, exc.cause or exc)
+            lifecycle.record_error(1)
+            await lifecycle.finish(
+                exception=exc.cause or exc, completed_all_inputs=False
+            )
             raise
         except ThresholdExceededException as exc:
             if exc.step_name != step_name:
@@ -243,29 +241,22 @@ class AsyncPipelineExecutor:
                     error_count=exc.error_count,
                     completed_all_inputs=completed_all_inputs,
                 )
-                await self._dispatch_step_failure(
-                    node,
-                    step_name,
-                    exc,
-                    success_count=exc.success_count,
-                    error_count=exc.error_count,
-                    completed_all_inputs=completed_all_inputs,
+                lifecycle.success_count = exc.success_count
+                lifecycle.error_count = exc.error_count
+                await lifecycle.finish(
+                    exception=exc, completed_all_inputs=completed_all_inputs
                 )
             else:
                 # EACH mode, no threshold configured (should not reach here
                 # per build-time validation, but handle defensively)
-                await self._dispatch_step_failure(
-                    node,
-                    step_name,
-                    exc,
-                    success_count=exc.success_count,
-                    error_count=exc.error_count,
-                    completed_all_inputs=True,
-                )
+                lifecycle.success_count = exc.success_count
+                lifecycle.error_count = exc.error_count
+                await lifecycle.finish(exception=exc, completed_all_inputs=True)
             raise
         except Exception as exc:
             await self.events.handle_error(step_name, exc)
-            await self._dispatch_step_failure(node, step_name, exc)
+            lifecycle.record_error(1)
+            await lifecycle.finish(exception=exc, completed_all_inputs=False)
             if node.on_error == OnError.STOP:
                 raise PipelineStopException(step_name=step_name, cause=exc) from exc
         finally:
@@ -278,7 +269,9 @@ class AsyncPipelineExecutor:
             return await self._unroll_step(step_name, node, arguments, unrolled)
         return await self._call_fn(node.fn, arguments)
 
-    async def _emit_immediate_completion(self, step_name, node, output, unrolled):
+    async def _emit_immediate_completion(
+        self, step_name, node, output, unrolled, lifecycle: AsyncStepLifecycle
+    ):
         if unrolled or isinstance(
             output, (Iterator, Generator, AsyncIterator, AsyncGenerator)
         ):
@@ -286,13 +279,8 @@ class AsyncPipelineExecutor:
         success_count = 1
         if isinstance(output, (list, tuple, set)):
             success_count = len(output)
-        await self.events.step_completed(
-            node,
-            step_name,
-            success_count=success_count,
-            error_count=0,
-            completed_all_inputs=True,
-        )
+        lifecycle.record_success(success_count)
+        await lifecycle.finish(completed_all_inputs=True)
 
     async def _dispatch_step_failure(
         self,
