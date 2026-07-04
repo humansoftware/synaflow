@@ -1,3 +1,4 @@
+from __future__ import annotations
 import asyncio
 import inspect
 import dataclasses
@@ -39,7 +40,7 @@ async def _collect_async_iterator(
     dag: Dag,
     step_name: str,
     value: Any,
-    events: Any,
+    events: "AsyncEventDispatcher",
 ) -> tuple[list[Any], bool, BaseException | None]:
     items = []
     try:
@@ -77,7 +78,7 @@ async def _apply_materializer(
     step_name: str,
     value: Any,
     materializer: Any,
-    events: Any,
+    events: "AsyncEventDispatcher",
     consumer_type: Any = None,
 ) -> tuple[Any, bool, BaseException | None]:
     if materializer is None:
@@ -113,7 +114,7 @@ async def _pump_iterator(
     queues: dict[str, Any],
     on_error: Any,
     dag: Dag | None = None,
-    events: Any = None,
+    events: "AsyncEventDispatcher" | None = None,
 ) -> None:
     try:
         async for item in _safe_iterate(name, iterator):
