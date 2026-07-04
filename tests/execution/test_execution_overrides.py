@@ -73,8 +73,9 @@ async def test_given_materializer_override_when_async_run_then_override_is_used(
     )
 
     overrides = ExecutionOverrides.empty(p)
-    overrides.materializers["items"] = tuple
-
+    async def custom_tuple(x):
+        return tuple([i async for i in x])
+    overrides.materializers["items"] = custom_tuple
     await async_run(p, Params(), overrides=overrides)
 
     assert captured == [(0, 1, 2)]

@@ -80,7 +80,7 @@ class AsyncStreamPublisher:
                         items.append(item)
                     except StopIteration:
                         break
-        except Exception as exc:
+        except BaseException as exc:
             await self._events.handle_error(
                 step_name,
                 exc,
@@ -202,12 +202,21 @@ class AsyncStreamPublisher:
                 materializer,
                 consumer_type=consumer_type,
             )
-            await self._events.materialization_completed(
-                step_name,
-                node,
-                consumer_type,
-                mat_name,
-            )
+            if had_error:
+                await self._events.materialization_failed(
+                    step_name,
+                    node,
+                    consumer_type,
+                    mat_name,
+                    exception=exc,
+                )
+            else:
+                await self._events.materialization_completed(
+                    step_name,
+                    node,
+                    consumer_type,
+                    mat_name,
+                )
             return result, had_error, exc
         except PipelineStopException:
             raise
@@ -315,6 +324,8 @@ class AsyncStreamPublisher:
         items, had_error, exc = await self._materialize_with_events(
             step_name, output, node, consumer_type=consumer_type
         )
+        if had_error:
+            await self._handle_stream_publish_error(step_name, node, exc)
         for consumer in consumers:
             self.outputs[self.dag.output_key(step_name, consumer)] = items
         self._notify_observers(step_name, items)
@@ -371,10 +382,13 @@ class AsyncStreamPublisher:
             output, had_error, exc = await self._materialize_with_events(
                 step_name, output, node, consumer_type=node.output
             )
+            if had_error:
+                await self._handle_stream_publish_error(step_name, node, exc)
         elif self._step_output_observers:
             output, had_error, exc = await self._collect_async_iterator(
                 step_name, output
             )
+            # _collect_async_iterator already calls _events.handle_error and raises if STOP
         else:
             self._notify_observers(step_name, output)
             had_error = False
@@ -391,6 +405,8 @@ class AsyncStreamPublisher:
             output, had_error, exc = await self._materialize_with_events(
                 step_name, output, node, consumer_type=node.output
             )
+            if had_error:
+                await self._handle_stream_publish_error(step_name, node, exc)
         else:
             had_error = False
             exc = None

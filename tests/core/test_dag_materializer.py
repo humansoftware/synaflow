@@ -9,23 +9,7 @@ class P(NamedTuple):
     count: int = 3
 
 
-def test_sync_pipeline_rejects_async_materializer():
-    async def async_mat(g):
-        pass
 
-    def factory(ctx):
-        return async_mat
-
-    def gen() -> Generator[int, None, None]:
-        yield 1
-
-    with pytest.raises(ValueError, match="UNRUNNABLE"):
-        pipeline(
-            name="test",
-            params=P,
-            materializer=factory,
-            steps=[step("items", fn=gen, force_materialize=True)],
-        )
 
 
 def test_async_pipeline_rejects_sync_materializer():
@@ -38,7 +22,7 @@ def test_async_pipeline_rejects_sync_materializer():
     async def async_gen() -> AsyncGenerator[int, None]:
         yield 1
 
-    with pytest.raises(ValueError, match="UNRUNNABLE"):
+    with pytest.raises(TypeError, match="is synchronous but the pipeline runs asynchronously"):
         pipeline(
             name="test",
             params=P,
@@ -54,7 +38,7 @@ def test_step_materializer_rejects_incompatible():
     async def async_gen() -> AsyncGenerator[int, None]:
         yield 1
 
-    with pytest.raises(ValueError, match="UNRUNNABLE"):
+    with pytest.raises(TypeError, match="is synchronous but the pipeline runs asynchronously"):
         pipeline(
             name="test",
             params=P,

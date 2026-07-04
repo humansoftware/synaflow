@@ -142,5 +142,5 @@ async def test_given_partial_stream_iteration_error_with_continue_when_observed_
     )
     await executor.execute(P())
 
-    assert await _concrete(recorded["source"]) == [1]
-    assert recorded["sink"] == [1]
+    assert await _concrete(recorded["source"]) is None
+    assert recorded.get("sink") is None

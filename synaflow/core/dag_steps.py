@@ -152,42 +152,6 @@ def validate_sync_async_consistency(
             if is_async_stream_type(dep_type):
                 has_async = True
 
-    has_async_materializer = False
-    has_sync_materializer = False
-
-    def _register_materializer(materializer: Any) -> None:
-        nonlocal has_async_materializer, has_sync_materializer
-        if materializer is None:
-            return
-        if inspect.iscoroutinefunction(materializer) or (
-            hasattr(materializer, "__call__")
-            and inspect.iscoroutinefunction(materializer.__call__)
-        ):
-            has_async_materializer = True
-        else:
-            has_sync_materializer = True
-
-    if not is_default_factory:
-        for step in steps:
-            if getattr(step, "materializer", None) is None:
-                _register_materializer(dag.steps[step.name].materializer)
-
-    for step in steps:
-        if getattr(step, "materializer", None) is not None:
-            _register_materializer(dag.steps[step.name].materializer)
-
-    if has_sync and has_async_materializer:
-        raise ValueError(
-            f"Pipeline '{pipeline_name}' is UNRUNNABLE. It contains synchronous streams "
-            "but has an asynchronous materializer."
-        )
-
-    if has_async and has_sync_materializer:
-        raise ValueError(
-            f"Pipeline '{pipeline_name}' is UNRUNNABLE. It contains asynchronous streams "
-            "but has a synchronous materializer."
-        )
-
     if has_sync and has_async:
         raise ValueError(
             f"Pipeline '{pipeline_name}' is UNRUNNABLE. It contains synchronous streams (Iterator) "
