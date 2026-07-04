@@ -22,7 +22,7 @@ from synaflow.execution.threshold import (
     compute_completed_all_inputs_for_all,
     has_threshold,
 )
-from .dependency_resolver import DependencyResolver
+from .argument_builder import ArgumentBuilder
 
 
 # ---------------------------------------------------------------------------
@@ -61,7 +61,7 @@ class PipelineExecutor:
         self._overrides = overrides
         self._resource_factories = dict(resource_factories or {})
         self.run_id = str(uuid.uuid4())
-        self.scope = DependencyResolver(
+        self.scope = ArgumentBuilder(
             self.dag, self.outputs, self._overrides, self._resource_factories
         )
         self.events = EventDispatcher(self.dag, self.run_id, self._overrides)

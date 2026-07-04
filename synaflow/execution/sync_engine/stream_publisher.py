@@ -15,7 +15,7 @@ from synaflow.core.types import StepMode, OnError
 from synaflow.core.exceptions import PipelineStopException
 from synaflow.execution.sync_handoff import SyncFanout
 from synaflow.execution.sync_engine.event_dispatch import EventDispatcher
-from synaflow.execution.sync_engine.dependency_resolver import DependencyResolver
+from synaflow.execution.sync_engine.argument_builder import ArgumentBuilder
 from synaflow.execution.threshold import has_threshold
 from synaflow.execution.bounded_iterator import BoundedIterator
 
@@ -39,7 +39,7 @@ class StreamPublisher:
         outputs: dict,
         events: EventDispatcher,
         step_output_observers: list,
-        scope: DependencyResolver,
+        scope: ArgumentBuilder,
     ):
         self._dag = dag
         self._outputs = outputs

@@ -26,7 +26,7 @@ from synaflow.execution.threshold import (
 
 from .constants import EOF_MARKER
 from .iterator_utils import AsyncQueueBranch
-from .dependency_resolver import AsyncDependencyResolver
+from .argument_builder import AsyncArgumentBuilder
 
 
 # ---------------------------------------------------------------------------
@@ -87,7 +87,7 @@ class AsyncPipelineExecutor:
         self._overrides = overrides
         self._resource_factories = dict(resource_factories or {})
 
-        self.scope = AsyncDependencyResolver(
+        self.scope = AsyncArgumentBuilder(
             self.dag, self.outputs, self._overrides, self._resource_factories
         )
         self.run_id = str(uuid.uuid4())
