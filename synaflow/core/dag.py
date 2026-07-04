@@ -49,8 +49,6 @@ class DagNode:
     max_in_flight: int = 1
     error_threshold_absolute: int | None = None
     error_threshold_pct: float | None = None
-    _has_default_materializer: bool = False
-    _has_default_error_materializer: bool = False
 
     def __getitem__(self, key):
         return getattr(self, key)
