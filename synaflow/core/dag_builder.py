@@ -46,6 +46,7 @@ from typing import (
     get_args,
 )
 
+from synaflow.core.adapters import async_adapter
 from synaflow.core.dag import Dag, DagNode
 from synaflow.core.dag_dependencies import initialize_parameters, initialize_resources
 from synaflow.core.definition import IncludeStep
@@ -151,8 +152,6 @@ def log_error_materializer_factory(ctx: ErrorMaterializeContext):
         log.debug(traceback.format_exc())
 
     if ctx.is_async_pipeline:
-        from synaflow.execution.adapters import async_adapter
-
         return async_adapter(log_error)
 
     return log_error

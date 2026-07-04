@@ -1,4 +1,4 @@
-from synaflow.execution.adapters import async_adapter
+from synaflow.core.adapters import async_adapter
 from contextlib import asynccontextmanager, contextmanager
 from typing import AsyncGenerator, Iterator, NamedTuple
 
@@ -73,8 +73,10 @@ async def test_given_materializer_override_when_async_run_then_override_is_used(
     )
 
     overrides = ExecutionOverrides.empty(p)
+
     async def custom_tuple(x):
         return tuple([i async for i in x])
+
     overrides.materializers["items"] = custom_tuple
     await async_run(p, Params(), overrides=overrides)
 

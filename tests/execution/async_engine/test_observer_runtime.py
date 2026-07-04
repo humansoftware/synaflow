@@ -1,4 +1,4 @@
-from synaflow.execution.adapters import async_adapter
+from synaflow.core.adapters import async_adapter
 import asyncio
 import functools
 import logging
@@ -43,7 +43,7 @@ class EmptyParams(NamedTuple):
 
 
 def on_event(event_type, handler):
-    from synaflow.execution.adapters import async_adapter
+    from synaflow.core.adapters import async_adapter
 
     async_handler = async_adapter(handler)
 

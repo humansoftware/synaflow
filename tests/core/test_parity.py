@@ -59,6 +59,7 @@ def test_sync_async_test_parity():
         "test_given_partial_async_handler_when_dispatched_then_awaited",
         "test_given_callable_object_with_async_call_when_dispatched_then_awaited",
         "test_given_terminal_stream_with_no_observers_bypass_validation",
+        "test_given_sync_stream_iteration_error_when_async_run_then_partial_items_preserved",
     }
 
     # Remove expected differences

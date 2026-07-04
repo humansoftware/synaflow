@@ -1,4 +1,4 @@
-from synaflow.execution.adapters import async_adapter
+from synaflow.core.adapters import async_adapter
 import json
 import pickle
 import pytest

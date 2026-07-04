@@ -7,7 +7,7 @@ from collections.abc import AsyncIterator
 from typing import NamedTuple
 
 import pytest
-from synaflow.execution.adapters import async_adapter
+from synaflow.core.adapters import async_adapter
 
 from synaflow import (
     InvalidThresholdRaiseInEACHStep,

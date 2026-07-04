@@ -4,6 +4,7 @@ from typing import Any, Callable
 from synaflow.core.dag import Dag
 from synaflow.core.observers import Observer
 from synaflow.core.types import OnError, StepMode, StepParams
+from synaflow.core.adapters import is_async_callable
 
 
 @dataclass
@@ -71,7 +72,7 @@ class PipelineDef:
         self.requires_async_runner = self.dag.requires_async_runner
 
         if self.requires_sync_runner or not self.requires_async_runner:
-            _validate_no_async_observers(self)
+            _validate_no_async_handlers(self)
         else:
             _validate_no_sync_handlers(self)
 
@@ -93,9 +94,7 @@ step = Step
 include = IncludeStep
 
 
-def _validate_no_async_observers(pipeline_def: PipelineDef) -> None:
-    from synaflow.execution.adapters import is_async_callable
-
+def _validate_no_async_handlers(pipeline_def: PipelineDef) -> None:
     all_observers: list = list(pipeline_def.dag.pipeline_observers)
     for node in pipeline_def.dag.steps.values():
         all_observers.extend(node.observers)
@@ -107,16 +106,35 @@ def _validate_no_async_observers(pipeline_def: PipelineDef) -> None:
             func = getattr(handler, "func", None)
             if func is not None:
                 handler_name = f"partial of '{func.__name__}'"
-            raise ValueError(
+            raise TypeError(
                 f"Pipeline '{pipeline_def.name}': observer handler "
                 f"'{handler_name}' is async but the pipeline runs "
                 f"synchronously. Use sync handlers or switch to async_run()."
             )
 
+    for node in pipeline_def.dag.steps.values():
+        if node.materializer is not None and is_async_callable(node.materializer):
+            mat_name = getattr(node.materializer, "__name__", str(node.materializer))
+            raise TypeError(
+                f"Pipeline '{pipeline_def.name}': materializer "
+                f"'{mat_name}' is async but the pipeline runs "
+                f"synchronously."
+            )
+
+        if node.error_materializer is not None and is_async_callable(
+            node.error_materializer
+        ):
+            mat_name = getattr(
+                node.error_materializer, "__name__", str(node.error_materializer)
+            )
+            raise TypeError(
+                f"Pipeline '{pipeline_def.name}': error_materializer "
+                f"'{mat_name}' is async but the pipeline runs "
+                f"synchronously."
+            )
+
 
 def _validate_no_sync_handlers(pipeline_def: PipelineDef) -> None:
-    from synaflow.execution.adapters import is_async_callable
-
     all_observers: list = list(pipeline_def.dag.pipeline_observers)
     for node in pipeline_def.dag.steps.values():
         all_observers.extend(node.observers)

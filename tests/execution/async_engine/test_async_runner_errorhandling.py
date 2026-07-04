@@ -293,7 +293,7 @@ async def test_given_on_error_continue_when_stream_iteration_fails_then_previous
 
     await async_run(my_pipeline, params=P())
 
-    sink.assert_called_once_with(source=None)
+    sink.assert_called_once_with(source=[1])
     assert handled == [("source", "ValueError")]
 
 
@@ -398,3 +398,46 @@ async def test_given_non_callable_error_materializer_when_step_fails_then_raises
                 )
             ],
         )
+
+
+@pytest.mark.asyncio
+async def test_given_sync_stream_iteration_error_when_async_run_then_partial_items_preserved():
+    class P(NamedTuple):
+        pass
+
+    handled = []
+
+    def error_factory(ctx):
+        async def handle(error_ctx):
+            handled.append(error_ctx.exception.args[0])
+
+        return handle
+
+    def sync_source():
+        yield 1
+        raise ValueError("syncboom")
+
+    sink_output = []
+
+    async def sink(source: list[int]):
+        sink_output.append(source)
+        return source
+
+    p = pipeline(
+        name="sync_partial",
+        params=P,
+        steps=[
+            step(
+                "source",
+                fn=sync_source,
+                on_error=OnError.CONTINUE,
+                error_materializer=error_factory,
+            ),
+            step("sink", fn=sink),
+        ],
+    )
+
+    await async_run(p, P())
+
+    assert handled == ["syncboom"]
+    assert sink_output == [[1]]

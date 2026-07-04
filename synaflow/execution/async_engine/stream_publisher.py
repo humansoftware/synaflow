@@ -108,13 +108,33 @@ class AsyncStreamPublisher:
                 return items, had_error, exc
             return value, False, None
 
+        # To preserve partial items in case the stream crashes during materialization,
+        # we wrap the stream and record yielded items.
+        history = []
+        if isinstance(value, (AsyncIterator, AsyncGenerator)):
+
+            async def tracking_wrapper(stream):
+                async for item in stream:
+                    history.append(item)
+                    yield item
+
+            value = tracking_wrapper(value)
+        elif isinstance(value, (Iterator, Generator)):
+
+            def sync_tracking_wrapper(stream):
+                for item in stream:
+                    history.append(item)
+                    yield item
+
+            value = sync_tracking_wrapper(value)
+
         # Materializer is guaranteed to be async by validation.
         # It natively handles consuming the stream if needed.
         try:
             result = await materializer(value)
             return result, False, None
         except Exception as e:
-            return None, True, e
+            return history, True, e
 
     async def _pump_iterator(
         self,
