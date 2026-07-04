@@ -133,6 +133,14 @@ def _validate_no_async_handlers(pipeline_def: PipelineDef) -> None:
                 f"synchronously."
             )
 
+        if node.fn is not None and is_async_callable(node.fn):
+            fn_name = getattr(node.fn, "__name__", str(node.fn))
+            raise TypeError(
+                f"Pipeline '{pipeline_def.name}': step function "
+                f"'{fn_name}' is async but the pipeline runs "
+                f"synchronously."
+            )
+
 
 def _validate_no_sync_handlers(pipeline_def: PipelineDef) -> None:
     all_observers: list = list(pipeline_def.dag.pipeline_observers)
@@ -171,4 +179,12 @@ def _validate_no_sync_handlers(pipeline_def: PipelineDef) -> None:
                 f"Pipeline '{pipeline_def.name}': error_materializer "
                 f"'{mat_name}' is synchronous but the pipeline runs "
                 f"asynchronously."
+            )
+
+        if node.fn is not None and not is_async_callable(node.fn):
+            fn_name = getattr(node.fn, "__name__", str(node.fn))
+            raise TypeError(
+                f"Pipeline '{pipeline_def.name}': step function "
+                f"'{fn_name}' is synchronous but the pipeline runs "
+                f"asynchronously. Use async handlers for async pipelines."
             )

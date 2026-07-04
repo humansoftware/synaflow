@@ -48,7 +48,7 @@ async def test_given_future_annotations_when_custom_materializer_executed_then_r
 
     captured = None
 
-    def sink(my_step: list[str]) -> list[str]:
+    async def sink(my_step: list[str]) -> list[str]:
         nonlocal captured
         captured = my_step
         return my_step

@@ -9,6 +9,7 @@ from synaflow.core.dag_dependencies import (
 )
 from synaflow.core.definition import Step
 from synaflow.core.naming import get_base_dataset_name
+from synaflow.core.adapters import is_async_callable
 from synaflow.core.type_compatibility import (
     is_async_stream_type,
     is_iterable_type,
@@ -127,9 +128,6 @@ def resolve_step_mode(
 def validate_sync_async_consistency(
     dag: Dag,
     pipeline_name: str,
-    steps: list[Step],
-    memory_materializer_factory: Any,
-    is_default_factory: bool = False,
 ) -> None:
     has_sync = False
     has_async = False
@@ -138,7 +136,7 @@ def validate_sync_async_consistency(
         if not node.fn:
             continue
 
-        if inspect.iscoroutinefunction(node.fn):
+        if is_async_callable(node.fn):
             has_async = True
 
         if is_sync_stream_type(node.output):

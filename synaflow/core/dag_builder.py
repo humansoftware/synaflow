@@ -622,9 +622,6 @@ def build_dag(
     validate_sync_async_consistency(
         dag_obj,
         pipeline_name,
-        steps,
-        memory_materializer_factory,
-        is_default_factory=is_default_factory,
     )
 
     _resolve_materializers(

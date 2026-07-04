@@ -4,14 +4,24 @@ from typing import Any
 
 
 def is_async_callable(handler: Any) -> bool:
-    if inspect.iscoroutinefunction(handler):
+    if inspect.iscoroutinefunction(handler) or inspect.isasyncgenfunction(handler):
         return True
-    if hasattr(handler, "__call__") and inspect.iscoroutinefunction(handler.__call__):
+    if hasattr(handler, "__call__") and (
+        inspect.iscoroutinefunction(handler.__call__)
+        or inspect.isasyncgenfunction(handler.__call__)
+    ):
         return True
     func = getattr(handler, "func", None)
     if func is not None and (
         inspect.iscoroutinefunction(func)
-        or (hasattr(func, "__call__") and inspect.iscoroutinefunction(func.__call__))
+        or inspect.isasyncgenfunction(func)
+        or (
+            hasattr(func, "__call__")
+            and (
+                inspect.iscoroutinefunction(func.__call__)
+                or inspect.isasyncgenfunction(func.__call__)
+            )
+        )
     ):
         return True
     return False
