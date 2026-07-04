@@ -68,6 +68,8 @@ class StreamPublisher:
                 items.append(next(value))
             except StopIteration:
                 return items, False, None
+            except PipelineStopException:
+                raise
             except Exception as exc:
                 self._events.handle_error(
                     step_name,

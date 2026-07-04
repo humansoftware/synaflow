@@ -186,14 +186,12 @@ class PipelineExecutor:
             if isinstance(output, Iterator):
                 output = _wrap_started_stream(output, lifecycle.start)
             output = self.scope.attach_cleanup(output, arguments)
-            self._emit_immediate_completion(
-                step_name, node, output, unrolled, lifecycle
-            )
+            self._emit_immediate_completion(output, unrolled, lifecycle)
             if not self.dag.is_hidden_step(step_name):
                 self.publisher.publish(step_name, output, node)
         except PipelineStopException as exc:
             lifecycle.record_error(1)
-            lifecycle.finish(exception=exc.cause or exc, completed_all_inputs=False)
+            lifecycle.finish(exception=exc, completed_all_inputs=False)
             raise
         except ThresholdExceededException as exc:
             if exc.step_name != step_name:
@@ -215,16 +213,16 @@ class PipelineExecutor:
                     error_count=exc.error_count,
                     completed_all_inputs=completed_all_inputs,
                 )
-                lifecycle.success_count = exc.success_count
-                lifecycle.error_count = exc.error_count
+                lifecycle.record_success(exc.success_count - lifecycle.success_count)
+                lifecycle.record_error(exc.error_count - lifecycle.error_count)
                 lifecycle.finish(
                     exception=exc, completed_all_inputs=completed_all_inputs
                 )
             else:
                 # EACH mode, no threshold configured (should not reach here
                 # per build-time validation, but handle defensively)
-                lifecycle.success_count = exc.success_count
-                lifecycle.error_count = exc.error_count
+                lifecycle.record_success(exc.success_count - lifecycle.success_count)
+                lifecycle.record_error(exc.error_count - lifecycle.error_count)
                 lifecycle.finish(exception=exc, completed_all_inputs=True)
             raise
         except Exception as exc:
@@ -243,9 +241,7 @@ class PipelineExecutor:
             return self._unroll_step(step_name, node, arguments, unrolled)
         return node.fn(**arguments)
 
-    def _emit_immediate_completion(
-        self, step_name, node, output, unrolled, lifecycle: StepLifecycle
-    ):
+    def _emit_immediate_completion(self, output, unrolled, lifecycle: StepLifecycle):
         if unrolled or isinstance(output, Iterator):
             return
         success_count = 1
@@ -253,27 +249,6 @@ class PipelineExecutor:
             success_count = len(output)
         lifecycle.record_success(success_count)
         lifecycle.finish(completed_all_inputs=True)
-
-    def _dispatch_step_failure(
-        self,
-        node,
-        step_name,
-        exception,
-        success_count: int = 0,
-        error_count: int = 1,
-        completed_all_inputs: bool = False,
-    ):
-        cause = exception
-        if isinstance(cause, PipelineStopException):
-            cause = cause.cause or cause
-        self.events.step_failed(
-            node,
-            step_name,
-            success_count=success_count,
-            error_count=error_count,
-            completed_all_inputs=completed_all_inputs,
-            exception=cause,
-        )
 
     def _unroll_step(self, step_name, node, base_args, unrolled):
         """Call fn once per item-tuple. Exhausted streams yield None.
@@ -333,14 +308,10 @@ class PipelineExecutor:
                     try:
                         check_threshold(step_name, node, invocation_count, error_count)
                     except ThresholdExceededException as exc:
-                        self._dispatch_step_failure(
-                            node,
-                            step_name,
-                            exc,
-                            success_count=exc.success_count,
-                            error_count=exc.error_count,
-                            completed_all_inputs=True,
-                        )
+                        lifecycle = StepLifecycle(node, step_name, self.events)
+                        lifecycle.record_success(exc.success_count)
+                        lifecycle.record_error(exc.error_count)
+                        lifecycle.finish(exception=exc, completed_all_inputs=True)
                         raise
                     success_count = invocation_count - error_count
                     self.events.step_completed(

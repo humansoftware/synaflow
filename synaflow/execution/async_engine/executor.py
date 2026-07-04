@@ -210,16 +210,12 @@ class AsyncPipelineExecutor:
             if self.publisher._is_stream_output(output):
                 output = _wrap_started_stream(output, lifecycle.start)
             output = self.scope.attach_cleanup(output, arguments)
-            await self._emit_immediate_completion(
-                step_name, node, output, unrolled, lifecycle
-            )
+            await self._emit_immediate_completion(output, unrolled, lifecycle)
             if not self.dag.is_hidden_step(step_name):
                 await self.publisher.publish(step_name, output, node)
         except PipelineStopException as exc:
             lifecycle.record_error(1)
-            await lifecycle.finish(
-                exception=exc.cause or exc, completed_all_inputs=False
-            )
+            await lifecycle.finish(exception=exc, completed_all_inputs=False)
             raise
         except ThresholdExceededException as exc:
             if exc.step_name != step_name:
@@ -241,16 +237,16 @@ class AsyncPipelineExecutor:
                     error_count=exc.error_count,
                     completed_all_inputs=completed_all_inputs,
                 )
-                lifecycle.success_count = exc.success_count
-                lifecycle.error_count = exc.error_count
+                lifecycle.record_success(exc.success_count - lifecycle.success_count)
+                lifecycle.record_error(exc.error_count - lifecycle.error_count)
                 await lifecycle.finish(
                     exception=exc, completed_all_inputs=completed_all_inputs
                 )
             else:
                 # EACH mode, no threshold configured (should not reach here
                 # per build-time validation, but handle defensively)
-                lifecycle.success_count = exc.success_count
-                lifecycle.error_count = exc.error_count
+                lifecycle.record_success(exc.success_count - lifecycle.success_count)
+                lifecycle.record_error(exc.error_count - lifecycle.error_count)
                 await lifecycle.finish(exception=exc, completed_all_inputs=True)
             raise
         except Exception as exc:
@@ -270,7 +266,7 @@ class AsyncPipelineExecutor:
         return await self._call_fn(node.fn, arguments)
 
     async def _emit_immediate_completion(
-        self, step_name, node, output, unrolled, lifecycle: AsyncStepLifecycle
+        self, output, unrolled, lifecycle: AsyncStepLifecycle
     ):
         if unrolled or isinstance(
             output, (Iterator, Generator, AsyncIterator, AsyncGenerator)
@@ -281,27 +277,6 @@ class AsyncPipelineExecutor:
             success_count = len(output)
         lifecycle.record_success(success_count)
         await lifecycle.finish(completed_all_inputs=True)
-
-    async def _dispatch_step_failure(
-        self,
-        node,
-        step_name,
-        exception,
-        success_count: int = 0,
-        error_count: int = 1,
-        completed_all_inputs: bool = False,
-    ):
-        cause = exception
-        if isinstance(cause, PipelineStopException):
-            cause = cause.cause or cause
-        await self.events.step_failed(
-            node,
-            step_name,
-            success_count=success_count,
-            error_count=error_count,
-            completed_all_inputs=completed_all_inputs,
-            exception=cause,
-        )
 
     async def _call_fn(self, fn: Any, kwargs: dict) -> Any:
         if inspect.iscoroutinefunction(fn):
@@ -389,14 +364,10 @@ class AsyncPipelineExecutor:
                     try:
                         check_threshold(step_name, node, invocation_count, error_count)
                     except ThresholdExceededException as exc:
-                        await self._dispatch_step_failure(
-                            node,
-                            step_name,
-                            exc,
-                            success_count=exc.success_count,
-                            error_count=exc.error_count,
-                            completed_all_inputs=True,
-                        )
+                        lifecycle = AsyncStepLifecycle(node, step_name, self.events)
+                        lifecycle.record_success(exc.success_count)
+                        lifecycle.record_error(exc.error_count)
+                        await lifecycle.finish(exception=exc, completed_all_inputs=True)
                         raise
                     success_count = invocation_count - error_count
                     await self.events.step_completed(
