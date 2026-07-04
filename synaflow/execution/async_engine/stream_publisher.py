@@ -20,6 +20,7 @@ from synaflow.execution.threshold import has_threshold
 from .constants import EOF_MARKER
 from .iterator_utils import AsyncQueueBranch
 from .event_dispatch import AsyncEventDispatcher
+from .argument_builder import AsyncArgumentBuilder
 
 
 class AsyncStreamPublisher:
@@ -31,7 +32,7 @@ class AsyncStreamPublisher:
         outputs: dict[str, Any],
         events: AsyncEventDispatcher,
         step_output_observers: list,
-        scope: Any,
+        scope: AsyncArgumentBuilder,
     ):
         self.dag = dag
         self.outputs = outputs
