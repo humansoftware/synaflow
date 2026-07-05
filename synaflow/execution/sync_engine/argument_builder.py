@@ -5,7 +5,6 @@ This module ensures that step functions receive the correct arguments by extract
 from upstream dependencies, resolving required resources, and managing their lifecycles.
 """
 
-import dataclasses
 from collections.abc import Iterator
 from contextlib import ExitStack
 from typing import Any
@@ -13,6 +12,7 @@ from typing import Any
 from synaflow.core.dag import Dag
 from synaflow.execution.overrides import ExecutionOverrides
 from synaflow.execution.sync_handoff import SyncQueueIterator
+from synaflow.execution.state import ExecutionState
 
 
 class ArgumentBuilder:
@@ -31,7 +31,7 @@ class ArgumentBuilder:
     def __init__(
         self,
         dag: Dag,
-        outputs: dict,
+        outputs: ExecutionState,
         overrides: ExecutionOverrides | None,
         resource_factories: dict[str, Any],
     ):
@@ -41,14 +41,7 @@ class ArgumentBuilder:
         self._resource_factories = resource_factories
 
     def seed_runtime_inputs(self, params: Any) -> None:
-        if dataclasses.is_dataclass(params):
-            param_dict = {
-                f.name: getattr(params, f.name) for f in dataclasses.fields(params)
-            }
-        else:
-            param_dict = params._asdict()
-        for field, value in param_dict.items():
-            self._outputs[field] = value
+        self._outputs.seed(params)
 
     def resolve_materializer(self, step_name: str, node: Any) -> Any:
         if self._overrides is None:
@@ -83,8 +76,7 @@ class ArgumentBuilder:
                 if dep_name in self._dag.resources:
                     value = self.resolve_resource_argument(dep_name, resource_stack)
                 else:
-                    key = self._dag.output_key(dep_name, consumer)
-                    value = self._outputs.get(key, self._outputs.get(dep_name))
+                    value = self._outputs.get_output(dep_name, consumer)
                 param = node.dataset_param_names.get(dep_name, dep_name)
                 args[param] = value
             return args, resource_stack
