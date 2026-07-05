@@ -102,7 +102,7 @@ async def test_lifecycle_stream_multiple_calls_after_terminal_state() -> None:
 
 
 @pytest.mark.asyncio
-async def test_async_lifecycle_stream_on_start_fails_async_callback() -> None:
+async def test_lifecycle_stream_on_start_fails_async_callback() -> None:
     events: list[str] = []
 
     async def on_start() -> None:
@@ -168,7 +168,7 @@ async def test_lifecycle_stream_on_start_fails_sync_callback() -> None:
 
 
 @pytest.mark.asyncio
-async def test_async_lifecycle_stream_empty_async() -> None:
+async def test_lifecycle_stream_empty_async() -> None:
     events: list[str] = []
 
     async def on_start() -> None:
@@ -188,7 +188,7 @@ async def test_async_lifecycle_stream_empty_async() -> None:
 
 
 @pytest.mark.asyncio
-async def test_async_lifecycle_stream_immediate_error_async() -> None:
+async def test_lifecycle_stream_immediate_error_async() -> None:
     events: list[str] = []
 
     async def on_start() -> None:

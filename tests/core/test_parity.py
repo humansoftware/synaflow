@@ -100,15 +100,15 @@ def test_sync_async_test_parity():
         ),
         # AsyncLifecycleStream tests without sync engine parity
         (
-            "test_async_lifecycle_stream_on_start_fails_async_callback",
+            "test_lifecycle_stream_on_start_fails_async_callback",
             "Tests async start hook failure on AsyncLifecycleStream. Sync engine callbacks are synchronous, so this cannot be replicated there.",
         ),
         (
-            "test_async_lifecycle_stream_empty_async",
+            "test_lifecycle_stream_empty_async",
             "Tests AsyncLifecycleStream with an empty async generator. Sync engine doesn't support async generators.",
         ),
         (
-            "test_async_lifecycle_stream_immediate_error_async",
+            "test_lifecycle_stream_immediate_error_async",
             "Tests AsyncLifecycleStream with an immediate async generator error. Sync engine doesn't support async generators.",
         ),
     ]
