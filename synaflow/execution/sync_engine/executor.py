@@ -26,7 +26,7 @@ from synaflow.execution.threshold import (
 from synaflow.execution.sync_handoff import SyncFanout
 from synaflow.execution.bounded_iterator import BoundedIterator
 from synaflow.execution.state import ExecutionState
-from synaflow.execution.lifecycle_stream import LifecycleStream
+from synaflow.execution.sync_engine.lifecycle_stream import LifecycleStream
 from .argument_builder import ArgumentBuilder
 from .step_lifecycle import StepLifecycle
 

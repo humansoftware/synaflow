@@ -7,7 +7,7 @@ from collections.abc import AsyncGenerator, AsyncIterator, Generator, Iterator
 from contextlib import AsyncExitStack
 from typing import Any, Callable
 
-from synaflow.execution.lifecycle_stream import AsyncLifecycleStream
+from synaflow.execution.async_engine.lifecycle_stream import AsyncLifecycleStream
 
 from synaflow.core.dag import Dag
 from synaflow.core.definition import PipelineDef
