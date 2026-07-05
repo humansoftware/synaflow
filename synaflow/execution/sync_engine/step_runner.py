@@ -1,5 +1,5 @@
 import inspect
-from collections.abc import Callable, Iterator
+from collections.abc import Callable, Generator, Iterator
 from typing import Any
 from contextlib import ExitStack
 
@@ -35,6 +35,8 @@ class StepConfig:
         self.error_threshold_absolute: int | None = None
         self.error_threshold_pct: float | None = None
         self._dag_node: Any = None
+        self._runtime_error_count: int = 0
+        self._runtime_invocation_count: int = 0
 
 
 def _wrap_started_stream(
@@ -46,7 +48,7 @@ def _wrap_started_stream(
 
 def _collect_iterator(
     step_name: str,
-    value: Iterator,
+    value: Iterator[Any],
     on_error_val: OnError,
     events: EventDispatcher,
 ) -> tuple[list[Any], bool, BaseException | None]:
@@ -241,7 +243,7 @@ class StepRunner:
 
         on_err = self.on_error
 
-        def generate():
+        def generate() -> Generator[Any, None, None]:
             invocation_count = 0
             error_count = 0
             # Reset runtime stats on the node/config so multiple executor runs
@@ -339,7 +341,7 @@ class StepRunner:
         if not isinstance(output, Iterator):
             return output
 
-        def wrapped():
+        def wrapped() -> Iterator[Any]:
             try:
                 yield from output
             finally:
