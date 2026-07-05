@@ -5,7 +5,6 @@ Resolves dependencies, resource arguments, and materializers for the async engin
 """
 
 import asyncio
-import dataclasses
 import inspect
 from collections.abc import AsyncGenerator, AsyncIterator
 from contextlib import AsyncExitStack
@@ -13,6 +12,7 @@ from typing import Any
 
 from synaflow.core.dag import Dag
 from synaflow.execution.overrides import ExecutionOverrides
+from synaflow.execution.state import ExecutionState
 
 from .iterator_utils import AsyncQueueBranch, queue_to_async_gen
 
@@ -36,7 +36,7 @@ class AsyncArgumentBuilder:
     def __init__(
         self,
         dag: Dag,
-        outputs: dict[str, Any],
+        outputs: ExecutionState,
         overrides: ExecutionOverrides | None = None,
         resource_factories: dict[str, Any] | None = None,
     ):
@@ -48,14 +48,7 @@ class AsyncArgumentBuilder:
 
     def seed_runtime_inputs(self, params: Any) -> None:
         """Seed initial runtime inputs into the outputs dictionary."""
-        if dataclasses.is_dataclass(params):
-            param_dict = {
-                f.name: getattr(params, f.name) for f in dataclasses.fields(params)
-            }
-        else:
-            param_dict = params._asdict()
-        for field, value in param_dict.items():
-            self._outputs[field] = value
+        self._outputs.seed(params)
 
     def resolve_materializer(self, step_name: str, node: Any) -> Any:
         """Resolve the materializer for a step."""
@@ -99,8 +92,7 @@ class AsyncArgumentBuilder:
             if dep_name in self._dag.resources:
                 value = await self.resolve_resource_argument(dep_name, resource_stack)
             else:
-                key = self._dag.output_key(dep_name, consumer)
-                value = self._outputs.get(key, self._outputs.get(dep_name))
+                value = self._outputs.get_output(dep_name, consumer)
                 if (
                     isinstance(value, (asyncio.Queue, AsyncQueueBranch))
                     and dep_name not in unrolled
