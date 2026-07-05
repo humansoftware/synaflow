@@ -19,7 +19,6 @@ from synaflow.execution.threshold import (
 )
 from synaflow.execution.async_engine.iterator_utils import AsyncQueueBranch
 from synaflow.execution.async_engine.constants import EOF_MARKER
-from synaflow.core.dag import Dag
 
 
 class AsyncStepConfig:
@@ -51,7 +50,7 @@ def _wrap_started_stream(
     return AsyncLifecycleStream(it, on_start=fire_started)
 
 
-async def _collect_async_iterator(
+async def collect_async_iterator(
     step_name: str,
     value: Any,
     on_error_val: OnError,
@@ -81,7 +80,7 @@ async def _collect_async_iterator(
         return items, True, exc
 
 
-def _wrap_deferred_output(
+def wrap_deferred_output(
     step_name: str,
     output: Any,
     node: Any,
@@ -126,7 +125,7 @@ class AsyncStepRunner:
         stats: StepRunStats,
         each_mode_deps: list[str] | None = None,
         step_config: AsyncStepConfig | None = None,
-        dag: Dag | None = None,
+        upstream_max_in_flight: dict[str, int] | None = None,
     ) -> None:
         self.step_name = step_name
         self.fn = fn
@@ -142,7 +141,7 @@ class AsyncStepRunner:
         self.events = events
         self.stats = stats
         self.each_mode_deps = each_mode_deps
-        self.dag = dag
+        self.upstream_max_in_flight = upstream_max_in_flight or {}
 
         if step_config is None:
             step_config = AsyncStepConfig(
@@ -155,17 +154,11 @@ class AsyncStepRunner:
         self.step_config = step_config
 
     async def run(self) -> None:
-        unrolled = []
-        if self.is_each_mode:
-            unrolled = (
-                self.each_mode_deps
-                if self.each_mode_deps is not None
-                else list(self.dataset_param_names.keys())
-            )
-
-        lifecycle = AsyncStepLifecycle(
-            self.step_config, self.step_name, self.events, self.stats
-        )
+        stats = self.stats
+        step_name = self.step_name
+        node = self.step_config
+        unrolled = self.each_mode_deps or []
+        lifecycle = AsyncStepLifecycle(node, step_name, self.events, stats)
 
         try:
             if not unrolled and not inspect.isasyncgenfunction(self.fn):
@@ -175,29 +168,26 @@ class AsyncStepRunner:
                 output = _wrap_started_stream(output, lifecycle.start)
             output = self._attach_cleanup(output, self.arguments)
             await self._emit_immediate_completion(output, unrolled, lifecycle)
-
             res = self.publisher(output)
-            if inspect.iscoroutine(res):
+            if inspect.iscoroutine(res) or (
+                res is not None and inspect.isawaitable(res)
+            ):
                 await res
         except PipelineStopException as exc:
             lifecycle.record_error(1)
             await lifecycle.finish(exception=exc, completed_all_inputs=False)
             raise
         except ThresholdExceededException as exc:
-            if exc.step_name != self.step_name:
-                # Upstream threshold propagating through this consumer:
-                # the producer's generate() already dispatched FAILED.
+            if exc.step_name != step_name:
                 pass
-            elif unrolled and has_threshold(self.step_config):
-                # This step's generate() already dispatched FAILED (path A).
+            elif unrolled and has_threshold(node):
                 pass
             elif not unrolled:
-                # ALL-mode manual raise by this step (path B, escape hatch)
                 completed_all_inputs = compute_completed_all_inputs_for_all(
-                    self.step_config, self.arguments, exc
+                    node, self.arguments, exc
                 )
                 await self.events.handle_error(
-                    self.step_name,
+                    step_name,
                     exc,
                     success_count=exc.success_count,
                     error_count=exc.error_count,
@@ -208,19 +198,15 @@ class AsyncStepRunner:
                     exception=exc, completed_all_inputs=completed_all_inputs
                 )
             else:
-                # EACH mode, no threshold configured (should not reach here
-                # per build-time validation, but handle defensively)
                 lifecycle.set_counts(exc.success_count, exc.error_count)
                 await lifecycle.finish(exception=exc, completed_all_inputs=True)
             raise
         except Exception as exc:
-            await self.events.handle_error(self.step_name, exc)
+            await self.events.handle_error(step_name, exc)
             lifecycle.record_error(1)
             await lifecycle.finish(exception=exc, completed_all_inputs=False)
             if self.on_error == OnError.STOP:
-                raise PipelineStopException(
-                    step_name=self.step_name, cause=exc
-                ) from exc
+                raise PipelineStopException(step_name=step_name, cause=exc) from exc
         finally:
             if "output" not in locals() or not self._is_stream_output(output):
                 await self._close_managed_streams(self.arguments)
@@ -247,16 +233,14 @@ class AsyncStepRunner:
             if isinstance(value, (asyncio.Queue, AsyncQueueBranch)):
                 queues[dep] = value
             else:
-                producer_node = self.dag.get(dep) if self.dag else None
                 # Non-queue inputs are already fully available in memory, so
                 # max_in_flight does not apply here. Size the queue to avoid
                 # deadlocking while preloading eager values for EACH-mode use.
                 if isinstance(value, (list, tuple, set)):
                     q = asyncio.Queue(maxsize=max(1, len(value)) + 1)
                 else:
-                    maxsize = 2
-                    if producer_node is not None:
-                        maxsize = max(2, getattr(producer_node, "max_in_flight", 1) + 1)
+                    upstream_max = self.upstream_max_in_flight.get(dep, 1)
+                    maxsize = max(2, upstream_max + 1)
                     q = asyncio.Queue(maxsize=maxsize)
                 if isinstance(value, (list, tuple, set)):
                     for item in value:

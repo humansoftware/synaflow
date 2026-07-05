@@ -30,8 +30,8 @@ from synaflow.execution.stats import StepRunStats
 from .step_runner import (
     AsyncStepConfig,
     AsyncStepRunner,
-    _wrap_deferred_output,
-    _collect_async_iterator,
+    wrap_deferred_output,
+    collect_async_iterator,
 )
 
 
@@ -237,6 +237,12 @@ class AsyncPipelineExecutor:
 
         stats = StepRunStats()
 
+        upstream_max_in_flight = {}
+        for dep in unrolled:
+            producer_node = self.dag.get(dep)
+            if producer_node is not None:
+                upstream_max_in_flight[dep] = getattr(producer_node, "max_in_flight", 1)
+
         runner = AsyncStepRunner(
             step_name=step_name,
             fn=node.fn,
@@ -257,7 +263,7 @@ class AsyncPipelineExecutor:
             stats=stats,
             each_mode_deps=unrolled,
             step_config=step_config,
-            dag=self.dag,
+            upstream_max_in_flight=upstream_max_in_flight,
         )
         await runner.run()
 
@@ -288,7 +294,7 @@ class AsyncPipelineExecutor:
         if materializer is None:
             if isinstance(value, (AsyncIterator, AsyncGenerator, Iterator, Generator)):
                 node = self.dag[step_name]
-                items, had_error, exc = await _collect_async_iterator(
+                items, had_error, exc = await collect_async_iterator(
                     step_name, value, node.on_error, self.events
                 )
                 return items, had_error, exc
@@ -478,7 +484,7 @@ class AsyncPipelineExecutor:
             if had_error:
                 await self._handle_stream_publish_error(step_name, node, exc)
         elif self._step_output_observers:
-            output, had_error, exc = await _collect_async_iterator(
+            output, had_error, exc = await collect_async_iterator(
                 step_name, output, node.on_error, self.events
             )
         else:
@@ -538,7 +544,7 @@ class AsyncPipelineExecutor:
             return
 
         if deferred:
-            output = _wrap_deferred_output(step_name, output, node, self.events, stats)
+            output = wrap_deferred_output(step_name, output, node, self.events, stats)
 
         if consumers:
             await self._publish_stream_to_queues(

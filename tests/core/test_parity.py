@@ -90,6 +90,10 @@ def test_sync_async_test_parity():
             "test_given_terminal_stream_with_no_observers_bypass_validation",
             "Tests async-only validation bypass for unobserved terminal async streams. Sync engine doesn't have an equivalent bypass because all sync generator outputs are consumed or validated under sync rules.",
         ),
+        (
+            "test_async_step_runner_simple",
+            "Tests asynchronous AsyncStepRunner implementation in isolation.",
+        ),
     ]
 
     # Remove expected differences

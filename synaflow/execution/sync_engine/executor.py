@@ -26,8 +26,8 @@ from synaflow.execution.stats import StepRunStats
 from .step_runner import (
     StepRunner,
     StepConfig,
-    _collect_iterator,
-    _wrap_deferred_output,
+    collect_iterator,
+    wrap_deferred_output,
 )
 
 
@@ -225,7 +225,7 @@ class PipelineExecutor:
             return
 
         if deferred:
-            output = _wrap_deferred_output(step_name, output, node, self.events, stats)
+            output = wrap_deferred_output(step_name, output, node, self.events, stats)
 
         if len(consumers) == 1 and self._step_output_observers:
             self._publish_stream_to_single_consumer(
@@ -283,14 +283,14 @@ class PipelineExecutor:
     ) -> tuple[Any, bool, BaseException | None]:
         if materializer is None:
             if isinstance(value, Iterator):
-                items, had_error, exc = _collect_iterator(
+                items, had_error, exc = collect_iterator(
                     step_name, value, self.dag[step_name].on_error, self.events
                 )
                 return items, had_error, exc
             return value, False, None
 
         if isinstance(value, Iterator):
-            items, had_error, exc = _collect_iterator(
+            items, had_error, exc = collect_iterator(
                 step_name, value, self.dag[step_name].on_error, self.events
             )
             return materializer(items), had_error, exc

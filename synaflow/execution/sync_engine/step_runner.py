@@ -44,7 +44,7 @@ def _wrap_started_stream(
     return LifecycleStream(it, on_start=fire_started)
 
 
-def _collect_iterator(
+def collect_iterator(
     step_name: str,
     value: Iterator[Any],
     on_error_val: OnError,
@@ -74,7 +74,7 @@ def _collect_iterator(
         return items, True, exc
 
 
-def _wrap_deferred_output(
+def wrap_deferred_output(
     step_name: str,
     output: Any,
     node: Any,
