@@ -138,7 +138,7 @@ async def test_given_params_with_defaults_when_run_then_uses_defaults():
     s1.assert_called_once_with(count=5)
 
 
-async def test_given_sync_stream_pipeline_when_run_asynchronously_then_raises():
+async def test_given_incompatible_pipeline_when_run_then_raises():
     from typing import Iterator, NamedTuple
 
     import pytest

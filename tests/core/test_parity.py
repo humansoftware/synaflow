@@ -43,16 +43,8 @@ def test_sync_async_test_parity():
     # Some tests only make sense in their specific contexts
     expected_sync_only = [
         (
-            "test_given_async_pipeline_when_run_synchronously_then_raises",
-            "Verifies sync runner rejects async pipelines. The async runner has no equivalent since it natively executes async pipelines, and instead tests the inverse rejection (sync stream rejection).",
-        ),
-        (
             "test_given_threadpool_start_and_await_when_max_in_flight_5_then_only_five_tasks_start",
             "Tests ThreadPoolExecutor sync concurrency behavior. The async engine concurrency is managed natively by asyncio Tasks/Semaphores, tested under different async-specific names.",
-        ),
-        (
-            "test_given_user_resource_with_close_when_used_as_param_then_executor_does_not_close_it",
-            "Tests sync resource __exit__/close cleanup. Async resources use __aexit__ which are tested in different async-only test cases.",
         ),
         (
             "test_itertools_tee_concurrent_reentry_crash",
@@ -65,10 +57,6 @@ def test_sync_async_test_parity():
     ]
 
     expected_async_only = [
-        (
-            "test_given_sync_stream_pipeline_when_run_asynchronously_then_raises",
-            "Verifies async runner rejects sync stream pipelines. The sync runner has no equivalent since it natively executes sync pipelines, and instead tests the inverse rejection (async pipeline rejection).",
-        ),
         (
             "test_given_async_generator_and_each_consumer_when_run_then_processed_concurrently",
             "Tests concurrent execution of async generator outputs across EACH consumers. Sync engine only executes sequentially since threads/concurrency in sync pipelines doesn't apply to async generators.",
