@@ -5,7 +5,7 @@ from synaflow.execution.async_engine.lifecycle_stream import AsyncLifecycleStrea
 
 
 @pytest.mark.asyncio
-async def test_async_lifecycle_stream() -> None:
+async def test_lifecycle_stream() -> None:
     events: list[str] = []
 
     async def on_start() -> None:
@@ -48,7 +48,7 @@ async def test_async_lifecycle_stream() -> None:
 
 
 @pytest.mark.asyncio
-async def test_async_lifecycle_stream_multiple_calls_after_terminal_state() -> None:
+async def test_lifecycle_stream_multiple_calls_after_terminal_state() -> None:
     events: list[str] = []
 
     async def on_start() -> None:
@@ -138,7 +138,7 @@ async def test_async_lifecycle_stream_on_start_fails_async_callback() -> None:
 
 
 @pytest.mark.asyncio
-async def test_async_lifecycle_stream_on_start_fails_sync_callback() -> None:
+async def test_lifecycle_stream_on_start_fails_sync_callback() -> None:
     events: list[str] = []
 
     def on_start() -> None:
@@ -209,7 +209,7 @@ async def test_async_lifecycle_stream_immediate_error_async() -> None:
 
 
 @pytest.mark.asyncio
-async def test_async_lifecycle_stream_empty_sync() -> None:
+async def test_lifecycle_stream_empty_sync() -> None:
     events: list[str] = []
 
     async def on_start() -> None:
@@ -225,7 +225,7 @@ async def test_async_lifecycle_stream_empty_sync() -> None:
 
 
 @pytest.mark.asyncio
-async def test_async_lifecycle_stream_immediate_error_sync() -> None:
+async def test_lifecycle_stream_immediate_error_sync() -> None:
     events: list[str] = []
 
     async def on_start() -> None:

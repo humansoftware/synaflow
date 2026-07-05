@@ -4,7 +4,7 @@ import pytest
 from synaflow.execution.sync_engine.lifecycle_stream import LifecycleStream
 
 
-def test_sync_lifecycle_stream() -> None:
+def test_lifecycle_stream() -> None:
     events: list[str] = []
 
     def on_start() -> None:
@@ -43,7 +43,7 @@ def test_sync_lifecycle_stream() -> None:
     assert events == ["start", "item:10", "error:1"]
 
 
-def test_sync_lifecycle_stream_multiple_calls_after_terminal_state() -> None:
+def test_lifecycle_stream_multiple_calls_after_terminal_state() -> None:
     events: list[str] = []
 
     def on_start() -> None:
@@ -96,7 +96,7 @@ def test_sync_lifecycle_stream_multiple_calls_after_terminal_state() -> None:
     assert events == ["start", "item:10", "error:1"]
 
 
-def test_sync_lifecycle_stream_on_start_fails() -> None:
+def test_lifecycle_stream_on_start_fails_sync_callback() -> None:
     events: list[str] = []
 
     def on_start() -> None:
@@ -130,7 +130,7 @@ def test_sync_lifecycle_stream_on_start_fails() -> None:
     assert events == ["start_fail", "error:RuntimeError:0"]
 
 
-def test_sync_lifecycle_stream_empty() -> None:
+def test_lifecycle_stream_empty_sync() -> None:
     events: list[str] = []
 
     def on_start() -> None:
@@ -145,7 +145,7 @@ def test_sync_lifecycle_stream_empty() -> None:
     assert events == ["start", "end:0"]
 
 
-def test_sync_lifecycle_stream_immediate_error() -> None:
+def test_lifecycle_stream_immediate_error_sync() -> None:
     events: list[str] = []
 
     def on_start() -> None:

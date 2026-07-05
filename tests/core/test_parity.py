@@ -62,27 +62,6 @@ def test_sync_async_test_parity():
             "test_given_stream_with_no_consumers_but_has_observers_then_stream_is_consumed",
             "Tests sync-specific observer drain for unconsumed sync generator outputs. The async engine handles observers natively during async generator iteration.",
         ),
-        # LifecycleStream tests
-        (
-            "test_sync_lifecycle_stream",
-            "Tests the synchronous LifecycleStream class. The async equivalent tests AsyncLifecycleStream instead.",
-        ),
-        (
-            "test_sync_lifecycle_stream_multiple_calls_after_terminal_state",
-            "Tests sync-only terminal state protection on LifecycleStream. The async engine equivalent tests AsyncLifecycleStream.",
-        ),
-        (
-            "test_sync_lifecycle_stream_on_start_fails",
-            "Tests sync LifecycleStream start hook failure. The async engine equivalent tests separate async-callback and sync-callback failure variants.",
-        ),
-        (
-            "test_sync_lifecycle_stream_empty",
-            "Tests sync LifecycleStream empty stream iteration. The async engine tests empty async/sync iterator variants.",
-        ),
-        (
-            "test_sync_lifecycle_stream_immediate_error",
-            "Tests sync LifecycleStream immediate iterator error propagation. The async engine tests immediate error async/sync iterator variants.",
-        ),
     ]
 
     expected_async_only = [
@@ -119,22 +98,10 @@ def test_sync_async_test_parity():
             "test_given_terminal_stream_with_no_observers_bypass_validation",
             "Tests async-only validation bypass for unobserved terminal async streams. Sync engine doesn't have an equivalent bypass because all sync generator outputs are consumed or validated under sync rules.",
         ),
-        # AsyncLifecycleStream tests
-        (
-            "test_async_lifecycle_stream",
-            "Tests the async AsyncLifecycleStream class. The sync equivalent tests LifecycleStream instead.",
-        ),
-        (
-            "test_async_lifecycle_stream_multiple_calls_after_terminal_state",
-            "Tests async terminal state protection on AsyncLifecycleStream. The sync engine equivalent tests LifecycleStream.",
-        ),
+        # AsyncLifecycleStream tests without sync engine parity
         (
             "test_async_lifecycle_stream_on_start_fails_async_callback",
-            "Tests async start hook failure on AsyncLifecycleStream. Sync engine doesn't support async callbacks.",
-        ),
-        (
-            "test_async_lifecycle_stream_on_start_fails_sync_callback",
-            "Tests sync start hook failure on AsyncLifecycleStream. Sync engine doesn't support async streams.",
+            "Tests async start hook failure on AsyncLifecycleStream. Sync engine callbacks are synchronous, so this cannot be replicated there.",
         ),
         (
             "test_async_lifecycle_stream_empty_async",
@@ -143,14 +110,6 @@ def test_sync_async_test_parity():
         (
             "test_async_lifecycle_stream_immediate_error_async",
             "Tests AsyncLifecycleStream with an immediate async generator error. Sync engine doesn't support async generators.",
-        ),
-        (
-            "test_async_lifecycle_stream_empty_sync",
-            "Tests AsyncLifecycleStream with an empty sync iterator in an async context. Sync engine doesn't consume sync iterators asynchronously.",
-        ),
-        (
-            "test_async_lifecycle_stream_immediate_error_sync",
-            "Tests AsyncLifecycleStream with an immediate sync iterator error in an async context. Sync engine doesn't consume sync iterators asynchronously.",
         ),
     ]
 
