@@ -39,8 +39,6 @@ class AsyncStepConfig:
         self.error_threshold_absolute: int | None = None
         self.error_threshold_pct: float | None = None
         self._dag_node: Any = None
-        self._runtime_error_count: int = 0
-        self._runtime_invocation_count: int = 0
 
 
 def _wrap_started_stream(
@@ -88,24 +86,22 @@ def _wrap_deferred_output(
     output: Any,
     node: Any,
     events: AsyncEventDispatcher,
+    stats: StepRunStats,
 ) -> Any:
     if has_threshold(node):
         return output
 
     async def handle_end(count: int) -> None:
         if node.mode == StepMode.ALL:
-            node._runtime_invocation_count = count
-            node._runtime_error_count = 0
+            stats.set_counts(count, 0)
 
         if has_threshold(node):
             return
-        real_error_count = getattr(node, "_runtime_error_count", 0)
-        real_invocation_count = getattr(node, "_runtime_invocation_count", 0)
         await events.step_completed(
             node,
             step_name,
-            success_count=real_invocation_count - real_error_count,
-            error_count=real_error_count,
+            success_count=stats.success_count,
+            error_count=stats.error_count,
             completed_all_inputs=True,
         )
 
@@ -275,14 +271,8 @@ class AsyncStepRunner:
         async def generate() -> AsyncGenerator[Any, None]:
             invocation_count = 0
             error_count = 0
-            # Reset runtime stats on the node so multiple executor runs
-            # on the same pipeline don't leak counts across runs.
-            if self.step_config._dag_node is not None:
-                self.step_config._dag_node._runtime_error_count = 0
-                self.step_config._dag_node._runtime_invocation_count = 0
-            else:
-                self.step_config._runtime_error_count = 0
-                self.step_config._runtime_invocation_count = 0
+            # Reset runtime stats on the stats object
+            self.stats.set_counts(0, 0)
 
             try:
                 while len(completed) < len(unrolled):
@@ -346,14 +336,7 @@ class AsyncStepRunner:
                         self.step_name, self.step_config, invocation_count, error_count
                     )
             finally:
-                if self.step_config._dag_node is not None:
-                    self.step_config._dag_node._runtime_error_count = error_count
-                    self.step_config._dag_node._runtime_invocation_count = (
-                        invocation_count
-                    )
-                else:
-                    self.step_config._runtime_error_count = error_count
-                    self.step_config._runtime_invocation_count = invocation_count
+                self.stats.set_counts(invocation_count - error_count, error_count)
 
         if self.should_drain:
             async for _ in generate():

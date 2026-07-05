@@ -248,7 +248,7 @@ class AsyncPipelineExecutor:
             is_each_mode=(node.mode == StepMode.EACH),
             should_drain=self.dag.is_terminal_step(step_name),
             publisher=lambda out: (
-                self.publish(step_name, out, node)
+                self.publish(step_name, out, node, stats)
                 if not self.dag.is_hidden_step(step_name)
                 else None
             ),
@@ -363,14 +363,17 @@ class AsyncPipelineExecutor:
         node: Any,
         step_name: str,
         output: Any,
+        stats: StepRunStats,
         had_error: bool,
         exception: BaseException | None = None,
     ) -> None:
         if has_threshold(node):
             return  # already dispatched by generate()
         success = len(output) if hasattr(output, "__len__") else 1
-        real_error_count = getattr(node, "_runtime_error_count", 0)
-        real_invocation_count = getattr(node, "_runtime_invocation_count", success)
+        real_error_count = stats.error_count
+        real_invocation_count = (
+            stats.invocation_count if stats.invocation_count > 0 else success
+        )
         if had_error:
             await self.events.step_failed(
                 node,
@@ -398,6 +401,7 @@ class AsyncPipelineExecutor:
         step_name: str,
         output: Any,
         node: Any,
+        stats: StepRunStats,
         consumers: list[str],
         deferred: bool,
     ) -> None:
@@ -413,7 +417,7 @@ class AsyncPipelineExecutor:
             self.state.set_output(step_name, items, consumer)
         self._notify_observers(step_name, items)
         if deferred:
-            await self._emit_step_result(node, step_name, items, had_error, exc)
+            await self._emit_step_result(node, step_name, items, stats, had_error, exc)
 
     async def _handle_stream_publish_error(
         self, step_name: str, node: Any, exc: Exception
@@ -437,6 +441,7 @@ class AsyncPipelineExecutor:
         step_name: str,
         output: Any,
         node: Any,
+        stats: StepRunStats,
         consumers: list[str],
         deferred: bool,
     ) -> None:
@@ -460,7 +465,12 @@ class AsyncPipelineExecutor:
         self._pump_tasks.append(task)
 
     async def _publish_terminal_stream(
-        self, step_name: str, output: Any, node: Any, deferred: bool
+        self,
+        step_name: str,
+        output: Any,
+        node: Any,
+        stats: StepRunStats,
+        deferred: bool,
     ) -> None:
         if self.dag.needs_materialize(step_name):
             output, had_error, exc = await self._materialize_with_events(
@@ -479,10 +489,15 @@ class AsyncPipelineExecutor:
         if self._step_output_observers:
             self._notify_observers(step_name, output)
         if deferred:
-            await self._emit_step_result(node, step_name, output, had_error, exc)
+            await self._emit_step_result(node, step_name, output, stats, had_error, exc)
 
     async def _publish_scalar_output(
-        self, step_name: str, output: Any, node: Any, deferred: bool
+        self,
+        step_name: str,
+        output: Any,
+        node: Any,
+        stats: StepRunStats,
+        deferred: bool,
     ) -> None:
         if self.dag.needs_materialize(step_name):
             output, had_error, exc = await self._materialize_with_events(
@@ -496,16 +511,18 @@ class AsyncPipelineExecutor:
         self.state.set_output(step_name, output)
         self._notify_observers(step_name, output)
         if deferred:
-            await self._emit_step_result(node, step_name, output, had_error, exc)
+            await self._emit_step_result(node, step_name, output, stats, had_error, exc)
 
-    async def publish(self, step_name: str, output: Any, node: Any) -> None:
+    async def publish(
+        self, step_name: str, output: Any, node: Any, stats: StepRunStats
+    ) -> None:
         """Publish the output of a step."""
         deferred = node.mode == StepMode.EACH or (
             node.mode == StepMode.ALL and self._is_stream_output(output)
         )
 
         if not self._is_stream_output(output):
-            await self._publish_scalar_output(step_name, output, node, deferred)
+            await self._publish_scalar_output(step_name, output, node, stats, deferred)
             return
 
         consumers = self.dag.consumers_of(step_name)
@@ -513,7 +530,7 @@ class AsyncPipelineExecutor:
         if self.dag.needs_materialize(step_name):
             try:
                 await self._publish_eager_materialized_stream(
-                    step_name, output, node, consumers, deferred
+                    step_name, output, node, stats, consumers, deferred
                 )
             except PipelineStopException:
                 raise
@@ -522,15 +539,15 @@ class AsyncPipelineExecutor:
             return
 
         if deferred:
-            output = _wrap_deferred_output(step_name, output, node, self.events)
+            output = _wrap_deferred_output(step_name, output, node, self.events, stats)
 
         if consumers:
             await self._publish_stream_to_queues(
-                step_name, output, node, consumers, deferred
+                step_name, output, node, stats, consumers, deferred
             )
             return
 
-        await self._publish_terminal_stream(step_name, output, node, deferred)
+        await self._publish_terminal_stream(step_name, output, node, stats, deferred)
 
 
 # ---------------------------------------------------------------------------

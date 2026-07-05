@@ -187,7 +187,7 @@ class PipelineExecutor:
             is_each_mode=(node.mode == StepMode.EACH),
             should_drain=self.dag.is_terminal_step(step_name),
             publisher=lambda out: (
-                self.publish(step_name, out, node)
+                self.publish(step_name, out, node, stats)
                 if not self.dag.is_hidden_step(step_name)
                 else None
             ),
@@ -204,30 +204,32 @@ class PipelineExecutor:
     # Dataflow routing & publishing (formerly StreamPublisher)
     # ------------------------------------------------------------------
 
-    def publish(self, step_name: str, output: Any, node: Any) -> None:
+    def publish(
+        self, step_name: str, output: Any, node: Any, stats: StepRunStats
+    ) -> None:
         deferred = node.mode == StepMode.EACH or (
             node.mode == StepMode.ALL and isinstance(output, Iterator)
         )
 
         if not isinstance(output, Iterator):
             output = self._notify_observers(step_name, output)
-            self._publish_scalar_output(step_name, output, node, deferred)
+            self._publish_scalar_output(step_name, output, node, stats, deferred)
             return
 
         consumers = self.dag.consumers_of(step_name)
 
         if self.dag.needs_materialize(step_name):
             self._materialize_stream_output(
-                step_name, output, node, consumers, deferred
+                step_name, output, node, stats, consumers, deferred
             )
             return
 
         if deferred:
-            output = _wrap_deferred_output(step_name, output, node, self.events)
+            output = _wrap_deferred_output(step_name, output, node, self.events, stats)
 
         if len(consumers) == 1 and self._step_output_observers:
             self._publish_stream_to_single_consumer(
-                step_name, output, node, consumers[0], deferred
+                step_name, output, node, stats, consumers[0], deferred
             )
             return
 
@@ -375,6 +377,7 @@ class PipelineExecutor:
         step_name,
         output,
         node,
+        stats,
         consumers,
         deferred,
     ):
@@ -386,7 +389,7 @@ class PipelineExecutor:
         )
         output = self._notify_observers(step_name, output)
         if deferred:
-            self._emit_step_result(node, step_name, output, had_error, exc)
+            self._emit_step_result(node, step_name, output, stats, had_error, exc)
         for consumer in consumers:
             self.state.set_output(step_name, output, consumer)
 
@@ -395,6 +398,7 @@ class PipelineExecutor:
         step_name,
         output,
         node,
+        stats,
         consumer,
         deferred,
     ):
@@ -417,7 +421,7 @@ class PipelineExecutor:
         )
         output = self._notify_observers(step_name, output)
         if deferred:
-            self._emit_step_result(node, step_name, output, had_error, exc)
+            self._emit_step_result(node, step_name, output, stats, had_error, exc)
         output = self._maybe_wrap_stream(output, node)
         self.state.set_output(step_name, output, consumer)
 
@@ -433,7 +437,7 @@ class PipelineExecutor:
         self._start_observer_threads(step_name, fanout, self._observer_branch_names())
         fanout.start()
 
-    def _publish_scalar_output(self, step_name, output, node, deferred):
+    def _publish_scalar_output(self, step_name, output, node, stats, deferred):
         if self.dag.needs_materialize(step_name):
             output, _, _ = self._materialize_with_events(
                 step_name, output, node, consumer_type=node.output
@@ -441,15 +445,19 @@ class PipelineExecutor:
         self.state.set_output(step_name, output)
         if deferred:
             self._emit_step_result(
-                node, step_name, output, had_error=False, exception=None
+                node, step_name, output, stats, had_error=False, exception=None
             )
 
-    def _emit_step_result(self, node, step_name, output, had_error, exception=None):
+    def _emit_step_result(
+        self, node, step_name, output, stats, had_error, exception=None
+    ):
         if has_threshold(node):
             return
         success = len(output) if hasattr(output, "__len__") else 1
-        real_error_count = getattr(node, "_runtime_error_count", 0)
-        real_invocation_count = getattr(node, "_runtime_invocation_count", success)
+        real_error_count = stats.error_count
+        real_invocation_count = (
+            stats.invocation_count if stats.invocation_count > 0 else success
+        )
         if had_error:
             self.events.step_failed(
                 node,
