@@ -1,20 +1,22 @@
+from collections.abc import AsyncGenerator, Generator
+from typing import Any
 import pytest
 from synaflow.execution.lifecycle_stream import LifecycleStream, AsyncLifecycleStream
 
 
-def test_sync_lifecycle_stream():
-    events = []
+def test_sync_lifecycle_stream() -> None:
+    events: list[str] = []
 
-    def on_start():
+    def on_start() -> None:
         events.append("start")
 
-    def on_item(x):
+    def on_item(x: Any) -> None:
         events.append(f"item:{x}")
 
-    def on_end(count):
+    def on_end(count: int) -> None:
         events.append(f"end:{count}")
 
-    def on_error(exc, count):
+    def on_error(exc: BaseException, count: int) -> None:
         events.append(f"error:{count}")
 
     # Test success path
@@ -30,7 +32,7 @@ def test_sync_lifecycle_stream():
     # Test error path
     events.clear()
 
-    def failing_gen():
+    def failing_gen() -> Generator[int, None, None]:
         yield 10
         raise ValueError("Boom")
 
@@ -42,23 +44,23 @@ def test_sync_lifecycle_stream():
 
 
 @pytest.mark.asyncio
-async def test_async_lifecycle_stream():
-    events = []
+async def test_async_lifecycle_stream() -> None:
+    events: list[str] = []
 
-    async def on_start():
+    async def on_start() -> None:
         events.append("start")
 
-    async def on_item(x):
+    async def on_item(x: Any) -> None:
         events.append(f"item:{x}")
 
-    async def on_end(count):
+    async def on_end(count: int) -> None:
         events.append(f"end:{count}")
 
-    async def on_error(exc, count):
+    async def on_error(exc: BaseException, count: int) -> None:
         events.append(f"error:{count}")
 
     # Test success path (async iterator source)
-    async def async_source():
+    async def async_source() -> AsyncGenerator[int, None]:
         yield 1
         yield 2
 
@@ -73,7 +75,7 @@ async def test_async_lifecycle_stream():
     # Test error path (sync iterator source in async wrapper)
     events.clear()
 
-    def failing_gen():
+    def failing_gen() -> Generator[int, None, None]:
         yield 10
         raise ValueError("Boom")
 

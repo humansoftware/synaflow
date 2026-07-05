@@ -8,12 +8,12 @@ class LifecycleStream:
 
     def __init__(
         self,
-        it: Iterator | Generator,
+        it: Iterator[Any] | Generator[Any, Any, Any],
         on_start: Callable[[], None] | None = None,
         on_item: Callable[[Any], None] | None = None,
         on_end: Callable[[int], None] | None = None,
         on_error: Callable[[BaseException, int], None] | None = None,
-    ):
+    ) -> None:
         self._it = it
         self._on_start = on_start
         self._on_item = on_item
@@ -51,12 +51,15 @@ class AsyncLifecycleStream:
 
     def __init__(
         self,
-        it: AsyncIterator | AsyncGenerator | Iterator | Generator,
+        it: AsyncIterator[Any]
+        | AsyncGenerator[Any, Any]
+        | Iterator[Any]
+        | Generator[Any, Any, Any],
         on_start: Callable[[], Any] | None = None,
         on_item: Callable[[Any], Any] | None = None,
         on_end: Callable[[int], Any] | None = None,
         on_error: Callable[[BaseException, int], Any] | None = None,
-    ):
+    ) -> None:
         self._it = it
         self._on_start = on_start
         self._on_item = on_item
