@@ -15,11 +15,11 @@ from synaflow.execution.overrides import ExecutionOverrides
 from synaflow.execution.sync_handoff import SyncQueueIterator
 
 
-class DependencyResolver:
+class ArgumentBuilder:
     """
     Resolves inputs, resources, and materializers for a pipeline step during execution.
 
-    The DependencyResolver bridges the static pipeline definition (DAG) with the runtime
+    The ArgumentBuilder bridges the static pipeline definition (DAG) with the runtime
     execution context. It is responsible for:
     - Seeding initial runtime inputs into the execution context.
     - Resolving and applying step materializers, respecting execution overrides.

@@ -30,7 +30,7 @@ async def _list_to_async_gen(lst):
         yield item
 
 
-class AsyncDependencyResolver:
+class AsyncArgumentBuilder:
     """Resolves dependencies, resource arguments, and materializers for the async engine."""
 
     def __init__(
@@ -41,8 +41,8 @@ class AsyncDependencyResolver:
         resource_factories: dict[str, Any] | None = None,
     ):
         """Initialize the dependency resolver."""
-        self.dag = dag
-        self.outputs = outputs
+        self._dag = dag
+        self._outputs = outputs
         self._overrides = overrides
         self._resource_factories = dict(resource_factories or {})
 
@@ -55,7 +55,7 @@ class AsyncDependencyResolver:
         else:
             param_dict = params._asdict()
         for field, value in param_dict.items():
-            self.outputs[field] = value
+            self._outputs[field] = value
 
     def resolve_materializer(self, step_name: str, node: Any) -> Any:
         """Resolve the materializer for a step."""
@@ -74,7 +74,7 @@ class AsyncDependencyResolver:
             provider = self._resource_factories.get(resource_name)
         if provider is None:
             raise ValueError(
-                f"Pipeline '{self.dag.name}' requires resource '{resource_name}' at runtime."
+                f"Pipeline '{self._dag.name}' requires resource '{resource_name}' at runtime."
             )
 
         value = provider() if callable(provider) else provider
@@ -96,11 +96,11 @@ class AsyncDependencyResolver:
         """Build argument dictionary for a step."""
         args = {}
         for dep_name in node.deps:
-            if dep_name in self.dag.resources:
+            if dep_name in self._dag.resources:
                 value = await self.resolve_resource_argument(dep_name, resource_stack)
             else:
-                key = self.dag.output_key(dep_name, consumer)
-                value = self.outputs.get(key, self.outputs.get(dep_name))
+                key = self._dag.output_key(dep_name, consumer)
+                value = self._outputs.get(key, self._outputs.get(dep_name))
                 if (
                     isinstance(value, (asyncio.Queue, AsyncQueueBranch))
                     and dep_name not in unrolled

@@ -1,8 +1,213 @@
 from typing import NamedTuple
 
+from collections.abc import Iterator, AsyncIterator
+
 import pytest
 
-from synaflow import StepMode, pipeline, step
+from synaflow import StepMode, pipeline, step, Observer, OnError
+
+
+def test_given_sync_step_in_async_pipeline_then_raises():
+
+    class Empty(NamedTuple):
+        pass
+
+    async def p() -> AsyncIterator[int]:
+        yield 1
+
+    def s(p: int) -> int:
+        return p
+
+    with pytest.raises(
+        TypeError,
+        match="step function 's' is synchronous but the pipeline runs asynchronously",
+    ):
+        pipeline(
+            name="test",
+            params=Empty,
+            steps=[
+                step("p", fn=p),
+                step("s", fn=s),
+            ],
+        )
+
+
+def test_given_async_observer_in_sync_pipeline_then_raises():
+
+    class Empty(NamedTuple):
+        pass
+
+    def p() -> Iterator[int]:
+        yield 1
+
+    async def obs_handler(item: int) -> None:
+        pass
+
+    with pytest.raises(
+        TypeError,
+        match="observer handler 'obs_handler' is async but the pipeline runs synchronously",
+    ):
+        pipeline(
+            name="test",
+            params=Empty,
+            steps=[
+                step(
+                    "p",
+                    fn=p,
+                    force_materialize=True,
+                    observers=[Observer(handler=obs_handler)],
+                ),
+            ],
+        )
+
+
+def test_given_sync_observer_in_async_pipeline_then_raises():
+
+    class Empty(NamedTuple):
+        pass
+
+    async def p() -> AsyncIterator[int]:
+        yield 1
+
+    def obs_handler(item: int) -> None:
+        pass
+
+    with pytest.raises(
+        TypeError,
+        match="observer handler 'obs_handler' is synchronous but the pipeline runs asynchronously",
+    ):
+        pipeline(
+            name="test",
+            params=Empty,
+            steps=[
+                step(
+                    "p",
+                    fn=p,
+                    force_materialize=True,
+                    observers=[Observer(handler=obs_handler)],
+                ),
+            ],
+        )
+
+
+def test_given_async_materializer_in_sync_pipeline_then_raises():
+
+    class Empty(NamedTuple):
+        pass
+
+    def p() -> Iterator[int]:
+        yield 1
+
+    def mat_factory(ctx):
+        async def mat_handler(it):
+            pass
+
+        return mat_handler
+
+    with pytest.raises(
+        TypeError,
+        match="materializer 'mat_handler' is async but the pipeline runs synchronously",
+    ):
+        pipeline(
+            name="test",
+            params=Empty,
+            steps=[
+                step("p", fn=p, force_materialize=True, materializer=mat_factory),
+            ],
+        )
+
+
+def test_given_sync_materializer_in_async_pipeline_then_raises():
+
+    class Empty(NamedTuple):
+        pass
+
+    async def p() -> AsyncIterator[int]:
+        yield 1
+
+    def mat_factory(ctx):
+        def mat_handler(it):
+            pass
+
+        return mat_handler
+
+    with pytest.raises(
+        TypeError,
+        match="materializer 'mat_handler' is synchronous but the pipeline runs asynchronously",
+    ):
+        pipeline(
+            name="test",
+            params=Empty,
+            steps=[
+                step("p", fn=p, force_materialize=True, materializer=mat_factory),
+            ],
+        )
+
+
+def test_given_async_error_materializer_in_sync_pipeline_then_raises():
+
+    class Empty(NamedTuple):
+        pass
+
+    def p() -> Iterator[int]:
+        yield 1
+
+    def err_factory(ctx):
+        async def err_handler(it):
+            pass
+
+        return err_handler
+
+    with pytest.raises(
+        TypeError,
+        match="error_materializer 'err_handler' is async but the pipeline runs synchronously",
+    ):
+        pipeline(
+            name="test",
+            params=Empty,
+            steps=[
+                step(
+                    "p",
+                    fn=p,
+                    force_materialize=True,
+                    on_error=OnError.CONTINUE,
+                    error_materializer=err_factory,
+                ),
+            ],
+        )
+
+
+def test_given_sync_error_materializer_in_async_pipeline_then_raises():
+
+    class Empty(NamedTuple):
+        pass
+
+    async def p() -> AsyncIterator[int]:
+        yield 1
+
+    def err_factory(ctx):
+        def err_handler(it):
+            pass
+
+        return err_handler
+
+    with pytest.raises(
+        TypeError,
+        match="error_materializer 'err_handler' is synchronous but the pipeline runs asynchronously",
+    ):
+        pipeline(
+            name="test",
+            params=Empty,
+            steps=[
+                step(
+                    "p",
+                    fn=p,
+                    force_materialize=True,
+                    on_error=OnError.CONTINUE,
+                    error_materializer=err_factory,
+                ),
+            ],
+        )
 
 
 def test_given_duplicate_step_names_when_dag_built_then_raises():
@@ -314,3 +519,49 @@ def test_given_exported_step_returning_iterator_when_in_child_pipeline_then_buil
     )
 
     assert "emit" in child.dag.steps
+
+
+def test_given_non_callable_error_materializer_in_pipeline_then_raises():
+    class Empty(NamedTuple):
+        pass
+
+    def dummy() -> list[int]:
+        return []
+
+    with pytest.raises(
+        TypeError, match="error materializer for step 'dummy' is not callable"
+    ):
+        pipeline(
+            name="test",
+            params=Empty,
+            steps=[step("dummy", fn=dummy, error_materializer="not callable")],
+        )
+
+
+def test_given_non_callable_materializer_in_pipeline_then_raises():
+    class Empty(NamedTuple):
+        pass
+
+    def dummy() -> list[int]:
+        return []
+
+    with pytest.raises(
+        TypeError, match="materializer for step 'dummy' is not callable"
+    ):
+        pipeline(
+            name="test",
+            params=Empty,
+            steps=[step("dummy", fn=dummy, materializer="not callable")],
+        )
+
+
+def test_given_non_callable_step_fn_in_pipeline_then_raises():
+    class Empty(NamedTuple):
+        pass
+
+    with pytest.raises(ValueError, match="must have a callable 'fn'"):
+        pipeline(
+            name="test",
+            params=Empty,
+            steps=[step("dummy", fn="not callable")],
+        )

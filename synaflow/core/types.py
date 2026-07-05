@@ -36,12 +36,14 @@ class MaterializeContext:
     dataset_name: str
     item_type: Any
     consumer_type: Any = None
+    is_async_pipeline: bool = False
 
 
 @dataclass
 class ErrorMaterializeContext:
     pipeline_name: str
     dataset_name: str
+    is_async_pipeline: bool = False
 
 
 @dataclass(frozen=True)

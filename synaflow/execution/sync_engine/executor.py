@@ -22,7 +22,8 @@ from synaflow.execution.threshold import (
     compute_completed_all_inputs_for_all,
     has_threshold,
 )
-from .dependency_resolver import DependencyResolver
+from .argument_builder import ArgumentBuilder
+from .step_lifecycle import StepLifecycle
 
 
 # ---------------------------------------------------------------------------
@@ -61,7 +62,7 @@ class PipelineExecutor:
         self._overrides = overrides
         self._resource_factories = dict(resource_factories or {})
         self.run_id = str(uuid.uuid4())
-        self.scope = DependencyResolver(
+        self.scope = ArgumentBuilder(
             self.dag, self.outputs, self._overrides, self._resource_factories
         )
         self.events = EventDispatcher(self.dag, self.run_id, self._overrides)
@@ -176,26 +177,21 @@ class PipelineExecutor:
         arguments, resource_stack = self.scope.build_arguments(step_name, node)
         unrolled = self.dag.each_inputs(step_name)
 
-        started = False
-
-        def fire_started():
-            nonlocal started
-            if not started:
-                self.events.step_started(node, step_name)
-                started = True
+        lifecycle = StepLifecycle(node, step_name, self.events)
 
         try:
             if not unrolled and not inspect.isgeneratorfunction(node.fn):
-                fire_started()
-            output = self._execute_step(step_name, node, arguments, unrolled)
+                lifecycle.start()
+            output = self._execute_step(step_name, node, arguments, unrolled, lifecycle)
             if isinstance(output, Iterator):
-                output = _wrap_started_stream(output, fire_started)
+                output = _wrap_started_stream(output, lifecycle.start)
             output = self.scope.attach_cleanup(output, arguments)
-            self._emit_immediate_completion(step_name, node, output, unrolled)
+            self._emit_immediate_completion(output, unrolled, lifecycle)
             if not self.dag.is_hidden_step(step_name):
                 self.publisher.publish(step_name, output, node)
         except PipelineStopException as exc:
-            self._dispatch_step_failure(node, step_name, exc.cause or exc)
+            lifecycle.record_error(1)
+            lifecycle.finish(exception=exc, completed_all_inputs=False)
             raise
         except ThresholdExceededException as exc:
             if exc.step_name != step_name:
@@ -217,29 +213,20 @@ class PipelineExecutor:
                     error_count=exc.error_count,
                     completed_all_inputs=completed_all_inputs,
                 )
-                self._dispatch_step_failure(
-                    node,
-                    step_name,
-                    exc,
-                    success_count=exc.success_count,
-                    error_count=exc.error_count,
-                    completed_all_inputs=completed_all_inputs,
+                lifecycle.set_counts(exc.success_count, exc.error_count)
+                lifecycle.finish(
+                    exception=exc, completed_all_inputs=completed_all_inputs
                 )
             else:
                 # EACH mode, no threshold configured (should not reach here
                 # per build-time validation, but handle defensively)
-                self._dispatch_step_failure(
-                    node,
-                    step_name,
-                    exc,
-                    success_count=exc.success_count,
-                    error_count=exc.error_count,
-                    completed_all_inputs=True,
-                )
+                lifecycle.set_counts(exc.success_count, exc.error_count)
+                lifecycle.finish(exception=exc, completed_all_inputs=True)
             raise
         except Exception as exc:
             self.events.handle_error(step_name, exc)
-            self._dispatch_step_failure(node, step_name, exc)
+            lifecycle.record_error(1)
+            lifecycle.finish(exception=exc, completed_all_inputs=False)
             if node.on_error == OnError.STOP:
                 raise PipelineStopException(step_name=step_name, cause=exc) from exc
         finally:
@@ -247,47 +234,21 @@ class PipelineExecutor:
                 self.scope.close_managed_streams(arguments)
             resource_stack.close()
 
-    def _execute_step(self, step_name, node, arguments, unrolled):
+    def _execute_step(self, step_name, node, arguments, unrolled, lifecycle):
         if unrolled:
-            return self._unroll_step(step_name, node, arguments, unrolled)
+            return self._unroll_step(step_name, node, arguments, unrolled, lifecycle)
         return node.fn(**arguments)
 
-    def _emit_immediate_completion(self, step_name, node, output, unrolled):
+    def _emit_immediate_completion(self, output, unrolled, lifecycle: StepLifecycle):
         if unrolled or isinstance(output, Iterator):
             return
         success_count = 1
         if isinstance(output, (list, tuple, set)):
             success_count = len(output)
-        self.events.step_completed(
-            node,
-            step_name,
-            success_count=success_count,
-            error_count=0,
-            completed_all_inputs=True,
-        )
+        lifecycle.record_success(success_count)
+        lifecycle.finish(completed_all_inputs=True)
 
-    def _dispatch_step_failure(
-        self,
-        node,
-        step_name,
-        exception,
-        success_count: int = 0,
-        error_count: int = 1,
-        completed_all_inputs: bool = False,
-    ):
-        cause = exception
-        if isinstance(cause, PipelineStopException):
-            cause = cause.cause or cause
-        self.events.step_failed(
-            node,
-            step_name,
-            success_count=success_count,
-            error_count=error_count,
-            completed_all_inputs=completed_all_inputs,
-            exception=cause,
-        )
-
-    def _unroll_step(self, step_name, node, base_args, unrolled):
+    def _unroll_step(self, step_name, node, base_args, unrolled, lifecycle):
         """Call fn once per item-tuple. Exhausted streams yield None.
         If terminal (sink), consume eagerly without producing output."""
         iterators = {}
@@ -345,23 +306,12 @@ class PipelineExecutor:
                     try:
                         check_threshold(step_name, node, invocation_count, error_count)
                     except ThresholdExceededException as exc:
-                        self._dispatch_step_failure(
-                            node,
-                            step_name,
-                            exc,
-                            success_count=exc.success_count,
-                            error_count=exc.error_count,
-                            completed_all_inputs=True,
-                        )
+                        lifecycle.set_counts(exc.success_count, exc.error_count)
+                        lifecycle.finish(exception=exc, completed_all_inputs=True)
                         raise
                     success_count = invocation_count - error_count
-                    self.events.step_completed(
-                        node,
-                        step_name,
-                        success_count=success_count,
-                        error_count=error_count,
-                        completed_all_inputs=True,
-                    )
+                    lifecycle.set_counts(success_count, error_count)
+                    lifecycle.finish(completed_all_inputs=True)
                 else:
                     check_threshold(step_name, node, invocation_count, error_count)
             finally:

@@ -146,7 +146,7 @@ async def test_given_on_error_continue_when_step_fails_then_error_materializer_i
     handled = []
 
     def error_factory(ctx):
-        def handle(error_ctx):
+        async def handle(error_ctx):
             handled.append(
                 (
                     ctx.dataset_name,
@@ -234,7 +234,7 @@ async def test_given_on_error_stop_when_step_fails_then_error_materializer_is_ca
     handled = []
 
     def error_factory(ctx):
-        def handle(error_ctx):
+        async def handle(error_ctx):
             handled.append(
                 (
                     ctx.dataset_name,
@@ -270,7 +270,7 @@ async def test_given_on_error_continue_when_stream_iteration_fails_then_previous
     handled = []
 
     def error_factory(ctx):
-        def handle(error_ctx):
+        async def handle(error_ctx):
             handled.append((ctx.dataset_name, type(error_ctx.exception).__name__))
 
         return handle
@@ -304,7 +304,7 @@ async def test_given_on_error_stop_when_stream_iteration_fails_then_pipeline_sto
     handled = []
 
     def error_factory(ctx):
-        def handle(error_ctx):
+        async def handle(error_ctx):
             handled.append((ctx.dataset_name, type(error_ctx.exception).__name__))
 
         return handle
@@ -376,29 +376,3 @@ async def test_given_terminal_last_step_with_error_materializer_when_fails_then_
 
     assert state["error_materializer_finished_at"] is not None
     assert state["returned_to_caller_at"] >= state["error_materializer_finished_at"]
-
-
-async def test_given_non_callable_error_materializer_when_step_fails_then_raises_type_error():
-    async def producer() -> list[int]:
-        raise ValueError("Oops")
-
-    class P(NamedTuple):
-        pass
-
-    my_pipeline = pipeline(
-        name="test",
-        params=P,
-        steps=[
-            step(
-                "producer",
-                fn=producer,
-                on_error=OnError.CONTINUE,
-                error_materializer="not a callable string",
-            )
-        ],
-    )
-
-    with pytest.raises(
-        TypeError, match="Error materializer for step 'producer' is not callable"
-    ):
-        await async_run(my_pipeline, params=P())

@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from collections.abc import Iterator, MutableMapping
 from dataclasses import dataclass
 from typing import Any

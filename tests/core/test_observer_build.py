@@ -264,7 +264,7 @@ def test_serialize_pipeline_observers_returns_handler_name_and_pipeline_source()
 
 def test_given_async_handler_in_sync_pipeline_when_build_then_validation_error():
     h = _make_async_handler("async_h")
-    with pytest.raises(ValueError, match="async"):
+    with pytest.raises(TypeError, match="async"):
         pipeline(
             name="p",
             params=Params,
@@ -280,7 +280,7 @@ def test_given_async_partial_handler_in_sync_pipeline_when_build_then_validation
         pass
 
     partial_h = functools.partial(async_h)
-    with pytest.raises(ValueError, match="async"):
+    with pytest.raises(TypeError, match="async"):
         pipeline(
             name="p",
             params=Params,

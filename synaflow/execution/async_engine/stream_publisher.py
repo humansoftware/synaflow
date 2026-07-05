@@ -5,7 +5,6 @@ Publishes stream outputs, applies materialization, and manages fan-out for the a
 """
 
 import asyncio
-import inspect
 from collections.abc import AsyncGenerator, AsyncIterator, Generator, Iterator
 from typing import Any
 
@@ -20,6 +19,7 @@ from synaflow.execution.threshold import has_threshold
 from .constants import EOF_MARKER
 from .iterator_utils import AsyncQueueBranch
 from .event_dispatch import AsyncEventDispatcher
+from .argument_builder import AsyncArgumentBuilder
 
 
 class AsyncStreamPublisher:
@@ -31,7 +31,7 @@ class AsyncStreamPublisher:
         outputs: dict[str, Any],
         events: AsyncEventDispatcher,
         step_output_observers: list,
-        scope: Any,
+        scope: AsyncArgumentBuilder,
     ):
         self.dag = dag
         self.outputs = outputs
@@ -80,7 +80,7 @@ class AsyncStreamPublisher:
                         items.append(item)
                     except StopIteration:
                         break
-        except Exception as exc:
+        except BaseException as exc:
             await self._events.handle_error(
                 step_name,
                 exc,
@@ -108,21 +108,33 @@ class AsyncStreamPublisher:
                 return items, had_error, exc
             return value, False, None
 
-        if inspect.iscoroutinefunction(materializer):
+        # To preserve partial items in case the stream crashes during materialization,
+        # we wrap the stream and record yielded items.
+        history = []
+        if isinstance(value, (AsyncIterator, AsyncGenerator)):
+
+            async def tracking_wrapper(stream):
+                async for item in stream:
+                    history.append(item)
+                    yield item
+
+            value = tracking_wrapper(value)
+        elif isinstance(value, (Iterator, Generator)):
+
+            def sync_tracking_wrapper(stream):
+                for item in stream:
+                    history.append(item)
+                    yield item
+
+            value = sync_tracking_wrapper(value)
+
+        # Materializer is guaranteed to be async by validation.
+        # It natively handles consuming the stream if needed.
+        try:
             result = await materializer(value)
             return result, False, None
-
-        if isinstance(value, (AsyncIterator, AsyncGenerator, Iterator, Generator)):
-            items, had_error, exc = await self._collect_async_iterator(step_name, value)
-            res = materializer(items)
-            if inspect.iscoroutine(res):
-                return await res, had_error, exc
-            return res, had_error, exc
-
-        res = materializer(value)
-        if inspect.iscoroutine(res):
-            return await res, False, None
-        return res, False, None
+        except Exception as e:
+            return history, True, e
 
     async def _pump_iterator(
         self,
@@ -210,12 +222,21 @@ class AsyncStreamPublisher:
                 materializer,
                 consumer_type=consumer_type,
             )
-            await self._events.materialization_completed(
-                step_name,
-                node,
-                consumer_type,
-                mat_name,
-            )
+            if had_error:
+                await self._events.materialization_failed(
+                    step_name,
+                    node,
+                    consumer_type,
+                    mat_name,
+                    exception=exc,
+                )
+            else:
+                await self._events.materialization_completed(
+                    step_name,
+                    node,
+                    consumer_type,
+                    mat_name,
+                )
             return result, had_error, exc
         except PipelineStopException:
             raise
@@ -323,6 +344,8 @@ class AsyncStreamPublisher:
         items, had_error, exc = await self._materialize_with_events(
             step_name, output, node, consumer_type=consumer_type
         )
+        if had_error:
+            await self._handle_stream_publish_error(step_name, node, exc)
         for consumer in consumers:
             self.outputs[self.dag.output_key(step_name, consumer)] = items
         self._notify_observers(step_name, items)
@@ -379,10 +402,13 @@ class AsyncStreamPublisher:
             output, had_error, exc = await self._materialize_with_events(
                 step_name, output, node, consumer_type=node.output
             )
+            if had_error:
+                await self._handle_stream_publish_error(step_name, node, exc)
         elif self._step_output_observers:
             output, had_error, exc = await self._collect_async_iterator(
                 step_name, output
             )
+            # _collect_async_iterator already calls _events.handle_error and raises if STOP
         else:
             self._notify_observers(step_name, output)
             had_error = False
@@ -399,6 +425,8 @@ class AsyncStreamPublisher:
             output, had_error, exc = await self._materialize_with_events(
                 step_name, output, node, consumer_type=node.output
             )
+            if had_error:
+                await self._handle_stream_publish_error(step_name, node, exc)
         else:
             had_error = False
             exc = None
