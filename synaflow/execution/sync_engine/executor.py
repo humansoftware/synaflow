@@ -28,6 +28,7 @@ from synaflow.execution.bounded_iterator import BoundedIterator
 from synaflow.execution.state import ExecutionState
 from synaflow.execution.sync_engine.lifecycle_stream import LifecycleStream
 from .argument_builder import ArgumentBuilder
+from synaflow.execution.stats import StepRunStats
 from .step_lifecycle import StepLifecycle
 
 
@@ -168,7 +169,7 @@ class PipelineExecutor:
         arguments, resource_stack = self.scope.build_arguments(step_name, node)
         unrolled = self.dag.each_inputs(step_name)
 
-        lifecycle = StepLifecycle(node, step_name, self.events)
+        lifecycle = StepLifecycle(node, step_name, self.events, StepRunStats())
 
         try:
             if not unrolled and not inspect.isgeneratorfunction(node.fn):

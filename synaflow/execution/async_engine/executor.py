@@ -30,6 +30,7 @@ from .argument_builder import AsyncArgumentBuilder
 from .constants import EOF_MARKER
 from .event_dispatch import AsyncEventDispatcher
 from .iterator_utils import AsyncQueueBranch, queue_to_async_gen
+from synaflow.execution.stats import StepRunStats
 from .step_lifecycle import AsyncStepLifecycle
 
 
@@ -242,7 +243,7 @@ class AsyncPipelineExecutor:
         arguments = await self.scope.build_arguments(
             step_name, node, unrolled, resource_stack
         )
-        lifecycle = AsyncStepLifecycle(node, step_name, self.events)
+        lifecycle = AsyncStepLifecycle(node, step_name, self.events, StepRunStats())
 
         try:
             if not unrolled and not inspect.isasyncgenfunction(node.fn):
