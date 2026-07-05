@@ -1,9 +1,8 @@
-import inspect
 import threading
 import uuid
 from concurrent.futures import ThreadPoolExecutor
-from collections.abc import Generator, Iterator
-from typing import Any, Callable
+from collections.abc import Iterator
+from typing import Any
 
 from synaflow.core.dag import Dag
 from synaflow.core.definition import PipelineDef
@@ -13,34 +12,28 @@ from synaflow.core.exceptions import (
 )
 from synaflow.execution.sync_engine.event_dispatch import EventDispatcher
 from synaflow.core.types import (
-    OnError,
     StepMode,
 )
 from synaflow.execution.overrides import ExecutionOverrides
 from synaflow.execution.threshold import (
-    check_threshold,
-    wrap_threshold_raise_if_manual,
-    compute_completed_all_inputs_for_all,
     has_threshold,
 )
 from synaflow.execution.sync_handoff import SyncFanout
 from synaflow.execution.bounded_iterator import BoundedIterator
 from synaflow.execution.state import ExecutionState
-from synaflow.execution.sync_engine.lifecycle_stream import LifecycleStream
 from .argument_builder import ArgumentBuilder
-from .step_lifecycle import StepLifecycle
+from synaflow.execution.stats import StepRunStats
+from .step_runner import (
+    StepRunner,
+    StepConfig,
+    collect_iterator,
+    wrap_deferred_output,
+)
 
 
 # ---------------------------------------------------------------------------
 # Runtime helpers (no flags needed on DagNode)
 # ---------------------------------------------------------------------------
-
-
-def _wrap_started_stream(
-    it: Iterator[Any] | Generator[Any, Any, Any],
-    fire_started: Callable[[], None],
-) -> LifecycleStream:
-    return LifecycleStream(it, on_start=fire_started)
 
 
 # ---------------------------------------------------------------------------
@@ -168,181 +161,75 @@ class PipelineExecutor:
         arguments, resource_stack = self.scope.build_arguments(step_name, node)
         unrolled = self.dag.each_inputs(step_name)
 
-        lifecycle = StepLifecycle(node, step_name, self.events)
+        step_config = StepConfig(
+            observers=node.observers,
+            mode=node.mode,
+            on_error=node.on_error,
+            max_in_flight=node.max_in_flight,
+            dataset_param_names=node.dataset_param_names,
+        )
+        step_config.error_threshold_absolute = getattr(
+            node, "error_threshold_absolute", None
+        )
+        step_config.error_threshold_pct = getattr(node, "error_threshold_pct", None)
+        step_config._dag_node = node
 
-        try:
-            if not unrolled and not inspect.isgeneratorfunction(node.fn):
-                lifecycle.start()
-            output = self._execute_step(step_name, node, arguments, unrolled, lifecycle)
-            if isinstance(output, Iterator):
-                output = _wrap_started_stream(output, lifecycle.start)
-            output = self.scope.attach_cleanup(output, arguments)
-            self._emit_immediate_completion(output, unrolled, lifecycle)
-            if not self.dag.is_hidden_step(step_name):
-                self.publish(step_name, output, node)
-        except PipelineStopException as exc:
-            lifecycle.record_error(1)
-            lifecycle.finish(exception=exc, completed_all_inputs=False)
-            raise
-        except ThresholdExceededException as exc:
-            if exc.step_name != step_name:
-                # Upstream threshold propagating through this consumer:
-                # the producer's generate() already dispatched FAILED.
-                pass
-            elif unrolled and has_threshold(node):
-                # This step's generate() already dispatched FAILED (path A).
-                pass
-            elif not unrolled:
-                # ALL-mode manual raise by this step (path B, escape hatch)
-                completed_all_inputs = compute_completed_all_inputs_for_all(
-                    node, arguments, exc
-                )
-                self.events.handle_error(
-                    step_name,
-                    exc,
-                    success_count=exc.success_count,
-                    error_count=exc.error_count,
-                    completed_all_inputs=completed_all_inputs,
-                )
-                lifecycle.set_counts(exc.success_count, exc.error_count)
-                lifecycle.finish(
-                    exception=exc, completed_all_inputs=completed_all_inputs
-                )
-            else:
-                # EACH mode, no threshold configured (should not reach here
-                # per build-time validation, but handle defensively)
-                lifecycle.set_counts(exc.success_count, exc.error_count)
-                lifecycle.finish(exception=exc, completed_all_inputs=True)
-            raise
-        except Exception as exc:
-            self.events.handle_error(step_name, exc)
-            lifecycle.record_error(1)
-            lifecycle.finish(exception=exc, completed_all_inputs=False)
-            if node.on_error == OnError.STOP:
-                raise PipelineStopException(step_name=step_name, cause=exc) from exc
-        finally:
-            if "output" not in locals() or not isinstance(output, Iterator):
-                self.scope.close_managed_streams(arguments)
-            resource_stack.close()
+        stats = StepRunStats()
 
-    def _execute_step(self, step_name, node, arguments, unrolled, lifecycle):
-        if unrolled:
-            return self._unroll_step(step_name, node, arguments, unrolled, lifecycle)
-        return node.fn(**arguments)
+        runner = StepRunner(
+            step_name=step_name,
+            fn=node.fn,
+            on_error=node.on_error,
+            max_in_flight=node.max_in_flight,
+            dataset_param_names=node.dataset_param_names,
+            arguments=arguments,
+            resource_stack=resource_stack,
+            is_each_mode=(node.mode == StepMode.EACH),
+            should_drain=self.dag.is_terminal_step(step_name),
+            publisher=lambda out: (
+                self.publish(step_name, out, node, stats)
+                if not self.dag.is_hidden_step(step_name)
+                else None
+            ),
+            state=self.state,
+            events=self.events,
+            stats=stats,
+            each_mode_deps=unrolled,
+            step_config=step_config,
+        )
 
-    def _emit_immediate_completion(self, output, unrolled, lifecycle: StepLifecycle):
-        if unrolled or isinstance(output, Iterator):
-            return
-        success_count = 1
-        if isinstance(output, (list, tuple, set)):
-            success_count = len(output)
-        lifecycle.record_success(success_count)
-        lifecycle.finish(completed_all_inputs=True)
-
-    def _unroll_step(self, step_name, node, base_args, unrolled, lifecycle):
-        """Call fn once per item-tuple. Exhausted streams yield None.
-        If terminal (sink), consume eagerly without producing output."""
-        iterators = {}
-        for dep in unrolled:
-            source = self.state.get_output(dep, step_name)
-            iterators[dep] = iter(source if source is not None else [])
-
-        on_err = node.on_error
-
-        def generate():
-            invocation_count = 0
-            error_count = 0
-            # Reset runtime stats on the node so multiple executor runs
-            # on the same pipeline don't leak counts across runs.
-            node._runtime_error_count = 0
-            node._runtime_invocation_count = 0
-            try:
-                while True:
-                    item_args = dict(base_args)
-                    exhausted = 0
-                    for dep in unrolled:
-                        try:
-                            value = next(iterators[dep])
-                        except StopIteration:
-                            value = None
-                            exhausted += 1
-                        param = node.dataset_param_names.get(dep, dep)
-                        item_args[param] = value
-                    if exhausted == len(unrolled):
-                        break
-
-                    invocation_count += 1
-                    try:
-                        yield node.fn(**item_args)
-                    except PipelineStopException:
-                        # Propagate STOP from upstream producer so the consumer
-                        # also stops, even without forced materialization.
-                        raise
-                    except Exception as exc:
-                        error_count += 1
-                        self.events.handle_error(
-                            step_name,
-                            wrap_threshold_raise_if_manual(exc, step_name),
-                            success_count=invocation_count - error_count,
-                            error_count=error_count,
-                            completed_all_inputs=False,
-                        )
-                        if on_err == OnError.STOP:
-                            raise PipelineStopException(
-                                step_name=step_name, cause=exc
-                            ) from exc
-                # pos-loop, before generator ends
-                if has_threshold(node):
-                    try:
-                        check_threshold(step_name, node, invocation_count, error_count)
-                    except ThresholdExceededException as exc:
-                        lifecycle.set_counts(exc.success_count, exc.error_count)
-                        lifecycle.finish(exception=exc, completed_all_inputs=True)
-                        raise
-                    success_count = invocation_count - error_count
-                    lifecycle.set_counts(success_count, error_count)
-                    lifecycle.finish(completed_all_inputs=True)
-                else:
-                    check_threshold(step_name, node, invocation_count, error_count)
-            finally:
-                node._runtime_error_count = error_count
-                node._runtime_invocation_count = invocation_count
-                self.scope.close_managed_streams(iterators)
-
-        if self.dag.is_terminal_step(step_name):
-            for _ in generate():
-                pass
-            return None
-        return generate()
+        runner.run()
 
     # ------------------------------------------------------------------
     # Dataflow routing & publishing (formerly StreamPublisher)
     # ------------------------------------------------------------------
 
-    def publish(self, step_name: str, output: Any, node: Any) -> None:
+    def publish(
+        self, step_name: str, output: Any, node: Any, stats: StepRunStats
+    ) -> None:
         deferred = node.mode == StepMode.EACH or (
             node.mode == StepMode.ALL and isinstance(output, Iterator)
         )
 
         if not isinstance(output, Iterator):
             output = self._notify_observers(step_name, output)
-            self._publish_scalar_output(step_name, output, node, deferred)
+            self._publish_scalar_output(step_name, output, node, stats, deferred)
             return
 
         consumers = self.dag.consumers_of(step_name)
 
         if self.dag.needs_materialize(step_name):
             self._materialize_stream_output(
-                step_name, output, node, consumers, deferred
+                step_name, output, node, stats, consumers, deferred
             )
             return
 
         if deferred:
-            output = self._wrap_deferred_output(step_name, output, node)
+            output = wrap_deferred_output(step_name, output, node, self.events, stats)
 
         if len(consumers) == 1 and self._step_output_observers:
             self._publish_stream_to_single_consumer(
-                step_name, output, node, consumers[0], deferred
+                step_name, output, node, stats, consumers[0], deferred
             )
             return
 
@@ -387,34 +274,6 @@ class PipelineExecutor:
             return output
         return BoundedIterator(output, node.max_in_flight)
 
-    def _collect_iterator(
-        self,
-        step_name: str,
-        value: Iterator,
-    ) -> tuple[list[Any], bool, BaseException | None]:
-        items = []
-
-        def handle_error(exc: BaseException, count: int) -> None:
-            self.events.handle_error(
-                step_name,
-                exc,
-                success_count=count,
-                error_count=1,
-                completed_all_inputs=False,
-            )
-            if self.dag[step_name].on_error == OnError.STOP:
-                raise PipelineStopException(step_name=step_name, cause=exc) from exc
-
-        it = LifecycleStream(value, on_item=items.append, on_error=handle_error)
-        try:
-            for _ in it:
-                pass
-            return items, False, None
-        except PipelineStopException:
-            raise
-        except Exception as exc:
-            return items, True, exc
-
     def _apply_materializer(
         self,
         step_name: str,
@@ -424,12 +283,16 @@ class PipelineExecutor:
     ) -> tuple[Any, bool, BaseException | None]:
         if materializer is None:
             if isinstance(value, Iterator):
-                items, had_error, exc = self._collect_iterator(step_name, value)
+                items, had_error, exc = collect_iterator(
+                    step_name, value, self.dag[step_name].on_error, self.events
+                )
                 return items, had_error, exc
             return value, False, None
 
         if isinstance(value, Iterator):
-            items, had_error, exc = self._collect_iterator(step_name, value)
+            items, had_error, exc = collect_iterator(
+                step_name, value, self.dag[step_name].on_error, self.events
+            )
             return materializer(items), had_error, exc
 
         return materializer(value), False, None
@@ -511,12 +374,13 @@ class PipelineExecutor:
 
     def _materialize_stream_output(
         self,
-        step_name,
-        output,
-        node,
-        consumers,
-        deferred,
-    ):
+        step_name: str,
+        output: Any,
+        node: Any,
+        stats: StepRunStats,
+        consumers: list[str],
+        deferred: bool,
+    ) -> None:
         consumer_type = None
         if consumers:
             consumer_type = self.dag[consumers[0]].deps.get(step_name)
@@ -525,18 +389,19 @@ class PipelineExecutor:
         )
         output = self._notify_observers(step_name, output)
         if deferred:
-            self._emit_step_result(node, step_name, output, had_error, exc)
+            self._emit_step_result(node, step_name, output, stats, had_error, exc)
         for consumer in consumers:
             self.state.set_output(step_name, output, consumer)
 
     def _publish_stream_to_single_consumer(
         self,
-        step_name,
-        output,
-        node,
-        consumer,
-        deferred,
-    ):
+        step_name: str,
+        output: Any,
+        node: Any,
+        stats: StepRunStats,
+        consumer: str,
+        deferred: bool,
+    ) -> None:
         consumer_type = self.dag[consumer].deps.get(step_name)
 
         if self._step_output_observers and not self.dag.needs_materialize(step_name):
@@ -556,7 +421,7 @@ class PipelineExecutor:
         )
         output = self._notify_observers(step_name, output)
         if deferred:
-            self._emit_step_result(node, step_name, output, had_error, exc)
+            self._emit_step_result(node, step_name, output, stats, had_error, exc)
         output = self._maybe_wrap_stream(output, node)
         self.state.set_output(step_name, output, consumer)
 
@@ -572,7 +437,14 @@ class PipelineExecutor:
         self._start_observer_threads(step_name, fanout, self._observer_branch_names())
         fanout.start()
 
-    def _publish_scalar_output(self, step_name, output, node, deferred):
+    def _publish_scalar_output(
+        self,
+        step_name: str,
+        output: Any,
+        node: Any,
+        stats: StepRunStats,
+        deferred: bool,
+    ) -> None:
         if self.dag.needs_materialize(step_name):
             output, _, _ = self._materialize_with_events(
                 step_name, output, node, consumer_type=node.output
@@ -580,15 +452,25 @@ class PipelineExecutor:
         self.state.set_output(step_name, output)
         if deferred:
             self._emit_step_result(
-                node, step_name, output, had_error=False, exception=None
+                node, step_name, output, stats, had_error=False, exception=None
             )
 
-    def _emit_step_result(self, node, step_name, output, had_error, exception=None):
+    def _emit_step_result(
+        self,
+        node: Any,
+        step_name: str,
+        output: Any,
+        stats: StepRunStats,
+        had_error: bool,
+        exception: BaseException | None = None,
+    ) -> None:
         if has_threshold(node):
             return
         success = len(output) if hasattr(output, "__len__") else 1
-        real_error_count = getattr(node, "_runtime_error_count", 0)
-        real_invocation_count = getattr(node, "_runtime_invocation_count", success)
+        real_error_count = stats.error_count
+        real_invocation_count = (
+            stats.invocation_count if stats.invocation_count > 0 else success
+        )
         if had_error:
             self.events.step_failed(
                 node,
@@ -606,31 +488,6 @@ class PipelineExecutor:
                 error_count=real_error_count,
                 completed_all_inputs=True,
             )
-
-    def _emit_deferred_completion(self, node, step_name):
-        if has_threshold(node):
-            return
-        real_error_count = getattr(node, "_runtime_error_count", 0)
-        real_invocation_count = getattr(node, "_runtime_invocation_count", 0)
-        self.events.step_completed(
-            node,
-            step_name,
-            success_count=real_invocation_count - real_error_count,
-            error_count=real_error_count,
-            completed_all_inputs=True,
-        )
-
-    def _wrap_deferred_output(self, step_name: str, output: Any, node: Any) -> Any:
-        if has_threshold(node):
-            return output
-
-        def handle_end(count: int) -> None:
-            if node.mode == StepMode.ALL:
-                node._runtime_invocation_count = count
-                node._runtime_error_count = 0
-            self._emit_deferred_completion(node, step_name)
-
-        return LifecycleStream(output, on_end=handle_end)
 
 
 # ---------------------------------------------------------------------------

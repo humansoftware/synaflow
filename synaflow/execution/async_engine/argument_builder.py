@@ -106,29 +106,3 @@ class AsyncArgumentBuilder:
             param = node.dataset_param_names.get(dep_name, dep_name)
             args[param] = value
         return args
-
-    def attach_cleanup(self, output: Any, arguments: dict[str, Any]) -> Any:
-        """Attach argument cleanup to a generator output."""
-        if not isinstance(output, (AsyncIterator, AsyncGenerator)):
-            return output
-
-        async def wrapped():
-            try:
-                async for item in output:
-                    yield item
-            finally:
-                await self.close_stream_arguments(arguments)
-
-        return wrapped()
-
-    async def close_stream_arguments(self, arguments: dict[str, Any]) -> None:
-        """Close input queues and generators after execution."""
-        for value in arguments.values():
-            if isinstance(value, AsyncQueueBranch):
-                value.close()
-                continue
-            if inspect.isasyncgen(value):
-                try:
-                    await value.aclose()
-                except Exception:
-                    pass

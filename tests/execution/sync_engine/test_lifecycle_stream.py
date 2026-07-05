@@ -163,3 +163,61 @@ def test_lifecycle_stream_immediate_error() -> None:
     with pytest.raises(ValueError, match="immediate boom"):
         next(stream)
     assert events == ["start", "error:ValueError:0"]
+
+
+def test_step_run_stats() -> None:
+    from synaflow.execution.stats import StepRunStats
+
+    stats = StepRunStats()
+    assert stats.success_count == 0
+    assert stats.error_count == 0
+    assert stats.invocation_count == 0
+    stats.record_success(2)
+    assert stats.success_count == 2
+    assert stats.invocation_count == 2
+    stats.record_error(1)
+    assert stats.error_count == 1
+    assert stats.invocation_count == 3
+
+
+def test_step_runner_simple() -> None:
+    from contextlib import ExitStack
+    from unittest.mock import MagicMock
+    from synaflow.execution.sync_engine.step_runner import StepRunner
+    from synaflow.execution.stats import StepRunStats
+    from synaflow.core.types import OnError
+
+    stats = StepRunStats()
+    ran = []
+
+    def fn(x: int) -> int:
+        ran.append(x)
+        return x * 2
+
+    # Simple test stub of StepRunner
+    # Verify that calling runner.run() executes the function and calls publisher
+    outputs = []
+    mock_events = MagicMock()
+    runner = StepRunner(
+        step_name="s1",
+        fn=fn,
+        on_error=OnError.STOP,
+        max_in_flight=1,
+        dataset_param_names={},
+        arguments={"x": 5},
+        resource_stack=ExitStack(),
+        is_each_mode=False,
+        should_drain=False,
+        publisher=outputs.append,
+        state=None,  # mocked or stubbed
+        events=mock_events,  # mocked or stubbed
+        stats=stats,
+    )
+    runner.run()
+
+    assert runner.step_name == "s1"
+    assert runner.fn == fn
+    assert ran == [5]
+    assert outputs == [10]
+    assert mock_events.step_started.called
+    assert mock_events.step_completed.called
