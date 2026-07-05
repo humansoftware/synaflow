@@ -105,7 +105,7 @@ class AsyncLifecycleStream:
             self._count += 1
             if self._on_item:
                 res = self._on_item(val)
-                if inspect.isawaitable(res):
+                if res is not None and inspect.isawaitable(res):
                     await res
             return val
         except (StopAsyncIteration, StopIteration):

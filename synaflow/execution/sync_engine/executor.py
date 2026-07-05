@@ -2,8 +2,8 @@ import inspect
 import threading
 import uuid
 from concurrent.futures import ThreadPoolExecutor
-from collections.abc import Iterator
-from typing import Any
+from collections.abc import Generator, Iterator
+from typing import Any, Callable
 
 from synaflow.core.dag import Dag
 from synaflow.core.definition import PipelineDef
@@ -36,7 +36,10 @@ from .step_lifecycle import StepLifecycle
 # ---------------------------------------------------------------------------
 
 
-def _wrap_started_stream(it: Any, fire_started: Any) -> Any:
+def _wrap_started_stream(
+    it: Iterator[Any] | Generator[Any, Any, Any],
+    fire_started: Callable[[], None],
+) -> LifecycleStream:
     return LifecycleStream(it, on_start=fire_started)
 
 
