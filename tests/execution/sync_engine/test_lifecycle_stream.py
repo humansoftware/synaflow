@@ -96,7 +96,7 @@ def test_lifecycle_stream_multiple_calls_after_terminal_state() -> None:
     assert events == ["start", "item:10", "error:1"]
 
 
-def test_lifecycle_stream_on_start_fails_sync_callback() -> None:
+def test_lifecycle_stream_on_start_fails() -> None:
     events: list[str] = []
 
     def on_start() -> None:
@@ -130,7 +130,7 @@ def test_lifecycle_stream_on_start_fails_sync_callback() -> None:
     assert events == ["start_fail", "error:RuntimeError:0"]
 
 
-def test_lifecycle_stream_empty_sync() -> None:
+def test_lifecycle_stream_empty() -> None:
     events: list[str] = []
 
     def on_start() -> None:
@@ -145,7 +145,7 @@ def test_lifecycle_stream_empty_sync() -> None:
     assert events == ["start", "end:0"]
 
 
-def test_lifecycle_stream_immediate_error_sync() -> None:
+def test_lifecycle_stream_immediate_error() -> None:
     events: list[str] = []
 
     def on_start() -> None:

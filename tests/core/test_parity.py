@@ -98,19 +98,6 @@ def test_sync_async_test_parity():
             "test_given_terminal_stream_with_no_observers_bypass_validation",
             "Tests async-only validation bypass for unobserved terminal async streams. Sync engine doesn't have an equivalent bypass because all sync generator outputs are consumed or validated under sync rules.",
         ),
-        # AsyncLifecycleStream tests without sync engine parity
-        (
-            "test_lifecycle_stream_on_start_fails_async_callback",
-            "Tests async start hook failure on AsyncLifecycleStream. Sync engine callbacks are synchronous, so this cannot be replicated there.",
-        ),
-        (
-            "test_lifecycle_stream_empty_async",
-            "Tests AsyncLifecycleStream with an empty async generator. Sync engine doesn't support async generators.",
-        ),
-        (
-            "test_lifecycle_stream_immediate_error_async",
-            "Tests AsyncLifecycleStream with an immediate async generator error. Sync engine doesn't support async generators.",
-        ),
     ]
 
     # Remove expected differences
