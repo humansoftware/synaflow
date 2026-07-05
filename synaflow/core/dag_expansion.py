@@ -238,7 +238,12 @@ def _build_wrapper_signature(
     sub_pipeline_params_class: Any,
 ) -> inspect.Signature:
     parameters = []
+    seen: set[str] = set()
     for param_name, param in signature.parameters.items():
+        mapped_name = argument_mapping[param_name]
+        if mapped_name in seen:
+            continue
+        seen.add(mapped_name)
         annotation = (
             sub_pipeline_params_class
             if param_name in sub_pipeline_param_fields
@@ -246,7 +251,7 @@ def _build_wrapper_signature(
         )
         parameters.append(
             inspect.Parameter(
-                argument_mapping[param_name],
+                mapped_name,
                 inspect.Parameter.KEYWORD_ONLY,
                 annotation=annotation,
             )

@@ -347,3 +347,33 @@ def test_adapter_step_serializes_default_max_in_flight():
 
     d = parent.to_dict()
     assert d["steps"]["child__adapter"]["max_in_flight"] == 1
+
+
+def test_include_with_multiple_params_fields():
+    class SubParams(NamedTuple):
+        x: str = ""
+        y: str = ""
+
+    def adapter() -> SubParams:
+        return SubParams(x="a", y="b")
+
+    sub_pipeline = pipeline(
+        name="sub",
+        params=SubParams,
+        exports="done",
+        steps=[
+            step("done", fn=lambda x, y: (x, y)),
+        ],
+    )
+
+    parent = pipeline(
+        "broken",
+        params=SubParams,
+        exports="sub",
+        steps=[
+            include("sub", fn=adapter, pipeline=sub_pipeline),
+        ],
+    )
+
+    assert "sub__adapter" in parent.dag
+    assert "sub" in parent.dag
