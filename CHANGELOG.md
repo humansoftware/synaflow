@@ -2,6 +2,168 @@
 
 
 
+## v0.25.4 (2026-07-05)
+
+### Fix
+
+* fix: resolve duplicate parameter name crash during sub-pipeline expansion (#91) ([`2815a68`](https://github.com/humansoftware/synaflow/commit/2815a684f5946166331e364fe9c9168670417f90))
+
+### Refactor
+
+* refactor: extract StepRunner / AsyncStepRunner and introduce StepRunStats to decouple executors (#89)
+
+* feat: introduce StepRunStats and refactor StepLifecycle
+
+* refactor: implement StepRunner and delegate sync step execution
+
+* refactor: apply reviewer feedback for sync engine StepRunner and executor cleanup
+
+* refactor: define runtime execution counts in StepConfig and improve type annotations
+
+* refactor: implement AsyncStepRunner and delegate async step execution
+
+* cleanup: remove runtime metrics mutation from DagNode definition classes
+
+* refactor: add type annotations to sync executor and remove unused stats parameter from async executor
+
+* refactor: apply final code review improvements and clean up DAG topology leak
+
+* test: rename test_async_step_runner_simple and align test parity configuration ([`43e5558`](https://github.com/humansoftware/synaflow/commit/43e555867debee15cd217575ee57e23507cd8527))
+
+* refactor: extract stream lifecycle wrappers and simplify executors (#88)
+
+* feat: add LifecycleStream and AsyncLifecycleStream wrappers
+
+* fix: resolve type annotations issues in lifecycle_stream and its tests
+
+* fix: prevent multiple callback triggers in LifecycleStream and AsyncLifecycleStream after terminal state
+
+* fix: execute startup callbacks inside try-except blocks and simplify type checks
+
+* refactor: simplify sync engine executor using LifecycleStream
+
+* refactor: simplify async engine executor using AsyncLifecycleStream
+
+* chore: fully type wrap_started_stream and optimize isawaitable in AsyncLifecycleStream
+
+* refactor: split lifecycle streams and tests into sync/async modules
+
+* test: convert expected sync/async only sets to lists of tuples with explanations in test_parity.py
+
+* test: clarify explicit reasons in test parity exclusion list
+
+* test: align lifecycle stream test names to achieve parity and remove them from exclusion lists
+
+* test: remove async prefix from remaining tests in expected_async_only and tests
+
+* test: merge sync/async lifecycle stream test cases to eliminate parity list exclusions
+
+* test: align runner compatibility and resource closing tests for 100% parity ([`d5c71a3`](https://github.com/humansoftware/synaflow/commit/d5c71a39dfdf2512cb5e0ec56b4765969aeabbdb))
+
+* refactor: reunify executor and stream publisher, extract state management to ExecutionState (#87) ([`3dda1d8`](https://github.com/humansoftware/synaflow/commit/3dda1d8cd55e98a5a0d0967c8a37bb33072aebbc))
+
+* refactor(async): decompose AsyncPipelineExecutor into SOLID components (#85)
+
+* refactor: promote threshold.py to shared execution module
+
+* refactor(async): extract AsyncEventDispatcher
+
+* Fix issues from review: typed events parameter and removed refactor scripts
+
+* refactor(async): extract AsyncDependencyResolver
+
+* refactor(async): extract AsyncStreamPublisher
+
+* chore: resolve final review findings ([`8326669`](https://github.com/humansoftware/synaflow/commit/8326669e6093a0e89b85cd7159ff1acac01f142d))
+
+* refactor(sync): decompose PipelineExecutor into SOLID components (#84)
+
+* refactor(sync): extract threshold logic to pure functions
+
+* refactor(sync): extract EventDispatcher class
+
+* refactor(sync): extract StepScope class for arg/resource lifecycle
+
+* refactor(sync): extract StreamPublisher for fanout lifecycle
+
+* fix(sync_engine): decouple executor and stream_publisher, fix circular import
+
+* Refactor StreamPublisher to own event emission natively
+
+* refactor: redistribute utils.py to rightful owners
+
+* chore: remove test scripts and plan, ignore superpowers dir
+
+* Refactor StepScope to DependencyResolver and add docstrings ([`20f4112`](https://github.com/humansoftware/synaflow/commit/20f411210aabef9e7b090a166f1c5f73035a6058))
+
+### Unknown
+
+* Executor architecture refinement (#86)
+
+* docs: add design spec for executor architecture refinement
+
+* docs: remove StreamPublisher and Error Flow from spec
+
+* docs: add implementation plan for executor architecture refinement
+
+* refactor: rename DependencyResolver to ArgumentBuilder
+
+* Fix imports of AsyncArgumentBuilder in StreamPublisher
+
+* feat: introduce StepLifecycle to encapsulate state tracking
+
+* Fix executor issues from code review
+
+* Fix executor issues from code review
+
+* feat: enforce strict async boundaries
+
+* Fix observer runtime, dag validation, and async adapter
+
+* fix: add dag validation and remove scratch scripts
+
+* fix: remove dynamic async_adapter and add active dag validation
+
+* fix: remove magic strings and fix async_adapter wrapping
+
+* fix: remove magic strings, strictly validate async boundaries, and safely adapt default error materializers
+
+* chore: remove docs/superpowers and update gitignore
+
+* docs: add design spec for context-aware factory async materializers
+
+* docs: add implementation plan for factory async materializers
+
+* refactor: add is_async_pipeline to contexts and remove legacy DagNode flags
+
+* feat: make materializer factories context-aware and reorder dag compilation
+
+* Fix type hints and remove unused variables
+
+* Fix integration test failures from removing materializer backdoors
+
+- Updated DAG expected snapshots in corpus.py since memory_materializer_factory now defaults to async_collection for async pipelines.
+- Marked two tests as xfail which rely on the deprecated behavior where exceptions in stream iterations preserve items (async materializers consume the whole stream and drop partial results).
+
+* Fix Task 3 issues: Revert unauthorized changes to tests, dag_builder, dag_steps, and definition
+
+* refactor: simplify async StreamPublisher by relying on strict async materializers
+
+* fix: resolve StreamPublisher tests and redundant materializer validation
+
+* fix: implement stream tracking wrapper to preserve partial items in async materializers
+
+* fix: clean up syntax error in test file
+
+* test: rename test_dag_steps.py to test_validate_sync_async_consistency.py
+
+* test: move imports to top of file
+
+* fix: relax dag validation for non-callables so runtime checks handle them as before
+
+* fix: enforce callable checks during dag validation and remove runtime fallback tests ([`5b6a623`](https://github.com/humansoftware/synaflow/commit/5b6a6230585f5250e265c8ab1bb0c2270aa62de8))
+
+
 ## v0.25.3 (2026-07-03)
 
 ### Fix
