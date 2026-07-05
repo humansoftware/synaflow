@@ -101,7 +101,11 @@ def _validate_no_async_handlers(pipeline_def: PipelineDef) -> None:
 
     for obs in all_observers:
         handler = obs.handler
-        if is_async_callable(handler):
+        if not callable(handler):
+            raise TypeError(
+                f"Pipeline '{pipeline_def.name}': observer handler is not callable."
+            )
+        elif is_async_callable(handler):
             handler_name = getattr(handler, "__name__", str(handler))
             func = getattr(handler, "func", None)
             if func is not None:
@@ -112,34 +116,49 @@ def _validate_no_async_handlers(pipeline_def: PipelineDef) -> None:
                 f"synchronously. Use sync handlers or switch to async_run()."
             )
 
-    for node in pipeline_def.dag.steps.values():
-        if node.materializer is not None and is_async_callable(node.materializer):
-            mat_name = getattr(node.materializer, "__name__", str(node.materializer))
-            raise TypeError(
-                f"Pipeline '{pipeline_def.name}': materializer "
-                f"'{mat_name}' is async but the pipeline runs "
-                f"synchronously."
-            )
+    for step_name, node in pipeline_def.dag.steps.items():
+        if node.materializer is not None:
+            if not callable(node.materializer):
+                raise TypeError(
+                    f"Pipeline '{pipeline_def.name}': materializer for step '{step_name}' is not callable."
+                )
+            elif is_async_callable(node.materializer):
+                mat_name = getattr(
+                    node.materializer, "__name__", str(node.materializer)
+                )
+                raise TypeError(
+                    f"Pipeline '{pipeline_def.name}': materializer "
+                    f"'{mat_name}' is async but the pipeline runs "
+                    f"synchronously."
+                )
 
-        if node.error_materializer is not None and is_async_callable(
-            node.error_materializer
-        ):
-            mat_name = getattr(
-                node.error_materializer, "__name__", str(node.error_materializer)
-            )
-            raise TypeError(
-                f"Pipeline '{pipeline_def.name}': error_materializer "
-                f"'{mat_name}' is async but the pipeline runs "
-                f"synchronously."
-            )
+        if node.error_materializer is not None:
+            if not callable(node.error_materializer):
+                raise TypeError(
+                    f"Pipeline '{pipeline_def.name}': error materializer for step '{step_name}' is not callable."
+                )
+            elif is_async_callable(node.error_materializer):
+                mat_name = getattr(
+                    node.error_materializer, "__name__", str(node.error_materializer)
+                )
+                raise TypeError(
+                    f"Pipeline '{pipeline_def.name}': error_materializer "
+                    f"'{mat_name}' is async but the pipeline runs "
+                    f"synchronously."
+                )
 
-        if node.fn is not None and is_async_callable(node.fn):
-            fn_name = getattr(node.fn, "__name__", str(node.fn))
-            raise TypeError(
-                f"Pipeline '{pipeline_def.name}': step function "
-                f"'{fn_name}' is async but the pipeline runs "
-                f"synchronously."
-            )
+        if node.fn is not None:
+            if not callable(node.fn):
+                raise TypeError(
+                    f"Pipeline '{pipeline_def.name}': step function for step '{step_name}' is not callable."
+                )
+            elif is_async_callable(node.fn):
+                fn_name = getattr(node.fn, "__name__", str(node.fn))
+                raise TypeError(
+                    f"Pipeline '{pipeline_def.name}': step function "
+                    f"'{fn_name}' is async but the pipeline runs "
+                    f"synchronously."
+                )
 
 
 def _validate_no_sync_handlers(pipeline_def: PipelineDef) -> None:
@@ -149,7 +168,11 @@ def _validate_no_sync_handlers(pipeline_def: PipelineDef) -> None:
 
     for obs in all_observers:
         handler = obs.handler
-        if callable(handler) and not is_async_callable(handler):
+        if not callable(handler):
+            raise TypeError(
+                f"Pipeline '{pipeline_def.name}': observer handler is not callable."
+            )
+        elif not is_async_callable(handler):
             handler_name = getattr(handler, "__name__", str(handler))
             func = getattr(handler, "func", None)
             if func is not None:
@@ -160,31 +183,46 @@ def _validate_no_sync_handlers(pipeline_def: PipelineDef) -> None:
                 f"asynchronously. Use async handlers for async pipelines."
             )
 
-    for node in pipeline_def.dag.steps.values():
-        if callable(node.materializer) and not is_async_callable(node.materializer):
-            mat_name = getattr(node.materializer, "__name__", str(node.materializer))
-            raise TypeError(
-                f"Pipeline '{pipeline_def.name}': materializer "
-                f"'{mat_name}' is synchronous but the pipeline runs "
-                f"asynchronously."
-            )
+    for step_name, node in pipeline_def.dag.steps.items():
+        if node.materializer is not None:
+            if not callable(node.materializer):
+                raise TypeError(
+                    f"Pipeline '{pipeline_def.name}': materializer for step '{step_name}' is not callable."
+                )
+            elif not is_async_callable(node.materializer):
+                mat_name = getattr(
+                    node.materializer, "__name__", str(node.materializer)
+                )
+                raise TypeError(
+                    f"Pipeline '{pipeline_def.name}': materializer "
+                    f"'{mat_name}' is synchronous but the pipeline runs "
+                    f"asynchronously."
+                )
 
-        if callable(node.error_materializer) and not is_async_callable(
-            node.error_materializer
-        ):
-            mat_name = getattr(
-                node.error_materializer, "__name__", str(node.error_materializer)
-            )
-            raise TypeError(
-                f"Pipeline '{pipeline_def.name}': error_materializer "
-                f"'{mat_name}' is synchronous but the pipeline runs "
-                f"asynchronously."
-            )
+        if node.error_materializer is not None:
+            if not callable(node.error_materializer):
+                raise TypeError(
+                    f"Pipeline '{pipeline_def.name}': error materializer for step '{step_name}' is not callable."
+                )
+            elif not is_async_callable(node.error_materializer):
+                mat_name = getattr(
+                    node.error_materializer, "__name__", str(node.error_materializer)
+                )
+                raise TypeError(
+                    f"Pipeline '{pipeline_def.name}': error_materializer "
+                    f"'{mat_name}' is synchronous but the pipeline runs "
+                    f"asynchronously."
+                )
 
-        if callable(node.fn) and not is_async_callable(node.fn):
-            fn_name = getattr(node.fn, "__name__", str(node.fn))
-            raise TypeError(
-                f"Pipeline '{pipeline_def.name}': step function "
-                f"'{fn_name}' is synchronous but the pipeline runs "
-                f"asynchronously. Use async handlers for async pipelines."
-            )
+        if node.fn is not None:
+            if not callable(node.fn):
+                raise TypeError(
+                    f"Pipeline '{pipeline_def.name}': step function for step '{step_name}' is not callable."
+                )
+            elif not is_async_callable(node.fn):
+                fn_name = getattr(node.fn, "__name__", str(node.fn))
+                raise TypeError(
+                    f"Pipeline '{pipeline_def.name}': step function "
+                    f"'{fn_name}' is synchronous but the pipeline runs "
+                    f"asynchronously. Use async handlers for async pipelines."
+                )

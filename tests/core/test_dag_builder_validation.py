@@ -519,3 +519,49 @@ def test_given_exported_step_returning_iterator_when_in_child_pipeline_then_buil
     )
 
     assert "emit" in child.dag.steps
+
+
+def test_given_non_callable_error_materializer_in_pipeline_then_raises():
+    class Empty(NamedTuple):
+        pass
+
+    def dummy() -> list[int]:
+        return []
+
+    with pytest.raises(
+        TypeError, match="error materializer for step 'dummy' is not callable"
+    ):
+        pipeline(
+            name="test",
+            params=Empty,
+            steps=[step("dummy", fn=dummy, error_materializer="not callable")],
+        )
+
+
+def test_given_non_callable_materializer_in_pipeline_then_raises():
+    class Empty(NamedTuple):
+        pass
+
+    def dummy() -> list[int]:
+        return []
+
+    with pytest.raises(
+        TypeError, match="materializer for step 'dummy' is not callable"
+    ):
+        pipeline(
+            name="test",
+            params=Empty,
+            steps=[step("dummy", fn=dummy, materializer="not callable")],
+        )
+
+
+def test_given_non_callable_step_fn_in_pipeline_then_raises():
+    class Empty(NamedTuple):
+        pass
+
+    with pytest.raises(ValueError, match="must have a callable 'fn'"):
+        pipeline(
+            name="test",
+            params=Empty,
+            steps=[step("dummy", fn="not callable")],
+        )

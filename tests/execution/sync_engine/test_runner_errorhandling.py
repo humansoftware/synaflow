@@ -384,31 +384,3 @@ def test_given_terminal_last_step_with_error_materializer_when_fails_then_execut
 
     assert state["error_materializer_finished_at"] is not None
     assert state["returned_to_caller_at"] >= state["error_materializer_finished_at"]
-
-
-def test_given_non_callable_error_materializer_when_step_fails_then_raises_type_error(
-    run_pipeline,
-):
-    def producer() -> list[int]:
-        raise ValueError("Oops")
-
-    class P(NamedTuple):
-        pass
-
-    my_pipeline = pipeline(
-        name="test",
-        params=P,
-        steps=[
-            step(
-                "producer",
-                fn=producer,
-                on_error=OnError.CONTINUE,
-                error_materializer="not a callable string",
-            )
-        ],
-    )
-
-    with pytest.raises(
-        TypeError, match="Error materializer for step 'producer' is not callable"
-    ):
-        run_pipeline(my_pipeline, params=P())
