@@ -30,7 +30,10 @@ async def step4(step1: AsyncIterator[int]) -> AsyncGenerator[int, None, None]:
 
 
 async def step5(step3: AsyncIterator[int], step4: AsyncIterator[int]) -> None:
-    pass
+    async for _item in step3:
+        pass
+    async for _item in step4:
+        pass
 
 
 # Topology:

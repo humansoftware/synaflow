@@ -22,7 +22,8 @@ def square_numbers(fibonacci_generator: Iterator[int]) -> Generator[int, None, N
 
 
 def consumer(square_numbers: Iterator[int]) -> None:
-    pass
+    for _item in square_numbers:
+        pass
 
 
 pipeline_def = pipeline(

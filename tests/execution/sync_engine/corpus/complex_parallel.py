@@ -30,7 +30,10 @@ def step4(step1: Iterator[int]) -> Generator[int, None, None]:
 
 
 def step5(step3: Iterator[int], step4: Iterator[int]) -> None:
-    pass
+    for _item in step3:
+        pass
+    for _item in step4:
+        pass
 
 
 # Topology:

@@ -24,7 +24,8 @@ async def square_numbers(
 
 
 async def consumer(square_numbers: AsyncIterator[int]) -> None:
-    pass
+    async for _item in square_numbers:
+        pass
 
 
 pipeline_def = pipeline(

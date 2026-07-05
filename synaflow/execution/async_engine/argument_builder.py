@@ -17,6 +17,14 @@ from synaflow.execution.state import ExecutionState
 from .iterator_utils import AsyncQueueBranch, queue_to_async_gen
 
 
+def _has_real_special_method(value: Any, method_name: str) -> bool:
+    try:
+        method = inspect.getattr_static(value, method_name)
+    except AttributeError:
+        return False
+    return callable(method)
+
+
 async def _resolve_queue(
     queue: asyncio.Queue,
 ) -> Any:
@@ -73,9 +81,13 @@ class AsyncArgumentBuilder:
         value = provider() if callable(provider) else provider
         if inspect.isawaitable(value):
             value = await value
-        if hasattr(value, "__aenter__") and hasattr(value, "__aexit__"):
+        if _has_real_special_method(value, "__aenter__") and _has_real_special_method(
+            value, "__aexit__"
+        ):
             return await resource_stack.enter_async_context(value)
-        if hasattr(value, "__enter__") and hasattr(value, "__exit__"):
+        if _has_real_special_method(value, "__enter__") and _has_real_special_method(
+            value, "__exit__"
+        ):
             return resource_stack.enter_context(value)
         return value
 
