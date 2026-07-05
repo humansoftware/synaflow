@@ -5,13 +5,11 @@ This module ensures that step functions receive the correct arguments by extract
 from upstream dependencies, resolving required resources, and managing their lifecycles.
 """
 
-from collections.abc import Iterator
 from contextlib import ExitStack
 from typing import Any
 
 from synaflow.core.dag import Dag
 from synaflow.execution.overrides import ExecutionOverrides
-from synaflow.execution.sync_handoff import SyncQueueIterator
 from synaflow.execution.state import ExecutionState
 
 
@@ -83,23 +81,3 @@ class ArgumentBuilder:
         except Exception:
             resource_stack.close()
             raise
-
-    def attach_cleanup(self, output, arguments):
-        if not isinstance(output, Iterator):
-            return output
-
-        def wrapped():
-            try:
-                yield from output
-            finally:
-                self.close_managed_streams(arguments)
-
-        return wrapped()
-
-    def close_managed_streams(self, arguments):
-        for value in arguments.values():
-            if isinstance(value, SyncQueueIterator):
-                try:
-                    value.close()
-                except Exception:
-                    pass

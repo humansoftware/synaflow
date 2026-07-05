@@ -1,8 +1,8 @@
 import threading
 import uuid
 from concurrent.futures import ThreadPoolExecutor
-from collections.abc import Generator, Iterator
-from typing import Any, Callable
+from collections.abc import Iterator
+from typing import Any
 
 from synaflow.core.dag import Dag
 from synaflow.core.definition import PipelineDef
@@ -21,7 +21,6 @@ from synaflow.execution.threshold import (
 from synaflow.execution.sync_handoff import SyncFanout
 from synaflow.execution.bounded_iterator import BoundedIterator
 from synaflow.execution.state import ExecutionState
-from synaflow.execution.sync_engine.lifecycle_stream import LifecycleStream
 from .argument_builder import ArgumentBuilder
 from synaflow.execution.stats import StepRunStats
 from .step_runner import (
@@ -35,13 +34,6 @@ from .step_runner import (
 # ---------------------------------------------------------------------------
 # Runtime helpers (no flags needed on DagNode)
 # ---------------------------------------------------------------------------
-
-
-def _wrap_started_stream(
-    it: Iterator[Any] | Generator[Any, Any, Any],
-    fire_started: Callable[[], None],
-) -> LifecycleStream:
-    return LifecycleStream(it, on_start=fire_started)
 
 
 # ---------------------------------------------------------------------------
@@ -202,7 +194,6 @@ class PipelineExecutor:
             state=self.state,
             events=self.events,
             stats=stats,
-            has_threshold_fn=lambda: has_threshold(node),
             each_mode_deps=unrolled,
             step_config=step_config,
         )

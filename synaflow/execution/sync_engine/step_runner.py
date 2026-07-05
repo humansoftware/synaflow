@@ -22,8 +22,8 @@ class StepConfig:
     def __init__(
         self,
         observers: list[Any],
-        mode: Any,
-        on_error: Any,
+        mode: StepMode,
+        on_error: OnError,
         max_in_flight: int,
         dataset_param_names: dict[str, str],
     ) -> None:
@@ -32,9 +32,9 @@ class StepConfig:
         self.on_error = on_error
         self.max_in_flight = max_in_flight
         self.dataset_param_names = dataset_param_names
-        self.error_threshold_absolute = None
-        self.error_threshold_pct = None
-        self._dag_node = None
+        self.error_threshold_absolute: int | None = None
+        self.error_threshold_pct: float | None = None
+        self._dag_node: Any = None
 
 
 def _wrap_started_stream(
@@ -119,9 +119,8 @@ class StepRunner:
         state: ExecutionState,
         events: EventDispatcher,
         stats: StepRunStats,
-        has_threshold_fn: Callable[[], bool] = lambda: False,
-        each_mode_deps: list[str] = None,
-        step_config: StepConfig = None,
+        each_mode_deps: list[str] | None = None,
+        step_config: StepConfig | None = None,
     ) -> None:
         self.step_name = step_name
         self.fn = fn
@@ -136,7 +135,6 @@ class StepRunner:
         self.state = state
         self.events = events
         self.stats = stats
-        self._has_threshold = has_threshold_fn
         self.each_mode_deps = each_mode_deps
 
         if step_config is None:
@@ -180,7 +178,7 @@ class StepRunner:
                 # Upstream threshold propagating through this consumer:
                 # the producer's generate() already dispatched FAILED.
                 pass
-            elif unrolled and self._has_threshold():
+            elif unrolled and has_threshold(self.step_config):
                 # This step's generate() already dispatched FAILED (path A).
                 pass
             elif not unrolled:
@@ -248,10 +246,7 @@ class StepRunner:
             error_count = 0
             # Reset runtime stats on the node/config so multiple executor runs
             # on the same pipeline don't leak counts across runs.
-            if (
-                hasattr(self.step_config, "_dag_node")
-                and self.step_config._dag_node is not None
-            ):
+            if self.step_config._dag_node is not None:
                 self.step_config._dag_node._runtime_error_count = 0
                 self.step_config._dag_node._runtime_invocation_count = 0
             else:
@@ -314,10 +309,7 @@ class StepRunner:
                         self.step_name, self.step_config, invocation_count, error_count
                     )
             finally:
-                if (
-                    hasattr(self.step_config, "_dag_node")
-                    and self.step_config._dag_node is not None
-                ):
+                if self.step_config._dag_node is not None:
                     self.step_config._dag_node._runtime_error_count = error_count
                     self.step_config._dag_node._runtime_invocation_count = (
                         invocation_count
