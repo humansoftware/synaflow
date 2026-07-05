@@ -20,12 +20,16 @@ class LifecycleStream:
         self._on_end = on_end
         self._on_error = on_error
         self._started = False
+        self._completed = False
         self._count = 0
 
     def __iter__(self) -> "LifecycleStream":
         return self
 
     def __next__(self) -> Any:
+        if self._completed:
+            raise StopIteration
+
         if not self._started:
             self._started = True
             if self._on_start:
@@ -37,10 +41,12 @@ class LifecycleStream:
                 self._on_item(val)
             return val
         except StopIteration:
+            self._completed = True
             if self._on_end:
                 self._on_end(self._count)
             raise
         except BaseException as exc:
+            self._completed = True
             if self._on_error:
                 self._on_error(exc, self._count)
             raise
@@ -66,6 +72,7 @@ class AsyncLifecycleStream:
         self._on_end = on_end
         self._on_error = on_error
         self._started = False
+        self._completed = False
         self._count = 0
         self._is_async = isinstance(it, (AsyncIterator, AsyncGenerator))
 
@@ -73,6 +80,9 @@ class AsyncLifecycleStream:
         return self
 
     async def __anext__(self) -> Any:
+        if self._completed:
+            raise StopAsyncIteration
+
         if not self._started:
             self._started = True
             if self._on_start:
@@ -91,12 +101,14 @@ class AsyncLifecycleStream:
                     await res
             return val
         except (StopAsyncIteration, StopIteration):
+            self._completed = True
             if self._on_end:
                 res = self._on_end(self._count)
                 if inspect.isawaitable(res):
                     await res
             raise StopAsyncIteration
         except BaseException as exc:
+            self._completed = True
             if self._on_error:
                 res = self._on_error(exc, self._count)
                 if inspect.isawaitable(res):
