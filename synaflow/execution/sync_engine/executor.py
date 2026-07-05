@@ -374,13 +374,13 @@ class PipelineExecutor:
 
     def _materialize_stream_output(
         self,
-        step_name,
-        output,
-        node,
-        stats,
-        consumers,
-        deferred,
-    ):
+        step_name: str,
+        output: Any,
+        node: Any,
+        stats: StepRunStats,
+        consumers: list[str],
+        deferred: bool,
+    ) -> None:
         consumer_type = None
         if consumers:
             consumer_type = self.dag[consumers[0]].deps.get(step_name)
@@ -395,13 +395,13 @@ class PipelineExecutor:
 
     def _publish_stream_to_single_consumer(
         self,
-        step_name,
-        output,
-        node,
-        stats,
-        consumer,
-        deferred,
-    ):
+        step_name: str,
+        output: Any,
+        node: Any,
+        stats: StepRunStats,
+        consumer: str,
+        deferred: bool,
+    ) -> None:
         consumer_type = self.dag[consumer].deps.get(step_name)
 
         if self._step_output_observers and not self.dag.needs_materialize(step_name):
@@ -437,7 +437,14 @@ class PipelineExecutor:
         self._start_observer_threads(step_name, fanout, self._observer_branch_names())
         fanout.start()
 
-    def _publish_scalar_output(self, step_name, output, node, stats, deferred):
+    def _publish_scalar_output(
+        self,
+        step_name: str,
+        output: Any,
+        node: Any,
+        stats: StepRunStats,
+        deferred: bool,
+    ) -> None:
         if self.dag.needs_materialize(step_name):
             output, _, _ = self._materialize_with_events(
                 step_name, output, node, consumer_type=node.output
@@ -449,8 +456,14 @@ class PipelineExecutor:
             )
 
     def _emit_step_result(
-        self, node, step_name, output, stats, had_error, exception=None
-    ):
+        self,
+        node: Any,
+        step_name: str,
+        output: Any,
+        stats: StepRunStats,
+        had_error: bool,
+        exception: BaseException | None = None,
+    ) -> None:
         if has_threshold(node):
             return
         success = len(output) if hasattr(output, "__len__") else 1

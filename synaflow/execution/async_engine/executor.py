@@ -441,7 +441,6 @@ class AsyncPipelineExecutor:
         step_name: str,
         output: Any,
         node: Any,
-        stats: StepRunStats,
         consumers: list[str],
         deferred: bool,
     ) -> None:
@@ -543,7 +542,7 @@ class AsyncPipelineExecutor:
 
         if consumers:
             await self._publish_stream_to_queues(
-                step_name, output, node, stats, consumers, deferred
+                step_name, output, node, consumers, deferred
             )
             return
 
