@@ -217,7 +217,7 @@ def test_step_run_stats() -> None:
 
 
 @pytest.mark.asyncio
-async def test_async_step_runner_simple() -> None:
+async def test_step_runner_simple() -> None:
     from contextlib import AsyncExitStack
     from unittest.mock import AsyncMock, MagicMock
     from synaflow.execution.async_engine.step_runner import AsyncStepRunner

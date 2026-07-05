@@ -54,10 +54,6 @@ def test_sync_async_test_parity():
             "test_given_stream_with_no_consumers_but_has_observers_then_stream_is_consumed",
             "Tests sync-specific observer drain for unconsumed sync generator outputs. The async engine handles observers natively during async generator iteration.",
         ),
-        (
-            "test_step_runner_simple",
-            "Tests synchronous StepRunner implementation in isolation. Async engine does not have a StepRunner equivalent yet.",
-        ),
     ]
 
     expected_async_only = [
@@ -89,10 +85,6 @@ def test_sync_async_test_parity():
         (
             "test_given_terminal_stream_with_no_observers_bypass_validation",
             "Tests async-only validation bypass for unobserved terminal async streams. Sync engine doesn't have an equivalent bypass because all sync generator outputs are consumed or validated under sync rules.",
-        ),
-        (
-            "test_async_step_runner_simple",
-            "Tests asynchronous AsyncStepRunner implementation in isolation.",
         ),
     ]
 
