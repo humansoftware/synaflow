@@ -626,4 +626,5 @@ def test_on_error_stop_no_longer_forces_materialization():
         "list_iterator",
         "SyncQueueIterator",
         "list",
+        "LifecycleStream",
     )

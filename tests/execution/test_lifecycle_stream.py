@@ -291,3 +291,116 @@ async def test_async_lifecycle_stream_on_start_fails_sync_callback() -> None:
         await anext(stream)
 
     assert events == ["start_fail", "error:RuntimeError:0"]
+
+
+def test_sync_lifecycle_stream_empty() -> None:
+    events: list[str] = []
+
+    def on_start() -> None:
+        events.append("start")
+
+    def on_end(count: int) -> None:
+        events.append(f"end:{count}")
+
+    stream = LifecycleStream(iter([]), on_start=on_start, on_end=on_end)
+    with pytest.raises(StopIteration):
+        next(stream)
+    assert events == ["start", "end:0"]
+
+
+def test_sync_lifecycle_stream_immediate_error() -> None:
+    events: list[str] = []
+
+    def on_start() -> None:
+        events.append("start")
+
+    def on_error(exc: BaseException, count: int) -> None:
+        events.append(f"error:{type(exc).__name__}:{count}")
+
+    def failing_gen() -> Generator[int, None, None]:
+        if False:
+            yield 1
+        raise ValueError("immediate boom")
+
+    stream = LifecycleStream(failing_gen(), on_start=on_start, on_error=on_error)
+    with pytest.raises(ValueError, match="immediate boom"):
+        next(stream)
+    assert events == ["start", "error:ValueError:0"]
+
+
+@pytest.mark.asyncio
+async def test_async_lifecycle_stream_empty_async() -> None:
+    events: list[str] = []
+
+    async def on_start() -> None:
+        events.append("start")
+
+    async def on_end(count: int) -> None:
+        events.append(f"end:{count}")
+
+    async def empty_async() -> AsyncGenerator[int, None]:
+        if False:
+            yield 1
+
+    stream = AsyncLifecycleStream(empty_async(), on_start=on_start, on_end=on_end)
+    with pytest.raises(StopAsyncIteration):
+        await anext(stream)
+    assert events == ["start", "end:0"]
+
+
+@pytest.mark.asyncio
+async def test_async_lifecycle_stream_immediate_error_async() -> None:
+    events: list[str] = []
+
+    async def on_start() -> None:
+        events.append("start")
+
+    async def on_error(exc: BaseException, count: int) -> None:
+        events.append(f"error:{type(exc).__name__}:{count}")
+
+    async def failing_async() -> AsyncGenerator[int, None]:
+        if False:
+            yield 1
+        raise ValueError("immediate async boom")
+
+    stream = AsyncLifecycleStream(failing_async(), on_start=on_start, on_error=on_error)
+    with pytest.raises(ValueError, match="immediate async boom"):
+        await anext(stream)
+    assert events == ["start", "error:ValueError:0"]
+
+
+@pytest.mark.asyncio
+async def test_async_lifecycle_stream_empty_sync() -> None:
+    events: list[str] = []
+
+    async def on_start() -> None:
+        events.append("start")
+
+    async def on_end(count: int) -> None:
+        events.append(f"end:{count}")
+
+    stream = AsyncLifecycleStream(iter([]), on_start=on_start, on_end=on_end)
+    with pytest.raises(StopAsyncIteration):
+        await anext(stream)
+    assert events == ["start", "end:0"]
+
+
+@pytest.mark.asyncio
+async def test_async_lifecycle_stream_immediate_error_sync() -> None:
+    events: list[str] = []
+
+    async def on_start() -> None:
+        events.append("start")
+
+    async def on_error(exc: BaseException, count: int) -> None:
+        events.append(f"error:{type(exc).__name__}:{count}")
+
+    def failing_gen() -> Generator[int, None, None]:
+        if False:
+            yield 1
+        raise ValueError("immediate sync boom")
+
+    stream = AsyncLifecycleStream(failing_gen(), on_start=on_start, on_error=on_error)
+    with pytest.raises(ValueError, match="immediate sync boom"):
+        await anext(stream)
+    assert events == ["start", "error:ValueError:0"]
