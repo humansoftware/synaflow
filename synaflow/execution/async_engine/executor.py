@@ -5,7 +5,9 @@ import inspect
 import uuid
 from collections.abc import AsyncGenerator, AsyncIterator, Generator, Iterator
 from contextlib import AsyncExitStack
-from typing import Any
+from typing import Any, Callable
+
+from synaflow.execution.lifecycle_stream import AsyncLifecycleStream
 
 from synaflow.core.dag import Dag
 from synaflow.core.definition import PipelineDef
@@ -115,26 +117,14 @@ async def _list_to_async_gen(items: list[Any]) -> AsyncGenerator[Any, None]:
         yield item
 
 
-async def _wrap_started_stream(it: Any, fire_started: Any) -> Any:
-    if isinstance(it, (AsyncIterator, AsyncGenerator)):
-        try:
-            async for item in it:
-                await fire_started()
-                yield item
-        finally:
-            await fire_started()
-    else:
-        iterator = iter(it)
-        try:
-            while True:
-                try:
-                    item = next(iterator)
-                except StopIteration:
-                    break
-                await fire_started()
-                yield item
-        finally:
-            await fire_started()
+def _wrap_started_stream(
+    it: AsyncIterator[Any]
+    | AsyncGenerator[Any, Any]
+    | Iterator[Any]
+    | Generator[Any, Any, Any],
+    fire_started: Callable[[], Any],
+) -> AsyncLifecycleStream:
+    return AsyncLifecycleStream(it, on_start=fire_started)
 
 
 # ---------------------------------------------------------------------------
@@ -457,34 +447,29 @@ class AsyncPipelineExecutor:
         value: Any,
     ) -> tuple[list[Any], bool, BaseException | None]:
         items = []
-        try:
-            if isinstance(value, (AsyncIterator, AsyncGenerator)):
-                while True:
-                    try:
-                        item = await anext(value)
-                        items.append(item)
-                    except StopAsyncIteration:
-                        break
-            else:
-                iterator = iter(value)
-                while True:
-                    try:
-                        item = next(iterator)
-                        items.append(item)
-                    except StopIteration:
-                        break
-        except BaseException as exc:
+
+        async def handle_error(exc: BaseException, count: int) -> None:
             await self.events.handle_error(
                 step_name,
                 exc,
-                success_count=len(items),
+                success_count=count,
                 error_count=1,
                 completed_all_inputs=False,
             )
+
+        stream = AsyncLifecycleStream(
+            value, on_item=items.append, on_error=handle_error
+        )
+        try:
+            async for _ in stream:
+                pass
+            return items, False, None
+        except PipelineStopException:
+            raise
+        except Exception as exc:
             if self.dag[step_name].on_error == OnError.STOP:
                 raise PipelineStopException(step_name=step_name, cause=exc) from exc
             return items, True, exc
-        return items, False, None
 
     async def _apply_materializer(
         self,
@@ -504,22 +489,8 @@ class AsyncPipelineExecutor:
         # To preserve partial items in case the stream crashes during materialization,
         # we wrap the stream and record yielded items.
         history = []
-        if isinstance(value, (AsyncIterator, AsyncGenerator)):
-
-            async def tracking_wrapper(stream):
-                async for item in stream:
-                    history.append(item)
-                    yield item
-
-            value = tracking_wrapper(value)
-        elif isinstance(value, (Iterator, Generator)):
-
-            def sync_tracking_wrapper(stream):
-                for item in stream:
-                    history.append(item)
-                    yield item
-
-            value = sync_tracking_wrapper(value)
+        if self._is_stream_output(value):
+            value = AsyncLifecycleStream(value, on_item=history.append)
 
         # Materializer is guaranteed to be async by validation.
         # It natively handles consuming the stream if needed.
@@ -627,33 +598,13 @@ class AsyncPipelineExecutor:
         if has_threshold(node):
             return output
 
-        if isinstance(output, (AsyncIterator, AsyncGenerator)):
-
-            async def wrapped_async():
-                yielded_count = 0
-                async for item in output:
-                    yielded_count += 1
-                    yield item
-
-                if node.mode == StepMode.ALL:
-                    node._runtime_invocation_count = yielded_count
-                    node._runtime_error_count = 0
-                await self._emit_deferred_completion(node, step_name)
-
-            return wrapped_async()
-
-        async def wrapped_sync():
-            yielded_count = 0
-            for item in output:
-                yielded_count += 1
-                yield item
-
+        async def handle_end(count: int) -> None:
             if node.mode == StepMode.ALL:
-                node._runtime_invocation_count = yielded_count
+                node._runtime_invocation_count = count
                 node._runtime_error_count = 0
             await self._emit_deferred_completion(node, step_name)
 
-        return wrapped_sync()
+        return AsyncLifecycleStream(output, on_end=handle_end)
 
     @staticmethod
     def _is_stream_output(output: Any) -> bool:
