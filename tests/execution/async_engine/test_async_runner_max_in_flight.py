@@ -301,6 +301,37 @@ async def test_given_max_in_flight_3_when_fanout_lazy_and_eager_then_both_receiv
 
 
 @pytest.mark.asyncio
+async def test_given_user_resource_with_close_when_used_as_param_then_executor_does_not_close_it() -> (
+    None
+):
+    class Resource:
+        def __init__(self) -> None:
+            self.closed = False
+
+        def close(self) -> None:
+            self.closed = True
+
+    class P(NamedTuple):
+        resource: Resource
+
+    seen: list[Resource] = []
+
+    async def use_resource(resource: Resource) -> None:
+        seen.append(resource)
+
+    resource = Resource()
+    p = pipeline(
+        name="test",
+        params=P,
+        steps=[step("use_resource", fn=use_resource)],
+    )
+    await async_run(p, P(resource=resource))
+
+    assert seen == [resource]
+    assert resource.closed is False
+
+
+@pytest.mark.asyncio
 async def test_given_max_in_flight_3_when_terminal_lazy_consumer_then_stream_drains_fully():
     produced: list[int] = []
     consumed: list[int] = []

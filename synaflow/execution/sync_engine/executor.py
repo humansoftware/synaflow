@@ -2,8 +2,8 @@ import inspect
 import threading
 import uuid
 from concurrent.futures import ThreadPoolExecutor
-from collections.abc import Iterator
-from typing import Any
+from collections.abc import Generator, Iterator
+from typing import Any, Callable
 
 from synaflow.core.dag import Dag
 from synaflow.core.definition import PipelineDef
@@ -26,6 +26,7 @@ from synaflow.execution.threshold import (
 from synaflow.execution.sync_handoff import SyncFanout
 from synaflow.execution.bounded_iterator import BoundedIterator
 from synaflow.execution.state import ExecutionState
+from synaflow.execution.sync_engine.lifecycle_stream import LifecycleStream
 from .argument_builder import ArgumentBuilder
 from .step_lifecycle import StepLifecycle
 
@@ -35,13 +36,11 @@ from .step_lifecycle import StepLifecycle
 # ---------------------------------------------------------------------------
 
 
-def _wrap_started_stream(it: Any, fire_started: Any) -> Any:
-    try:
-        for item in it:
-            fire_started()
-            yield item
-    finally:
-        fire_started()
+def _wrap_started_stream(
+    it: Iterator[Any] | Generator[Any, Any, Any],
+    fire_started: Callable[[], None],
+) -> LifecycleStream:
+    return LifecycleStream(it, on_start=fire_started)
 
 
 # ---------------------------------------------------------------------------
@@ -394,22 +393,27 @@ class PipelineExecutor:
         value: Iterator,
     ) -> tuple[list[Any], bool, BaseException | None]:
         items = []
-        while True:
-            try:
-                items.append(next(value))
-            except StopIteration:
-                return items, False, None
-            except Exception as exc:
-                self.events.handle_error(
-                    step_name,
-                    exc,
-                    success_count=len(items),
-                    error_count=1,
-                    completed_all_inputs=False,
-                )
-                if self.dag[step_name].on_error == OnError.STOP:
-                    raise PipelineStopException(step_name=step_name, cause=exc) from exc
-                return items, True, exc
+
+        def handle_error(exc: BaseException, count: int) -> None:
+            self.events.handle_error(
+                step_name,
+                exc,
+                success_count=count,
+                error_count=1,
+                completed_all_inputs=False,
+            )
+            if self.dag[step_name].on_error == OnError.STOP:
+                raise PipelineStopException(step_name=step_name, cause=exc) from exc
+
+        it = LifecycleStream(value, on_item=items.append, on_error=handle_error)
+        try:
+            for _ in it:
+                pass
+            return items, False, None
+        except PipelineStopException:
+            raise
+        except Exception as exc:
+            return items, True, exc
 
     def _apply_materializer(
         self,
@@ -616,22 +620,17 @@ class PipelineExecutor:
             completed_all_inputs=True,
         )
 
-    def _wrap_deferred_output(self, step_name, output, node):
+    def _wrap_deferred_output(self, step_name: str, output: Any, node: Any) -> Any:
         if has_threshold(node):
             return output
 
-        def wrapped():
-            yielded_count = 0
-            for item in output:
-                yielded_count += 1
-                yield item
-
+        def handle_end(count: int) -> None:
             if node.mode == StepMode.ALL:
-                node._runtime_invocation_count = yielded_count
+                node._runtime_invocation_count = count
                 node._runtime_error_count = 0
             self._emit_deferred_completion(node, step_name)
 
-        return wrapped()
+        return LifecycleStream(output, on_end=handle_end)
 
 
 # ---------------------------------------------------------------------------

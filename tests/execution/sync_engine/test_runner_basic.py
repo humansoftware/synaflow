@@ -142,7 +142,7 @@ def test_given_params_with_defaults_when_run_then_uses_defaults(run_pipeline):
     s1.assert_called_once_with(count=5)
 
 
-def test_given_async_pipeline_when_run_synchronously_then_raises():
+def test_given_incompatible_pipeline_when_run_then_raises():
     from typing import NamedTuple
 
     import pytest
