@@ -191,3 +191,103 @@ async def test_async_lifecycle_stream_multiple_calls_after_terminal_state() -> N
         await anext(stream2)
 
     assert events == ["start", "item:10", "error:1"]
+
+
+def test_sync_lifecycle_stream_on_start_fails() -> None:
+    events: list[str] = []
+
+    def on_start() -> None:
+        events.append("start_fail")
+        raise RuntimeError("Start error")
+
+    def on_item(x: Any) -> None:
+        events.append(f"item:{x}")
+
+    def on_end(count: int) -> None:
+        events.append(f"end:{count}")
+
+    def on_error(exc: BaseException, count: int) -> None:
+        events.append(f"error:{type(exc).__name__}:{count}")
+
+    source = iter([1, 2])
+    stream = LifecycleStream(source, on_start, on_item, on_end, on_error)
+
+    # 1. Verify original exception is propagated
+    with pytest.raises(RuntimeError, match="Start error"):
+        next(stream)
+
+    # 2. Verify on_error was triggered (with count 0 since no items were yielded)
+    assert events == ["start_fail", "error:RuntimeError:0"]
+
+    # 3. Verify the stream is marked completed: subsequent calls raise StopIteration
+    with pytest.raises(StopIteration):
+        next(stream)
+
+    # Verify no additional events were recorded
+    assert events == ["start_fail", "error:RuntimeError:0"]
+
+
+@pytest.mark.asyncio
+async def test_async_lifecycle_stream_on_start_fails_async_callback() -> None:
+    events: list[str] = []
+
+    async def on_start() -> None:
+        events.append("start_fail")
+        raise RuntimeError("Start async error")
+
+    async def on_item(x: Any) -> None:
+        events.append(f"item:{x}")
+
+    async def on_end(count: int) -> None:
+        events.append(f"end:{count}")
+
+    async def on_error(exc: BaseException, count: int) -> None:
+        events.append(f"error:{type(exc).__name__}:{count}")
+
+    async def async_source() -> AsyncGenerator[int, None]:
+        yield 1
+
+    stream = AsyncLifecycleStream(async_source(), on_start, on_item, on_end, on_error)
+
+    # 1. Verify original exception is propagated
+    with pytest.raises(RuntimeError, match="Start async error"):
+        await anext(stream)
+
+    # 2. Verify on_error was triggered
+    assert events == ["start_fail", "error:RuntimeError:0"]
+
+    # 3. Verify the stream is marked completed
+    with pytest.raises(StopAsyncIteration):
+        await anext(stream)
+
+    assert events == ["start_fail", "error:RuntimeError:0"]
+
+
+@pytest.mark.asyncio
+async def test_async_lifecycle_stream_on_start_fails_sync_callback() -> None:
+    events: list[str] = []
+
+    def on_start() -> None:
+        events.append("start_fail")
+        raise RuntimeError("Start sync error")
+
+    async def on_error(exc: BaseException, count: int) -> None:
+        events.append(f"error:{type(exc).__name__}:{count}")
+
+    async def async_source() -> AsyncGenerator[int, None]:
+        yield 1
+
+    stream = AsyncLifecycleStream(async_source(), on_start, on_error=on_error)
+
+    # 1. Verify original exception is propagated
+    with pytest.raises(RuntimeError, match="Start sync error"):
+        await anext(stream)
+
+    # 2. Verify on_error was triggered
+    assert events == ["start_fail", "error:RuntimeError:0"]
+
+    # 3. Verify the stream is marked completed
+    with pytest.raises(StopAsyncIteration):
+        await anext(stream)
+
+    assert events == ["start_fail", "error:RuntimeError:0"]

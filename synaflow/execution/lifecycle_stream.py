@@ -30,11 +30,11 @@ class LifecycleStream:
         if self._completed:
             raise StopIteration
 
-        if not self._started:
-            self._started = True
-            if self._on_start:
-                self._on_start()
         try:
+            if not self._started:
+                self._started = True
+                if self._on_start:
+                    self._on_start()
             val = next(self._it)
             self._count += 1
             if self._on_item:
@@ -74,7 +74,7 @@ class AsyncLifecycleStream:
         self._started = False
         self._completed = False
         self._count = 0
-        self._is_async = isinstance(it, (AsyncIterator, AsyncGenerator))
+        self._is_async = isinstance(it, AsyncIterator)
 
     def __aiter__(self) -> "AsyncLifecycleStream":
         return self
@@ -83,13 +83,13 @@ class AsyncLifecycleStream:
         if self._completed:
             raise StopAsyncIteration
 
-        if not self._started:
-            self._started = True
-            if self._on_start:
-                res = self._on_start()
-                if inspect.isawaitable(res):
-                    await res
         try:
+            if not self._started:
+                self._started = True
+                if self._on_start:
+                    res = self._on_start()
+                    if inspect.isawaitable(res):
+                        await res
             if self._is_async:
                 val = await anext(self._it)
             else:
