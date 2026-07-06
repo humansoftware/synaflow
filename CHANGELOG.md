@@ -2,6 +2,23 @@
 
 
 
+## v0.25.8 (2026-07-06)
+
+### Fix
+
+* fix: compile sync publish contract at design time (#99)
+
+* fix: compile sync publish contract at design time
+
+* test: expand execution plan coverage
+
+* refactor: rename runtime contract validation helpers
+
+* test: align sync stream fixtures with compiled contracts
+
+* style: format files for ruff ([`33c13db`](https://github.com/humansoftware/synaflow/commit/33c13db58ae868d7196f47577b8fb7ac5ee2b033))
+
+
 ## v0.25.7 (2026-07-06)
 
 ### Fix
