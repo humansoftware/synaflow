@@ -334,7 +334,6 @@ class PipelineExecutor:
         self._active_fanouts.append(fanout)
         for consumer in consumers:
             self.state.set_output(step_name, fanout.lazy_iterator(consumer), consumer)
-        fanout.start()
 
     def _publish_scalar_output(
         self,
