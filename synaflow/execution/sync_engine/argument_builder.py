@@ -5,21 +5,16 @@ This module ensures that step functions receive the correct arguments by extract
 from upstream dependencies, resolving required resources, and managing their lifecycles.
 """
 
-import inspect
 from contextlib import ExitStack
 from typing import Any
 
 from synaflow.core.dag import Dag
+from synaflow.execution.context_managers import (
+    is_async_context_manager_instance,
+    is_sync_context_manager_instance,
+)
 from synaflow.execution.overrides import ExecutionOverrides
 from synaflow.execution.state import ExecutionState
-
-
-def _has_real_special_method(value: Any, method_name: str) -> bool:
-    try:
-        method = inspect.getattr_static(value, method_name)
-    except AttributeError:
-        return False
-    return callable(method)
 
 
 class ArgumentBuilder:
@@ -67,15 +62,11 @@ class ArgumentBuilder:
             )
 
         value = provider() if callable(provider) else provider
-        if _has_real_special_method(value, "__aenter__") and _has_real_special_method(
-            value, "__aexit__"
-        ):
+        if is_async_context_manager_instance(value):
             raise TypeError(
                 f"Pipeline '{self._dag.name}': resource '{resource_name}' produced an async context manager in sync run()."
             )
-        if _has_real_special_method(value, "__enter__") and _has_real_special_method(
-            value, "__exit__"
-        ):
+        if is_sync_context_manager_instance(value):
             return resource_stack.enter_context(value)
         return value
 
