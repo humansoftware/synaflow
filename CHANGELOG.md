@@ -2,6 +2,13 @@
 
 
 
+## v0.25.6 (2026-07-06)
+
+### Fix
+
+* fix: lazy-start sync fanout pump (#95) ([`d3a7875`](https://github.com/humansoftware/synaflow/commit/d3a7875beb04cc3a2d22f77c952b14f3a426a511))
+
+
 ## v0.25.5 (2026-07-06)
 
 ### Fix
