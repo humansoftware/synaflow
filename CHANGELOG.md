@@ -2,6 +2,13 @@
 
 
 
+## v0.25.7 (2026-07-06)
+
+### Fix
+
+* fix: drain deferred barrier steps (#97) ([`ff86f4c`](https://github.com/humansoftware/synaflow/commit/ff86f4c61391eb0a75cd76011a1a46963f576b05))
+
+
 ## v0.25.6 (2026-07-06)
 
 ### Fix
