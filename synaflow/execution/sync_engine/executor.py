@@ -1,7 +1,6 @@
 import threading
 import uuid
 from concurrent.futures import ThreadPoolExecutor
-from collections.abc import Iterator
 from typing import Any
 
 from synaflow.core.dag import Dag
@@ -20,6 +19,7 @@ from synaflow.execution.threshold import (
 )
 from synaflow.execution.sync_handoff import SyncFanout
 from synaflow.execution.bounded_iterator import BoundedIterator
+from synaflow.execution.stream_contracts import is_real_sync_iterator_instance
 from synaflow.execution.state import ExecutionState
 from .argument_builder import ArgumentBuilder
 from synaflow.execution.stats import StepRunStats
@@ -182,7 +182,10 @@ class PipelineExecutor:
             arguments=arguments,
             resource_stack=resource_stack,
             is_each_mode=(node.mode == StepMode.EACH),
-            should_drain=self.dag.should_drain_deferred_step(step_name),
+            should_drain=(
+                node.output_contract is not None
+                and node.output_contract.drain_policy != "none"
+            ),
             publisher=lambda out: (
                 self.publish(step_name, out, node, stats)
                 if not self.dag.is_hidden_step(step_name)
@@ -204,17 +207,24 @@ class PipelineExecutor:
     def publish(
         self, step_name: str, output: Any, node: Any, stats: StepRunStats
     ) -> None:
-        deferred = node.mode == StepMode.EACH or (
-            node.mode == StepMode.ALL and isinstance(output, Iterator)
-        )
+        publish_plan = node.publish_plan
+        output_contract = node.output_contract
+        if publish_plan is None or output_contract is None:
+            raise RuntimeError(
+                f"Step '{step_name}' is missing a compiled execution plan."
+            )
 
-        if not isinstance(output, Iterator):
+        deferred = output_contract.completion_policy == "on_exhaustion"
+        consumers = self.dag.consumers_of(step_name)
+
+        if publish_plan.strategy == "publish_value":
+            self._validate_value_output_contract(step_name, output, output_contract)
             self._publish_scalar_output(step_name, output, node, stats, deferred)
             return
 
-        consumers = self.dag.consumers_of(step_name)
+        self._validate_stream_output_contract(step_name, output, output_contract)
 
-        if self.dag.needs_materialize(step_name):
+        if publish_plan.strategy == "publish_materialized":
             self._materialize_stream_output(
                 step_name, output, node, stats, consumers, deferred
             )
@@ -223,13 +233,20 @@ class PipelineExecutor:
         if deferred:
             output = wrap_deferred_output(step_name, output, node, self.events, stats)
 
-        if len(consumers) > 1:
+        if publish_plan.strategy == "publish_sync_fanout":
             self._publish_stream_to_multiple_consumers(
                 step_name, output, node, consumers
             )
             return
 
-        self.state.set_output(step_name, self._maybe_wrap_stream(output, node))
+        if publish_plan.strategy == "publish_stream":
+            self.state.set_output(step_name, self._maybe_wrap_stream(output, node))
+            return
+
+        raise RuntimeError(
+            f"Step '{step_name}' has unsupported sync publish strategy "
+            f"'{publish_plan.strategy}'."
+        )
 
     def abort(self, exception: BaseException | None = None) -> None:
         for fanout in self._active_fanouts:
@@ -240,10 +257,36 @@ class PipelineExecutor:
             fanout.join()
         self._active_fanouts.clear()
 
+    def _validate_value_output_contract(
+        self, step_name: str, output: Any, output_contract: Any
+    ) -> None:
+        if output_contract.runtime_kind != "value":
+            return
+        if is_real_sync_iterator_instance(output):
+            raise TypeError(
+                f"Step '{step_name}' compiled as a value-producing step but returned "
+                "a synchronous iterator at runtime."
+            )
+
+    def _validate_stream_output_contract(
+        self, step_name: str, output: Any, output_contract: Any
+    ) -> None:
+        if output_contract.runtime_kind != "sync_stream":
+            raise TypeError(
+                f"Step '{step_name}' compiled with runtime kind "
+                f"'{output_contract.runtime_kind}' but reached the sync stream "
+                "publish path."
+            )
+        if not is_real_sync_iterator_instance(output):
+            raise TypeError(
+                f"Step '{step_name}' compiled as a sync stream but returned "
+                f"{type(output).__name__} at runtime."
+            )
+
     def _maybe_wrap_stream(self, output: Any, node: Any) -> Any:
-        if node.max_in_flight <= 1:
+        if node.publish_plan is None or node.publish_plan.handoff != "bounded_iterator":
             return output
-        if not isinstance(output, Iterator):
+        if node.max_in_flight <= 1:
             return output
         return BoundedIterator(output, node.max_in_flight)
 
@@ -255,14 +298,14 @@ class PipelineExecutor:
         consumer_type: Any = None,
     ) -> tuple[Any, bool, BaseException | None]:
         if materializer is None:
-            if isinstance(value, Iterator):
+            if is_real_sync_iterator_instance(value):
                 items, had_error, exc = collect_iterator(
                     step_name, value, self.dag[step_name].on_error, self.events
                 )
                 return items, had_error, exc
             return value, False, None
 
-        if isinstance(value, Iterator):
+        if is_real_sync_iterator_instance(value):
             items, had_error, exc = collect_iterator(
                 step_name, value, self.dag[step_name].on_error, self.events
             )

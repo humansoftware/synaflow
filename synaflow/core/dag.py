@@ -21,15 +21,37 @@ Methods on Dag (all stateless queries over the graph):
 Both are @dataclass — plain data with behaviour, no hidden state.
 """
 
-from dataclasses import dataclass, field
-from typing import Any, Callable
+from dataclasses import asdict, dataclass, field
+from typing import Any, Callable, Literal
 
-from synaflow.core.type_compatibility import (
-    get_type_name,
-    is_iterable_type,
-    is_materialized_consumer,
-)
+from synaflow.core.type_compatibility import get_type_name
 from synaflow.core.types import OnError, StepMode
+
+
+@dataclass(frozen=True)
+class OutputContract:
+    runtime_kind: Literal["value", "sync_stream", "async_stream"]
+    completion_policy: Literal["immediate", "on_exhaustion"]
+    drain_policy: Literal["none", "terminal", "barrier_only"]
+
+
+@dataclass(frozen=True)
+class ConsumerContract:
+    consumer_name: str
+    consumption: Literal["item", "stream", "materialized", "barrier_only"]
+
+
+@dataclass(frozen=True)
+class PublishPlan:
+    strategy: Literal[
+        "publish_value",
+        "publish_stream",
+        "publish_materialized",
+        "publish_sync_fanout",
+        "publish_async_fanout",
+    ]
+    handoff: Literal["none", "bounded_iterator", "sync_fanout", "async_queue"]
+    max_in_flight: int
 
 
 @dataclass
@@ -53,6 +75,9 @@ class DagNode:
     max_in_flight: int = 1
     error_threshold_absolute: int | None = None
     error_threshold_pct: float | None = None
+    output_contract: OutputContract | None = None
+    consumer_contracts: list[ConsumerContract] = field(default_factory=list)
+    publish_plan: PublishPlan | None = None
 
     def __getitem__(self, key):
         return getattr(self, key)
@@ -89,6 +114,12 @@ class DagNode:
             ret["error_threshold_absolute"] = self.error_threshold_absolute
         if self.error_threshold_pct is not None:
             ret["error_threshold_pct"] = self.error_threshold_pct
+        if self.output_contract is not None:
+            ret["output_contract"] = asdict(self.output_contract)
+        if self.consumer_contracts:
+            ret["consumer_contracts"] = [asdict(c) for c in self.consumer_contracts]
+        if self.publish_plan is not None:
+            ret["publish_plan"] = asdict(self.publish_plan)
         return ret
 
 
@@ -189,19 +220,10 @@ class Dag:
         return self.is_hidden_step(step_name) or not self.consumers_of(step_name)
 
     def should_drain_deferred_step(self, step_name: str) -> bool:
-        if self.is_terminal_step(step_name):
-            return True
-
-        for consumer_name in self.consumers_of(step_name):
-            consumer = self.steps[consumer_name]
-            dep_type = consumer.deps.get(step_name)
-
-            if consumer.mode == StepMode.EACH:
-                return False
-            if is_iterable_type(dep_type) or is_materialized_consumer(dep_type):
-                return False
-
-        return True
+        node = self.steps.get(step_name)
+        if node is None or node.output_contract is None:
+            return self.is_terminal_step(step_name)
+        return node.output_contract.drain_policy != "none"
 
     def each_inputs(self, step_name: str) -> list[str]:
         """Which deps should be unrolled item-by-item (each mode)."""

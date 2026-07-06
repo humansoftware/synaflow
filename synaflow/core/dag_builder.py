@@ -47,7 +47,13 @@ from typing import (
 )
 
 from synaflow.core.adapters import async_adapter
-from synaflow.core.dag import Dag, DagNode
+from synaflow.core.dag import (
+    ConsumerContract,
+    Dag,
+    DagNode,
+    OutputContract,
+    PublishPlan,
+)
 from synaflow.core.dag_dependencies import initialize_parameters, initialize_resources
 from synaflow.core.definition import IncludeStep
 from synaflow.core.dag_expansion import expand_macros
@@ -73,7 +79,7 @@ from synaflow.core.type_compatibility import (
     is_scalar,
     is_sync_stream_type,
 )
-from synaflow.core.types import ErrorMaterializeContext, MaterializeContext
+from synaflow.core.types import ErrorMaterializeContext, MaterializeContext, StepMode
 
 
 def _identity(x):
@@ -512,6 +518,97 @@ def _plan_materialization(dag: dict[str, DagNode], indexes: _DagBuildIndexes) ->
         ]
 
 
+def _classify_output_runtime_kind(dag: Dag, node: DagNode) -> str:
+    if node.mode == StepMode.EACH:
+        if dag.requires_async_runner:
+            return "async_stream"
+        return "sync_stream"
+    if is_async_stream_type(node.output):
+        return "async_stream"
+    if is_sync_stream_type(node.output):
+        return "sync_stream"
+    return "value"
+
+
+def _classify_consumer_contract(
+    producer_name: str,
+    consumer_name: str,
+    consumer: DagNode,
+) -> ConsumerContract:
+    dep_type = consumer.deps.get(producer_name)
+    if consumer.mode == StepMode.EACH:
+        consumption = "item"
+    elif is_materialized_consumer(dep_type):
+        consumption = "materialized"
+    elif is_iterable_type(dep_type):
+        consumption = "stream"
+    else:
+        consumption = "barrier_only"
+    return ConsumerContract(consumer_name=consumer_name, consumption=consumption)
+
+
+def _compile_execution_plan(dag: Dag, indexes: _DagBuildIndexes) -> None:
+    for producer_name, node in dag.steps.items():
+        consumers = indexes.consumers_by_producer.get(producer_name, [])
+        consumer_contracts = [
+            _classify_consumer_contract(producer_name, consumer_name, dag[consumer_name])
+            for consumer_name in consumers
+        ]
+        node.consumer_contracts = consumer_contracts
+
+        runtime_kind = _classify_output_runtime_kind(dag, node)
+        completion_policy = (
+            "on_exhaustion" if runtime_kind != "value" else "immediate"
+        )
+
+        if runtime_kind == "value":
+            drain_policy = "none"
+        elif dag.is_terminal_step(producer_name):
+            drain_policy = "terminal"
+        elif consumer_contracts and all(
+            contract.consumption == "barrier_only" for contract in consumer_contracts
+        ):
+            drain_policy = "barrier_only"
+        else:
+            drain_policy = "none"
+
+        node.output_contract = OutputContract(
+            runtime_kind=runtime_kind,
+            completion_policy=completion_policy,
+            drain_policy=drain_policy,
+        )
+
+        if runtime_kind != "value" and drain_policy != "none":
+            strategy = "publish_value"
+            handoff = "none"
+        elif runtime_kind == "value":
+            strategy = "publish_value"
+            handoff = "none"
+        elif node.materialize_output:
+            strategy = "publish_materialized"
+            handoff = "none"
+        elif len(consumers) > 1:
+            strategy = (
+                "publish_async_fanout"
+                if runtime_kind == "async_stream"
+                else "publish_sync_fanout"
+            )
+            handoff = "async_queue" if runtime_kind == "async_stream" else "sync_fanout"
+        else:
+            strategy = "publish_stream"
+            handoff = (
+                "bounded_iterator"
+                if runtime_kind == "sync_stream" and node.max_in_flight > 1
+                else "none"
+            )
+
+        node.publish_plan = PublishPlan(
+            strategy=strategy,
+            handoff=handoff,
+            max_in_flight=node.max_in_flight,
+        )
+
+
 def _expand_and_validate_steps(
     steps: list[Any],
     pipeline_name: str,
@@ -623,6 +720,8 @@ def build_dag(
         dag_obj,
         pipeline_name,
     )
+
+    _compile_execution_plan(dag_obj, indexes)
 
     _resolve_materializers(
         dag_obj,

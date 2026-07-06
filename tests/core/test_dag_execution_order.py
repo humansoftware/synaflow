@@ -97,7 +97,14 @@ def _normalize_exported_dag_for_contract_assertions(dag_dict: dict) -> dict:
         normalized["steps"][step_name] = {
             key: value
             for key, value in step_def.items()
-            if key not in {"materialized_deps", "needs_materialize_reasons"}
+            if key
+            not in {
+                "materialized_deps",
+                "needs_materialize_reasons",
+                "output_contract",
+                "consumer_contracts",
+                "publish_plan",
+            }
         }
     return normalized
 

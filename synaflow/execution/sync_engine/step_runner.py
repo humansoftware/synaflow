@@ -15,6 +15,7 @@ from synaflow.execution.threshold import (
     compute_completed_all_inputs_for_all,
     has_threshold,
 )
+from synaflow.execution.stream_contracts import is_real_sync_iterator_instance
 from synaflow.execution.sync_engine.lifecycle_stream import LifecycleStream
 
 
@@ -157,12 +158,17 @@ class StepRunner:
         lifecycle = StepLifecycle(
             self.step_config, self.step_name, self.events, self.stats
         )
+        dag_node = getattr(self.step_config, "_dag_node", None)
+        output_contract = getattr(dag_node, "output_contract", None)
+        expects_sync_stream = (
+            output_contract is not None and output_contract.runtime_kind == "sync_stream"
+        )
 
         try:
             if not unrolled and not inspect.isgeneratorfunction(self.fn):
                 lifecycle.start()
             output = self._execute_step(unrolled, lifecycle)
-            if isinstance(output, Iterator):
+            if expects_sync_stream and is_real_sync_iterator_instance(output):
                 output = _wrap_started_stream(output, lifecycle.start)
             output = self._attach_cleanup(output, self.arguments)
             self._emit_immediate_completion(output, unrolled, lifecycle)
@@ -210,7 +216,7 @@ class StepRunner:
                     step_name=self.step_name, cause=exc
                 ) from exc
         finally:
-            if "output" not in locals() or not isinstance(output, Iterator):
+            if "output" not in locals() or not expects_sync_stream:
                 self._close_managed_streams(self.arguments)
             self.resource_stack.close()
 
@@ -222,7 +228,15 @@ class StepRunner:
     def _emit_immediate_completion(
         self, output: Any, unrolled: list[str], lifecycle: StepLifecycle
     ) -> None:
-        if unrolled or isinstance(output, Iterator):
+        dag_node = getattr(self.step_config, "_dag_node", None)
+        output_contract = getattr(dag_node, "output_contract", None)
+        if (
+            unrolled
+            or (
+                output_contract is not None
+                and output_contract.completion_policy == "on_exhaustion"
+            )
+        ):
             return
         success_count = 1
         if isinstance(output, (list, tuple, set)):
@@ -321,7 +335,13 @@ class StepRunner:
                     pass
 
     def _attach_cleanup(self, output: Any, arguments: dict[str, Any]) -> Any:
-        if not isinstance(output, Iterator):
+        dag_node = getattr(self.step_config, "_dag_node", None)
+        output_contract = getattr(dag_node, "output_contract", None)
+        if (
+            output_contract is None
+            or output_contract.runtime_kind != "sync_stream"
+            or not is_real_sync_iterator_instance(output)
+        ):
             return output
 
         def wrapped() -> Iterator[Any]:
