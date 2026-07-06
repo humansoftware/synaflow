@@ -1,6 +1,7 @@
 import inspect
 from time import monotonic_ns
 from time import sleep
+from collections.abc import Iterator
 from typing import NamedTuple
 from unittest.mock import MagicMock
 
@@ -279,7 +280,7 @@ def test_given_on_error_continue_when_stream_iteration_fails_then_previous_items
 
         return handle
 
-    def source():
+    def source() -> Iterator[int]:
         yield 1
         raise ValueError("iterboom")
 
@@ -315,7 +316,7 @@ def test_given_on_error_stop_when_stream_iteration_fails_then_pipeline_stops_and
 
         return handle
 
-    def source():
+    def source() -> Iterator[int]:
         yield 1
         raise ValueError("iterboom")
 

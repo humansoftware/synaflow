@@ -43,9 +43,12 @@ def _build_each_pipeline(
     class P(NamedTuple):
         items: list[int] = [0, 1, 2, 3, 4]
 
-    def numbers(items: list[int]):
+    def numbers(items: list[int]) -> Iterator[int]:
         for x in items:
             yield x
+
+    def proc(numbers: int) -> int:
+        return fn(numbers)
 
     p = pipeline(
         name="t",
@@ -54,7 +57,7 @@ def _build_each_pipeline(
             step("numbers", fn=numbers),
             step(
                 "proc",
-                fn=fn,
+                fn=proc,
                 error_threshold_absolute=error_threshold_absolute,
                 error_threshold_pct=error_threshold_pct,
                 on_error=on_error if on_error is not None else "continue",  # type: ignore[arg-type]
@@ -272,13 +275,13 @@ def test_threshold_on_empty_stream_does_not_fire():
     """0 invocations: pct check has the `invocation_count > 0` guard,
     abs check has 0 errors so no trigger."""
 
-    def proc(items: int) -> int:
+    def proc(numbers: int) -> int:
         raise ValueError("should not be called")
 
     class P(NamedTuple):
         items: list[int] = []
 
-    def numbers(items: list[int]):
+    def numbers(items: list[int]) -> Iterator[int]:
         for x in items:
             yield x
 
@@ -311,10 +314,10 @@ def test_threshold_on_empty_stream_does_not_fire():
 def test_threshold_counters_reset_per_step():
     """Two EACH steps with thresholds: counters are independent."""
 
-    def proc1(items: int) -> int:
-        if items == 0:
+    def proc1(numbers: int) -> int:
+        if numbers == 0:
             raise ValueError("boom")
-        return items
+        return numbers
 
     def proc2(proc1: int) -> int:
         if proc1 == 4:
@@ -328,7 +331,7 @@ def test_threshold_counters_reset_per_step():
     class P(NamedTuple):
         items: list[int] = [0, 1, 2, 3, 4]
 
-    def numbers(items: list[int]):
+    def numbers(items: list[int]) -> Iterator[int]:
         for x in items:
             yield x
 
@@ -360,15 +363,15 @@ def test_observers_receive_failed_events_on_threshold():
     def on_event(ctx):
         events.append((ctx.event, ctx.step_name))
 
-    def proc(items: int) -> int:
-        if items in (0, 1, 2):  # 3 of 5 fail
+    def proc(numbers: int) -> int:
+        if numbers in (0, 1, 2):  # 3 of 5 fail
             raise ValueError("boom")
-        return items
+        return numbers
 
     class P(NamedTuple):
         items: list[int] = [0, 1, 2, 3, 4]
 
-    def numbers(items: list[int]):
+    def numbers(items: list[int]) -> Iterator[int]:
         for x in items:
             yield x
 
@@ -407,15 +410,15 @@ def test_observers_receive_failed_events_on_threshold():
 def test_threshold_with_force_materialize_respected():
     """force_materialize=True does not interfere with threshold tracking."""
 
-    def proc(items: int) -> int:
-        if items in (0, 1):
+    def proc(numbers: int) -> int:
+        if numbers in (0, 1):
             raise ValueError("boom")
-        return items
+        return numbers
 
     class P(NamedTuple):
         items: list[int] = [0, 1, 2, 3, 4]
 
-    def numbers(items: list[int]):
+    def numbers(items: list[int]) -> Iterator[int]:
         for x in items:
             yield x
 
@@ -502,10 +505,10 @@ def test_manual_threshold_exception_in_each_step_wraps_in_validator():
 
         return handle
 
-    def proc(items: int) -> int:
-        if items == 0:
+    def proc(numbers: int) -> int:
+        if numbers == 0:
             raise ThresholdExceededException("proc", 1, 0)
-        return items
+        return numbers
 
     def sink(proc: Iterator[int]) -> None:
         for _ in proc:
@@ -514,7 +517,7 @@ def test_manual_threshold_exception_in_each_step_wraps_in_validator():
     class P(NamedTuple):
         items: list[int] = [0, 1, 2]
 
-    def numbers(items: list[int]):
+    def numbers(items: list[int]) -> Iterator[int]:
         for x in items:
             yield x
 
@@ -549,11 +552,11 @@ def test_on_error_continue_without_threshold_unchanged():
 
     invocations = []
 
-    def proc(items: int) -> int:
-        invocations.append(items)
-        if items == 2:
+    def proc(numbers: int) -> int:
+        invocations.append(numbers)
+        if numbers == 2:
             raise ValueError("boom")
-        return items
+        return numbers
 
     def sink(proc: Iterator[int]) -> None:
         for _ in proc:
@@ -562,7 +565,7 @@ def test_on_error_continue_without_threshold_unchanged():
     class P(NamedTuple):
         items: list[int] = [0, 1, 2, 3, 4]
 
-    def numbers(items: list[int]):
+    def numbers(items: list[int]) -> Iterator[int]:
         for x in items:
             yield x
 
@@ -601,7 +604,7 @@ def test_on_error_stop_no_longer_forces_materialization():
         except Exception as e:
             captured_error.append(type(e).__name__)
 
-    def source_fn():
+    def source_fn() -> Iterator[int]:
         yield 1
         raise ValueError("iterboom")
 

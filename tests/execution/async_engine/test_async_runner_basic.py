@@ -3,7 +3,7 @@ from typing import NamedTuple
 from dataclasses import dataclass
 from unittest.mock import AsyncMock as MagicMock
 
-from synaflow.core.dag import Dag, DagNode
+from synaflow.core.dag import Dag, DagNode, OutputContract, PublishPlan
 from synaflow.core.types import OnError, StepMode
 
 from synaflow import async_run, pipeline, step
@@ -184,6 +184,16 @@ async def test_given_runtime_dag_with_all_mode_when_types_look_like_each_then_ex
                 on_error=OnError.CONTINUE,
                 mode=StepMode.EACH,
                 each_mode_deps=["items"],
+                output_contract=OutputContract(
+                    runtime_kind="async_stream",
+                    completion_policy="on_exhaustion",
+                    drain_policy="terminal",
+                ),
+                publish_plan=PublishPlan(
+                    strategy="publish_value",
+                    handoff="none",
+                    max_in_flight=1,
+                ),
             ),
         },
     )
@@ -191,3 +201,30 @@ async def test_given_runtime_dag_with_all_mode_when_types_look_like_each_then_ex
     await AsyncPipelineExecutor(dag).execute(P())
 
     assert calls == [1, 2, 3]
+
+
+async def test_given_magicmock_value_output_when_run_then_it_is_forwarded_as_value():
+    class P(NamedTuple):
+        pass
+
+    mock_value = object()
+    seen = []
+
+    async def existing_ids() -> set[int]:
+        return mock_value
+
+    async def consume(existing_ids: set[int]) -> None:
+        seen.append(existing_ids)
+
+    my_pipeline = pipeline(
+        name="magicmock_value_output_contract",
+        params=P,
+        steps=[
+            step("existing_ids", fn=existing_ids),
+            step("consume", fn=consume),
+        ],
+    )
+
+    await async_run(my_pipeline, params=P())
+
+    assert seen == [mock_value]

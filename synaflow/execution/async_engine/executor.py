@@ -238,7 +238,10 @@ class AsyncPipelineExecutor:
             arguments=arguments,
             resource_stack=resource_stack,
             is_each_mode=(node.mode == StepMode.EACH),
-            should_drain=self.dag.should_drain_deferred_step(step_name),
+            should_drain=(
+                node.output_contract is not None
+                and node.output_contract.drain_policy != "none"
+            ),
             publisher=lambda out: (
                 self.publish(step_name, out, node, stats)
                 if not self.dag.is_hidden_step(step_name)
