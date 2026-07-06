@@ -19,7 +19,9 @@ from synaflow.execution.threshold import (
 )
 from synaflow.execution.sync_handoff import SyncFanout
 from synaflow.execution.bounded_iterator import BoundedIterator
-from synaflow.execution.stream_contracts import is_real_sync_iterator_instance
+from synaflow.execution.runtime_contract_validation import (
+    satisfies_sync_iterator_contract,
+)
 from synaflow.execution.state import ExecutionState
 from .argument_builder import ArgumentBuilder
 from synaflow.execution.stats import StepRunStats
@@ -262,7 +264,7 @@ class PipelineExecutor:
     ) -> None:
         if output_contract.runtime_kind != "value":
             return
-        if is_real_sync_iterator_instance(output):
+        if satisfies_sync_iterator_contract(output):
             raise TypeError(
                 f"Step '{step_name}' compiled as a value-producing step but returned "
                 "a synchronous iterator at runtime."
@@ -277,7 +279,7 @@ class PipelineExecutor:
                 f"'{output_contract.runtime_kind}' but reached the sync stream "
                 "publish path."
             )
-        if not is_real_sync_iterator_instance(output):
+        if not satisfies_sync_iterator_contract(output):
             raise TypeError(
                 f"Step '{step_name}' compiled as a sync stream but returned "
                 f"{type(output).__name__} at runtime."
@@ -298,14 +300,14 @@ class PipelineExecutor:
         consumer_type: Any = None,
     ) -> tuple[Any, bool, BaseException | None]:
         if materializer is None:
-            if is_real_sync_iterator_instance(value):
+            if satisfies_sync_iterator_contract(value):
                 items, had_error, exc = collect_iterator(
                     step_name, value, self.dag[step_name].on_error, self.events
                 )
                 return items, had_error, exc
             return value, False, None
 
-        if is_real_sync_iterator_instance(value):
+        if satisfies_sync_iterator_contract(value):
             items, had_error, exc = collect_iterator(
                 step_name, value, self.dag[step_name].on_error, self.events
             )

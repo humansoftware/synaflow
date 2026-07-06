@@ -15,7 +15,9 @@ from synaflow.execution.threshold import (
     compute_completed_all_inputs_for_all,
     has_threshold,
 )
-from synaflow.execution.stream_contracts import is_real_sync_iterator_instance
+from synaflow.execution.runtime_contract_validation import (
+    satisfies_sync_iterator_contract,
+)
 from synaflow.execution.sync_engine.lifecycle_stream import LifecycleStream
 
 
@@ -168,7 +170,7 @@ class StepRunner:
             if not unrolled and not inspect.isgeneratorfunction(self.fn):
                 lifecycle.start()
             output = self._execute_step(unrolled, lifecycle)
-            if expects_sync_stream and is_real_sync_iterator_instance(output):
+            if expects_sync_stream and satisfies_sync_iterator_contract(output):
                 output = _wrap_started_stream(output, lifecycle.start)
             output = self._attach_cleanup(output, self.arguments)
             self._emit_immediate_completion(output, unrolled, lifecycle)
@@ -340,7 +342,7 @@ class StepRunner:
         if (
             output_contract is None
             or output_contract.runtime_kind != "sync_stream"
-            or not is_real_sync_iterator_instance(output)
+            or not satisfies_sync_iterator_contract(output)
         ):
             return output
 

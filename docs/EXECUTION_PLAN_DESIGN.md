@@ -47,6 +47,11 @@ The builder now compiles three debug-visible structures per step:
 4. Remove remaining runtime reclassification branches (`isinstance(output, Iterator)`
    deciding semantics) once all call sites read the compiled plan.
 
+The residual runtime helpers should live behind explicit validation-oriented
+names. They are not part of execution planning; they only confirm that a value
+actually satisfies a compiled stream contract before the executor wraps or
+drains it.
+
 ## Expected Outcome
 
 - better locality: topology bugs are solved in the builder
