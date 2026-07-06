@@ -2,6 +2,21 @@
 
 
 
+## v0.25.5 (2026-07-06)
+
+### Fix
+
+* fix: trigger release for merged #93 ([`51b595d`](https://github.com/humansoftware/synaflow/commit/51b595d085405333a9691dc1c20f0e7fe446626d))
+
+### Unknown
+
+* [codex] remove step output observers and fix MagicMock resource check (#93)
+
+* remove step output observers and fix MagicMock resource check
+
+* extract context manager detection helper ([`0d7c193`](https://github.com/humansoftware/synaflow/commit/0d7c1934240fdec8bd3576f4dd57aa46d16c1316))
+
+
 ## v0.25.4 (2026-07-05)
 
 ### Fix
