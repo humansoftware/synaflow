@@ -24,7 +24,11 @@ Both are @dataclass — plain data with behaviour, no hidden state.
 from dataclasses import dataclass, field
 from typing import Any, Callable
 
-from synaflow.core.type_compatibility import get_type_name
+from synaflow.core.type_compatibility import (
+    get_type_name,
+    is_iterable_type,
+    is_materialized_consumer,
+)
 from synaflow.core.types import OnError, StepMode
 
 
@@ -183,6 +187,21 @@ class Dag:
 
     def is_terminal_step(self, step_name: str) -> bool:
         return self.is_hidden_step(step_name) or not self.consumers_of(step_name)
+
+    def should_drain_deferred_step(self, step_name: str) -> bool:
+        if self.is_terminal_step(step_name):
+            return True
+
+        for consumer_name in self.consumers_of(step_name):
+            consumer = self.steps[consumer_name]
+            dep_type = consumer.deps.get(step_name)
+
+            if consumer.mode == StepMode.EACH:
+                return False
+            if is_iterable_type(dep_type) or is_materialized_consumer(dep_type):
+                return False
+
+        return True
 
     def each_inputs(self, step_name: str) -> list[str]:
         """Which deps should be unrolled item-by-item (each mode)."""
