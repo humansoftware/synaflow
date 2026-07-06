@@ -136,6 +136,48 @@ def test_given_max_in_flight_3_when_fanout_two_consumers_then_both_get_all_items
     assert results_b == list(range(10))
 
 
+def test_given_max_in_flight_fanout_when_terminal_consumers_do_not_iterate_then_run_completes():
+    class P(NamedTuple):
+        pass
+
+    calls: list[str] = []
+
+    def producer() -> Generator[int, None, None]:
+        yield from range(10)
+
+    def consumer_a(producer: Iterator[int]) -> None:
+        calls.append("a")
+
+    def consumer_b(producer: Iterator[int]) -> None:
+        calls.append("b")
+
+    pipeline_def = pipeline(
+        name="test_lazy_fanout_start",
+        params=P,
+        steps=[
+            step("producer", fn=producer, max_in_flight=2),
+            step("consumer_a", fn=consumer_a),
+            step("consumer_b", fn=consumer_b),
+        ],
+    )
+
+    failure: list[BaseException] = []
+
+    def target() -> None:
+        try:
+            run(pipeline_def, P())
+        except BaseException as exc:  # pragma: no cover - asserted below
+            failure.append(exc)
+
+    thread = threading.Thread(target=target)
+    thread.start()
+    thread.join(timeout=5)
+
+    assert failure == []
+    assert not thread.is_alive()
+    assert calls == ["a", "b"] or calls == ["b", "a"]
+
+
 def test_given_max_in_flight_when_producer_does_not_exceed_bounded_ahead():
     """With max_in_flight=3, the BoundedIterator limits producer advancement."""
 

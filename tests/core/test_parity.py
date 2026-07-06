@@ -54,6 +54,10 @@ def test_sync_async_test_parity():
             "test_given_stream_with_no_consumers_but_has_observers_then_stream_is_consumed",
             "Tests sync-specific observer drain for unconsumed sync generator outputs. The async engine handles observers natively during async generator iteration.",
         ),
+        (
+            "test_given_max_in_flight_fanout_when_terminal_consumers_do_not_iterate_then_run_completes",
+            "Tests the sync-only SyncFanout lazy-start/queue handoff path when terminal consumers never iterate. The async engine uses a different queue/task handoff mechanism.",
+        ),
     ]
 
     expected_async_only = [

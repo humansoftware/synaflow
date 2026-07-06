@@ -25,9 +25,11 @@ class SyncQueueIterator(Iterator):
         self._closed = False
 
     def __iter__(self):
+        self._owner.ensure_started()
         return self
 
     def __next__(self):
+        self._owner.ensure_started()
         item = self._queue.get()
         if item is EOF_MARKER:
             self.close()
@@ -67,9 +69,15 @@ class SyncFanout:
         self._stop = threading.Event()
         self._thread: threading.Thread | None = None
 
+    def ensure_started(self) -> None:
+        with self._lock:
+            if self._thread is not None or self._stop.is_set():
+                return
+            self._thread = threading.Thread(target=self._pump, daemon=True)
+            self._thread.start()
+
     def start(self) -> None:
-        self._thread = threading.Thread(target=self._pump, daemon=True)
-        self._thread.start()
+        self.ensure_started()
 
     def lazy_iterator(self, branch_name: str) -> SyncQueueIterator:
         return SyncQueueIterator(branch_name, self._queues[branch_name], self)
