@@ -68,18 +68,6 @@ async def _pump_iterator(
             await q.put(EOF_MARKER)
 
 
-async def _pump_observer(name: str, queue: asyncio.Queue, observer: Any) -> None:
-    items = []
-    while True:
-        item = await queue.get()
-        if item is EOF_MARKER:
-            break
-        if isinstance(item, Exception):
-            break
-        items.append(item)
-    observer(name, items)
-
-
 async def _safe_iterate(name: str, iterable: Any):
     if isinstance(iterable, (AsyncIterator, AsyncGenerator)):
         while True:
@@ -116,12 +104,10 @@ class AsyncPipelineExecutor:
         self,
         dag: Dag,
         *,
-        step_output_observers: list = None,
         overrides: ExecutionOverrides | None = None,
         resource_factories: dict[str, Any] | None = None,
     ):
         self.dag = dag
-        self._step_output_observers = step_output_observers or []
         self._overrides = overrides
         self._resource_factories = dict(resource_factories or {})
 
@@ -314,10 +300,6 @@ class AsyncPipelineExecutor:
         except Exception as e:
             return history, True, e
 
-    def _notify_observers(self, step_name: str, output: Any) -> None:
-        for observer in self._step_output_observers:
-            observer(step_name, output)
-
     async def _materialize_with_events(
         self, step_name: str, output: Any, node: Any, consumer_type: Any = None
     ) -> tuple[Any, bool, BaseException | None]:
@@ -421,7 +403,6 @@ class AsyncPipelineExecutor:
             await self._handle_stream_publish_error(step_name, node, exc)
         for consumer in consumers:
             self.state.set_output(step_name, items, consumer)
-        self._notify_observers(step_name, items)
         if deferred:
             await self._emit_step_result(node, step_name, items, stats, had_error, exc)
 
@@ -431,16 +412,6 @@ class AsyncPipelineExecutor:
         await self.events.handle_error(step_name, exc)
         if node.on_error == OnError.STOP:
             raise PipelineStopException(step_name=step_name, cause=exc) from exc
-
-    def _register_observer_pumps(self, step_name: str, queues: dict[str, Any]) -> None:
-        if not self._step_output_observers:
-            return
-        for observer in self._step_output_observers:
-            obs_queue = asyncio.Queue(maxsize=100)
-            queues["__obs"] = obs_queue
-            self._pump_tasks.append(
-                asyncio.create_task(_pump_observer(step_name, obs_queue, observer))
-            )
 
     async def _publish_stream_to_queues(
         self,
@@ -457,7 +428,6 @@ class AsyncPipelineExecutor:
         }
         for consumer, queue in queues.items():
             self.state.set_output(step_name, queue, consumer)
-        self._register_observer_pumps(step_name, queues)
         task = asyncio.create_task(
             _pump_iterator(
                 step_name,
@@ -483,16 +453,9 @@ class AsyncPipelineExecutor:
             )
             if had_error:
                 await self._handle_stream_publish_error(step_name, node, exc)
-        elif self._step_output_observers:
-            output, had_error, exc = await collect_async_iterator(
-                step_name, output, node.on_error, self.events
-            )
         else:
-            self._notify_observers(step_name, output)
             had_error = False
             exc = None
-        if self._step_output_observers:
-            self._notify_observers(step_name, output)
         if deferred:
             await self._emit_step_result(node, step_name, output, stats, had_error, exc)
 
@@ -514,7 +477,6 @@ class AsyncPipelineExecutor:
             had_error = False
             exc = None
         self.state.set_output(step_name, output)
-        self._notify_observers(step_name, output)
         if deferred:
             await self._emit_step_result(node, step_name, output, stats, had_error, exc)
 

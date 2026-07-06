@@ -11,7 +11,7 @@ This roadmap outlines the planned features and architectural evolutions for the 
 - **Error materializer** — `ErrorMaterializeContext` + `log_error_materializer_factory` + pipeline-level config
 - **Explicit step mode** — `StepMode.AUTO | EACH | ALL` with build-time validation and DAG-resolved semantics
 - **No silent wrapping** — scalar producer cannot feed iterable consumer
-- **Executor rewrite** — single-file sync and async executors; `step_output_observers` for test injection; composite key fan-out (no TeeWrapper); zip multi-stream unroll
+- **Executor rewrite** — single-file sync and async executors; composite key fan-out (no TeeWrapper); zip multi-stream unroll
 - **Bounded handoff (`max_in_flight`)** — every compiled `DagNode` carries `max_in_flight` (default `1`); sync and async runners enforce bounded producer-to-consumer handoff from DAG metadata; documented with real sync/async I/O-bound examples and covered by runtime and corpus tests
 - **Sync/async parity fixes** — async iteration failure handling, branch-aware materialization context, uneven unroll termination, and preserved valid prefixes under `OnError.CONTINUE`
 - **PipelineStopException** — carries `step_name` + `cause` + `raise ... from`

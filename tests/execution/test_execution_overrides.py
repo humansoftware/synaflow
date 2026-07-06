@@ -1,6 +1,7 @@
 from synaflow.core.adapters import async_adapter
 from contextlib import asynccontextmanager, contextmanager
 from typing import AsyncGenerator, Iterator, NamedTuple
+from unittest.mock import MagicMock
 
 import pytest
 
@@ -984,6 +985,33 @@ def test_given_async_resource_context_manager_override_when_sync_run_then_raises
 
     with pytest.raises(TypeError, match="produced an async context manager"):
         run_pipeline(p, Params(), overrides=overrides)
+
+
+def test_given_plain_magicmock_resource_when_sync_run_then_it_is_not_treated_as_async_context_manager(
+    run_pipeline,
+):
+    class Params(NamedTuple):
+        value: int = 1
+
+    resource = MagicMock(name="db")
+    seen = []
+
+    def get_db() -> MagicMock:
+        return resource
+
+    def use(db, value: int) -> None:
+        seen.append((db, value))
+
+    p = pipeline(
+        name="sync_accepts_plain_magicmock_resource",
+        params=Params,
+        resources={"db": get_db},
+        steps=[step("use", fn=use)],
+    )
+
+    run_pipeline(p, Params())
+
+    assert seen == [(resource, 1)]
 
 
 def test_given_execution_overrides_from_production_when_resources_requested_then_registry_is_empty_but_keyed():

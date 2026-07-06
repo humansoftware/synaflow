@@ -232,17 +232,7 @@ For uneven multi-stream each-mode, exhaustion is modeled with `None` padding rat
 **Decision:** The sync and async execution engines each live in a single file (`executor.py`). The previous sub-components (`SyncStreamManager`, `SyncNodeRunner`, `SyncDependencyResolver`, and their async counterparts) were stateless classes that existed only as namespaces. They were replaced by plain functions and inlined into the executor.
 **Reason:** Simpler dependency graph, no fake "classes" without state, easier to understand the full execution flow in one file.
 
-### 3.14. Observable Execution (`step_output_observers`)
-**Decision:** The executor accepts an optional list of observer callbacks via `step_output_observers`. Each observer is called with `(step_name, output)` every time a step produces an output. For stream outputs, the sync executor tees the stream so the observer receives an independent copy; the async executor creates a dedicated pump task.
-**Reason:** Enables test infrastructure (capturing step outputs for spec compliance tests) without modifying production logic. Follows the Observer pattern — the executor doesn't know what observers do, only that they exist.
-
-**Observer contract:** observers see the producer's output exactly once in producer semantics:
-- in mixed lazy/eager fan-out, observing the producer must not force all consumers eager
-- when a stream fails under `OnError.CONTINUE`, observers see the valid prefix that was already produced
-- observer behavior is a public contract and is covered by corpus/spec tests, not only unit tests
-- when the output is an `Iterator`/`AsyncIterator`, the observer receives the iterator directly (via `tee`) and **must consume it fully**; an unconsumed iterator causes memory growth (the `tee` buffer retains all items) and the observed data is silently lost. This is application responsibility, not framework responsibility.
-
-### 3.15. PipelineStopException with Context
+### 3.14. PipelineStopException with Context
 **Decision:** `PipelineStopException` carries `step_name` and `cause` (the original exception). It uses `raise ... from` to preserve the full stack trace.
 **Reason:** When a pipeline stops, callers need to know which step caused the stop and why. An empty exception is useless for debugging.
 

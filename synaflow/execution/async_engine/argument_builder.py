@@ -11,6 +11,10 @@ from contextlib import AsyncExitStack
 from typing import Any
 
 from synaflow.core.dag import Dag
+from synaflow.execution.context_managers import (
+    is_async_context_manager_instance,
+    is_sync_context_manager_instance,
+)
 from synaflow.execution.overrides import ExecutionOverrides
 from synaflow.execution.state import ExecutionState
 
@@ -73,9 +77,9 @@ class AsyncArgumentBuilder:
         value = provider() if callable(provider) else provider
         if inspect.isawaitable(value):
             value = await value
-        if hasattr(value, "__aenter__") and hasattr(value, "__aexit__"):
+        if is_async_context_manager_instance(value):
             return await resource_stack.enter_async_context(value)
-        if hasattr(value, "__enter__") and hasattr(value, "__exit__"):
+        if is_sync_context_manager_instance(value):
             return resource_stack.enter_context(value)
         return value
 
