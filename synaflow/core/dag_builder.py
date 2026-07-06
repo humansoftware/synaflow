@@ -551,15 +551,15 @@ def _compile_execution_plan(dag: Dag, indexes: _DagBuildIndexes) -> None:
     for producer_name, node in dag.steps.items():
         consumers = indexes.consumers_by_producer.get(producer_name, [])
         consumer_contracts = [
-            _classify_consumer_contract(producer_name, consumer_name, dag[consumer_name])
+            _classify_consumer_contract(
+                producer_name, consumer_name, dag[consumer_name]
+            )
             for consumer_name in consumers
         ]
         node.consumer_contracts = consumer_contracts
 
         runtime_kind = _classify_output_runtime_kind(dag, node)
-        completion_policy = (
-            "on_exhaustion" if runtime_kind != "value" else "immediate"
-        )
+        completion_policy = "on_exhaustion" if runtime_kind != "value" else "immediate"
 
         if runtime_kind == "value":
             drain_policy = "none"

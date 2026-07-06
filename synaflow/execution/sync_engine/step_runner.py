@@ -163,7 +163,8 @@ class StepRunner:
         dag_node = getattr(self.step_config, "_dag_node", None)
         output_contract = getattr(dag_node, "output_contract", None)
         expects_sync_stream = (
-            output_contract is not None and output_contract.runtime_kind == "sync_stream"
+            output_contract is not None
+            and output_contract.runtime_kind == "sync_stream"
         )
 
         try:
@@ -232,12 +233,9 @@ class StepRunner:
     ) -> None:
         dag_node = getattr(self.step_config, "_dag_node", None)
         output_contract = getattr(dag_node, "output_contract", None)
-        if (
-            unrolled
-            or (
-                output_contract is not None
-                and output_contract.completion_policy == "on_exhaustion"
-            )
+        if unrolled or (
+            output_contract is not None
+            and output_contract.completion_policy == "on_exhaustion"
         ):
             return
         success_count = 1

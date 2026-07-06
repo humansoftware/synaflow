@@ -176,6 +176,7 @@ def test_given_non_callable_materializer_override_when_assigned_then_raises():
     with pytest.raises(TypeError, match="must be callable"):
         overrides.materializers["items"] = 123
 
+
 def test_given_pipeline_observer_override_when_sync_run_then_pipeline_and_step_events_use_override(
     run_pipeline,
 ):

@@ -204,7 +204,9 @@ def test_given_runtime_dag_with_all_mode_when_types_look_like_each_then_executor
     assert calls == [1, 2, 3]
 
 
-def test_given_magicmock_value_output_when_run_then_it_is_forwarded_as_value(run_pipeline):
+def test_given_magicmock_value_output_when_run_then_it_is_forwarded_as_value(
+    run_pipeline,
+):
     class P(NamedTuple):
         pass
 
