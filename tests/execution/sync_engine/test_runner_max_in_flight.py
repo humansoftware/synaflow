@@ -178,6 +178,68 @@ def test_given_max_in_flight_fanout_when_terminal_consumers_do_not_iterate_then_
     assert calls == ["a", "b"] or calls == ["b", "a"]
 
 
+def test_given_fanout_to_submit_and_await_barrier_when_max_in_flight_then_await_steps_drain():
+    class P(NamedTuple):
+        pass
+
+    seen_a: list[int] = []
+    seen_b: list[int] = []
+    completed: list[str] = []
+
+    def source() -> Generator[int, None, None]:
+        yield from [1, 2]
+
+    def submit_a(source: int) -> Future:
+        future: Future = Future()
+        future.set_result(source * 10)
+        return future
+
+    def submit_b(source: int) -> Future:
+        future: Future = Future()
+        future.set_result(source * 100)
+        return future
+
+    def await_a(submit_a: Future) -> None:
+        seen_a.append(submit_a.result())
+
+    def await_b(submit_b: Future) -> None:
+        seen_b.append(submit_b.result())
+
+    def done(await_a, await_b) -> None:
+        completed.append("done")
+
+    p = pipeline(
+        name="test_barrier_drains_await_steps",
+        params=P,
+        steps=[
+            step("source", fn=source),
+            step("submit_a", fn=submit_a, max_in_flight=2),
+            step("submit_b", fn=submit_b, max_in_flight=2),
+            step("await_a", fn=await_a),
+            step("await_b", fn=await_b),
+            step("done", fn=done),
+        ],
+    )
+
+    failure: list[BaseException] = []
+
+    def target() -> None:
+        try:
+            run(p, P())
+        except BaseException as exc:  # pragma: no cover - asserted below
+            failure.append(exc)
+
+    thread = threading.Thread(target=target)
+    thread.start()
+    thread.join(timeout=5)
+
+    assert failure == []
+    assert not thread.is_alive()
+    assert seen_a == [10, 20]
+    assert seen_b == [100, 200]
+    assert completed == ["done"]
+
+
 def test_given_max_in_flight_when_producer_does_not_exceed_bounded_ahead():
     """With max_in_flight=3, the BoundedIterator limits producer advancement."""
 
