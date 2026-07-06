@@ -1,9 +1,10 @@
 from collections.abc import Iterator
 from concurrent.futures import Future
-from typing import NamedTuple
+from typing import AsyncIterator, NamedTuple
 
 from synaflow import pipeline, step
 from synaflow.core.dag import ConsumerContract
+from synaflow.core.types import StepMode
 
 
 class Empty(NamedTuple):
@@ -60,6 +61,52 @@ def test_given_lazy_fanout_when_dag_built_then_consumer_contracts_and_publish_pl
     ) == [("a", "stream"), ("b", "stream")]
 
 
+def test_given_single_sync_stream_with_default_parallelism_when_dag_built_then_publish_stream_has_no_handoff():
+    def producer() -> Iterator[int]:
+        yield from range(3)
+
+    def consumer(producer: Iterator[int]) -> list[int]:
+        return list(producer)
+
+    p = pipeline(
+        name="test",
+        params=Empty,
+        steps=[step("producer", fn=producer), step("consumer", fn=consumer)],
+    )
+
+    node = p.dag.steps["producer"]
+    assert node.output_contract is not None
+    assert node.output_contract.runtime_kind == "sync_stream"
+    assert node.publish_plan is not None
+    assert node.publish_plan.strategy == "publish_stream"
+    assert node.publish_plan.handoff == "none"
+
+
+def test_given_single_sync_stream_with_parallelism_when_dag_built_then_publish_stream_uses_bounded_handoff():
+    def producer() -> Iterator[int]:
+        yield from range(3)
+
+    def consumer(producer: Iterator[int]) -> list[int]:
+        return list(producer)
+
+    p = pipeline(
+        name="test",
+        params=Empty,
+        steps=[
+            step("producer", fn=producer, max_in_flight=4),
+            step("consumer", fn=consumer),
+        ],
+    )
+
+    node = p.dag.steps["producer"]
+    assert node.output_contract is not None
+    assert node.output_contract.runtime_kind == "sync_stream"
+    assert node.publish_plan is not None
+    assert node.publish_plan.strategy == "publish_stream"
+    assert node.publish_plan.handoff == "bounded_iterator"
+    assert node.publish_plan.max_in_flight == 4
+
+
 def test_given_materialized_consumer_when_dag_built_then_publish_plan_is_materialized():
     def producer() -> Iterator[int]:
         yield from range(3)
@@ -80,6 +127,88 @@ def test_given_materialized_consumer_when_dag_built_then_publish_plan_is_materia
     assert node.publish_plan.strategy == "publish_materialized"
     assert node.consumer_contracts == [
         ConsumerContract(consumer_name="consumer", consumption="materialized")
+    ]
+
+
+async def _async_producer() -> AsyncIterator[int]:
+    for i in range(3):
+        yield i
+
+
+async def _async_consumer(producer: AsyncIterator[int]) -> list[int]:
+    return [item async for item in producer]
+
+
+async def _async_consumer_a(producer: AsyncIterator[int]) -> list[int]:
+    return [item async for item in producer]
+
+
+async def _async_consumer_b(producer: AsyncIterator[int]) -> list[int]:
+    return [item async for item in producer]
+
+
+def test_given_async_stream_single_consumer_when_dag_built_then_publish_stream_contract_is_compiled():
+    p = pipeline(
+        name="test",
+        params=Empty,
+        steps=[
+            step("producer", fn=_async_producer),
+            step("consumer", fn=_async_consumer),
+        ],
+    )
+
+    node = p.dag.steps["producer"]
+    assert node.output_contract is not None
+    assert node.output_contract.runtime_kind == "async_stream"
+    assert node.output_contract.completion_policy == "on_exhaustion"
+    assert node.output_contract.drain_policy == "none"
+    assert node.publish_plan is not None
+    assert node.publish_plan.strategy == "publish_stream"
+    assert node.publish_plan.handoff == "none"
+
+
+def test_given_async_stream_fanout_when_dag_built_then_async_fanout_plan_is_compiled():
+    p = pipeline(
+        name="test",
+        params=Empty,
+        steps=[
+            step("producer", fn=_async_producer),
+            step("a", fn=_async_consumer_a),
+            step("b", fn=_async_consumer_b),
+        ],
+    )
+
+    node = p.dag.steps["producer"]
+    assert node.output_contract is not None
+    assert node.output_contract.runtime_kind == "async_stream"
+    assert node.publish_plan is not None
+    assert node.publish_plan.strategy == "publish_async_fanout"
+    assert node.publish_plan.handoff == "async_queue"
+    assert sorted(
+        (contract.consumer_name, contract.consumption)
+        for contract in node.consumer_contracts
+    ) == [("a", "stream"), ("b", "stream")]
+
+
+def test_given_each_consumer_when_dag_built_then_consumer_contract_is_item():
+    def producer() -> Iterator[int]:
+        yield from range(3)
+
+    def consume(producer: int) -> None:
+        return None
+
+    p = pipeline(
+        name="test",
+        params=Empty,
+        steps=[
+            step("producer", fn=producer),
+            step("consume", fn=consume, mode=StepMode.EACH),
+        ],
+    )
+
+    node = p.dag.steps["producer"]
+    assert node.consumer_contracts == [
+        ConsumerContract(consumer_name="consume", consumption="item")
     ]
 
 
@@ -129,6 +258,15 @@ def test_given_barrier_only_deferred_step_when_dag_built_then_drain_policy_is_co
         assert node.consumer_contracts == [
             ConsumerContract(consumer_name="done", consumption="barrier_only")
         ]
+
+
+def test_given_scalar_step_when_dag_built_then_dag_does_not_drain_it():
+    def scalar() -> int:
+        return 1
+
+    p = pipeline(name="test", params=Empty, steps=[step("scalar", fn=scalar)])
+
+    assert p.dag.should_drain_deferred_step("scalar") is False
 
 
 def test_given_dag_exported_when_serialized_then_execution_plan_debug_fields_are_present():

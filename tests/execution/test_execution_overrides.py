@@ -176,36 +176,6 @@ def test_given_non_callable_materializer_override_when_assigned_then_raises():
     with pytest.raises(TypeError, match="must be callable"):
         overrides.materializers["items"] = 123
 
-
-def test_given_magicmock_value_output_when_sync_run_then_it_is_not_treated_as_lazy_iterator(
-    run_pipeline,
-):
-    class Params(NamedTuple):
-        pass
-
-    mock_value = MagicMock()
-    seen = []
-
-    def existing_ids() -> set[int]:
-        return mock_value
-
-    def consume(existing_ids: set[int]) -> None:
-        seen.append(existing_ids)
-
-    p = pipeline(
-        name="magicmock_value_output_contract",
-        params=Params,
-        steps=[
-            step("existing_ids", fn=existing_ids),
-            step("consume", fn=consume),
-        ],
-    )
-
-    run_pipeline(p, Params())
-
-    assert seen == [mock_value]
-
-
 def test_given_pipeline_observer_override_when_sync_run_then_pipeline_and_step_events_use_override(
     run_pipeline,
 ):
