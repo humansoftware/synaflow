@@ -58,6 +58,10 @@ def test_sync_async_test_parity():
             "test_given_max_in_flight_fanout_when_terminal_consumers_do_not_iterate_then_run_completes",
             "Tests the sync-only SyncFanout lazy-start/queue handoff path when terminal consumers never iterate. The async engine uses a different queue/task handoff mechanism.",
         ),
+        (
+            "test_given_fanout_to_submit_and_await_barrier_when_max_in_flight_then_await_steps_drain",
+            "Tests the sync-only SyncFanout plus barrier-only done-step topology that can deadlock when EACH await steps are left lazy. The async engine uses a different handoff mechanism.",
+        ),
     ]
 
     expected_async_only = [

@@ -182,7 +182,7 @@ class PipelineExecutor:
             arguments=arguments,
             resource_stack=resource_stack,
             is_each_mode=(node.mode == StepMode.EACH),
-            should_drain=self.dag.is_terminal_step(step_name),
+            should_drain=self.dag.should_drain_deferred_step(step_name),
             publisher=lambda out: (
                 self.publish(step_name, out, node, stats)
                 if not self.dag.is_hidden_step(step_name)
