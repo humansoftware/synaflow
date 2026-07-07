@@ -6,7 +6,7 @@ import typing
 import dataclasses
 from typing import Any, NamedTuple, Union
 
-from synaflow.core.dag import DagNode
+from synaflow.core.dag import DagNode, resolve_resource_output_type
 from synaflow.core.definition import Step
 from synaflow.core.naming import get_base_dataset_name
 from synaflow.core.types import StepMode
@@ -42,41 +42,6 @@ def initialize_resources(resources: dict[str, Any]) -> dict[str, DagNode]:
     for name, factory in resources.items():
         produced[name] = DagNode(output=resolve_resource_output_type(name, factory))
     return produced
-
-
-def resolve_resource_output_type(resource_name: str, factory: Any) -> Any:
-    if not callable(factory):
-        raise ValueError(
-            f"Resource '{resource_name}' must be declared as a factory callable."
-        )
-
-    hints = get_safe_type_hints(factory)
-    try:
-        sig = inspect.signature(factory)
-    except (TypeError, ValueError) as exc:
-        raise ValueError(
-            f"Resource '{resource_name}' must be inspectable as a factory callable."
-        ) from exc
-
-    return_type = hints.get("return", sig.return_annotation)
-    if return_type is inspect.Signature.empty:
-        factory_name = getattr(factory, "__name__", type(factory).__name__)
-        raise ValueError(
-            f"Resource factory '{factory_name}' for key '{resource_name}' must declare a return type annotation."
-        )
-    if return_type in (None, type(None)):
-        factory_name = getattr(factory, "__name__", type(factory).__name__)
-        raise ValueError(
-            f"Resource factory '{factory_name}' for key '{resource_name}' must not return None."
-        )
-    return return_type
-
-
-def get_safe_type_hints(fn: Any) -> dict[str, Any]:
-    try:
-        return typing.get_type_hints(fn, include_extras=True)
-    except (NameError, TypeError):
-        return {}
 
 
 def is_optional_or_any(tp: Any) -> bool:

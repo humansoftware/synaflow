@@ -1,9 +1,8 @@
 import inspect
 from typing import Any
 
-from synaflow.core.dag import Dag, DagNode
+from synaflow.core.dag import Dag, DagNode, get_safe_type_hints
 from synaflow.core.dag_dependencies import (
-    get_safe_type_hints,
     resolve_step_output_type,
     validate_and_resolve_dependencies,
 )
