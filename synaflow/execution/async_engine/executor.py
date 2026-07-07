@@ -161,11 +161,16 @@ class AsyncPipelineExecutor:
             if fatal_error is None:
                 check_new_ready_steps()
 
-            if not running_tasks:
+            # Issue #103: wake the wait loop both on natural completion
+            # and when fatal_error is set, so we exit even if some siblings
+            # are blocked on user code we cannot cancel.
+            if not running_tasks or fatal_error is not None:
                 event.set()
 
         check_new_ready_steps()
-        if running_tasks:
+        # Issue #103: same race-with-fatal_error fix as the sync engine:
+        # if a step fails before we enter the wait, we must not block.
+        if running_tasks and fatal_error is None:
             await event.wait()
 
         if fatal_error is not None:
@@ -266,12 +271,32 @@ class AsyncPipelineExecutor:
             t.cancel()
 
     async def cleanup(self) -> None:
-        """Await all pump tasks, suppressing exceptions."""
-        if self._pump_tasks:
-            try:
-                await asyncio.gather(*self._pump_tasks, return_exceptions=True)
-            except Exception:
-                pass
+        """Await all pump tasks with a bounded timeout.
+
+        Issue #103: a pump task may be parked in ``__anext__`` blocked on
+        user code (e.g. stuck ``asyncio.Queue.get()`` or ``await``).  asyncio
+        ``Task.cancel()`` only schedules a ``CancelledError`` — it cannot
+        interrupt arbitrary user code synchronously.  We bound the wait
+        with ``asyncio.wait_for`` so cleanup() always returns; the orphan
+        pump task is left to be reclaimed by the event loop.
+        """
+        if not self._pump_tasks:
+            return
+        try:
+            await asyncio.wait_for(
+                asyncio.gather(*self._pump_tasks, return_exceptions=True),
+                timeout=1.0,
+            )
+        except asyncio.TimeoutError:
+            import logging
+
+            logging.getLogger("synaflow").warning(
+                "Async pump tasks did not exit within timeout; likely blocked "
+                "in user code.  Abandoning the pumps; they will leak.  See "
+                "Issue #103."
+            )
+        except Exception:
+            pass
 
     async def _apply_materializer(
         self,

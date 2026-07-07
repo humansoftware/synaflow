@@ -1,5 +1,9 @@
+import logging
+import os
 import threading
+import time
 import uuid
+from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
 from typing import Any
 
@@ -34,8 +38,66 @@ from .step_runner import (
 
 
 # ---------------------------------------------------------------------------
-# Runtime helpers (no flags needed on DagNode)
+# Worker-thread lifecycle
 # ---------------------------------------------------------------------------
+
+
+_LOGGER = logging.getLogger("synaflow")
+
+
+def wait_for_workers_after_shutdown(
+    thread_name_prefix: str = "synaflow-worker",
+    log_every_seconds: float = 60.0,
+    poll_seconds: float = 0.5,
+    *,
+    _enumerate_threads: Callable[[], list[threading.Thread]] = threading.enumerate,
+    _is_alive: Callable[[threading.Thread], bool] = threading.Thread.is_alive,
+    _sleep: Callable[[float], None] = time.sleep,
+    _monotonic: Callable[[], float] = time.monotonic,
+    _log: Callable[..., Any] = _LOGGER.warning,
+    _process_pid: int | None = None,
+) -> int:
+    """Block until no alive thread whose name starts with ``thread_name_prefix``.
+
+    Used after a sync engine shuts down its pool with
+    ``shutdown(wait=False, cancel_futures=True)``.  Polls every
+    ``poll_seconds`` so a transient alive thread (mid-cleanup) clears
+    within a couple of seconds; logs a warning every ``log_every_seconds``
+    for threads that persist, with worker names and the process PID for
+    diagnostics.
+
+    If user code is blocked indefinitely, this function blocks
+    indefinitely too — the contract is that the *user* is responsible
+    for step progress.  The user-visible log line is the diagnostic.
+    """
+    if _process_pid is None:
+        _process_pid = os.getpid()
+
+    last_log_at: float | None = None
+    polls = 0
+    while True:
+        polls += 1
+        alive = [
+            t
+            for t in _enumerate_threads()
+            if t.name.startswith(thread_name_prefix) and _is_alive(t)
+        ]
+        if not alive:
+            return polls
+        now = _monotonic()
+        if last_log_at is None or now - last_log_at >= log_every_seconds:
+            _log(
+                "synaflow waiting for %d worker thread(s) (pid=%d): %s. "
+                "These workers are blocked inside user code (step "
+                "function); the process will not exit until they "
+                "complete.  Check your step functions for blocking I/O, "
+                "infinite loops, or deadlocks.",
+                len(alive),
+                _process_pid,
+                [t.name for t in alive],
+            )
+            last_log_at = now
+        _sleep(poll_seconds)
 
 
 # ---------------------------------------------------------------------------
@@ -50,10 +112,14 @@ class PipelineExecutor:
         *,
         overrides: ExecutionOverrides | None = None,
         resource_factories: dict[str, Any] | None = None,
+        worker_shutdown_poll_seconds: float = 0.5,
+        worker_shutdown_log_every_seconds: float = 60.0,
     ):
         self.dag = dag
         self._overrides = overrides
         self._resource_factories = dict(resource_factories or {})
+        self._worker_shutdown_poll_seconds = worker_shutdown_poll_seconds
+        self._worker_shutdown_log_every_seconds = worker_shutdown_log_every_seconds
         self.run_id = str(uuid.uuid4())
 
         self.state = ExecutionState(self.dag)
@@ -107,7 +173,16 @@ class PipelineExecutor:
         fatal_error = None
         completed_cleanly = True
 
-        with ThreadPoolExecutor(max_workers=max(1, len(self.dag.steps))) as pool:
+        # Context-manager shutdown would call shutdown(wait=True), which would
+        # block here when user code is stuck.  We pair shutdown(wait=False)
+        # with the post-shutdown wait below, which logs stuck workers and
+        # returns once they exit (or blocks indefinitely if user code does
+        # not progress — that is the user's responsibility).
+        pool = ThreadPoolExecutor(
+            max_workers=max(1, len(self.dag.steps)),
+            thread_name_prefix="synaflow-worker",
+        )
+        try:
 
             def check_new_ready_steps():
                 for s in self.dag.steps:
@@ -146,8 +221,20 @@ class PipelineExecutor:
 
             with cond:
                 check_new_ready_steps()
-                while running_tasks:
+                # Issue #103: when a step fails, exit the wait loop instead
+                # of waiting forever for sibling steps that may be blocked
+                # on I/O.  Cleanup() below handles the abandoned workers.
+                while running_tasks and fatal_error is None:
                     cond.wait()
+        finally:
+            # wait=False so we don't block on workers that are stuck inside
+            # user code.  The wait helper below blocks instead, logging
+            # each iteration so the user can identify stuck steps.
+            pool.shutdown(wait=False, cancel_futures=True)
+            wait_for_workers_after_shutdown(
+                poll_seconds=self._worker_shutdown_poll_seconds,
+                log_every_seconds=self._worker_shutdown_log_every_seconds,
+            )
 
         if fatal_error is not None:
             raise fatal_error
@@ -255,8 +342,19 @@ class PipelineExecutor:
             fanout.abort(exception)
 
     def cleanup(self) -> None:
+        # A SyncFanout pump thread may be stuck in user code (e.g.
+        # ``next(source)`` blocked on I/O).  We bound the wait per fanout
+        # and log when a pump does not exit in time; the orphaned pump is
+        # daemon so it does not block process exit.
         for fanout in self._active_fanouts:
-            fanout.join()
+            exited = fanout.join(timeout=1.0)
+            if not exited:
+                _LOGGER.warning(
+                    "SyncFanout pump thread did not exit within 1.0s; "
+                    "likely blocked in user code (next() on a stuck "
+                    "iterator).  Pump is daemon and will not block "
+                    "process exit."
+                )
         self._active_fanouts.clear()
 
     def _validate_value_output_contract(
@@ -439,7 +537,12 @@ class PipelineExecutor:
 
 
 def run(
-    pipeline: PipelineDef, params: Any, overrides: ExecutionOverrides | None = None
+    pipeline: PipelineDef,
+    params: Any,
+    overrides: ExecutionOverrides | None = None,
+    *,
+    worker_shutdown_poll_seconds: float = 0.5,
+    worker_shutdown_log_every_seconds: float = 60.0,
 ) -> None:
     if getattr(pipeline, "requires_async_runner", False):
         raise RuntimeError(
@@ -450,4 +553,6 @@ def run(
         pipeline.dag,
         overrides=overrides,
         resource_factories=pipeline.dag.resource_factories,
+        worker_shutdown_poll_seconds=worker_shutdown_poll_seconds,
+        worker_shutdown_log_every_seconds=worker_shutdown_log_every_seconds,
     ).execute(params)

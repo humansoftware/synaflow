@@ -62,6 +62,45 @@ def test_sync_async_test_parity():
             "test_given_fanout_to_submit_and_await_barrier_when_max_in_flight_then_await_steps_drain",
             "Tests the sync-only SyncFanout plus barrier-only done-step topology that can deadlock when EACH await steps are left lazy. The async engine uses a different handoff mechanism.",
         ),
+        # Unit tests for ``wait_for_workers_after_shutdown`` — sync engine only.
+        # The async engine does not use a ThreadPoolExecutor; worker lifecycle
+        # is governed by the asyncio event loop.
+        (
+            "test_returns_when_no_threads",
+            "Unit test for the sync-only ``wait_for_workers_after_shutdown`` helper.",
+        ),
+        (
+            "test_filters_threads_outside_prefix",
+            "Unit test for the sync-only ``wait_for_workers_after_shutdown`` helper.",
+        ),
+        (
+            "test_logs_once_then_returns_when_workers_clear_first_poll",
+            "Unit test for the sync-only ``wait_for_workers_after_shutdown`` helper.",
+        ),
+        (
+            "test_logs_each_log_window_until_workers_clear",
+            "Unit test for the sync-only ``wait_for_workers_after_shutdown`` helper.",
+        ),
+        (
+            "test_logs_at_most_once_per_window_even_with_many_short_polls",
+            "Unit test for the sync-only ``wait_for_workers_after_shutdown`` helper.",
+        ),
+        (
+            "test_logs_multiple_workers_in_single_line",
+            "Unit test for the sync-only ``wait_for_workers_after_shutdown`` helper.",
+        ),
+        (
+            "test_process_pid_defaults_to_os_getpid",
+            "Unit test for the sync-only ``wait_for_workers_after_shutdown`` helper.",
+        ),
+        (
+            "test_custom_thread_name_prefix_is_honoured",
+            "Unit test for the sync-only ``wait_for_workers_after_shutdown`` helper.",
+        ),
+        (
+            "test_poll_seconds_passed_through_to_sleep",
+            "Unit test for the sync-only ``wait_for_workers_after_shutdown`` helper.",
+        ),
     ]
 
     expected_async_only = [
@@ -93,6 +132,10 @@ def test_sync_async_test_parity():
         (
             "test_given_terminal_stream_with_no_observers_bypass_validation",
             "Tests async-only validation bypass for unobserved terminal async streams. Sync engine doesn't have an equivalent bypass because all sync generator outputs are consumed or validated under sync rules.",
+        ),
+        (
+            "test_given_blocking_step_when_another_step_raises_then_run_graph_hangs",
+            "Tests the async-only `_run_graph()` recovery path: asyncio task cancellation interrupts blocked awaits natively, while the sync engine relies on the user to ensure steps make progress (no equivalent guard test).",
         ),
     ]
 

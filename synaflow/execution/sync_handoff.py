@@ -94,9 +94,23 @@ class SyncFanout:
         for branch_name, q in self._queues.items():
             self._put_terminal(branch_name, q, marker)
 
-    def join(self) -> None:
-        if self._thread is not None:
-            self._thread.join()
+    def join(self, timeout: float | None = None) -> bool:
+        """Wait for the pump thread to finish.
+
+        Args:
+            timeout: Maximum seconds to wait.  None (default) waits forever.
+
+        Returns:
+            True if the pump thread exited within the timeout; False otherwise.
+            When False is returned, the pump thread is left running (leaked)
+            because Python cannot kill arbitrary user-code blocked in
+            ``next()``.  The caller has decided that the executor must give
+            up rather than block the calling thread indefinitely — see
+            Issue #103 and ``PipelineExecutor.cleanup()``.
+        """
+        if self._thread is None:
+            return True
+        return self._thread.join(timeout=timeout)
 
     def _pump(self) -> None:
         try:

@@ -79,7 +79,11 @@ asyncio_mode = "auto"
 addopts = "--import-mode=importlib"
 pythonpath = ["."]
 timeout = 10
-timeout_method = "thread"
+# ``signal`` is cleaner than ``thread`` on Linux (the CI's only
+# platform). The ``thread`` method spawns a daemon monitor that can keep
+# pytest teardown alive on GitHub Actions after all tests finish printing
+# "X passed in Y.YYs" — see Issue #103.
+timeout_method = "signal"
 
 
 [tool.hatch.build.targets.wheel]
@@ -148,4 +152,3 @@ dev = [
     "pytest-timeout>=2.4.0",
     "ruff>=0.15.17",
 ]
-

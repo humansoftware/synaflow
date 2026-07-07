@@ -15,6 +15,7 @@ from synaflow.execution.context_managers import (
 )
 from synaflow.execution.overrides import ExecutionOverrides
 from synaflow.execution.state import ExecutionState
+from synaflow.execution.sync_handoff import SyncQueueIterator
 
 
 class ArgumentBuilder:
@@ -73,15 +74,29 @@ class ArgumentBuilder:
     def build_arguments(self, consumer, node) -> tuple[dict[str, Any], ExitStack]:
         resource_stack = ExitStack()
         args = {}
+        # Track SyncQueueIterators we obtained from the runtime state so we
+        # can close them on failure.  Without this, an exception raised by
+        # resolve_resource_argument() AFTER the iterator was fetched leaves
+        # the iterator's branch in SyncFanout._active_branches.  The pump
+        # thread then deadlocks on the final EOF_MARKER push for that
+        # orphaned branch (see Issue #103).
+        leaked_iterators: list[SyncQueueIterator] = []
         try:
             for dep_name in node.deps:
                 if dep_name in self._dag.resource_factories:
                     value = self.resolve_resource_argument(dep_name, resource_stack)
                 else:
                     value = self._outputs.get_output(dep_name, consumer)
+                    if isinstance(value, SyncQueueIterator):
+                        leaked_iterators.append(value)
                 param = node.dataset_param_names.get(dep_name, dep_name)
                 args[param] = value
             return args, resource_stack
         except Exception:
             resource_stack.close()
+            for it in leaked_iterators:
+                try:
+                    it.close()
+                except Exception:
+                    pass
             raise
