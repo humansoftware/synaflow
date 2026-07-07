@@ -62,6 +62,10 @@ def test_sync_async_test_parity():
             "test_given_fanout_to_submit_and_await_barrier_when_max_in_flight_then_await_steps_drain",
             "Tests the sync-only SyncFanout plus barrier-only done-step topology that can deadlock when EACH await steps are left lazy. The async engine uses a different handoff mechanism.",
         ),
+        (
+            "test_no_non_daemon_worker_leak_after_executor_shutdown",
+            "Tests the sync-only ThreadPoolExecutor leak path; the async engine uses asyncio.Task which is governed by the event loop and does not suffer non-daemon thread leaks on CI teardown.",
+        ),
     ]
 
     expected_async_only = [

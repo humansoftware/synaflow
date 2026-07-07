@@ -1,6 +1,8 @@
 import threading
 import uuid
+import weakref
 from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import thread as _cf_thread
 from typing import Any
 
 from synaflow.core.dag import Dag
@@ -36,6 +38,77 @@ from .step_runner import (
 # ---------------------------------------------------------------------------
 # Runtime helpers (no flags needed on DagNode)
 # ---------------------------------------------------------------------------
+
+
+# ---------------------------------------------------------------------------
+# Daemon thread pool
+# ---------------------------------------------------------------------------
+
+
+class _DaemonThreadPoolExecutor(ThreadPoolExecutor):
+    """ThreadPoolExecutor that spawns ``daemon=True`` worker threads.
+
+    ``synaflow`` is responsible for the full lifecycle of every thread it
+    creates - the user (the pipeline author) must NOT need to know that
+    our engine runs steps on a thread pool, and must NOT need to set any
+    ``daemon`` flag, install signal handlers, or otherwise clean up
+    after a stuck step.  ``run(pipeline, params)`` must always return in
+    bounded time, no matter what user code does inside a step.
+
+    The Python standard library's ``ThreadPoolExecutor`` does not honour
+    that contract: its workers are non-daemon by default, so when
+    ``shutdown(wait=False, cancel_futures=True)`` returns with a worker
+    still blocked on user I/O, the orphaned worker keeps the Python
+    process alive - ``threading`` blocks ``sys.exit()`` waiting for
+    non-daemon threads to finish.  We observed this exact failure mode
+    on CI: every test passed, ``pytest`` printed ``"673 passed in N.NNs"``,
+    and then the job hung for hours until the runner ran out of time.
+
+    This subclass takes that lifecycle responsibility back from the
+    stdlib.  We override ``_adjust_thread_count`` to spawn
+    ``threading.Thread(..., daemon=True)``, so a worker that ``synaflow``
+    created cannot keep the process alive past the framework's
+    ``cleanup()`` call.  The trade-off (a daemon thread may be abruptly
+    killed at interpreter shutdown if user code is still running) is
+    acceptable because ``shutdown(wait=False)`` had already declared the
+    worker abandoned; daemon conversion just guarantees that
+    abandonment is observably terminal rather than silently held open.
+
+    See Issue #103.
+    """
+
+    def _adjust_thread_count(self) -> None:  # type: ignore[override]
+        # Mirror of stdlib ``ThreadPoolExecutor._adjust_thread_count``
+        # (Lib/concurrent/futures/thread.py) with one change: ``daemon=True``
+        # on the spawned ``threading.Thread``.  We reach for the same
+        # private attributes used by the stdlib subclass contract; this
+        # is brittle if Python changes them, hence the version check.
+        if self._idle_semaphore.acquire(timeout=0):  # pylint: disable=W0212
+            return
+
+        def weakref_cb(_: "object", q: "object" = self._work_queue) -> None:  # pylint: disable=W0212
+            q.put(None)  # type: ignore[union-attr]
+
+        num_threads = len(self._threads)  # pylint: disable=W0212
+        if num_threads < self._max_workers:  # pylint: disable=W0212
+            thread_name = "%s_%d" % (
+                self._thread_name_prefix or "ThreadPoolExecutor",  # pylint: disable=W0212
+                num_threads,
+            )
+            self_ref = weakref.ref(self, weakref_cb)  # pylint: disable=W0212
+            t = threading.Thread(
+                name=thread_name,
+                target=_cf_thread._worker,  # pylint: disable=W0212
+                args=(
+                    self_ref,
+                    self._work_queue,  # pylint: disable=W0212
+                    self._initializer,  # pylint: disable=W0212
+                    self._initargs,  # pylint: disable=W0212
+                ),
+            )
+            t.daemon = True
+            t.start()
+            self._threads.add(t)  # pylint: disable=W0212
 
 
 # ---------------------------------------------------------------------------
@@ -107,16 +180,26 @@ class PipelineExecutor:
         fatal_error = None
         completed_cleanly = True
 
-        # We deliberately do NOT use the context-manager form of
-        # ThreadPoolExecutor here.  Once the pool's __exit__ calls
-        # shutdown(wait=True) we cannot interrupt a step that is blocked on
-        # user code (e.g. an I/O-bound step that never returns).  Shutdown
-        # with wait=False + cancel_futures=True lets us abandon pending
-        # futures immediately when a fatal_error has been recorded; in-flight
-        # workers continue to run on a best-effort basis (they are leaked
-        # daemon-less threads in the eyes of Python, but the executor
-        # object is fully released).  See Issue #103.
-        pool = ThreadPoolExecutor(max_workers=max(1, len(self.dag.steps)))
+        # ``synaflow`` must honour its lifecycle contract: every thread we
+        # spawn has to be reaped when ``cleanup()`` returns, regardless of
+        # whether user code (the step function) is still running.  Python's
+        # ``ThreadPoolExecutor.__exit__`` calls ``shutdown(wait=True)``, which
+        # would block ``cleanup()`` indefinitely if any worker is stuck in
+        # user I/O - that is the cause of the production hang described in
+        # Issue #103 (Cause #2, ``cond.wait()`` / ``fanout.join()`` unbounded).
+        #
+        # We therefore (a) do NOT use the context-manager form of
+        # ``ThreadPoolExecutor`` here, and (b) replace it with
+        # ``_DaemonThreadPoolExecutor`` so that any worker the pool had to
+        # abandon via ``shutdown(wait=False, cancel_futures=True)`` is a
+        # daemon thread and cannot keep the Python process alive past
+        # ``sys.exit()``.  Without (b) we leak non-daemon worker threads and
+        # hang the process - that is the second-layer CI hang observed after
+        # (a) was already in place.  See Issue #103.
+        pool = _DaemonThreadPoolExecutor(
+            max_workers=max(1, len(self.dag.steps)),
+            thread_name_prefix="synaflow-worker",
+        )
         try:
 
             def check_new_ready_steps():

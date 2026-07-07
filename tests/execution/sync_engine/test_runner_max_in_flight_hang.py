@@ -19,6 +19,7 @@ fixed, the framework no longer hangs.
 """
 
 import threading
+import time
 from collections.abc import Iterator
 from typing import NamedTuple
 
@@ -420,3 +421,68 @@ def test_given_consumer_raises_with_on_error_stop_and_fanout_then_pump_drains():
     )
     assert len(raised) >= 1
     assert isinstance(raised[0], PipelineStopException)
+
+
+# ---------------------------------------------------------------------------
+# Test G — Thread leak regression (Issue #103, CI hang after #103 fix)
+# ---------------------------------------------------------------------------
+
+
+def test_no_non_daemon_worker_leak_after_executor_shutdown():
+    """``synaflow`` is responsible for the full lifecycle of every thread
+    it creates; the pipeline author must never need to clean up after us.
+    After a ``PipelineExecutor`` cleans up, no ``synaflow-worker_*`` thread
+    spawned by ``_DaemonThreadPoolExecutor`` may remain alive as a
+    non-daemon thread.
+
+    CI hangs were traced to two layers, both framework bugs: (1) the
+    production hang in Issue #103 (unbounded ``cond.wait()`` /
+    ``fanout.join()``); (2) once that was fixed, the leaked
+    ``ThreadPoolExecutor`` workers stayed alive as non-daemon threads and
+    ``python -m pytest`` then waited for them forever at session
+    teardown, printing ``673 passed in 4.70s`` and never returning.
+
+    The fix is to spawn daemon workers via ``_DaemonThreadPoolExecutor``;
+    this test is the contract: any regression that puts a worker back on
+    the ``daemon=False`` path will turn into a CI hang in production,
+    and this test will catch it locally in 0.1 s.
+    """
+    step_blocked = threading.Event()  # never set - keeps the worker stuck
+    blocking_started = threading.Event()
+
+    def blocking_step() -> None:
+        blocking_started.set()
+        step_blocked.wait()  # blocks forever
+
+    def failing_step() -> None:
+        blocking_started.wait()
+        raise ValueError("failing_step raises")
+
+    pipeline_def = pipeline(
+        name="test_thread_leak_regression",
+        params=EmptyParams,
+        steps=[
+            step("blocking_step", fn=blocking_step),
+            step("failing_step", fn=failing_step, on_error=OnError.STOP),
+        ],
+    )
+
+    executor = PipelineExecutor(pipeline_def.dag)
+    try:
+        executor.execute(EmptyParams())
+    except BaseException:
+        pass  # expected: PipelineStopException / ValueError
+
+    # Yield to let the executor complete its cleanup.
+    time.sleep(0.1)
+
+    leaked = [
+        t
+        for t in threading.enumerate()
+        if t.name.startswith("synaflow-worker_") and t.is_alive() and not t.daemon
+    ]
+    assert not leaked, (
+        f"Non-daemon synaflow-worker thread(s) leaked after shutdown: "
+        f"{[t.name for t in leaked]}.  See Issue #103 — these threads "
+        f"block pytest session teardown and make CI runs hang for hours."
+    )
