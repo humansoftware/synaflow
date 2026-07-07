@@ -107,7 +107,17 @@ class PipelineExecutor:
         fatal_error = None
         completed_cleanly = True
 
-        with ThreadPoolExecutor(max_workers=max(1, len(self.dag.steps))) as pool:
+        # We deliberately do NOT use the context-manager form of
+        # ThreadPoolExecutor here.  Once the pool's __exit__ calls
+        # shutdown(wait=True) we cannot interrupt a step that is blocked on
+        # user code (e.g. an I/O-bound step that never returns).  Shutdown
+        # with wait=False + cancel_futures=True lets us abandon pending
+        # futures immediately when a fatal_error has been recorded; in-flight
+        # workers continue to run on a best-effort basis (they are leaked
+        # daemon-less threads in the eyes of Python, but the executor
+        # object is fully released).  See Issue #103.
+        pool = ThreadPoolExecutor(max_workers=max(1, len(self.dag.steps)))
+        try:
 
             def check_new_ready_steps():
                 for s in self.dag.steps:
@@ -146,8 +156,19 @@ class PipelineExecutor:
 
             with cond:
                 check_new_ready_steps()
-                while running_tasks:
+                # Issue #103: when a step fails, exit the wait loop instead
+                # of waiting forever for sibling steps that may be blocked
+                # on I/O.  Cleanup() below handles the abandoned workers.
+                while running_tasks and fatal_error is None:
                     cond.wait()
+        finally:
+            # cancel_futures=True cancels any pending (not yet running) step
+            # submissions.  In-flight futures cannot be cancelled from
+            # outside; their workers are abandoned and will block on user
+            # code until that code returns.  We use wait=False to avoid
+            # blocking on those workers — cleanup() has its own timeout
+            # for any SyncFanout pumps that remain alive.
+            pool.shutdown(wait=False, cancel_futures=True)
 
         if fatal_error is not None:
             raise fatal_error
@@ -255,8 +276,24 @@ class PipelineExecutor:
             fanout.abort(exception)
 
     def cleanup(self) -> None:
+        # Issue #103: a SyncFanout pump thread may be stuck in user code
+        # (e.g. ``next(source)`` blocked on I/O).  Without a bounded wait
+        # here, cleanup() blocks the calling thread indefinitely on
+        # fanout.join().  We bound the wait per-fanout and log a warning
+        # when a pump does not exit in time.  The orphaned pump thread
+        # cannot be killed (Python limitation), but the executor itself
+        # is released so the calling pipeline can complete.
         for fanout in self._active_fanouts:
-            fanout.join()
+            exited = fanout.join(timeout=1.0)
+            if not exited:
+                import logging
+
+                logging.getLogger("synaflow").warning(
+                    "SyncFanout pump thread did not exit within timeout; "
+                    "likely blocked in user code (next() on a stuck "
+                    "iterator).  Abandoning the pump; it will leak. "
+                    "See Issue #103."
+                )
         self._active_fanouts.clear()
 
     def _validate_value_output_contract(

@@ -44,7 +44,11 @@ jobs:
 
     - name: Install dependencies
       run: |
-        uv pip install --system hatchling
+        # ``uv sync`` installs the package AND the ``[dependency-groups].dev``
+        # extras (pytest, pytest-asyncio, pytest-timeout, pytest-cov, ...).
+        # Without dev deps the ``timeout = 10`` setting in pyproject.toml is
+        # silently ignored because the pytest-timeout plugin never loads.
+        uv sync --dev
 
     - name: Validate Packing and Installation
       run: |
@@ -76,7 +80,10 @@ jobs:
 
     - name: Install dependencies
       run: |
-        uv pip install --system hatchling
+        # ``uv sync --dev`` installs the package and dev-group extras
+        # (pytest-asyncio, pytest-timeout, pytest-cov) so that the
+        # ``timeout = 10`` setting in pyproject.toml actually applies.
+        uv sync --dev
 
     - name: Install package
       run: |

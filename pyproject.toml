@@ -148,4 +148,3 @@ dev = [
     "pytest-timeout>=2.4.0",
     "ruff>=0.15.17",
 ]
-

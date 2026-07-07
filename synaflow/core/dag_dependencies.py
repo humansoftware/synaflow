@@ -91,7 +91,7 @@ def validate_and_resolve_dependencies(
                     f"Pipeline '{pipeline_name}': step '{step.name}' depends on '{param_name}'{type_hint} "
                     "but no resource, prior step, or params field produces it"
                     + (
-                        f" — did you forget to declare it in resources={{}}?"
+                        " — did you forget to declare it in resources={}?"
                         if type_hint
                         else ""
                     )
