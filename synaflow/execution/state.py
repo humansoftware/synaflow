@@ -50,7 +50,7 @@ class ExecutionState:
         """Verifica se todas as dependências de dados de um passo já foram produzidas."""
         node = self._dag.steps[step_name]
         for dep_name in node.deps:
-            if dep_name in self._dag.resources:
+            if dep_name in self._dag.resource_factories:
                 continue
             key = self._dag.output_key(dep_name, step_name)
             if key not in self._outputs and dep_name not in self._outputs:

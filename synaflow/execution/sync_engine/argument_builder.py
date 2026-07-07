@@ -75,7 +75,7 @@ class ArgumentBuilder:
         args = {}
         try:
             for dep_name in node.deps:
-                if dep_name in self._dag.resources:
+                if dep_name in self._dag.resource_factories:
                     value = self.resolve_resource_argument(dep_name, resource_stack)
                 else:
                     value = self._outputs.get_output(dep_name, consumer)

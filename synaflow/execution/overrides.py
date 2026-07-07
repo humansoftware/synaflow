@@ -208,4 +208,4 @@ def _observer_fallback_values(
 
 
 def _resource_contract_keys(pipeline: PipelineDef) -> set[str]:
-    return set(pipeline.dag.resources)
+    return set(pipeline.dag.resource_factories)

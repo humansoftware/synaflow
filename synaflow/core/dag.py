@@ -24,8 +24,48 @@ Both are @dataclass — plain data with behaviour, no hidden state.
 from dataclasses import asdict, dataclass, field
 from typing import Any, Callable, Literal
 
+import inspect
+import typing
+
 from synaflow.core.type_compatibility import get_type_name
 from synaflow.core.types import OnError, StepMode
+
+
+def get_safe_type_hints(fn: Any) -> dict[str, Any]:
+    """Safely resolve type hints, returning empty dict on failure."""
+    try:
+        return typing.get_type_hints(fn, include_extras=True)
+    except (NameError, TypeError):
+        return {}
+
+
+def resolve_resource_output_type(resource_name: str, factory: Any) -> Any:
+    """Inspect a resource factory and return its declared return type."""
+    if not callable(factory):
+        raise ValueError(
+            f"Resource '{resource_name}' must be declared as a factory callable."
+        )
+
+    hints = get_safe_type_hints(factory)
+    try:
+        sig = inspect.signature(factory)
+    except (TypeError, ValueError) as exc:
+        raise ValueError(
+            f"Resource '{resource_name}' must be inspectable as a factory callable."
+        ) from exc
+
+    return_type = hints.get("return", sig.return_annotation)
+    if return_type is inspect.Signature.empty:
+        factory_name = getattr(factory, "__name__", type(factory).__name__)
+        raise ValueError(
+            f"Resource factory '{factory_name}' for key '{resource_name}' must declare a return type annotation."
+        )
+    if return_type in (None, type(None)):
+        factory_name = getattr(factory, "__name__", type(factory).__name__)
+        raise ValueError(
+            f"Resource factory '{factory_name}' for key '{resource_name}' must not return None."
+        )
+    return return_type
 
 
 @dataclass(frozen=True)
@@ -145,7 +185,7 @@ def _serialize_pipeline_observers(observers: list) -> list[dict]:
 class Dag:
     name: str = ""
     params: dict[str, Any] = field(default_factory=dict)
-    resources: dict[str, Any] = field(default_factory=dict)
+    resource_factories: dict[str, Any] = field(default_factory=dict)
     steps: dict[str, DagNode] = field(default_factory=dict)
     requires_sync_runner: bool = False
     requires_async_runner: bool = False
@@ -173,11 +213,15 @@ class Dag:
     def values(self):
         return self.steps.values()
 
+    def _resource_type(self, name: str) -> Any:
+        """Resolve the output type of a resource factory by name."""
+        return resolve_resource_output_type(name, self.resource_factories[name])
+
     def get(self, key, default=None):
         if key in self.steps:
             return self.steps[key]
-        if key in self.resources:
-            return DagNode(output=self.resources[key])
+        if key in self.resource_factories:
+            return DagNode(output=self._resource_type(key))
         if key in self.params:
             return DagNode(output=self.params[key])
         return default
@@ -193,9 +237,10 @@ class Dag:
                 name: node.to_serializable() for name, node in self.steps.items()
             },
         }
-        if self.resources:
+        if self.resource_factories:
             result["resources"] = {
-                k: get_type_name(v) for k, v in self.resources.items()
+                k: get_type_name(self._resource_type(k))
+                for k in self.resource_factories
             }
         if self.error_materializer_factory is not None:
             result["error_materializer"] = self.error_materializer_factory.__name__

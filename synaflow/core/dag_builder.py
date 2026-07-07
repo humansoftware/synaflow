@@ -662,9 +662,6 @@ def _finalize_dag(
         for name, info in produced.items()
         if name not in dag and name not in resource_names
     }
-    dag_obj.resources = {
-        name: info.output for name, info in produced.items() if name in resource_names
-    }
     dag_obj.steps = dag
     dag_obj.error_materializer_factory = error_materializer_factory
     dag_obj.pipeline_observers = list(pipeline_observers)
@@ -712,6 +709,11 @@ def build_dag(
         error_materializer_factory,
         pipeline_obs_resolved,
     )
+    # Propagate the merged resource factories to the DAG so the runtime
+    # can instantiate inherited sub-pipeline resources. Mirrors how
+    # materializers (§3.4) and pipeline_observers are resolved at build
+    # time and stored on the DAG. Not serialized (callables).
+    dag_obj.resource_factories = effective_resources
     check_circular_dependencies(dag_obj, pipeline_name)
 
     validate_no_unmaterialized_terminal_streams(dag_obj, pipeline_name, exports)

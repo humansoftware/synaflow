@@ -3,7 +3,8 @@ from __future__ import annotations
 from typing import ForwardRef, NamedTuple
 
 from synaflow import pipeline, step
-from synaflow.core.dag_dependencies import get_safe_type_hints, initialize_parameters
+from synaflow.core.dag import get_safe_type_hints
+from synaflow.core.dag_dependencies import initialize_parameters
 
 
 def test_given_future_annotations_when_pipeline_built_then_types_resolve_correctly():

@@ -449,5 +449,5 @@ def run(
     PipelineExecutor(
         pipeline.dag,
         overrides=overrides,
-        resource_factories=pipeline.resources,
+        resource_factories=pipeline.dag.resource_factories,
     ).execute(params)
