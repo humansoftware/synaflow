@@ -668,3 +668,54 @@ def test_given_sub_pipeline_resource_when_constructed_then_merged_factories_are_
     assert p.dag.resource_factories == {"db": get_db}
     # JSON contract must be unchanged: resources serialized as name -> type.
     assert p.to_dict()["resources"] == {"db": "DB"}
+
+
+def test_given_two_subs_different_resource_instances_with_same_name_when_constructed_then_raises_design_time():
+    class SubParams(NamedTuple):
+        value: int
+
+    class Params(NamedTuple):
+        value: int = 0
+
+    def use(db: object, value: int) -> int:
+        return value
+
+    def get_db_a() -> object:
+        return object()
+
+    def get_db_b() -> object:
+        return object()
+
+    sub_a = pipeline(
+        name="sub_a",
+        params=SubParams,
+        resources={"db": get_db_a},
+        steps=[step("use", fn=use)],
+        exports="use",
+    )
+    sub_b = pipeline(
+        name="sub_b",
+        params=SubParams,
+        resources={"db": get_db_b},
+        steps=[step("use", fn=use)],
+        exports="use",
+    )
+
+    def adapt_a(value: int) -> SubParams:
+        return SubParams(value=value)
+
+    def adapt_b(value: int) -> SubParams:
+        return SubParams(value=value)
+
+    with pytest.raises(
+        ValueError,
+        match="resource 'db' is declared multiple times",
+    ):
+        pipeline(
+            name="parent",
+            params=Params,
+            steps=[
+                include("incl_a", pipeline=sub_a, fn=adapt_a),
+                include("incl_b", pipeline=sub_b, fn=adapt_b),
+            ],
+        )
