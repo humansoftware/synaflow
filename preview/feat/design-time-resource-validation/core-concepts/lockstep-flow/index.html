@@ -1,0 +1,2126 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="A lightweight, pure-Python pipeline engine that uses type hints to automatically wire and execute Directed Acyclic Graphs with lockstep streaming and optional bounded handoff">
+      
+      
+        <meta name="author" content="humansoftware">
+      
+      
+        <link rel="canonical" href="https://humansoftware.github.io/synaflow/core-concepts/lockstep-flow/">
+      
+      
+        <link rel="prev" href="../build-vs-run/">
+      
+      
+        <link rel="next" href="../max-in-flight/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+    
+    
+      
+        <title>Lockstep Data Flow - SynaFlow</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+  
+
+
+  
+  
+
+<script id="__analytics">function __md_analytics(){function e(){dataLayer.push(arguments)}window.dataLayer=window.dataLayer||[],e("js",new Date),e("config","G-BNQQQRWCDB"),document.addEventListener("DOMContentLoaded",(function(){document.forms.search&&document.forms.search.query.addEventListener("blur",(function(){this.value&&e("event","search",{search_term:this.value})}));document$.subscribe((function(){var t=document.forms.feedback;if(void 0!==t)for(var a of t.querySelectorAll("[type=submit]"))a.addEventListener("click",(function(a){a.preventDefault();var n=document.location.pathname,d=this.getAttribute("data-md-value");e("event","feedback",{page:n,data:d}),t.firstElementChild.disabled=!0;var r=t.querySelector(".md-feedback__note [data-md-value='"+d+"']");r&&(r.hidden=!1)})),t.hidden=!1})),location$.subscribe((function(t){e("config","G-BNQQQRWCDB",{page_path:t.pathname})}))}));var t=document.createElement("script");t.async=!0,t.src="https://www.googletagmanager.com/gtag/js?id=G-BNQQQRWCDB",document.getElementById("__analytics").insertAdjacentElement("afterEnd",t)}</script>
+  
+    <script>"undefined"!=typeof __md_analytics&&__md_analytics()</script>
+  
+
+    
+    
+  </head>
+  
+  
+    
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#lockstep-data-flow" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="SynaFlow" class="md-header__button md-logo" aria-label="SynaFlow" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            SynaFlow
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Lockstep Data Flow
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+    
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/humansoftware/synaflow" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    GitHub
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="SynaFlow" class="md-nav__button md-logo" aria-label="SynaFlow" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    SynaFlow
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/humansoftware/synaflow" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    GitHub
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Getting Started
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Getting Started
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/installation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Installation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/introduction/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Introduction
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tutorial
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Tutorial
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../tutorial/hello-world/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Level 1 — Hello World
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../tutorial/multiple-steps/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Level 2 — Lowercase Transform
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../tutorial/observers/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Level 3 — Character Counter
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../tutorial/materializers/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Level 4 — Print Key-Value Pairs
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../tutorial/streaming/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Level 5 — Streaming
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Core Concepts
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Core Concepts
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../how-dag-is-wired/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    How the DAG is Wired
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../build-vs-run/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Build vs Run
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Lockstep Data Flow
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Lockstep Data Flow
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#a-streaming-pipeline" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        A Streaming Pipeline
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#the-dag" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The DAG
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#how-lockstep-execution-works" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        How Lockstep Execution Works
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#fan-out-multiple-consumers" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Fan-Out: Multiple Consumers
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#execution-levels" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Execution Levels
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#diamond-dag-in-action" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Diamond DAG in Action
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#when-materialization-happens" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        When Materialization Happens
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#next" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Next
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#lockstep-and-dag-topologies" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Lockstep and DAG Topologies
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../max-in-flight/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Max In Flight
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../event-based/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Event-Based Processing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../materialization/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Materialization & Errors
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../semantic-naming/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Semantic Naming
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../dag-construction/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DAG Construction
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../sync-async/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Sync & Async Parity
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../examples/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Examples
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Advanced
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Advanced
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../advanced/asymmetric-lockstep-deadlocks/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Asymmetric Lockstep Deadlocks
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../advanced/testability/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Testability & Overrides
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../advanced/resources/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Resources & Factories
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../advanced/custom-materializers/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Custom Materializers
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../advanced/custom-observers/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Custom Observers
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../advanced/export-guidance/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Export Guidance
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_6" >
+        
+          
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Comparisons
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Comparisons
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../comparisons/hamilton/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Hamilton
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../comparisons/java-streams/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Java Streams
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../comparisons/linq/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    LINQ
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#a-streaming-pipeline" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        A Streaming Pipeline
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#the-dag" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The DAG
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#how-lockstep-execution-works" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        How Lockstep Execution Works
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#fan-out-multiple-consumers" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Fan-Out: Multiple Consumers
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#execution-levels" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Execution Levels
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#diamond-dag-in-action" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Diamond DAG in Action
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#when-materialization-happens" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        When Materialization Happens
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#next" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Next
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#lockstep-and-dag-topologies" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Lockstep and DAG Topologies
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="lockstep-data-flow">Lockstep Data Flow<a class="headerlink" href="#lockstep-data-flow" title="Permanent link">&para;</a></h1>
+<p>SynaFlow's streaming engine guarantees <strong>extreme memory efficiency</strong> by processing
+pipelines in lockstep — one item flows entirely through the DAG before the next
+item is produced.</p>
+<p>This is the default behavior because every step starts with
+<code>max_in_flight=1</code>. If you need a bounded window between two stages, see
+<a href="../max-in-flight/">Max In Flight</a>, which includes real sync and async HTTP
+examples for I/O-bound pipelines.</p>
+<h2 id="a-streaming-pipeline">A Streaming Pipeline<a class="headerlink" href="#a-streaming-pipeline" title="Permanent link">&para;</a></h2>
+<div class="tabbed-set tabbed-alternate" data-tabs="1:2"><input checked="checked" id="__tabbed_1_1" name="__tabbed_1" type="radio" /><input id="__tabbed_1_2" name="__tabbed_1" type="radio" /><div class="tabbed-labels"><label for="__tabbed_1_1">Sync</label><label for="__tabbed_1_2">Async</label></div>
+<div class="tabbed-content">
+<div class="tabbed-block">
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">collections.abc</span><span class="w"> </span><span class="kn">import</span> <span class="n">Generator</span><span class="p">,</span> <span class="n">Iterator</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">NamedTuple</span>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="kn">from</span><span class="w"> </span><span class="nn">synaflow</span><span class="w"> </span><span class="kn">import</span> <span class="n">pipeline</span><span class="p">,</span> <span class="n">step</span><span class="p">,</span> <span class="n">run</span>
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="k">class</span><span class="w"> </span><span class="nc">Params</span><span class="p">(</span><span class="n">NamedTuple</span><span class="p">):</span>
+<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>    <span class="n">count</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">3</span>
+<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>
+<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="k">def</span><span class="w"> </span><span class="nf">numbers</span><span class="p">(</span><span class="n">count</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Generator</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">]:</span>
+<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>    <span class="k">yield from</span> <span class="nb">range</span><span class="p">(</span><span class="n">count</span><span class="p">)</span>
+<a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>
+<a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a><span class="k">def</span><span class="w"> </span><span class="nf">doubler</span><span class="p">(</span><span class="n">number</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+<a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a>    <span class="k">return</span> <span class="n">number</span> <span class="o">*</span> <span class="mi">2</span>
+<a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a>
+<a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a><span class="k">def</span><span class="w"> </span><span class="nf">printer</span><span class="p">(</span><span class="n">doubler</span><span class="p">:</span> <span class="n">Iterator</span><span class="p">[</span><span class="nb">int</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a>    <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">doubler</span><span class="p">:</span>
+<a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a>        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Consumed: </span><span class="si">{</span><span class="n">x</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a>
+<a id="__codelineno-0-18" name="__codelineno-0-18" href="#__codelineno-0-18"></a><span class="n">p</span> <span class="o">=</span> <span class="n">pipeline</span><span class="p">(</span>
+<a id="__codelineno-0-19" name="__codelineno-0-19" href="#__codelineno-0-19"></a>    <span class="n">name</span><span class="o">=</span><span class="s2">&quot;lockstep_demo&quot;</span><span class="p">,</span>
+<a id="__codelineno-0-20" name="__codelineno-0-20" href="#__codelineno-0-20"></a>    <span class="n">params</span><span class="o">=</span><span class="n">Params</span><span class="p">,</span>
+<a id="__codelineno-0-21" name="__codelineno-0-21" href="#__codelineno-0-21"></a>    <span class="n">steps</span><span class="o">=</span><span class="p">[</span>
+<a id="__codelineno-0-22" name="__codelineno-0-22" href="#__codelineno-0-22"></a>        <span class="n">step</span><span class="p">(</span><span class="s2">&quot;numbers&quot;</span><span class="p">,</span> <span class="n">fn</span><span class="o">=</span><span class="n">numbers</span><span class="p">),</span>
+<a id="__codelineno-0-23" name="__codelineno-0-23" href="#__codelineno-0-23"></a>        <span class="n">step</span><span class="p">(</span><span class="s2">&quot;doubler&quot;</span><span class="p">,</span> <span class="n">fn</span><span class="o">=</span><span class="n">doubler</span><span class="p">),</span>
+<a id="__codelineno-0-24" name="__codelineno-0-24" href="#__codelineno-0-24"></a>        <span class="n">step</span><span class="p">(</span><span class="s2">&quot;printer&quot;</span><span class="p">,</span> <span class="n">fn</span><span class="o">=</span><span class="n">printer</span><span class="p">),</span>
+<a id="__codelineno-0-25" name="__codelineno-0-25" href="#__codelineno-0-25"></a>    <span class="p">],</span>
+<a id="__codelineno-0-26" name="__codelineno-0-26" href="#__codelineno-0-26"></a><span class="p">)</span>
+<a id="__codelineno-0-27" name="__codelineno-0-27" href="#__codelineno-0-27"></a>
+<a id="__codelineno-0-28" name="__codelineno-0-28" href="#__codelineno-0-28"></a><span class="n">run</span><span class="p">(</span><span class="n">p</span><span class="p">,</span> <span class="n">Params</span><span class="p">(</span><span class="n">count</span><span class="o">=</span><span class="mi">5</span><span class="p">))</span>
+</code></pre></div>
+</div>
+<div class="tabbed-block">
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">collections.abc</span><span class="w"> </span><span class="kn">import</span> <span class="n">AsyncGenerator</span><span class="p">,</span> <span class="n">AsyncIterator</span>
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">NamedTuple</span>
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="kn">from</span><span class="w"> </span><span class="nn">synaflow</span><span class="w"> </span><span class="kn">import</span> <span class="n">pipeline</span><span class="p">,</span> <span class="n">step</span><span class="p">,</span> <span class="n">async_run</span>
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>
+<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="k">class</span><span class="w"> </span><span class="nc">Params</span><span class="p">(</span><span class="n">NamedTuple</span><span class="p">):</span>
+<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>    <span class="n">count</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">3</span>
+<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a>
+<a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">numbers</span><span class="p">(</span><span class="n">count</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">AsyncGenerator</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="kc">None</span><span class="p">]:</span>
+<a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a>    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">count</span><span class="p">):</span>
+<a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a>        <span class="k">yield</span> <span class="n">i</span>
+<a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a>
+<a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">doubler</span><span class="p">(</span><span class="n">number</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+<a id="__codelineno-1-13" name="__codelineno-1-13" href="#__codelineno-1-13"></a>    <span class="k">return</span> <span class="n">number</span> <span class="o">*</span> <span class="mi">2</span>
+<a id="__codelineno-1-14" name="__codelineno-1-14" href="#__codelineno-1-14"></a>
+<a id="__codelineno-1-15" name="__codelineno-1-15" href="#__codelineno-1-15"></a><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">printer</span><span class="p">(</span><span class="n">doubler</span><span class="p">:</span> <span class="n">AsyncIterator</span><span class="p">[</span><span class="nb">int</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<a id="__codelineno-1-16" name="__codelineno-1-16" href="#__codelineno-1-16"></a>    <span class="k">async</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">doubler</span><span class="p">:</span>
+<a id="__codelineno-1-17" name="__codelineno-1-17" href="#__codelineno-1-17"></a>        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Consumed: </span><span class="si">{</span><span class="n">x</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<a id="__codelineno-1-18" name="__codelineno-1-18" href="#__codelineno-1-18"></a>
+<a id="__codelineno-1-19" name="__codelineno-1-19" href="#__codelineno-1-19"></a><span class="n">p</span> <span class="o">=</span> <span class="n">pipeline</span><span class="p">(</span>
+<a id="__codelineno-1-20" name="__codelineno-1-20" href="#__codelineno-1-20"></a>    <span class="n">name</span><span class="o">=</span><span class="s2">&quot;lockstep_demo&quot;</span><span class="p">,</span>
+<a id="__codelineno-1-21" name="__codelineno-1-21" href="#__codelineno-1-21"></a>    <span class="n">params</span><span class="o">=</span><span class="n">Params</span><span class="p">,</span>
+<a id="__codelineno-1-22" name="__codelineno-1-22" href="#__codelineno-1-22"></a>    <span class="n">steps</span><span class="o">=</span><span class="p">[</span>
+<a id="__codelineno-1-23" name="__codelineno-1-23" href="#__codelineno-1-23"></a>        <span class="n">step</span><span class="p">(</span><span class="s2">&quot;numbers&quot;</span><span class="p">,</span> <span class="n">fn</span><span class="o">=</span><span class="n">numbers</span><span class="p">),</span>
+<a id="__codelineno-1-24" name="__codelineno-1-24" href="#__codelineno-1-24"></a>        <span class="n">step</span><span class="p">(</span><span class="s2">&quot;doubler&quot;</span><span class="p">,</span> <span class="n">fn</span><span class="o">=</span><span class="n">doubler</span><span class="p">),</span>
+<a id="__codelineno-1-25" name="__codelineno-1-25" href="#__codelineno-1-25"></a>        <span class="n">step</span><span class="p">(</span><span class="s2">&quot;printer&quot;</span><span class="p">,</span> <span class="n">fn</span><span class="o">=</span><span class="n">printer</span><span class="p">),</span>
+<a id="__codelineno-1-26" name="__codelineno-1-26" href="#__codelineno-1-26"></a>    <span class="p">],</span>
+<a id="__codelineno-1-27" name="__codelineno-1-27" href="#__codelineno-1-27"></a><span class="p">)</span>
+<a id="__codelineno-1-28" name="__codelineno-1-28" href="#__codelineno-1-28"></a>
+<a id="__codelineno-1-29" name="__codelineno-1-29" href="#__codelineno-1-29"></a><span class="n">async_run</span><span class="p">(</span><span class="n">p</span><span class="p">,</span> <span class="n">Params</span><span class="p">(</span><span class="n">count</span><span class="o">=</span><span class="mi">5</span><span class="p">))</span>
+</code></pre></div>
+</div>
+</div>
+</div>
+<h2 id="the-dag">The DAG<a class="headerlink" href="#the-dag" title="Permanent link">&para;</a></h2>
+<p>SynaFlow reads the type hints and builds this graph:</p>
+<pre class="mermaid"><code>flowchart TD
+    numbers["numbers&lt;br/&gt;&lt;i&gt;Stream[int]&lt;/i&gt;"]
+    doubler["doubler&lt;br/&gt;&lt;i&gt;ListType(&lt;class 'int'&gt;)&lt;/i&gt;"]
+    printer["printer&lt;br/&gt;&lt;i&gt;None&lt;/i&gt;"]
+    count --&gt; numbers
+    numbers --&gt; doubler
+    doubler --&gt; printer</code></pre>
+<p>Three steps, three execution levels: <code>numbers</code> → <code>doubler</code> → <code>printer</code>.</p>
+<h2 id="how-lockstep-execution-works">How Lockstep Execution Works<a class="headerlink" href="#how-lockstep-execution-works" title="Permanent link">&para;</a></h2>
+<p>The pipeline processes <strong>one item at a time</strong> from start to finish. But here's
+the key insight: <strong>steps don't wait for each other</strong> — they run concurrently
+like an assembly line.</p>
+<div id="lockstep-animation" style="font-family:monospace;margin:1.5em 0;padding:1em;background:#1a1b26;color:#a9b1d6;border-radius:8px;overflow:hidden">
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.5em">
+  <div>
+    <span style="font-size:0.85em;color:#565f89">Step:</span>
+    <span id="anim-step" style="color:#7dcfff">0/9</span>
+  </div>
+  <div>
+    <button onclick="animFrame(-1)" style="background:#565f89;color:#fff;border:none;padding:4px 12px;border-radius:4px;cursor:pointer;font-size:0.9em;margin-right:6px" title="Previous frame">◀</button>
+    <button id="anim-play" onclick="animToggle()" style="background:#7dcfff;color:#1a1b26;border:none;padding:4px 12px;border-radius:4px;cursor:pointer;font-size:0.9em;margin-right:6px">▶ Play</button>
+    <button onclick="animFrame(1)" style="background:#565f89;color:#fff;border:none;padding:4px 12px;border-radius:4px;cursor:pointer;font-size:0.9em;margin-right:6px" title="Next frame">▶</button>
+    <button onclick="animReset()" style="background:#565f89;color:#fff;border:none;padding:4px 12px;border-radius:4px;cursor:pointer;font-size:0.9em">↺ Reset</button>
+  </div>
+</div>
+
+<div style="text-align:center;margin-bottom:0.5em">
+<svg id="anim-dag" viewBox="0 0 330 200" style="max-width:330px;width:100%;height:auto">
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M0,0 L10,5 L0,10" fill="#565f89"/>
+    </marker>
+  </defs>
+  <line x1="150" y1="35" x2="150" y2="85" stroke="#565f89" stroke-width="2" marker-end="url(#arrow)"/>
+  <line x1="150" y1="115" x2="150" y2="165" stroke="#565f89" stroke-width="2" marker-end="url(#arrow)"/>
+  <rect x="40" y="5" width="170" height="30" rx="6" fill="#7aa2f7" opacity="0.15" stroke="#7aa2f7" stroke-width="1"/>
+  <text x="125" y="25" text-anchor="middle" fill="#7aa2f7" font-size="13" font-family="monospace">numbers</text>
+  <rect x="40" y="85" width="170" height="30" rx="6" fill="#7aa2f7" opacity="0.15" stroke="#7aa2f7" stroke-width="1"/>
+  <text x="125" y="105" text-anchor="middle" fill="#7aa2f7" font-size="13" font-family="monospace">doubler</text>
+  <rect x="40" y="165" width="170" height="30" rx="6" fill="#7aa2f7" opacity="0.15" stroke="#7aa2f7" stroke-width="1"/>
+  <text x="125" y="185" text-anchor="middle" fill="#7aa2f7" font-size="13" font-family="monospace">printer</text>
+  <g id="anim-values"></g>
+</svg>
+</div>
+
+<table style="width:100%;border-collapse:collapse;font-size:0.85em;text-align:center">
+<thead>
+  <tr style="color:#7aa2f7">
+    <th style="padding:6px;border-bottom:1px solid #565f89;width:65px"></th>
+    <th style="padding:6px;border-bottom:1px solid #565f89">numbers</th>
+    <th style="padding:6px;border-bottom:1px solid #565f89">doubler</th>
+    <th style="padding:6px;border-bottom:1px solid #565f89">printer</th>
+  </tr>
+</thead>
+<tbody id="anim-body">
+</tbody>
+</table>
+<div id="anim-insight" style="margin-top:0.8em;padding:8px 12px;background:#24283b;border-radius:4px;font-size:0.85em;min-height:1.5em;color:#9ece6a"></div>
+</div>
+
+<script>
+(function() {
+  var frames = [
+    [0, "", "", "", "", "", "", ""],
+    [1, "0", "", "", "0", "", "", "numbers starts — first item (0) enters the pipeline."],
+    [2, "1", "0→0", "", "1", "0→0", "", "numbers already on item 2 while doubler processes item 1."],
+    [3, "2", "1→2", "0", "2", "1→2", "0", "Three items in flight — one per step. Assembly line saturated."],
+    [4, "3", "2→4", "2", "3", "2→4", "2", ""],
+    [5, "4", "3→6", "4", "4", "3→6", "4", ""],
+    [6, "", "4→8", "6", "✓", "4→8", "6", "numbers finished — downstream drains remaining items."],
+    [7, "", "", "8", "✓", "✓", "8", ""],
+    [8, "", "", "10", "✓", "✓", "10", "Last item through."],
+    [9, "", "", "", "✓", "✓", "✓", "✓ All 5 items processed. Only one item per step in memory."],
+  ];
+
+  var cur = 0, timer = null, playing = false;
+  var colors = ["#f7768e","#e0af68","#7dcfff","#9ece6a","#bb9af7"];
+
+  function stateClass(s) {
+    if (s === "✓") return "#565f89";
+    if (s === "") return "#3b4261";
+    return "#24283b";
+  }
+
+  function renderBody() {
+    var html = "";
+    for (var i = 0; i < frames.length; i++) {
+      var f = frames[i], isCur = i === cur;
+      var label = i === 0 ? "start" : "&nbsp;&nbsp;t" + i;
+      html += '<tr style="' + (isCur ? 'outline:2px solid #7dcfff;outline-offset:-2px' : '') + '">';
+      html += '<td style="padding:4px 8px;color:#565f89;text-align:right;border-right:1px solid #565f89">' + label + '</td>';
+      for (var j = 1; j <= 3; j++) {
+        html += '<td style="padding:4px 8px;background:' + stateClass(f[j+3]) + '">' + (f[j] || "—") + '</td>';
+      }
+      html += '</tr>';
+    }
+    document.getElementById("anim-body").innerHTML = html;
+  }
+
+  function renderDag() {
+    var f = frames[cur];
+    var vals = "";
+
+    if (f[4] && f[4] !== "" && f[4] !== "✓") vals += '<rect x="222" y="8" width="45" height="24" rx="4" fill="#f7768e" opacity="0.2"/><text x="244" y="25" text-anchor="middle" fill="#f7768e" font-size="12" font-family="monospace">' + f[4] + '</text>';
+    if (f[5] && f[5] !== "" && f[5] !== "✓") vals += '<rect x="222" y="88" width="45" height="24" rx="4" fill="#e0af68" opacity="0.2"/><text x="244" y="105" text-anchor="middle" fill="#e0af68" font-size="12" font-family="monospace">' + f[5] + '</text>';
+    if (f[6] && f[6] !== "" && f[6] !== "✓") vals += '<rect x="222" y="168" width="45" height="24" rx="4" fill="#7dcfff" opacity="0.2"/><text x="244" y="185" text-anchor="middle" fill="#7dcfff" font-size="12" font-family="monospace">' + f[6] + '</text>';
+    if (f[4] === "✓") vals += '<text x="285" y="25" fill="#9ece6a" font-size="14" font-family="monospace">✓</text>';
+    if (f[5] === "✓") vals += '<text x="285" y="105" fill="#9ece6a" font-size="14" font-family="monospace">✓</text>';
+    if (f[6] === "✓") vals += '<text x="285" y="185" fill="#9ece6a" font-size="14" font-family="monospace">✓</text>';
+
+    document.getElementById("anim-values").innerHTML = vals;
+  }
+
+  window.animFrame = function(d) {
+    var next = cur + d;
+    if (next >= 0 && next < frames.length) cur = next;
+    update();
+  };
+  window.animToggle = function() {
+    if (playing) { clearInterval(timer); playing = false; document.getElementById("anim-play").innerHTML = "▶ Play"; }
+    else { playing = true; document.getElementById("anim-play").innerHTML = "⏸ Pause"; timer = setInterval(function(){ window.animFrame(1); if (cur >= frames.length - 1) window.animToggle(); }, 1200); }
+  };
+  window.animReset = function() { cur = 0; update(); };
+  function update() {
+    var f = frames[cur];
+    document.getElementById("anim-step").innerHTML = cur + "/" + (frames.length - 1);
+    document.getElementById("anim-insight").innerHTML = f[7];
+    renderBody();
+    renderDag();
+  }
+  renderBody();
+  renderDag();
+})();
+</script>
+
+<p>The animation above shows <strong>count=5</strong>. Three views of the same execution:</p>
+<ul>
+<li><strong>Top:</strong> the DAG — watch items light up inside each node as they're processed.</li>
+<li><strong>Middle:</strong> the timeline table — one row per moment.</li>
+<li><strong>Bottom:</strong> insight text explaining what's happening.</li>
+</ul>
+<p>Key observation: at frame 3, <code>numbers</code> is working on item <strong>2</strong> while <code>doubler</code>
+processes item <strong>1</strong> and <code>printer</code> prints item <strong>0</strong>. Three items in flight,
+one per step — that's lockstep streaming.</p>
+<h2 id="fan-out-multiple-consumers">Fan-Out: Multiple Consumers<a class="headerlink" href="#fan-out-multiple-consumers" title="Permanent link">&para;</a></h2>
+<p>When multiple consumers depend on the same producer, SynaFlow automatically forks
+the stream with <code>itertools.tee</code> and advances them <strong>together</strong>:</p>
+<pre class="mermaid"><code>flowchart TD
+    gen["gen&lt;br/&gt;&lt;i&gt;Stream[int]&lt;/i&gt;"]
+    lazy["lazy&lt;br/&gt;&lt;i&gt;Stream[int]&lt;/i&gt;"]
+    eager["eager&lt;br/&gt;&lt;i&gt;list[int]&lt;/i&gt;"]
+    count --&gt; gen
+    gen --&gt; lazy
+    gen --&gt; eager</code></pre>
+<div class="tabbed-set tabbed-alternate" data-tabs="2:2"><input checked="checked" id="__tabbed_2_1" name="__tabbed_2" type="radio" /><input id="__tabbed_2_2" name="__tabbed_2" type="radio" /><div class="tabbed-labels"><label for="__tabbed_2_1">Sync</label><label for="__tabbed_2_2">Async</label></div>
+<div class="tabbed-content">
+<div class="tabbed-block">
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="k">def</span><span class="w"> </span><span class="nf">lazy_consumer</span><span class="p">(</span><span class="n">gen</span><span class="p">:</span> <span class="n">Iterator</span><span class="p">[</span><span class="nb">int</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">Iterator</span><span class="p">[</span><span class="nb">int</span><span class="p">]:</span>
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>    <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">gen</span><span class="p">:</span>
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>        <span class="k">yield</span> <span class="n">x</span> <span class="o">*</span> <span class="mi">10</span>
+<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>
+<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="k">def</span><span class="w"> </span><span class="nf">eager_consumer</span><span class="p">(</span><span class="n">gen</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">int</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>    <span class="k">return</span> <span class="nb">sum</span><span class="p">(</span><span class="n">gen</span><span class="p">)</span>
+</code></pre></div>
+</div>
+<div class="tabbed-block">
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">lazy_consumer</span><span class="p">(</span><span class="n">gen</span><span class="p">:</span> <span class="n">AsyncIterator</span><span class="p">[</span><span class="nb">int</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">AsyncIterator</span><span class="p">[</span><span class="nb">int</span><span class="p">]:</span>
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>    <span class="k">async</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">gen</span><span class="p">:</span>
+<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>        <span class="k">yield</span> <span class="n">x</span> <span class="o">*</span> <span class="mi">10</span>
+<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>
+<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">eager_consumer</span><span class="p">(</span><span class="n">gen</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">int</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+<a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a>    <span class="k">return</span> <span class="nb">sum</span><span class="p">(</span><span class="n">gen</span><span class="p">)</span>
+</code></pre></div>
+</div>
+</div>
+</div>
+<ul>
+<li><strong><code>lazy_consumer</code></strong> receives a lazy fork — streams without holding data.</li>
+<li><strong><code>eager_consumer</code></strong> asks for <code>list[int]</code> — SynaFlow materializes <em>only that fork</em>.</li>
+</ul>
+<p>Both consumers receive every item. The lazy fork never holds the full dataset;
+only the eager fork does.</p>
+<h2 id="execution-levels">Execution Levels<a class="headerlink" href="#execution-levels" title="Permanent link">&para;</a></h2>
+<p>SynaFlow topologically sorts the DAG into levels. Steps on the same level can
+run in parallel (in an async runner):</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="n">dag</span> <span class="o">=</span> <span class="n">pipeline_def</span><span class="o">.</span><span class="n">dag</span>
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="nb">print</span><span class="p">(</span><span class="n">dag</span><span class="o">.</span><span class="n">get_execution_levels</span><span class="p">())</span>
+<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="c1"># [[&#39;numbers&#39;], [&#39;doubler&#39;], [&#39;printer&#39;]]</span>
+</code></pre></div>
+<p>For a diamond topology, independent branches share a level:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>       start
+<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>      /     \
+<a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a> branch_a  branch_b
+<a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a>      \     /
+<a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a>       merge
+<a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a>
+<a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a>Levels:  [&#39;start&#39;]  →  [&#39;branch_a&#39;, &#39;branch_b&#39;]  →  [&#39;merge&#39;]
+</code></pre></div>
+<h2 id="diamond-dag-in-action">Diamond DAG in Action<a class="headerlink" href="#diamond-dag-in-action" title="Permanent link">&para;</a></h2>
+<p>Here's a more complex example: one producer feeds two branches, and a final step
+joins both streams. Watch how SynaFlow advances <code>doubler</code> and <code>tripler</code> in
+lockstep, pads the shorter stream with <code>None</code>, and feeds the pairs to <code>join</code>.</p>
+<div id="diamond-animation" style="font-family:monospace;margin:1.5em 0;padding:1em;background:#1a1b26;color:#a9b1d6;border-radius:8px;overflow:hidden">
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.5em">
+  <div>
+    <span style="font-size:0.85em;color:#565f89">Step:</span>
+    <span id="diam-step" style="color:#7dcfff">0/10</span>
+  </div>
+  <div>
+    <button onclick="diamFrame(-1)" style="background:#565f89;color:#fff;border:none;padding:4px 12px;border-radius:4px;cursor:pointer;font-size:0.9em;margin-right:6px">◀</button>
+    <button id="diam-play" onclick="diamToggle()" style="background:#7dcfff;color:#1a1b26;border:none;padding:4px 12px;border-radius:4px;cursor:pointer;font-size:0.9em;margin-right:6px">▶ Play</button>
+    <button onclick="diamFrame(1)" style="background:#565f89;color:#fff;border:none;padding:4px 12px;border-radius:4px;cursor:pointer;font-size:0.9em;margin-right:6px">▶</button>
+    <button onclick="diamReset()" style="background:#565f89;color:#fff;border:none;padding:4px 12px;border-radius:4px;cursor:pointer;font-size:0.9em">↺ Reset</button>
+  </div>
+</div>
+
+<div style="text-align:center;margin-bottom:0.5em">
+<svg id="diam-dag" viewBox="0 0 380 220" style="max-width:380px;width:100%;height:auto">
+  <defs>
+    <marker id="darrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M0,0 L10,5 L0,10" fill="#565f89"/>
+    </marker>
+  </defs>
+  <!-- numbers → doubler -->
+  <path d="M150,40 L80,90" stroke="#565f89" stroke-width="2" fill="none" marker-end="url(#darrow)"/>
+  <!-- numbers → tripler -->
+  <path d="M175,40 L250,90" stroke="#565f89" stroke-width="2" fill="none" marker-end="url(#darrow)"/>
+  <!-- doubler → join -->
+  <path d="M95,140 L150,193" stroke="#565f89" stroke-width="2" fill="none" marker-end="url(#darrow)"/>
+  <!-- tripler → join -->
+  <path d="M235,140 L180,193" stroke="#565f89" stroke-width="2" fill="none" marker-end="url(#darrow)"/>
+  <!-- numbers -->
+  <rect x="115" y="10" width="100" height="30" rx="6" fill="#7aa2f7" opacity="0.15" stroke="#7aa2f7" stroke-width="1"/>
+  <text x="165" y="30" text-anchor="middle" fill="#7aa2f7" font-size="12" font-family="monospace">numbers</text>
+  <!-- doubler -->
+  <rect x="15" y="95" width="90" height="30" rx="6" fill="#7aa2f7" opacity="0.15" stroke="#7aa2f7" stroke-width="1"/>
+  <text x="60" y="115" text-anchor="middle" fill="#7aa2f7" font-size="11" font-family="monospace">doubler</text>
+  <!-- tripler -->
+  <rect x="255" y="95" width="90" height="30" rx="6" fill="#7aa2f7" opacity="0.15" stroke="#7aa2f7" stroke-width="1"/>
+  <text x="300" y="115" text-anchor="middle" fill="#7aa2f7" font-size="11" font-family="monospace">tripler</text>
+  <!-- join -->
+  <rect x="115" y="195" width="100" height="25" rx="6" fill="#7aa2f7" opacity="0.15" stroke="#7aa2f7" stroke-width="1"/>
+  <text x="165" y="212" text-anchor="middle" fill="#7aa2f7" font-size="12" font-family="monospace">join</text>
+  <g id="diam-values"></g>
+</svg>
+</div>
+
+<table style="width:100%;border-collapse:collapse;font-size:0.82em;text-align:center">
+<thead>
+  <tr style="color:#7aa2f7">
+    <th style="padding:4px;border-bottom:1px solid #565f89;width:55px"></th>
+    <th style="padding:4px;border-bottom:1px solid #565f89">numbers</th>
+    <th style="padding:4px;border-bottom:1px solid #565f89">doubler</th>
+    <th style="padding:4px;border-bottom:1px solid #565f89">tripler</th>
+    <th style="padding:4px;border-bottom:1px solid #565f89">join (pairs)</th>
+  </tr>
+</thead>
+<tbody id="diam-body">
+</tbody>
+</table>
+<div id="diam-insight" style="margin-top:0.8em;padding:8px 12px;background:#24283b;border-radius:4px;font-size:0.85em;min-height:1.5em;color:#9ece6a"></div>
+</div>
+
+<script>
+(function() {
+  // [frame, numbers_out, doubler_in, tripler_in, join_pair, n_int, d_int, t_int, j_int, insight]
+  var df = [
+    [0, "",   "",   "",   "",   "",   "",   "",   "",   ""],
+    [1, "0",  "",   "",   "",   "0",  "",   "",   "",   "numbers produces 0. Both branches receive it."],
+    [2, "1",  "0→0","0→0","",   "1",  "0→0","0→0","",   "doubler and tripler process item 0 simultaneously (lockstep)."],
+    [3, "2",  "1→2","1→3","",   "2",  "1→2","1→3","",   "numbers already on item 3 while branches process item 2."],
+    [4, "3",  "2→4","2→6","(2,3)","3","2→4","2→6","(2,3)","join receives first pair. Streams are unrolled together."],
+    [5, "4",  "3→6","3→9","(4,6)","4","3→6","3→9","(4,6)",""],
+    [6, "",   "4→8","4→12","(6,9)",  "✓",  "4→8","4→12","(6,9)","numbers finished. Branches drain remaining items."],
+    [7, "",   "",   "",   "(8,12)","✓",  "✓",  "✓",   "(8,12)","doubler and tripler also finished. join prints last pair."],
+    [8, "",   "",   "",   "",   "✓",  "✓",  "✓",   "✓",   "✓ All done. Only one item per step in memory."],
+  ];
+
+  var dcur = 0, dtimer = null, dplaying = false;
+
+  function dstateClass(s) {
+    if (s === "✓") return "#565f89";
+    if (s === "") return "#3b4261";
+    return "#24283b";
+  }
+
+  function drenderBody() {
+    var h = "";
+    for (var i = 0; i < df.length; i++) {
+      var f = df[i], isCur = i === dcur;
+      var label = i === 0 ? "start" : "&nbsp;&nbsp;t" + i;
+      h += '<tr style="' + (isCur ? 'outline:2px solid #7dcfff;outline-offset:-2px' : '') + '">';
+      h += '<td style="padding:2px 6px;color:#565f89;text-align:right;border-right:1px solid #565f89">' + label + '</td>';
+      for (var j = 1; j <= 4; j++) {
+        h += '<td style="padding:2px 6px;background:' + dstateClass(f[j+4]) + '">' + (f[j] || "—") + '</td>';
+      }
+      h += '</tr>';
+    }
+    document.getElementById("diam-body").innerHTML = h;
+  }
+
+  function drenderDag() {
+    var f = df[dcur];
+    var v = "";
+    if (f[5] && f[5] !== "" && f[5] !== "✓") v += '<rect x="225" y="13" width="32" height="24" rx="4" fill="#f7768e" opacity="0.25"/><text x="241" y="30" text-anchor="middle" fill="#f7768e" font-size="11" font-family="monospace">' + f[5] + '</text>';
+    if (f[6] && f[6] !== "" && f[6] !== "✓") v += '<rect x="112" y="98" width="40" height="24" rx="4" fill="#e0af68" opacity="0.25"/><text x="132" y="115" text-anchor="middle" fill="#e0af68" font-size="10" font-family="monospace">' + f[6] + '</text>';
+    if (f[7] && f[7] !== "" && f[7] !== "✓") v += '<rect x="352" y="98" width="40" height="24" rx="4" fill="#7dcfff" opacity="0.25"/><text x="372" y="115" text-anchor="middle" fill="#7dcfff" font-size="10" font-family="monospace">' + f[7] + '</text>';
+    if (f[8] && f[8] !== "" && f[8] !== "✓") v += '<rect x="225" y="198" width="58" height="22" rx="4" fill="#9ece6a" opacity="0.25"/><text x="254" y="213" text-anchor="middle" fill="#9ece6a" font-size="11" font-family="monospace">' + f[8] + '</text>';
+    if (f[5] === "✓") v += '<text x="258" y="30" fill="#9ece6a" font-size="12">✓</text>';
+    if (f[6] === "✓") v += '<text x="140" y="115" fill="#9ece6a" font-size="12">✓</text>';
+    if (f[7] === "✓") v += '<text x="375" y="115" fill="#9ece6a" font-size="12">✓</text>';
+    if (f[8] === "✓") v += '<text x="270" y="213" fill="#9ece6a" font-size="12">✓</text>';
+    document.getElementById("diam-values").innerHTML = v;
+  }
+
+  window.diamFrame = function(d) {
+    var n = dcur + d;
+    if (n >= 0 && n < df.length) dcur = n;
+    dupdate();
+  };
+  window.diamToggle = function() {
+    if (dplaying) { clearInterval(dtimer); dplaying = false; document.getElementById("diam-play").innerHTML = "▶ Play"; }
+    else { dplaying = true; document.getElementById("diam-play").innerHTML = "⏸ Pause"; dtimer = setInterval(function(){ window.diamFrame(1); if (dcur >= df.length - 1) window.diamToggle(); }, 1400); }
+  };
+  window.diamReset = function() { dcur = 0; dupdate(); };
+  function dupdate() {
+    var f = df[dcur];
+    document.getElementById("diam-step").innerHTML = dcur + "/" + (df.length - 1);
+    document.getElementById("diam-insight").innerHTML = f[9];
+    drenderBody();
+    drenderDag();
+  }
+  drenderBody();
+  drenderDag();
+})();
+</script>
+
+<p>The diamond animation shows a key behavior: when <code>doubler</code> and <code>tripler</code> produce
+items at the same time, SynaFlow <strong>unrolls both streams together</strong> — yielding
+pairs like <code>(2, 3)</code>, <code>(4, 6)</code> — before moving to the next item. If one stream
+were shorter, SynaFlow would pad with <code>None</code>. This is the same lockstep
+mechanism, applied to fan-in.</p>
+<h2 id="when-materialization-happens">When Materialization Happens<a class="headerlink" href="#when-materialization-happens" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Consumer expects</th>
+<th>Behavior</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>Iterator[T]</code></td>
+<td>Lazy stream — one item in memory</td>
+</tr>
+<tr>
+<td><code>list[T]</code></td>
+<td>Full materialization in memory</td>
+</tr>
+<tr>
+<td><code>dict[K,V]</code></td>
+<td>Materialized from <code>Iterator[tuple[K,V]]</code></td>
+</tr>
+<tr>
+<td><code>set[T]</code></td>
+<td>Full materialization in memory</td>
+</tr>
+</tbody>
+</table>
+<p>Materialization is <strong>per-branch</strong> — a lazy consumer and an eager consumer
+coexist without forcing each other.</p>
+<h2 id="next">Next<a class="headerlink" href="#next" title="Permanent link">&para;</a></h2>
+<p>Start building in the <a href="../../tutorial/hello-world/">Hello World tutorial</a>.</p>
+<h2 id="lockstep-and-dag-topologies">Lockstep and DAG Topologies<a class="headerlink" href="#lockstep-and-dag-topologies" title="Permanent link">&para;</a></h2>
+<p>Perfect lockstep execution requires streams to flow smoothly. When a stream branches into multiple parallel paths that later rejoin (a "Diamond" pattern), SynaFlow enforces a strict topological requirement known as <strong>Symmetry of Barriers</strong>.</p>
+<p>If one path of your diamond consumes the stream iteratively (lazy), but another path requires the entire stream to finish before proceeding (eager materialization), your pipeline contains an <strong>Asymmetric Lockstep Materialization</strong>.</p>
+<p>SynaFlow will detect this at design-time and throw an exception, because this topology mathematically guarantees a deadlock. To understand why, and how to fix it, see the <a href="../../advanced/asymmetric-lockstep-deadlocks/">Asymmetric Lockstep Deadlocks</a> advanced guide.</p>
+
+
+
+
+
+
+
+
+
+  
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+  <script>var tabs=__md_get("__tabs");if(Array.isArray(tabs))e:for(var set of document.querySelectorAll(".tabbed-set")){var labels=set.querySelector(".tabbed-labels");for(var tab of tabs)for(var label of labels.getElementsByTagName("label"))if(label.innerText.trim()===tab){var input=document.getElementById(label.htmlFor);input.checked=!0;continue e}}</script>
+
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+    <div class="md-copyright__highlight">
+      MIT License
+    </div>
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+        
+<div class="md-social">
+  
+    
+    
+    
+    
+      
+      
+    
+    <a href="https://github.com/humansoftware/synaflow" target="_blank" rel="noopener" title="github.com" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["content.code.copy", "content.code.annotate", "content.tabs.link", "navigation.sections", "navigation.expand"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+    
+  </body>
+</html>
