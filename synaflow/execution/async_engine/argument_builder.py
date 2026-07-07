@@ -93,7 +93,7 @@ class AsyncArgumentBuilder:
         """Build argument dictionary for a step."""
         args = {}
         for dep_name in node.deps:
-            if dep_name in self._dag.resources:
+            if dep_name in self._dag.resource_factories:
                 value = await self.resolve_resource_argument(dep_name, resource_stack)
             else:
                 value = self._outputs.get_output(dep_name, consumer)

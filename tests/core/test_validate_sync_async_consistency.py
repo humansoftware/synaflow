@@ -9,7 +9,7 @@ def test_given_sync_only_dag_when_validated_then_sets_sync_runner():
         yield 1
 
     node = DagNode(fn=sync_fn, output=Iterator[int], deps={})
-    dag = Dag(name="test", params={}, resources={}, steps={"s1": node})
+    dag = Dag(name="test", params={}, resource_factories={}, steps={"s1": node})
 
     validate_sync_async_consistency(dag, "test")
 
@@ -22,7 +22,7 @@ def test_given_async_only_dag_when_validated_then_sets_async_runner():
         yield 1
 
     node = DagNode(fn=async_fn, output=AsyncIterator[int], deps={})
-    dag = Dag(name="test", params={}, resources={}, steps={"s1": node})
+    dag = Dag(name="test", params={}, resource_factories={}, steps={"s1": node})
 
     validate_sync_async_consistency(dag, "test")
 
@@ -41,7 +41,10 @@ def test_given_mixed_dag_when_validated_then_raises_value_error():
     async_node = DagNode(fn=async_fn, output=AsyncIterator[int], deps={})
 
     dag = Dag(
-        name="test", params={}, resources={}, steps={"s1": sync_node, "s2": async_node}
+        name="test",
+        params={},
+        resource_factories={},
+        steps={"s1": sync_node, "s2": async_node},
     )
 
     with pytest.raises(ValueError, match="UNRUNNABLE"):

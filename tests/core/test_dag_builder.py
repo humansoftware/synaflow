@@ -109,7 +109,7 @@ def test_given_dependency_on_declared_resource_when_constructed_then_passes():
         steps=[step("s1", fn=fn)],
     )
 
-    assert p.dag.resources == {"db": DB}
+    assert p.dag.get("db").output is DB
     assert p.dag.steps["s1"].deps == {"db": DB, "limit": int}
     assert p.to_dict()["resources"] == {"db": "DB"}
 
@@ -191,7 +191,7 @@ def test_given_sub_pipeline_resource_when_constructed_then_resource_is_inherited
         steps=[include("incl", pipeline=sub, fn=adapt)],
     )
 
-    assert p.dag.resources == {"db": DB}
+    assert p.dag.get("db").output is DB
     assert p.dag.steps["incl"].deps == {"db": DB, "incl__adapter": SubParams}
 
 
@@ -226,7 +226,7 @@ def test_given_parent_and_sub_pipeline_same_resource_instance_when_constructed_t
         steps=[include("incl", pipeline=sub, fn=adapt)],
     )
 
-    assert p.dag.resources["db"] is object
+    assert p.dag.get("db").output is object
 
 
 def test_given_parent_and_sub_pipeline_different_resource_instances_with_same_name_when_constructed_then_raises():

@@ -145,7 +145,6 @@ def _serialize_pipeline_observers(observers: list) -> list[dict]:
 class Dag:
     name: str = ""
     params: dict[str, Any] = field(default_factory=dict)
-    resources: dict[str, Any] = field(default_factory=dict)
     resource_factories: dict[str, Any] = field(default_factory=dict)
     steps: dict[str, DagNode] = field(default_factory=dict)
     requires_sync_runner: bool = False
@@ -177,8 +176,12 @@ class Dag:
     def get(self, key, default=None):
         if key in self.steps:
             return self.steps[key]
-        if key in self.resources:
-            return DagNode(output=self.resources[key])
+        if key in self.resource_factories:
+            from synaflow.core.dag_dependencies import resolve_resource_output_type
+
+            return DagNode(
+                output=resolve_resource_output_type(key, self.resource_factories[key])
+            )
         if key in self.params:
             return DagNode(output=self.params[key])
         return default
@@ -194,9 +197,12 @@ class Dag:
                 name: node.to_serializable() for name, node in self.steps.items()
             },
         }
-        if self.resources:
+        if self.resource_factories:
+            from synaflow.core.dag_dependencies import resolve_resource_output_type
+
             result["resources"] = {
-                k: get_type_name(v) for k, v in self.resources.items()
+                k: get_type_name(resolve_resource_output_type(k, factory))
+                for k, factory in self.resource_factories.items()
             }
         if self.error_materializer_factory is not None:
             result["error_materializer"] = self.error_materializer_factory.__name__

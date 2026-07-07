@@ -662,9 +662,6 @@ def _finalize_dag(
         for name, info in produced.items()
         if name not in dag and name not in resource_names
     }
-    dag_obj.resources = {
-        name: info.output for name, info in produced.items() if name in resource_names
-    }
     dag_obj.steps = dag
     dag_obj.error_materializer_factory = error_materializer_factory
     dag_obj.pipeline_observers = list(pipeline_observers)
