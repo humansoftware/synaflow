@@ -271,6 +271,24 @@ def _merge_resources(
         merged.setdefault(resource_name, resource)
 
 
+def validate_no_unused_resources(
+    dag: dict[str, DagNode],
+    effective_resources: dict[str, Any],
+    pipeline_name: str,
+) -> None:
+    """Raise ValueError for each declared resource that no step uses."""
+    used: set[str] = set()
+    for node in dag.values():
+        used.update(node.deps)
+
+    for name in effective_resources:
+        if name not in used:
+            raise ValueError(
+                f"Pipeline '{pipeline_name}': resource '{name}' "
+                "is declared in resources={} but not used by any step."
+            )
+
+
 def _collect_pipeline_resources(
     pipeline_name: str,
     steps: list[Any],
@@ -699,6 +717,7 @@ def build_dag(
         effective_resources,
         pipeline_obs_resolved,
     )
+    validate_no_unused_resources(dag, effective_resources, pipeline_name)
     indexes = _build_dag_indexes(dag)
     _plan_materialization(dag, indexes)
     dag_obj = _finalize_dag(

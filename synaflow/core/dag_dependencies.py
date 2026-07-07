@@ -81,9 +81,20 @@ def validate_and_resolve_dependencies(
                     producer_name = key
                     break
             else:
+                type_hint = ""
+                if (
+                    consumer_type is not None
+                    and getattr(consumer_type, "__module__", "") != "builtins"
+                ):
+                    type_hint = f" (type '{get_type_name(consumer_type)}')"
                 raise ValueError(
-                    f"Pipeline '{pipeline_name}': step '{step.name}' depends on '{param_name}' "
-                    "but no prior step or param produces it"
+                    f"Pipeline '{pipeline_name}': step '{step.name}' depends on '{param_name}'{type_hint} "
+                    "but no resource, prior step, or params field produces it"
+                    + (
+                        f" — did you forget to declare it in resources={{}}?"
+                        if type_hint
+                        else ""
+                    )
                 )
 
         if param_name != producer_name:
