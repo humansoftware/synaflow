@@ -2,6 +2,115 @@
 
 
 
+## v0.25.9 (2026-07-07)
+
+### Fix
+
+* fix: complete sub-pipeline resource inheritance to runtime (issue #100) (#101)
+
+* feat(core): propagate merged resource factories to DAG for runtime
+
+Adds Dag.resource_factories (runtime-only, non-serialized, mirrors
+pipeline_observers). build_dag populates it from effective_resources
+(the already-computed merge of parent + sub-pipeline resource factories
+from _collect_pipeline_resources). This stores the resource factories
+on the DAG where the runtime expects them (§3.8 DAG primacy) and
+completes the existing inheritance contract from build time.
+
+No change to to_dict() — JSON contract is unchanged. The runtime source
+(pipeline.resources -&gt; pipeline.dag.resource_factories) is wired in
+the next task.
+
+* fix(sync): read inherited sub-pipeline resources from DAG at runtime
+
+Changes run() to pass pipeline.dag.resource_factories to
+PipelineExecutor instead of pipeline.resources. The merged factory dict
+(now stored on the DAG by build_dag) is the runtime source, completing
+the inheritance contract end-to-end.
+
+Regression test mirrors issue #100: parent omits &#39;db&#39;, sub declares
+&#39;db: get_db&#39;, sync run() injects the DB instance into the sub-step.
+
+No change to PipelineExecutor / ArgumentBuilder signatures or behavior;
+the executors already consult self._resource_factories (now sourced from
+the DAG). Override precedence in argument_builder is unchanged.
+
+* fix(async): read inherited sub-pipeline resources from DAG at runtime
+
+Mirror of the sync fix. async_run() now passes
+pipeline.dag.resource_factories to AsyncPipelineExecutor instead of
+pipeline.resources. Restores sync/async parity (§3.8) for inherited
+sub-pipeline resources. Regression test mirrors issue #100 in async.
+
+The include adapter is an async def because async_run() enforces
+all step fns to be async for an async pipeline
+(PipelineDef._validate_no_sync_handlers).
+
+* test: lock in conflict and multi-sub semantics for inherited resources
+
+Adds three regression guards:
+- Two subs declaring the same resource with the SAME factory instance
+  must build and run, injecting the shared instance (sync + async
+  parity — identical test name in both engines per test_parity.py).
+- Two subs declaring the same resource with DIFFERENT instances must
+  raise ValueError at build time (the existing _merge_resources
+  identity check). Asserts it stays a design-time error, never runtime.
+
+* style: ruff format test files
+
+* fix: resolve resource factories at design time, store instances on Dag
+
+Replaces dag.resource_factories with dag.resource_instances.
+
+The merged resource factories (from parent + include() sub-pipelines)
+are now resolved into concrete instances during build_dag (design time)
+instead of being passed as factories to the runtime executor.
+
+This fixes issue #100 properly — the executor never sees a factory
+callable, resolving the design/build separation violation in the
+previous approach.
+
+Key changes:
+- Dag.resource_instances: stores resolved instances (non-serialized)
+- Dag.resource_factories: removed
+- build_dag: calls each factory once after step compilation
+- executors: receive resource_instances instead of resource_factories
+- ArgumentBuilder: base resources are instances (never called);
+  override resources may still be factories (backward compat)
+
+Fixes: #100
+
+* Revert &#34;fix: resolve resource factories at design time, store instances on Dag&#34;
+
+This reverts commit 8a4498590761b79204b365bf4e767a9927d89c5c.
+
+* refactor(dag): remove redundant dag.resources field, derive types from factories
+
+The Dag dataclass had both resources (type metadata) and
+resource_factories (callable factories), but the types were already
+derivable from the factory return annotations.
+
+Removes dag.resources entirely:
+- dag.get(key) now checks resource_factories and computes the output
+  type via resolve_resource_output_type() (lazy import in method body).
+- dag.to_dict() computes the resources JSON section from factories
+  at serialization time.
+- ArgumentBuilder, ExecutionState, and ResourceRegistry use
+  resource_factories for membership checks.
+
+The Dag now has a single resource field: resource_factories.
+
+* refactor(dag): move resolve_resource_output_type into dag.py as Dag._resource_type()
+
+Removes inline imports from dag.get() and dag.to_dict() by moving
+resolve_resource_output_type and get_safe_type_hints from
+dag_dependencies.py into dag.py (top-level functions).
+
+Adds Dag._resource_type(name) — a clean delegation method that
+dag.get() and dag.to_dict() call instead of inlining the type
+resolution logic. ([`d69de6a`](https://github.com/humansoftware/synaflow/commit/d69de6a9a0afbd5c679423d2df15b59323c107a6))
+
+
 ## v0.25.8 (2026-07-06)
 
 ### Fix
