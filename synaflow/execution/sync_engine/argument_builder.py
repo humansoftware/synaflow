@@ -35,12 +35,12 @@ class ArgumentBuilder:
         dag: Dag,
         outputs: ExecutionState,
         overrides: ExecutionOverrides | None,
-        resource_factories: dict[str, Any],
+        resource_instances: dict[str, Any],
     ):
         self._dag = dag
         self._outputs = outputs
         self._overrides = overrides
-        self._resource_factories = resource_factories
+        self._resource_instances = resource_instances
 
     def seed_runtime_inputs(self, params: Any) -> None:
         self._outputs.seed(params)
@@ -54,14 +54,21 @@ class ArgumentBuilder:
         provider = None
         if self._overrides is not None:
             provider = self._overrides.resources.resolve(resource_name)
-        if provider is None:
-            provider = self._resource_factories.get(resource_name)
-        if provider is None:
-            raise ValueError(
-                f"Pipeline '{self._dag.name}' requires resource '{resource_name}' at runtime."
-            )
 
-        value = provider() if callable(provider) else provider
+        if provider is not None:
+            # Runtime override: may be a factory (callable) or a plain value.
+            # callable() returns True for context managers and MagicMocks too,
+            # but those are valid as plain overrides — the user explicitly set them.
+            value = provider() if callable(provider) else provider
+        else:
+            # Base resource instance resolved at design time.
+            # The factory has already been called; never call it again.
+            value = self._resource_instances.get(resource_name)
+            if value is None:
+                raise ValueError(
+                    f"Pipeline '{self._dag.name}' requires resource '{resource_name}' at runtime."
+                )
+
         if is_async_context_manager_instance(value):
             raise TypeError(
                 f"Pipeline '{self._dag.name}': resource '{resource_name}' produced an async context manager in sync run()."
