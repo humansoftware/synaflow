@@ -71,7 +71,7 @@ def test_given_dependency_on_future_step_when_constructed_then_raises():
     def s2(count: int) -> int:
         return count
 
-    with pytest.raises(ValueError, match="no prior step"):
+    with pytest.raises(ValueError, match="no resource, prior step, or params field"):
         pipeline(
             name="t",
             params=P,
@@ -358,7 +358,9 @@ def test_given_dependency_on_nonexistent_param_when_constructed_then_raises():
     def fn(missing: int):
         pass
 
-    with pytest.raises(ValueError, match="but no prior step or param produces it"):
+    with pytest.raises(
+        ValueError, match="but no resource, prior step, or params field produces it"
+    ):
         pipeline(
             name="t",
             params=P,
@@ -366,7 +368,111 @@ def test_given_dependency_on_nonexistent_param_when_constructed_then_raises():
         )
 
 
-def test_given_explicit_none_producer_and_strict_consumer_when_constructed_then_raises():
+def test_given_undeclared_resource_used_by_step_when_constructed_then_raises_with_resource_hint():
+    """Design-time validation: step uses resource type with no factory declared."""
+
+    class DB:
+        pass
+
+    class P(NamedTuple):
+        value: int = 1
+
+    def use(db: DB, value: int) -> None:
+        pass
+
+    with pytest.raises(ValueError, match="did you forget to declare it in resources"):
+        pipeline(name="t", params=P, steps=[step("s1", fn=use)])
+
+
+def test_given_resource_not_used_by_any_step_when_constructed_then_raises():
+    """Design-time validation: resource declared in resources={} but no step uses it."""
+
+    class DB:
+        pass
+
+    class P(NamedTuple):
+        limit: int = 10
+
+    def use(limit: int) -> int:
+        return limit
+
+    def get_db() -> DB:
+        return DB()
+
+    with pytest.raises(ValueError, match="not used by any step"):
+        pipeline(
+            name="t",
+            params=P,
+            resources={"db": get_db},
+            steps=[step("s1", fn=use)],
+        )
+
+
+def test_given_resource_used_by_step_when_constructed_then_no_unused_error():
+    """Happy path: declared resource is used by a step — no error."""
+
+    class DB:
+        pass
+
+    class P(NamedTuple):
+        value: int = 1
+
+    def use(db: DB, value: int) -> None:
+        pass
+
+    def get_db() -> DB:
+        return DB()
+
+    p = pipeline(
+        name="t",
+        params=P,
+        resources={"db": get_db},
+        steps=[step("s1", fn=use)],
+    )
+    assert "db" in p.dag.resource_factories
+
+
+def test_given_sub_pipeline_resource_used_internally_when_constructed_then_no_unused_error():
+    """Sub-pipeline resource used internally should not raise unused-resource error."""
+
+    class DB:
+        pass
+
+    class SubParams(NamedTuple):
+        value: int
+
+    class Params(NamedTuple):
+        value: int = 10
+
+    def use(db: DB, value: int) -> int:
+        return value
+
+    def get_db() -> DB:
+        return DB()
+
+    sub = pipeline(
+        name="sub",
+        params=SubParams,
+        resources={"db": get_db},
+        steps=[step("use", fn=use)],
+        exports="use",
+    )
+
+    def adapt(value: int) -> SubParams:
+        return SubParams(value=value)
+
+    assert_no_raises = True
+    try:
+        pipeline(
+            name="parent",
+            params=Params,
+            steps=[include("incl", pipeline=sub, fn=adapt)],
+        )
+    except ValueError as exc:
+        assert_no_raises = False
+        assert False, f"Unexpected ValueError raised: {exc}"
+    assert assert_no_raises
+
     class P(NamedTuple):
         pass
 

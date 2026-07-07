@@ -235,7 +235,7 @@ def test_given_circular_dependency_when_dag_built_then_raises():
     def s2(s1: int) -> int:
         return s1
 
-    with pytest.raises(ValueError, match="no prior step"):
+    with pytest.raises(ValueError, match="no resource, prior step, or params field"):
         pipeline(
             name="test",
             params=Empty,

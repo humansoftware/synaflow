@@ -17,7 +17,7 @@ def test_given_output_compatible_but_executed_after_when_constructed_then_raises
     def s2(x: int) -> int:
         return x
 
-    with pytest.raises(ValueError, match="no prior step"):
+    with pytest.raises(ValueError, match="no resource, prior step, or params field"):
         pipeline(name="t", params=P, steps=[step("s1", fn=s1), step("s2", fn=s2)])
 
 
