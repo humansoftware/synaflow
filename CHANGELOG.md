@@ -2,6 +2,160 @@
 
 
 
+## v0.26.1 (2026-07-07)
+
+### Fix
+
+* fix: prevent PipelineExecutor hang on step failure (issue #103) (#104)
+
+* fix: prevent PipelineExecutor hang on step failure (issue #103)
+
+Three independent hang mechanisms were causing sync_engine to block
+indefinitely when a step failed with bounded handoff active:
+
+1. SyncFanout._put_terminal() blocked forever pushing EOF_MARKER to a
+   branch whose consumer never iterated because build_arguments() had
+   raised before the SyncQueueIterator was closed.  The leaked iterator
+   kept its branch in _active_branches, so the pump&#39;s terminal push
+   spun on a full queue with no consumer.
+
+2. _run_graph() blocked in cond.wait() when one step failed while a
+   sibling was still blocked on user I/O.  fatal_error was set but the
+   wait loop never broke out.
+
+3. cleanup() blocked on fanout.join() when the pump thread was stuck in
+   next() on a user-code iterator.  Python cannot kill arbitrary user
+   threads, so cleanup() must bound the wait.
+
+Changes
+-------
+
+* argument_builder.build_arguments() (sync + async): track iterators /
+  AsyncQueueBranch slots obtained from runtime state and close them in
+  the except block before re-raising.  This is the root-cause fix for
+  the production scenario in the issue.
+
+* executor._run_graph() (sync): abandon ThreadPoolExecutor&#39;s
+  context-manager form so we can call shutdown(wait=False,
+  cancel_futures=True) on fatal_error.  Loop while running_tasks AND
+  fatal_error is None so a step failure exits the wait immediately.
+  In-flight workers blocked on user code are intentionally leaked
+  (Python limitation) - their threads are reclaimed by the event loop
+  / interpreter shutdown.
+
+* executor._run_graph() (async): mirror - event.set() fires on either
+  natural completion or fatal_error; pre-wait guard prevents blocking
+  when a failure occurs before the wait begins.
+
+* executor.cleanup() (sync): bound fanout.join(timeout=1.0); the
+  SyncFanout.join() method now accepts a timeout and returns a bool.
+  Log a warning when a pump cannot exit (Python cannot kill stuck
+  user code).
+
+* executor.cleanup() (async): mirror - asyncio.wait_for(gather(...),
+  timeout=1.0) instead of unbounded wait.  Orphan pumps are reclaimed
+  by the event loop.
+
+Tests
+-----
+
+tests/execution/{sync,async}_engine/test_runner_max_in_flight_hang.py
+contain six mirrored tests each:
+
+  A - cleanup() hang via stuck SyncFanout _pump thread
+  B - _run_graph() hang via in-flight future that never completes
+  C - production scenario: build_arguments() leaks a SyncQueueIterator
+      (root-cause reproducer for the issue)
+  D - same scenario without bounded handoff (baseline: no hang)
+  E - OnError.CONTINUE, consumer raises mid-iteration (no hang)
+  F - OnError.STOP, consumer raises mid-iteration with fanout
+      (PipelineStopException propagates)
+
+All 673 tests pass (12 new); patch coverage 81.0%; pre-commit clean.
+uv.lock bumped to 0.26.0 to match pyproject.toml.
+
+* ci: switch pytest-timeout from thread to signal method (issue #103)
+
+The &#39;thread&#39; method spawns a daemon monitor that can keep pytest
+teardown alive on GitHub Actions after all tests finish printing
+the summary table - this caused a 18-minute hang that we had to
+cancel manually.
+
+&#39;signal&#39; on Linux is cleaner: SIGALRM-based interruption that does
+not leak daemon threads during pytest teardown.
+
+* fix: make ThreadPoolExecutor workers daemon to unblock CI teardown (issue #103)
+
+Even after the production hang was fixed, CI runs continued to hang
+for hours after &#34;673 passed in N.NNs&#34; was printed.  Two layers
+were responsible:
+
+1. (Fixed in prior commit) The unbounded cond.wait() and
+   fanout.join() inside the executor - root cause of the
+   production hang.
+
+2. (Fixed in this commit) The clean-up abandons ThreadPoolExecutor
+   workers via shutdown(wait=False, cancel_futures=True), but stdlib
+   ThreadPoolExecutor&#39;s workers are non-daemon by default.  When
+   shutdown(wait=False) returns, the stuck workers stay alive, and
+   Python&#39;s threading._shutdown helper installs an atexit that joins
+   them all on interpreter shutdown.  pytest session teardown walks
+   the same path, so workers blocked on user I/O made pytest hang
+   indefinitely - even though every test had already passed.
+
+The fix is a small subclass, _DaemonThreadPoolExecutor, that
+overrides _adjust_thread_count to spawn threading.Thread with
+daemon=True.  The trade-off (a daemon worker may be abruptly
+killed if the interpreter exits while it is in user code) is
+acceptable because the abandoned worker was explicitly abandoned
+by shutdown(wait=False) anyway and the alternative is a stuck CI
+job.
+
+A regression test - test_no_non_daemon_worker_leak_after_executor_shutdown
+- enumerates threading.enumerate() after the test and fails if
+any thread whose name starts with &#39;synaflow-worker_&#39; is still
+alive as a non-daemon thread.  test_parity was updated to mark
+this test as sync-only since the async engine does not use a
+ThreadPoolExecutor.
+
+* fix(sync): drop _DaemonThreadPoolExecutor, log blocked pool workers instead (issue #103)
+
+The daemon ThreadPoolExecutor subclass was a workaround that kept the
+process alive past stuck workers but did not help the user identify
+*which* worker was stuck.  In a clean fix:
+
+* Use the stock concurrent.futures.ThreadPoolExecutor (workers are
+  not daemon).
+* After shutdown(wait=False, cancel_futures=True), call the new
+  wait_for_workers_after_shutdown helper that polls alive workers
+  every 0.5 s and logs a warning every 60 s with the worker names and
+  the process pid.  If user code is stuck, the framework now blocks
+  (still no daemon kill) but emits a diagnostic line per minute so the
+  user can find the stuck step.
+* The contract shifts explicitly: workers stuck *inside framework code*
+  (SyncQueueIterator queue.get() with ExceptionMarker) wake up and
+  exit; workers stuck *inside user code* are the user&#39;s responsibility.
+
+The helper is a top-level function in executor.py and accepts test
+seams (_enumerate_threads, _is_alive, _sleep,
+_monotonic, _log, _process_pid) so tests inject mocks.
+
+PipelineExecutor (and run()) expose worker_shutdown_poll_seconds
+and worker_shutdown_log_every_seconds so tests can shorten the
+60 s log window in production runs; defaults remain 0.5 s / 60 s.
+
+Removed Test G (non-daemon leak regression - the leak is now expected
+and the new function&#39;s contract is logged instead) and Test B (which
+tested user code blocks via Event.wait() in a step function, the
+user&#39;s responsibility).
+
+Added unit tests for wait_for_workers_after_shutdown covering empty
+threads, prefix filtering, log windows, multi-worker reporting, PID
+fallback, and the poll_seconds parameter.
+
+See Issue #103. ([`bc07617`](https://github.com/humansoftware/synaflow/commit/bc07617f3c6a76950da2fbe8892860388d208fde))
+
+
 ## v0.26.0 (2026-07-07)
 
 ### Feature
