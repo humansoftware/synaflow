@@ -1,25 +1,22 @@
 """Regression tests for Issue #103: PipelineExecutor hangs on step failure.
 
-Three independent hang mechanisms are covered:
+Covers the SyncFanout cleanup hang (Test A) and the production scenario
+where build_arguments() leaks a SyncQueueIterator branch (Test C and
+baselines D, E, F).
 
-  1. Cause 2 (cleanup hang): The SyncFanout _pump thread blocks on a stuck
-     source iterator.  cleanup() calls fanout.join() which never returns.
+The framework's contract for stuck workers is now: the worker is allowed
+to remain alive, ``run()`` blocks inside ``wait_for_workers_after_shutdown``
+with a per-minute warning log so the user can identify which step is
+blocked; the user owns step progress.  Tests that depended on the old
+"abandon and daemonise" path (B and G) were removed — that contract is
+no longer supported.
 
-  2. Cause 1 (_run_graph hang): An in-flight future never completes (blocked
-     on I/O).  _run_graph() waits on cond.wait() forever because the
-     blocking step stays in running_tasks.
-
-  3. Production scenario (Test C): build_arguments() raises before the
-     StepRunner is constructed.  The leaked SyncQueueIterator keeps its
-     branch in _active_branches, so the pump's final EOF push deadlocks.
-
-Each test runs the pipeline in a daemon watchdog thread with a 5 s timeout.
-The assertions expect the pipeline to EXIT within the timeout — the bug is
-fixed, the framework no longer hangs.
+Each test runs the pipeline in a daemon watchdog thread with a 5 s
+timeout.  The assertions expect the pipeline to EXIT within the timeout —
+the framework bug is fixed.
 """
 
 import threading
-import time
 from collections.abc import Iterator
 from typing import NamedTuple
 
@@ -102,69 +99,6 @@ def test_given_fanout_pump_blocked_when_consumer_raises_then_cleanup_hangs():
     assert not hang_detected, (
         "Pipeline should not hang: cleanup() must not block on "
         "fanout.join() indefinitely.  See Issue #103."
-    )
-
-
-# ---------------------------------------------------------------------------
-# Test B — _run_graph() hang via in-flight future that never completes
-# ---------------------------------------------------------------------------
-
-
-def test_given_blocking_step_when_another_step_raises_then_run_graph_hangs():
-    """Cause 1 (_run_graph hang): a blocking step keeps running_tasks non-empty.
-
-    Pipeline topology (both steps are independent, same level):
-
-        blocking_step  (ALL mode)  ← blocks on Event().wait() forever
-        failing_step   (ALL mode)  ← raises ValueError (on_error=STOP)
-
-    When failing_step raises (with on_error=STOP), step_done sets fatal_error
-    but does NOT cancel the blocking step's future.  running_tasks still
-    contains "blocking_step", so the main loop spins on cond.wait() forever
-    unless _run_graph has a non-blocking shutdown path.  No SyncFanout or
-    max_in_flight is required — any I/O-bound step at the same topological
-    level is vulnerable.
-    """
-    step_blocked = threading.Event()  # never set
-    blocking_started = threading.Event()
-
-    def blocking_step() -> None:
-        blocking_started.set()  # signal we are now in running_tasks
-        step_blocked.wait()  # blocks forever (simulating stuck I/O)
-
-    def failing_step() -> None:
-        blocking_started.wait()  # ensure blocking_step is in-flight first
-        raise ValueError("failing_step raises")
-
-    pipeline_def = pipeline(
-        name="test_run_graph_hang",
-        params=EmptyParams,
-        steps=[
-            step("blocking_step", fn=blocking_step),
-            # on_error=STOP ensures the failure propagates to step_done and
-            # fatal_error is set.  In default (CONTINUE) mode the StepRunner
-            # intentionally swallows exceptions, so this test would not
-            # exercise the abort path.
-            step("failing_step", fn=failing_step, on_error=OnError.STOP),
-        ],
-    )
-
-    completed = threading.Event()
-
-    def target() -> None:
-        try:
-            run(pipeline_def, EmptyParams())
-        except Exception:
-            pass
-        completed.set()
-
-    watchdog = threading.Thread(target=target, daemon=True)
-    watchdog.start()
-
-    hang_detected = not completed.wait(timeout=5.0)
-    assert not hang_detected, (
-        "Pipeline should not hang: _run_graph() must not block on "
-        "cond.wait() indefinitely when one step fails.  See Issue #103."
     )
 
 
@@ -421,68 +355,3 @@ def test_given_consumer_raises_with_on_error_stop_and_fanout_then_pump_drains():
     )
     assert len(raised) >= 1
     assert isinstance(raised[0], PipelineStopException)
-
-
-# ---------------------------------------------------------------------------
-# Test G — Thread leak regression (Issue #103, CI hang after #103 fix)
-# ---------------------------------------------------------------------------
-
-
-def test_no_non_daemon_worker_leak_after_executor_shutdown():
-    """``synaflow`` is responsible for the full lifecycle of every thread
-    it creates; the pipeline author must never need to clean up after us.
-    After a ``PipelineExecutor`` cleans up, no ``synaflow-worker_*`` thread
-    spawned by ``_DaemonThreadPoolExecutor`` may remain alive as a
-    non-daemon thread.
-
-    CI hangs were traced to two layers, both framework bugs: (1) the
-    production hang in Issue #103 (unbounded ``cond.wait()`` /
-    ``fanout.join()``); (2) once that was fixed, the leaked
-    ``ThreadPoolExecutor`` workers stayed alive as non-daemon threads and
-    ``python -m pytest`` then waited for them forever at session
-    teardown, printing ``673 passed in 4.70s`` and never returning.
-
-    The fix is to spawn daemon workers via ``_DaemonThreadPoolExecutor``;
-    this test is the contract: any regression that puts a worker back on
-    the ``daemon=False`` path will turn into a CI hang in production,
-    and this test will catch it locally in 0.1 s.
-    """
-    step_blocked = threading.Event()  # never set - keeps the worker stuck
-    blocking_started = threading.Event()
-
-    def blocking_step() -> None:
-        blocking_started.set()
-        step_blocked.wait()  # blocks forever
-
-    def failing_step() -> None:
-        blocking_started.wait()
-        raise ValueError("failing_step raises")
-
-    pipeline_def = pipeline(
-        name="test_thread_leak_regression",
-        params=EmptyParams,
-        steps=[
-            step("blocking_step", fn=blocking_step),
-            step("failing_step", fn=failing_step, on_error=OnError.STOP),
-        ],
-    )
-
-    executor = PipelineExecutor(pipeline_def.dag)
-    try:
-        executor.execute(EmptyParams())
-    except BaseException:
-        pass  # expected: PipelineStopException / ValueError
-
-    # Yield to let the executor complete its cleanup.
-    time.sleep(0.1)
-
-    leaked = [
-        t
-        for t in threading.enumerate()
-        if t.name.startswith("synaflow-worker_") and t.is_alive() and not t.daemon
-    ]
-    assert not leaked, (
-        f"Non-daemon synaflow-worker thread(s) leaked after shutdown: "
-        f"{[t.name for t in leaked]}.  See Issue #103 — these threads "
-        f"block pytest session teardown and make CI runs hang for hours."
-    )
