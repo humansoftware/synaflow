@@ -2,6 +2,23 @@
 
 
 
+## v0.26.0 (2026-07-07)
+
+### Feature
+
+* feat: add design-time validation for declared/unused and used/undeclared resources (#102)
+
+- validate_and_resolve_dependencies: when a step depends on a parameter
+  that is not a resource, step output, or params field, if the type is a
+  user-defined class (not builtins), add a hint suggesting the user may
+  have forgotten to declare it in resources={}.
+- validate_no_unused_resources (new): after step compilation, check that
+  every resource declared in effective_resources is used by at least one
+  step&#39;s deps. Raises ValueError if not.
+- Added 4 new tests: undeclared resource used, declared resource unused,
+  resource used (happy path), sub-pipeline resource used internally. ([`721ee92`](https://github.com/humansoftware/synaflow/commit/721ee92acc4a88065bda70eba8b33bbd82231159))
+
+
 ## v0.25.9 (2026-07-07)
 
 ### Fix
