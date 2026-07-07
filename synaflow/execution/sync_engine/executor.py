@@ -49,16 +49,16 @@ class PipelineExecutor:
         dag: Dag,
         *,
         overrides: ExecutionOverrides | None = None,
-        resource_instances: dict[str, Any] | None = None,
+        resource_factories: dict[str, Any] | None = None,
     ):
         self.dag = dag
         self._overrides = overrides
-        self._resource_instances = dict(resource_instances or {})
+        self._resource_factories = dict(resource_factories or {})
         self.run_id = str(uuid.uuid4())
 
         self.state = ExecutionState(self.dag)
         self.scope = ArgumentBuilder(
-            self.dag, self.state, self._overrides, self._resource_instances
+            self.dag, self.state, self._overrides, self._resource_factories
         )
         self.events = EventDispatcher(self.dag, self.run_id, self._overrides)
         self._active_fanouts: list[SyncFanout] = []
@@ -449,5 +449,5 @@ def run(
     PipelineExecutor(
         pipeline.dag,
         overrides=overrides,
-        resource_instances=pipeline.dag.resource_instances,
+        resource_factories=pipeline.dag.resource_factories,
     ).execute(params)

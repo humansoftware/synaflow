@@ -105,15 +105,15 @@ class AsyncPipelineExecutor:
         dag: Dag,
         *,
         overrides: ExecutionOverrides | None = None,
-        resource_instances: dict[str, Any] | None = None,
+        resource_factories: dict[str, Any] | None = None,
     ):
         self.dag = dag
         self._overrides = overrides
-        self._resource_instances = dict(resource_instances or {})
+        self._resource_factories = dict(resource_factories or {})
 
         self.state = ExecutionState(self.dag)
         self.scope = AsyncArgumentBuilder(
-            self.dag, self.state, self._overrides, self._resource_instances
+            self.dag, self.state, self._overrides, self._resource_factories
         )
         self.run_id = str(uuid.uuid4())
         self.events = AsyncEventDispatcher(self.dag, self.run_id, self._overrides)
@@ -538,5 +538,5 @@ async def async_run(
     await AsyncPipelineExecutor(
         pipeline.dag,
         overrides=overrides,
-        resource_instances=pipeline.dag.resource_instances,
+        resource_factories=pipeline.dag.resource_factories,
     ).execute(params)

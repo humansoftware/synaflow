@@ -566,7 +566,7 @@ def test_given_pipeline_resource_factory_when_run_without_override_then_resource
     assert seen[0][1] == 1
 
 
-def test_given_pipeline_resource_factory_used_by_multiple_steps_when_run_then_factory_is_called_once_at_design_time(
+def test_given_pipeline_resource_factory_used_by_multiple_steps_when_run_then_factory_is_called_per_step(
     run_pipeline,
 ):
     class DB:
@@ -591,7 +591,7 @@ def test_given_pipeline_resource_factory_used_by_multiple_steps_when_run_then_fa
         seen.append(("second", db, first))
 
     p = pipeline(
-        name="resource_factory_once",
+        name="resource_factory_per_step",
         params=Params,
         resources={"db": get_db},
         steps=[step("first", fn=first), step("second", fn=second)],
@@ -599,12 +599,9 @@ def test_given_pipeline_resource_factory_used_by_multiple_steps_when_run_then_fa
 
     run_pipeline(p, Params())
 
-    # The factory is called once at design time; the resolved instance
-    # is shared across all steps.
-    assert len(created) == 1
-    shared_db = created[0]
-    assert seen[0] == ("first", shared_db, 1)
-    assert seen[1] == ("second", shared_db, 1)
+    assert len(created) == 2
+    assert seen[0] == ("first", created[0], 1)
+    assert seen[1] == ("second", created[1], 1)
 
 
 def test_given_resource_override_when_sync_run_then_resource_is_injected(run_pipeline):

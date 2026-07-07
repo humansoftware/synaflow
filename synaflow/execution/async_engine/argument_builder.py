@@ -42,13 +42,13 @@ class AsyncArgumentBuilder:
         dag: Dag,
         outputs: ExecutionState,
         overrides: ExecutionOverrides | None = None,
-        resource_instances: dict[str, Any] | None = None,
+        resource_factories: dict[str, Any] | None = None,
     ):
         """Initialize the dependency resolver."""
         self._dag = dag
         self._outputs = outputs
         self._overrides = overrides
-        self._resource_instances = dict(resource_instances or {})
+        self._resource_factories = dict(resource_factories or {})
 
     def seed_runtime_inputs(self, params: Any) -> None:
         """Seed initial runtime inputs into the outputs dictionary."""
@@ -67,18 +67,14 @@ class AsyncArgumentBuilder:
         provider = None
         if self._overrides is not None:
             provider = self._overrides.resources.resolve(resource_name)
+        if provider is None:
+            provider = self._resource_factories.get(resource_name)
+        if provider is None:
+            raise ValueError(
+                f"Pipeline '{self._dag.name}' requires resource '{resource_name}' at runtime."
+            )
 
-        if provider is not None:
-            # Runtime override: may be a factory (callable) or a plain value.
-            value = provider() if callable(provider) else provider
-        else:
-            # Base resource instance resolved at design time.
-            value = self._resource_instances.get(resource_name)
-            if value is None:
-                raise ValueError(
-                    f"Pipeline '{self._dag.name}' requires resource '{resource_name}' at runtime."
-                )
-
+        value = provider() if callable(provider) else provider
         if inspect.isawaitable(value):
             value = await value
         if is_async_context_manager_instance(value):

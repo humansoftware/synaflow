@@ -629,7 +629,7 @@ def test_given_each_mode_step_with_iterable_dependency_not_in_first_parameter_an
     )
 
 
-def test_given_sub_pipeline_resource_when_constructed_then_resolved_instances_are_stored_on_dag():
+def test_given_sub_pipeline_resource_when_constructed_then_merged_factories_are_stored_on_dag():
     class DB:
         pass
 
@@ -662,9 +662,10 @@ def test_given_sub_pipeline_resource_when_constructed_then_resolved_instances_ar
         steps=[include("incl", pipeline=sub, fn=adapt)],
     )
 
-    # The sub's factory must be resolved at design time; the parent's DAG
-    # stores the resolved instance (not the factory) for runtime injection.
-    assert isinstance(p.dag.resource_instances["db"], DB)
+    # The sub's factory must be propagated to the parent's DAG as a runtime
+    # factory source, so executors can instantiate it without the parent
+    # re-declaring it.
+    assert p.dag.resource_factories == {"db": get_db}
     # JSON contract must be unchanged: resources serialized as name -> type.
     assert p.to_dict()["resources"] == {"db": "DB"}
 

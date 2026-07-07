@@ -712,15 +712,11 @@ def build_dag(
         error_materializer_factory,
         pipeline_obs_resolved,
     )
-    # Resolve merged resource factories into instances at design time.
-    # The merged factories (from parent + all include() sub-pipelines) are
-    # the design-time declaration; the resolved instances are what the
-    # executor injects at runtime — the executor never sees a factory.
-    # Not serialized (instances are runtime objects, not DAG metadata).
-    resolved_resources: dict[str, Any] = {}
-    for name, factory in effective_resources.items():
-        resolved_resources[name] = factory() if callable(factory) else factory
-    dag_obj.resource_instances = resolved_resources
+    # Propagate the merged resource factories to the DAG so the runtime
+    # can instantiate inherited sub-pipeline resources. Mirrors how
+    # materializers (§3.4) and pipeline_observers are resolved at build
+    # time and stored on the DAG. Not serialized (callables).
+    dag_obj.resource_factories = effective_resources
     check_circular_dependencies(dag_obj, pipeline_name)
 
     validate_no_unmaterialized_terminal_streams(dag_obj, pipeline_name, exports)
