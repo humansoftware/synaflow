@@ -146,6 +146,7 @@ class Dag:
     name: str = ""
     params: dict[str, Any] = field(default_factory=dict)
     resources: dict[str, Any] = field(default_factory=dict)
+    resource_factories: dict[str, Any] = field(default_factory=dict)
     steps: dict[str, DagNode] = field(default_factory=dict)
     requires_sync_runner: bool = False
     requires_async_runner: bool = False

@@ -712,6 +712,11 @@ def build_dag(
         error_materializer_factory,
         pipeline_obs_resolved,
     )
+    # Propagate the merged resource factories to the DAG so the runtime
+    # can instantiate inherited sub-pipeline resources. Mirrors how
+    # materializers (§3.4) and pipeline_observers are resolved at build
+    # time and stored on the DAG. Not serialized (callables).
+    dag_obj.resource_factories = effective_resources
     check_circular_dependencies(dag_obj, pipeline_name)
 
     validate_no_unmaterialized_terminal_streams(dag_obj, pipeline_name, exports)

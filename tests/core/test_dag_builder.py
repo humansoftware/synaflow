@@ -627,3 +627,44 @@ def test_given_each_mode_step_with_iterable_dependency_not_in_first_parameter_an
         params=P,
         steps=[step("transform", fn=transform), step("consume", fn=consume)],
     )
+
+
+def test_given_sub_pipeline_resource_when_constructed_then_merged_factories_are_stored_on_dag():
+    class DB:
+        pass
+
+    class SubParams(NamedTuple):
+        value: int
+
+    class Params(NamedTuple):
+        value: int = 10
+
+    def use(db: DB, value: int) -> int:
+        return value
+
+    def get_db() -> DB:
+        return DB()
+
+    sub = pipeline(
+        name="sub",
+        params=SubParams,
+        resources={"db": get_db},
+        steps=[step("use", fn=use)],
+        exports="use",
+    )
+
+    def adapt(value: int) -> SubParams:
+        return SubParams(value=value)
+
+    p = pipeline(
+        name="parent",
+        params=Params,
+        steps=[include("incl", pipeline=sub, fn=adapt)],
+    )
+
+    # The sub's factory must be propagated to the parent's DAG as a runtime
+    # factory source, so executors can instantiate it without the parent
+    # re-declaring it.
+    assert p.dag.resource_factories == {"db": get_db}
+    # JSON contract must be unchanged: resources serialized as name -> type.
+    assert p.to_dict()["resources"] == {"db": "DB"}
