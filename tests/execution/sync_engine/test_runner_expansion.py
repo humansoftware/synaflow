@@ -124,6 +124,7 @@ def test_given_two_subs_same_resource_instance_when_run_then_resource_is_injecte
         return value
 
     shared = DB()  # a single instance, reused as the factory in both subs
+
     def get_shared() -> DB:
         return shared
 
