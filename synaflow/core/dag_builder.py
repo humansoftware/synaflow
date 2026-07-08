@@ -55,7 +55,7 @@ from synaflow.core.dag import (
     PublishPlan,
 )
 from synaflow.core.dag_dependencies import initialize_parameters, initialize_resources
-from synaflow.core.definition import IncludeStep, Step
+from synaflow.core.definition import IncludeStep, PipelineDef, Step
 from synaflow.core.dag_expansion import expand_macros
 from synaflow.core.dag_steps import (
     validate_and_compile_step,
@@ -714,17 +714,24 @@ def _finalize_dag(
     return dag_obj
 
 
-def build_dag(
-    pipeline_name: str,
-    params: type[NamedTuple],
-    steps: list[Step | IncludeStep],
-    resources: dict[str, Any] | None = None,
-    memory_materializer_factory: Any = None,
-    is_default_factory: bool = False,
-    error_materializer_factory: Any = None,
-    pipeline_observers: list[Observer] | None = None,
-    exports: str | None = None,
-) -> Dag:
+def build_dag(pipeline_def: PipelineDef) -> Dag:
+    """Validate and compile a pipeline definition into a ``Dag``.
+
+    Single source of design-time validation: any structural error
+    (bad params type, step signature, resource conflict, cycle,
+    etc.) raises here. ``PipelineDef.__post_init__`` is the typical
+    caller, but external code (CLI, registry, tests) can also call
+    directly. Idempotent — same def produces the same dag.
+    """
+    pipeline_name = pipeline_def.name
+    params = pipeline_def.params
+    steps = pipeline_def.steps
+    resources = pipeline_def.resources
+    memory_materializer_factory = pipeline_def.materializer
+    error_materializer_factory = pipeline_def.error_materializer
+    pipeline_observers = pipeline_def.observers
+    exports = pipeline_def.exports
+
     if error_materializer_factory is None:
         error_materializer_factory = log_error_materializer_factory
 

@@ -112,17 +112,7 @@ class PipelineDef:
         from synaflow.core.dag_builder import build_dag
 
         self.fill_scope_metadata()
-        self.dag = build_dag(
-            self.name,
-            self.params,
-            self.steps,
-            self.resources,
-            self.materializer,
-            is_default_factory=(self.materializer is None),
-            error_materializer_factory=self.error_materializer,
-            pipeline_observers=self.observers,
-            exports=self.exports,
-        )
+        self.dag = build_dag(self)
         self.requires_sync_runner = self.dag.requires_sync_runner
         self.requires_async_runner = self.dag.requires_async_runner
 

@@ -5,6 +5,7 @@ import pytest
 
 from synaflow import StepMode, pipeline, step
 from synaflow.core.definition import include
+from synaflow.core.dag_builder import build_dag
 
 
 def test_given_scalar_params_when_constructed_then_passes():
@@ -914,3 +915,28 @@ def test_given_dag_node_to_serializable_includes_step_index_and_total():
     assert "step_total_in_scope" in serialized
     assert serialized["step_index_in_scope"] == 1
     assert serialized["step_total_in_scope"] == 1
+
+
+# ---------------------------------------------------------------------------
+# issue #107: build_dag accepts PipelineDef directly
+# ---------------------------------------------------------------------------
+
+
+def test_given_pipeline_def_when_build_dag_called_then_returns_dag():
+    """``build_dag`` accepts a ``PipelineDef`` directly (single-arg
+    signature; refactor for issue #107). Building the dag IS the
+    validation — no compile side effect in ``__post_init__``."""
+
+    from synaflow.core.dag import Dag
+
+    class P(NamedTuple):
+        x: int = 1
+
+    def fn(x: int) -> int:
+        return x
+
+    pipe_def = pipeline(name="X", params=P, steps=[step(name="a", fn=fn)])
+    dag = build_dag(pipe_def)
+    assert isinstance(dag, Dag)
+    assert dag.name == "X"
+    assert "a" in dag.steps
