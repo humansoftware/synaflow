@@ -234,10 +234,12 @@ def test_dag_node_to_serializable_includes_step_index_and_total():
 # ---------------------------------------------------------------------------
 
 
-def test_pipeline_def_fill_scope_metadata_stamps_direct_steps_and_recurses():
-    """``PipelineDef.__post_init__`` (via ``fill_scope_metadata``) stamps
-    ``index_in_scope`` / ``total_in_scope`` on every step reachable from
-    the root. Sub-pipeline steps carry the SUB's own scope metadata."""
+def test_pipeline_def_fill_scope_metadata_stamps_direct_steps():
+    """``PipelineDef.__post_init__`` stamps ``index_in_scope`` /
+    ``total_in_scope`` on the root's DIRECT steps. Sub-pipeline steps
+    are stamped by the sub-pipeline's own ``__post_init__`` when that
+    instance is constructed (module-level ``pipe_b`` in this file
+    was built at import time)."""
     pipe_a = pipeline(
         name="MainPipeline",
         params=AParams,

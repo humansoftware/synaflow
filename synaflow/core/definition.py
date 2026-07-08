@@ -64,21 +64,15 @@ class PipelineDef:
     _compiled: bool = False
     description: str = ""
 
-    def fill_scope_metadata(self, seen: frozenset[str] | None = None) -> None:
-        """Stamp ``index_in_scope`` / ``total_in_scope`` on direct steps;
-        recurse into sub-pipelines so inner steps carry their own scope
-        positions. Cycle protection via ``seen`` is a safety net —
-        authoritative detection lives in ``expand_macros``."""
-        if seen is None:
-            seen = frozenset()
-        if self.name in seen:
-            return  # cycle: defer to authoritative validator
+    def fill_scope_metadata(self) -> None:
+        """Stamp ``index_in_scope`` / ``total_in_scope`` on direct steps
+        only. Sub-pipelines stamp themselves in their own
+        ``__post_init__``; the tree of ``PipelineDef`` instances is
+        well-formed by construction, so cycles are impossible here."""
         scope_total = len(self.steps)
         for index, step in enumerate(self.steps, start=1):
             step.index_in_scope = index
             step.total_in_scope = scope_total
-            if isinstance(step, IncludeStep):
-                step.pipeline.fill_scope_metadata(seen | {self.name})
 
     def __post_init__(self) -> None:
         # Lazy import breaks a circular dependency: ``dag_builder``
