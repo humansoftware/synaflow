@@ -28,7 +28,6 @@ from .event_dispatch import AsyncEventDispatcher
 from .iterator_utils import AsyncQueueBranch
 from synaflow.execution.stats import StepRunStats
 from .step_runner import (
-    AsyncStepRuntimeConfig,
     AsyncStepRunner,
     wrap_deferred_output,
     collect_async_iterator,
@@ -213,8 +212,6 @@ class AsyncPipelineExecutor:
             step_name, node, unrolled, resource_stack
         )
 
-        step_config = AsyncStepRuntimeConfig(dag_node=node)
-
         stats = StepRunStats()
 
         upstream_max_in_flight = {}
@@ -245,7 +242,7 @@ class AsyncPipelineExecutor:
             events=self.events,
             stats=stats,
             each_mode_deps=unrolled,
-            step_runtime_config=step_config,
+            dag_node=node,
             upstream_max_in_flight=upstream_max_in_flight,
         )
         await runner.run()
