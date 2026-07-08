@@ -24,7 +24,6 @@ from synaflow.core.observers import (
     StepFailedContext,
     StepStartedContext,
 )
-from synaflow.core.dag import StepScopeIndex
 from synaflow.core.types import OnError, StepMode
 from synaflow.execution.async_engine.executor import AsyncPipelineExecutor
 
@@ -955,59 +954,6 @@ async def test_given_step_index_in_scope_starts_at_one():
     assert started["fn_b"].step_total_in_scope == 3
     assert started["fn_c"].step_index_in_scope == 3
     assert started["fn_c"].step_total_in_scope == 3
-
-
-@pytest.mark.asyncio
-async def test_given_dag_step_scope_index_helper_returns_named_tuple():
-    """Dag.step_scope_index(step_name) -> StepScopeIndex(scope, index, total)."""
-    rec = EventRecorder()
-
-    async def fn_a(values: list[int]) -> int:
-        return values[0]
-
-    async def fn_b(fn_a: int) -> int:
-        return fn_a + 1
-
-    p = pipeline(
-        name="helper_p",
-        params=Params,
-        steps=[step("fn_a", fn=fn_a), step("fn_b", fn=fn_b)],
-        observers=[Observer(rec.async_record)],
-    )
-    await async_run(p, params=Params(values=[42]))
-
-    started = next(
-        ctx
-        for _, ctx in rec.events
-        if isinstance(ctx, StepStartedContext) and ctx.step_name == "fn_b"
-    )
-    helper_result = p.dag.step_scope_index("fn_b")
-    assert isinstance(helper_result, StepScopeIndex)
-    assert helper_result.scope == started.pipeline_scope
-    assert helper_result.index == started.step_index_in_scope
-    assert helper_result.total == started.step_total_in_scope
-
-
-@pytest.mark.asyncio
-async def test_given_dag_step_scope_index_helper_unknown_step_then_keyerror():
-    """Helper raises KeyError with strong message — never silent fallback."""
-    rec = EventRecorder()
-
-    async def fn_a(values: list[int]) -> int:
-        return values[0]
-
-    p = pipeline(
-        name="helper_unknown",
-        params=Params,
-        steps=[step("fn_a", fn=fn_a)],
-        observers=[Observer(rec.async_record)],
-    )
-
-    with pytest.raises(KeyError) as excinfo:
-        p.dag.step_scope_index("does_not_exist")
-    msg = str(excinfo.value)
-    assert "does_not_exist" in msg
-    assert "helper_unknown" in msg  # dag name helps locate the issue
 
 
 @pytest.mark.asyncio

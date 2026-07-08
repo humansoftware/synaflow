@@ -22,7 +22,6 @@ from synaflow.core.observers import (
     StepFailedContext,
     StepStartedContext,
 )
-from synaflow.core.dag import StepScopeIndex
 from synaflow.core.types import OnError, StepMode
 
 
@@ -840,60 +839,6 @@ def test_given_step_index_in_scope_starts_at_one():
     assert started["fn_b"].step_total_in_scope == 3
     assert started["fn_c"].step_index_in_scope == 3
     assert started["fn_c"].step_total_in_scope == 3
-
-
-def test_given_dag_step_scope_index_helper_returns_named_tuple():
-    """Dag.step_scope_index(step_name) -> StepScopeIndex(scope, index, total)."""
-    rec = EventRecorder()
-
-    def fn_a(values: list[int]) -> int:
-        return values[0]
-
-    def fn_b(fn_a: int) -> int:
-        return fn_a + 1
-
-    p = pipeline(
-        name="helper_p",
-        params=Params,
-        steps=[step("fn_a", fn=fn_a), step("fn_b", fn=fn_b)],
-        observers=[Observer(rec.record)],
-    )
-    run(p, params=Params(values=[42]))
-
-    started = next(
-        ctx
-        for _, ctx in rec.events
-        if isinstance(ctx, StepStartedContext) and ctx.step_name == "fn_b"
-    )
-    # Confirm runtime context matches helper output.
-    helper_result = p.dag.step_scope_index("fn_b")
-    assert isinstance(helper_result, StepScopeIndex)
-    assert helper_result.scope == started.pipeline_scope
-    assert helper_result.index == started.step_index_in_scope
-    assert helper_result.total == started.step_total_in_scope
-
-
-def test_given_dag_step_scope_index_helper_unknown_step_then_keyerror():
-    """Helper raises KeyError with strong message — never silent fallback.
-    Mirrors the plan: 'lance erro com mensagem bem forte' for unknown
-    step names (treated as internal framework bug surface)."""
-    rec = EventRecorder()
-
-    def fn_a(values: list[int]) -> int:
-        return values[0]
-
-    p = pipeline(
-        name="helper_unknown",
-        params=Params,
-        steps=[step("fn_a", fn=fn_a)],
-        observers=[Observer(rec.record)],
-    )
-
-    with pytest.raises(KeyError) as excinfo:
-        p.dag.step_scope_index("does_not_exist")
-    msg = str(excinfo.value)
-    assert "does_not_exist" in msg
-    assert "helper_unknown" in msg  # dag name helps locate the issue
 
 
 def test_given_pipeline_started_context_does_not_carry_step_scope_fields():

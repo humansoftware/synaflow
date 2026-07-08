@@ -15,12 +15,8 @@ issue.
 
 from typing import Iterator, NamedTuple
 
-import pytest
 
 from synaflow import include, pipeline, step
-from synaflow.core.dag import StepScopeIndex
-
-
 # ---------------------------------------------------------------------------
 # Fixtures (mirroring test_dag_expansion.py patterns).
 # ---------------------------------------------------------------------------
@@ -179,44 +175,6 @@ def _build_master_pipe():
     return master
 
 
-def test_given_dag_step_scope_index_when_node_pipeline_empty_then_runtime_error():
-    """``Dag.step_scope_index`` raises RuntimeError — NOT silent fallback
-    — when a DagNode has an empty pipeline attribute. Per the issue #105
-    invariant, DagNode.pipeline must be a non-empty string after
-    compilation; reaching the empty branch means someone bypassed the
-    compiler, which is an internal framework bug we want surfaced.
-    """
-    dag = _build_master_pipe().dag
-    # Steal a real step and intentionally corrupt its pipeline to "".
-    node = dag.steps["my_text_processor__adapter"]
-    saved = node.pipeline
-    try:
-        node.pipeline = ""
-        with pytest.raises(RuntimeError) as excinfo:
-            dag.step_scope_index("my_text_processor__adapter")
-        msg = str(excinfo.value)
-        assert "pipeline" in msg.lower()
-        assert "my_text_processor__adapter" in msg
-        assert "DagNode" in msg or "dag" in msg.lower()
-    finally:
-        node.pipeline = saved
-
-
-def test_given_dag_step_scope_index_when_node_pipeline_set_then_no_fallback():
-    """With pipeline correctly set, the helper returns the node's
-    pipeline — NOT dag.name. This confirms the helper does not silently
-    substitute dag.name when pipeline is non-empty (the only branch
-    that should ever run in production)."""
-    from synaflow.core.dag import StepScopeIndex
-
-    dag = _build_master_pipe().dag
-    out = dag.step_scope_index("my_text_processor__func_b1")
-    assert isinstance(out, StepScopeIndex)
-    assert out.scope == "TextProcessor"
-    # Must NOT be the outer dag.name (would indicate silent fallback).
-    assert out.scope != "MainPipeline"
-
-
 # ---------------------------------------------------------------------------
 # 5. Sibling includes of same SubPipelineDef share the scope
 # ---------------------------------------------------------------------------
@@ -246,48 +204,6 @@ def test_sibling_includes_of_same_definition_share_scope_with_per_definition_tot
         assert node.step_total_in_scope == 2  # per-definition, not concatenated
     indices = sorted(n.step_index_in_scope for n in shared)
     assert indices == [1, 1, 2, 2]
-
-
-# ---------------------------------------------------------------------------
-# 6. Dag.step_scope_index helper
-# ---------------------------------------------------------------------------
-
-
-def test_dag_step_scope_index_helper_returns_named_tuple():
-    pipe_a = pipeline(
-        name="MainPipeline",
-        params=AParams,
-        steps=[
-            include("my_text_processor", pipeline=pipe_b, fn=prepare_b_each),
-            step("consolidate", fn=consolidate),
-        ],
-    )
-    dag = pipe_a.dag
-
-    # Pick the inner TextProcessor step.
-    result = dag.step_scope_index("my_text_processor__func_b1")
-    assert isinstance(result, StepScopeIndex)
-    assert result.scope == "TextProcessor"
-    assert result.index == 1  # first step in sub
-    assert result.total == 2  # sub has 2 steps
-
-
-def test_dag_step_scope_index_raises_keyerror_for_missing_step():
-    pipe_a = pipeline(
-        name="MainPipeline",
-        params=AParams,
-        steps=[
-            include("my_text_processor", pipeline=pipe_b, fn=prepare_b_each),
-            step("consolidate", fn=consolidate),
-        ],
-    )
-    dag = pipe_a.dag
-    with pytest.raises(KeyError) as exc:
-        dag.step_scope_index("__nonexistent__")
-    msg = str(exc.value)
-    assert "__nonexistent__" in msg
-    assert "MainPipeline" in msg
-    assert "internal framework bug" in msg
 
 
 # ---------------------------------------------------------------------------

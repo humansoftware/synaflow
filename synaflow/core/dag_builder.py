@@ -647,8 +647,8 @@ def _assert_dag_invariants(dag: "Dag", pipeline_name: str) -> None:
     (``validate_and_compile_step``) sets ``pipeline=step.pipeline or
     pipeline_name`` so any None/empty value here means a step skipped
     compilation or DagNode was constructed by hand. Loud failures beat
-    silent fallbacks in observer dispatch and ``step_scope_index``,
-    which trust this invariant.
+    silent fallbacks in observer dispatch, which trusts this
+    invariant.
 
     Raises ``RuntimeError`` with a clear message naming the offending
     step so the regression can be located quickly.
