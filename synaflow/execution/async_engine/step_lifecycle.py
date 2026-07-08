@@ -1,18 +1,23 @@
-from typing import Any
+from synaflow.core.dag import DagNode
 from synaflow.core.exceptions import PipelineStopException
 from synaflow.execution.stats import StepRunStats
+from synaflow.execution.async_engine.event_dispatch import AsyncEventDispatcher
 
 
 class AsyncStepLifecycle:
     def __init__(
-        self, node: Any, step_name: str, events: Any, stats: StepRunStats
+        self,
+        dag_node: DagNode,
+        step_name: str,
+        events: AsyncEventDispatcher,
+        stats: StepRunStats,
     ) -> None:
-        self.node = node
-        self.step_name = step_name
-        self.events = events
-        self.stats = stats
-        self.completed_all_inputs = False
-        self._started = False
+        self.dag_node: DagNode = dag_node
+        self.step_name: str = step_name
+        self.events: AsyncEventDispatcher = events
+        self.stats: StepRunStats = stats
+        self.completed_all_inputs: bool = False
+        self._started: bool = False
 
     @property
     def success_count(self) -> int:
@@ -24,7 +29,7 @@ class AsyncStepLifecycle:
 
     async def start(self) -> None:
         if not self._started:
-            await self.events.step_started(self.node, self.step_name)
+            await self.events.step_started(self.dag_node, self.step_name)
             self._started = True
 
     def record_success(self, count: int = 1) -> None:
@@ -45,7 +50,7 @@ class AsyncStepLifecycle:
             while isinstance(cause, PipelineStopException) and cause.cause:
                 cause = cause.cause
             await self.events.step_failed(
-                self.node,
+                self.dag_node,
                 self.step_name,
                 success_count=self.stats.success_count,
                 error_count=self.stats.error_count,
@@ -54,7 +59,7 @@ class AsyncStepLifecycle:
             )
         else:
             await self.events.step_completed(
-                self.node,
+                self.dag_node,
                 self.step_name,
                 success_count=self.stats.success_count,
                 error_count=self.stats.error_count,

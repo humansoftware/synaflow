@@ -825,3 +825,92 @@ def test_given_two_subs_different_resource_instances_with_same_name_when_constru
                 include("incl_b", pipeline=sub_b, fn=adapt_b),
             ],
         )
+
+
+# ---------------------------------------------------------------------------
+# issue #105: scope-stamping helpers
+# ---------------------------------------------------------------------------
+
+
+def test_given_fill_scope_metadata_when_flat_pipeline_then_stamps_each_step():
+    """``PipelineDef.fill_scope_metadata`` stamps 1-indexed position +
+    total on every direct step in the caller scope (issue #105)."""
+
+    class P(NamedTuple):
+        x: int = 1
+
+    def fn(x: int) -> int:
+        return x
+
+    p = pipeline(
+        name="flat",
+        params=P,
+        steps=[
+            step(name="alpha", fn=fn),
+            step(name="beta", fn=fn),
+            step(name="gamma", fn=fn),
+        ],
+    )
+    # ``__post_init__`` already ran ``fill_scope_metadata`` — just read it.
+    for step_obj, expected_index in zip(p.steps, [1, 2, 3]):
+        assert step_obj.index_in_scope == expected_index
+        assert step_obj.total_in_scope == 3
+
+
+def test_given_fill_scope_metadata_when_sub_pipeline_mix_then_stamps_per_scope():
+    """Stamping recurses into ``IncludeStep.pipeline`` — sub-pipeline's
+    own steps carry the SUB's scope metadata, not the caller's."""
+
+    class P(NamedTuple):
+        x: int = 1
+
+    def fn(x: int) -> int:
+        return x
+
+    def adapt(x: int) -> P:
+        return P(x=x)
+
+    sub_pipe = pipeline(
+        name="Filters",
+        params=P,
+        exports="only",
+        steps=[step(name="only", fn=fn)],
+    )
+    include_step = include(name="include_filters", pipeline=sub_pipe, fn=adapt)
+
+    main = pipeline(
+        name="Master",
+        params=P,
+        steps=[step(name="alpha", fn=fn), include_step],
+    )
+
+    # Master's direct steps: alpha gets (1, 2); the IncludeStep itself
+    # gets (2, 2). The IncludeStep's pipeline (Filters) is stamped on
+    # its own walk — 'only' gets (1, 1).
+    assert main.steps[0].index_in_scope == 1
+    assert main.steps[0].total_in_scope == 2
+    assert main.steps[1].index_in_scope == 2
+    assert main.steps[1].total_in_scope == 2
+    assert sub_pipe.steps[0].index_in_scope == 1
+    assert sub_pipe.steps[0].total_in_scope == 1
+
+
+def test_given_dag_node_to_serializable_includes_step_index_and_total():
+    """DagNode.to_serializable() emits the new scope fields (issue #105)."""
+
+    class P(NamedTuple):
+        x: int = 1
+
+    def fn(x: int) -> int:
+        return x
+
+    p = pipeline(
+        name="ser",
+        params=P,
+        steps=[step("only", fn=fn)],
+    )
+    serialized = p.dag.steps["only"].to_serializable()
+    assert "step_index_in_scope" in serialized
+    assert "step_total_in_scope" in serialized
+    assert serialized["step_index_in_scope"] == 1
+    assert serialized["step_total_in_scope"] == 1

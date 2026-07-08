@@ -28,12 +28,22 @@ class Step(BaseStep):
     max_in_flight: int = 1
     error_threshold_absolute: int | None = None
     error_threshold_pct: float | None = None
+    # Stamped at definition time by ``PipelineDef.fill_scope_metadata``
+    # so ``build_dag`` -> ``_compile_steps`` can read the position
+    # directly off the Step (no separate scope-counts walker).
+    index_in_scope: int = 0
+    total_in_scope: int = 0
 
 
 @dataclass
 class IncludeStep(BaseStep):
     pipeline: "PipelineDef"
     description: str = ""
+    # Stamped at definition time alongside ``Step.index_in_scope`` /
+    # ``total_in_scope``. The IncludeStep itself doesn't appear in the
+    # expanded DAG — its adapter Step inherits these values.
+    index_in_scope: int = 0
+    total_in_scope: int = 0
 
 
 @dataclass
@@ -54,9 +64,54 @@ class PipelineDef:
     _compiled: bool = False
     description: str = ""
 
+    def fill_scope_metadata(self, seen: frozenset[str] | None = None) -> None:
+        """Stamp ``index_in_scope`` / ``total_in_scope`` on every step
+        reachable from ``self.steps``.
+
+        Walks this pipeline's direct items in declaration order, 1-indexed:
+        a plain Step or IncludeStep at position ``i`` in this scope gets
+        ``index_in_scope=i``, ``total_in_scope=len(self.steps)``. For
+        ``IncludeStep``, recurses into the sub-pipeline so the inner
+        Steps carry the sub's scope metadata (their own position+total
+        inside the sub-pipeline definition).
+
+        Pure definition-time: no Dag, no expansion. The expansion pass
+        (``expand_macros``) propagates these values onto the adapter and
+        inner-sub-step wrappers it creates; ``_compile_steps`` then reads
+        them straight off the Step without a separate scope-counts
+        walker.
+
+        Cycle protection (``seen`` frozenset) is a safety net so a
+        graph mutated mid-flight (e.g. tests that build A, then append
+        an include to A.steps that references B which includes A back)
+        can't crash the stamper. The authoritative cycle check runs
+        later in ``build_dag`` via ``expand_macros`` and raises with a
+        clear "Infinite cycle detected" message.
+
+        NOTE: ``total_in_scope`` is the **definition-time** count for
+        that scope (the sub-pipeline's own ``len(steps)``), not the
+        concatenated run-time count across sibling includes. Observers
+        use the per-event count of completed steps to detect scope
+        completion; ``total_in_scope`` is diagnostic.
+        """
+        if seen is None:
+            seen = frozenset()
+        if self.name in seen:
+            return  # cycle: defer to authoritative validator
+        scope_total = len(self.steps)
+        for index, step in enumerate(self.steps, start=1):
+            step.index_in_scope = index
+            step.total_in_scope = scope_total
+            if isinstance(step, IncludeStep):
+                step.pipeline.fill_scope_metadata(seen | {self.name})
+
     def __post_init__(self) -> None:
+        # Lazy import breaks a circular dependency: ``dag_builder``
+        # imports Step / IncludeStep from this module, so importing it
+        # at module top would fail at first import of either side.
         from synaflow.core.dag_builder import build_dag
 
+        self.fill_scope_metadata()
         self.dag = build_dag(
             self.name,
             self.params,

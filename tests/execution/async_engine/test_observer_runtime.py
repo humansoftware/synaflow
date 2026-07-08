@@ -12,16 +12,19 @@ from synaflow import (
     PipelineEvent,
     StepEvent,
     async_run,
+    include,
     pipeline,
     step,
 )
 from synaflow.core.observers import (
     MaterializationStartedContext,
     PipelineFailedContext,
+    PipelineStartedContext,
     StepCompletedContext,
     StepFailedContext,
     StepStartedContext,
 )
+from synaflow.core.dag import StepScopeIndex
 from synaflow.core.types import OnError, StepMode
 from synaflow.execution.async_engine.executor import AsyncPipelineExecutor
 
@@ -773,3 +776,267 @@ async def test_given_lazy_generator_step_when_observed_then_step_started_event_f
 
     await async_run(p, params=Params(values=[]))
     assert state["step_started_event_fired"] is True
+
+
+# ---------------------------------------------------------------------------
+# issue #105: scope-stamped fields flow through to observer contexts
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_given_step_started_context_carries_scope_index_and_total():
+    """Scope fields stamped at DAG build time (issue #105) flow
+    through to the StepStartedContext seen by observers."""
+    rec = EventRecorder()
+
+    async def fn_a(values: list[int]) -> int:
+        return sum(values)
+
+    p = pipeline(
+        name="scope_test",
+        params=Params,
+        steps=[step("fn_a", fn=fn_a)],
+        observers=[Observer(rec.async_record)],
+    )
+    await async_run(p, params=Params(values=[1, 2, 3]))
+
+    started = next(
+        ctx
+        for _, ctx in rec.events
+        if isinstance(ctx, StepStartedContext) and ctx.step_name == "fn_a"
+    )
+    assert started.pipeline_scope == "scope_test"
+    assert started.step_index_in_scope == 1
+    assert started.step_total_in_scope == 1
+
+
+@pytest.mark.asyncio
+async def test_given_step_completed_context_carries_scope_index_and_total():
+    """Same fields fire when a step completes successfully."""
+    rec = EventRecorder()
+
+    async def fn_a(values: list[int]) -> int:
+        return sum(values)
+
+    p = pipeline(
+        name="scope_test_done",
+        params=Params,
+        steps=[step("fn_a", fn=fn_a)],
+        observers=[Observer(rec.async_record)],
+    )
+    await async_run(p, params=Params(values=[1, 2, 3]))
+
+    completed = next(
+        ctx
+        for _, ctx in rec.events
+        if isinstance(ctx, StepCompletedContext) and ctx.step_name == "fn_a"
+    )
+    assert completed.pipeline_scope == "scope_test_done"
+    assert completed.step_index_in_scope == 1
+    assert completed.step_total_in_scope == 1
+
+
+@pytest.mark.asyncio
+async def test_given_step_failed_context_carries_scope_index_and_total():
+    """Same fields fire when a step fails."""
+    rec = EventRecorder()
+
+    async def boom(values: list[int]) -> int:
+        raise RuntimeError("kaboom")
+
+    p = pipeline(
+        name="scope_fail",
+        params=Params,
+        steps=[step("fn_a", fn=boom, on_error=OnError.STOP)],
+        observers=[Observer(rec.async_record)],
+    )
+    with pytest.raises(Exception):
+        await async_run(p, params=Params(values=[1]))
+
+    failed = next(
+        ctx
+        for _, ctx in rec.events
+        if isinstance(ctx, StepFailedContext) and ctx.step_name == "fn_a"
+    )
+    assert failed.pipeline_scope == "scope_fail"
+    assert failed.step_index_in_scope == 1
+    assert failed.step_total_in_scope == 1
+
+
+@pytest.mark.asyncio
+async def test_given_step_in_sub_pipeline_reports_sub_pipeline_scope():
+    """A step expanded inside an include reports the *sub-pipeline*
+    scope, not the top-level pipeline scope. The adapter step
+    reports the caller's scope (mirrors the DagNode.pipeline stamp)."""
+
+    class InnerParams(NamedTuple):
+        text: str = ""
+
+    async def fn_inner(text: str) -> int:
+        return len(text)
+
+    async def fn_export(fn_inner: int) -> int:
+        return fn_inner * 10
+
+    async def adapter_fn(raw_strings: list[str]) -> AsyncIterator[InnerParams]:
+        for s in raw_strings:
+            yield InnerParams(text=s)
+
+    class OuterParams(NamedTuple):
+        raw_strings: list[str]
+
+    sub = pipeline(
+        name="Inner",
+        params=InnerParams,
+        exports="fn_export",
+        steps=[
+            step("fn_inner", fn=fn_inner),
+            step("fn_export", fn=fn_export),
+        ],
+    )
+    rec = EventRecorder()
+    p = pipeline(
+        name="OuterTwoLevel",
+        params=OuterParams,
+        steps=[include("inner", pipeline=sub, fn=adapter_fn)],
+        observers=[Observer(rec.async_record)],
+    )
+    await async_run(p, params=OuterParams(raw_strings=["a", "bb"]))
+
+    started_by_name = {
+        ctx.step_name: ctx
+        for _, ctx in rec.events
+        if isinstance(ctx, StepStartedContext)
+    }
+    # Adapter reports the *caller's* scope.
+    assert started_by_name["inner__adapter"].pipeline_scope == "OuterTwoLevel"
+    # Inner sub-step reports the *sub-pipeline's* scope.
+    assert started_by_name["inner__fn_inner"].pipeline_scope == "Inner"
+    # Exported inner step collapses onto the include name ("inner").
+    inner_dag_node = p.dag.steps["inner"]
+    assert inner_dag_node.pipeline == "Inner"
+    assert inner_dag_node.step_total_in_scope == 2
+
+
+@pytest.mark.asyncio
+async def test_given_step_index_in_scope_starts_at_one():
+    """Issue #105: indexing is 1-indexed (1..total), not 0..total-1."""
+    rec = EventRecorder()
+
+    async def fn_a(values: list[int]) -> int:
+        return values[0]
+
+    async def fn_b(fn_a: int) -> int:
+        return fn_a + 1
+
+    async def fn_c(fn_b: int) -> int:
+        return fn_b + 1
+
+    p = pipeline(
+        name="one_indexed",
+        params=Params,
+        steps=[
+            step("fn_a", fn=fn_a),
+            step("fn_b", fn=fn_b),
+            step("fn_c", fn=fn_c),
+        ],
+        observers=[Observer(rec.async_record)],
+    )
+    await async_run(p, params=Params(values=[7]))
+
+    started = {
+        ctx.step_name: ctx
+        for _, ctx in rec.events
+        if isinstance(ctx, StepStartedContext)
+    }
+    assert started["fn_a"].step_index_in_scope == 1
+    assert started["fn_a"].step_total_in_scope == 3
+    assert started["fn_b"].step_index_in_scope == 2
+    assert started["fn_b"].step_total_in_scope == 3
+    assert started["fn_c"].step_index_in_scope == 3
+    assert started["fn_c"].step_total_in_scope == 3
+
+
+@pytest.mark.asyncio
+async def test_given_dag_step_scope_index_helper_returns_named_tuple():
+    """Dag.step_scope_index(step_name) -> StepScopeIndex(scope, index, total)."""
+    rec = EventRecorder()
+
+    async def fn_a(values: list[int]) -> int:
+        return values[0]
+
+    async def fn_b(fn_a: int) -> int:
+        return fn_a + 1
+
+    p = pipeline(
+        name="helper_p",
+        params=Params,
+        steps=[step("fn_a", fn=fn_a), step("fn_b", fn=fn_b)],
+        observers=[Observer(rec.async_record)],
+    )
+    await async_run(p, params=Params(values=[42]))
+
+    started = next(
+        ctx
+        for _, ctx in rec.events
+        if isinstance(ctx, StepStartedContext) and ctx.step_name == "fn_b"
+    )
+    helper_result = p.dag.step_scope_index("fn_b")
+    assert isinstance(helper_result, StepScopeIndex)
+    assert helper_result.scope == started.pipeline_scope
+    assert helper_result.index == started.step_index_in_scope
+    assert helper_result.total == started.step_total_in_scope
+
+
+@pytest.mark.asyncio
+async def test_given_dag_step_scope_index_helper_unknown_step_then_keyerror():
+    """Helper raises KeyError with strong message — never silent fallback."""
+    rec = EventRecorder()
+
+    async def fn_a(values: list[int]) -> int:
+        return values[0]
+
+    p = pipeline(
+        name="helper_unknown",
+        params=Params,
+        steps=[step("fn_a", fn=fn_a)],
+        observers=[Observer(rec.async_record)],
+    )
+
+    with pytest.raises(KeyError) as excinfo:
+        p.dag.step_scope_index("does_not_exist")
+    msg = str(excinfo.value)
+    assert "does_not_exist" in msg
+    assert "helper_unknown" in msg  # dag name helps locate the issue
+
+
+@pytest.mark.asyncio
+async def test_given_pipeline_started_context_does_not_carry_step_scope_fields():
+    """PipelineStartedContext is intentionally unchanged."""
+
+    rec = EventRecorder()
+
+    async def fn_only(values: list[int]) -> int:
+        return sum(values)
+
+    p = pipeline(
+        name="pl_started",
+        params=Params,
+        steps=[step("only", fn=fn_only)],
+        observers=[Observer(rec.async_record)],
+    )
+    await async_run(p, params=Params(values=[1, 2, 3]))
+
+    started = next(
+        ctx for _, ctx in rec.events if isinstance(ctx, PipelineStartedContext)
+    )
+    assert not hasattr(started, "pipeline_scope") or started.pipeline_scope in (
+        None,
+        "",
+    )
+    assert (
+        not hasattr(started, "step_index_in_scope") or started.step_index_in_scope == 0
+    )
+    assert (
+        not hasattr(started, "step_total_in_scope") or started.step_total_in_scope == 0
+    )

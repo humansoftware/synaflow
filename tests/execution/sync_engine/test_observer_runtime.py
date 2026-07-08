@@ -9,6 +9,7 @@ from synaflow import (
     Observer,
     PipelineEvent,
     StepEvent,
+    include,
     pipeline,
     run,
     step,
@@ -16,10 +17,12 @@ from synaflow import (
 from synaflow.core.observers import (
     MaterializationStartedContext,
     PipelineFailedContext,
+    PipelineStartedContext,
     StepCompletedContext,
     StepFailedContext,
     StepStartedContext,
 )
+from synaflow.core.dag import StepScopeIndex
 from synaflow.core.types import OnError, StepMode
 
 
@@ -652,3 +655,278 @@ def test_given_lazy_generator_step_when_observed_then_step_started_event_fires_o
 
     run(p, params=Params(values=[]))
     assert state["step_started_event_fired"] is True
+
+
+# ---------------------------------------------------------------------------
+# issue #105: scope-stamped fields flow through to observer contexts
+# ---------------------------------------------------------------------------
+
+
+def test_given_step_started_context_carries_scope_index_and_total():
+    """Scope fields stamped at DAG build time (issue #105) flow
+    through to the StepStartedContext seen by observers."""
+    rec = EventRecorder()
+
+    def fn_a(values: list[int]) -> int:
+        return sum(values)
+
+    p = pipeline(
+        name="scope_test",
+        params=Params,
+        steps=[step("a", fn=fn_a)],
+        observers=[Observer(rec.record)],
+    )
+    run(p, params=Params(values=[1, 2, 3]))
+
+    started = next(
+        ctx
+        for _, ctx in rec.events
+        if isinstance(ctx, StepStartedContext) and ctx.step_name == "a"
+    )
+    assert started.pipeline_scope == "scope_test"
+    assert started.step_index_in_scope == 1
+    assert started.step_total_in_scope == 1
+
+
+def test_given_step_completed_context_carries_scope_index_and_total():
+    """Same fields fire when a step completes successfully."""
+    rec = EventRecorder()
+
+    def fn_a(values: list[int]) -> int:
+        return sum(values)
+
+    p = pipeline(
+        name="scope_test_done",
+        params=Params,
+        steps=[step("a", fn=fn_a)],
+        observers=[Observer(rec.record)],
+    )
+    run(p, params=Params(values=[1, 2, 3]))
+
+    completed = next(
+        ctx
+        for _, ctx in rec.events
+        if isinstance(ctx, StepCompletedContext) and ctx.step_name == "a"
+    )
+    assert completed.pipeline_scope == "scope_test_done"
+    assert completed.step_index_in_scope == 1
+    assert completed.step_total_in_scope == 1
+
+
+def test_given_step_failed_context_carries_scope_index_and_total():
+    """Same fields fire when a step fails."""
+    rec = EventRecorder()
+
+    def boom(values: list[int]) -> int:
+        raise RuntimeError("kaboom")
+
+    p = pipeline(
+        name="scope_fail",
+        params=Params,
+        steps=[step("a", fn=boom, on_error="stop")],
+        observers=[Observer(rec.record)],
+    )
+    try:
+        run(p, params=Params(values=[1]))
+    except RuntimeError:
+        pass
+
+    failed = next(
+        ctx
+        for _, ctx in rec.events
+        if isinstance(ctx, StepFailedContext) and ctx.step_name == "a"
+    )
+    assert failed.pipeline_scope == "scope_fail"
+    assert failed.step_index_in_scope == 1
+    assert failed.step_total_in_scope == 1
+
+
+def test_given_step_in_sub_pipeline_reports_sub_pipeline_scope():
+    """A step expanded inside an include reports the *sub-pipeline*
+    scope, not the top-level pipeline scope. The adapter step
+    reports the caller's scope (mirrors the DagNode.pipeline stamp).
+    This is the runtime counterpart to design-time assertion in
+    test_dag_scope.py::test_single_sub_pipeline_step_scopes."""
+
+    class InnerParams(NamedTuple):
+        text: str = ""
+
+    def fn_inner(text: str) -> int:
+        return len(text)
+
+    def fn_export(fn_inner: int) -> int:
+        return fn_inner * 10
+
+    def adapter_fn(raw_strings: list[str]) -> Iterator[InnerParams]:
+        # All-mode include consumes the adapter's output once and
+        # dispatches per-instance to the inner pipeline.
+        for s in raw_strings:
+            yield InnerParams(text=s)
+
+    class OuterParams(NamedTuple):
+        raw_strings: list[str]
+
+    sub = pipeline(
+        name="Inner",
+        params=InnerParams,
+        exports="fn_export",
+        steps=[
+            step("fn_inner", fn=fn_inner),
+            step("fn_export", fn=fn_export),
+        ],
+    )
+    rec = EventRecorder()
+    p = pipeline(
+        name="OuterTwoLevel",
+        params=OuterParams,
+        steps=[include("inner", pipeline=sub, fn=adapter_fn)],
+        observers=[Observer(rec.record)],
+    )
+    run(p, params=OuterParams(raw_strings=["a", "bb"]))
+
+    started_by_name = {
+        ctx.step_name: ctx
+        for _, ctx in rec.events
+        if isinstance(ctx, StepStartedContext)
+    }
+    # Adapter reports the *caller's* scope.
+    assert started_by_name["inner__adapter"].pipeline_scope == "OuterTwoLevel"
+    # Inner sub-step reports the *sub-pipeline's* scope.
+    assert started_by_name["inner__fn_inner"].pipeline_scope == "Inner"
+    # Exported inner step collapses onto the include name ("inner").
+    # NOTE: in an orphan include (no downstream consumer), the export
+    # collapse is a dag node but may not actually execute in the run.
+    # We test the dag-level assertion of its scope directly instead.
+    inner_dag_node = p.dag.steps["inner"]
+    assert inner_dag_node.pipeline == "Inner"
+    assert inner_dag_node.step_total_in_scope == 2
+
+
+def test_given_step_index_in_scope_starts_at_one():
+    """Issue #105: indexing is 1-indexed (1..total), not 0..total-1.
+    Verifies by reading the values emitted to a real observer."""
+    rec = EventRecorder()
+
+    def fn_a(values: list[int]) -> int:
+        return values[0]
+
+    def fn_b(fn_a: int) -> int:
+        return fn_a + 1
+
+    def fn_c(fn_b: int) -> int:
+        return fn_b + 1
+
+    p = pipeline(
+        name="one_indexed",
+        params=Params,
+        steps=[
+            step("fn_a", fn=fn_a),
+            step("fn_b", fn=fn_b),
+            step("fn_c", fn=fn_c),
+        ],
+        observers=[Observer(rec.record)],
+    )
+    run(p, params=Params(values=[7]))
+
+    started = {
+        ctx.step_name: ctx
+        for _, ctx in rec.events
+        if isinstance(ctx, StepStartedContext)
+    }
+    # First step: index=1 (not 0); all share same total (3).
+    assert started["fn_a"].step_index_in_scope == 1
+    assert started["fn_a"].step_total_in_scope == 3
+    assert started["fn_b"].step_index_in_scope == 2
+    assert started["fn_b"].step_total_in_scope == 3
+    assert started["fn_c"].step_index_in_scope == 3
+    assert started["fn_c"].step_total_in_scope == 3
+
+
+def test_given_dag_step_scope_index_helper_returns_named_tuple():
+    """Dag.step_scope_index(step_name) -> StepScopeIndex(scope, index, total)."""
+    rec = EventRecorder()
+
+    def fn_a(values: list[int]) -> int:
+        return values[0]
+
+    def fn_b(fn_a: int) -> int:
+        return fn_a + 1
+
+    p = pipeline(
+        name="helper_p",
+        params=Params,
+        steps=[step("fn_a", fn=fn_a), step("fn_b", fn=fn_b)],
+        observers=[Observer(rec.record)],
+    )
+    run(p, params=Params(values=[42]))
+
+    started = next(
+        ctx
+        for _, ctx in rec.events
+        if isinstance(ctx, StepStartedContext) and ctx.step_name == "fn_b"
+    )
+    # Confirm runtime context matches helper output.
+    helper_result = p.dag.step_scope_index("fn_b")
+    assert isinstance(helper_result, StepScopeIndex)
+    assert helper_result.scope == started.pipeline_scope
+    assert helper_result.index == started.step_index_in_scope
+    assert helper_result.total == started.step_total_in_scope
+
+
+def test_given_dag_step_scope_index_helper_unknown_step_then_keyerror():
+    """Helper raises KeyError with strong message — never silent fallback.
+    Mirrors the plan: 'lance erro com mensagem bem forte' for unknown
+    step names (treated as internal framework bug surface)."""
+    rec = EventRecorder()
+
+    def fn_a(values: list[int]) -> int:
+        return values[0]
+
+    p = pipeline(
+        name="helper_unknown",
+        params=Params,
+        steps=[step("fn_a", fn=fn_a)],
+        observers=[Observer(rec.record)],
+    )
+
+    with pytest.raises(KeyError) as excinfo:
+        p.dag.step_scope_index("does_not_exist")
+    msg = str(excinfo.value)
+    assert "does_not_exist" in msg
+    assert "helper_unknown" in msg  # dag name helps locate the issue
+
+
+def test_given_pipeline_started_context_does_not_carry_step_scope_fields():
+    """PipelineStartedContext is intentionally unchanged: consumer
+    derives per-scope totals from step_started events themselves."""
+
+    class _Empty(NamedTuple):
+        pass
+
+    rec = EventRecorder()
+
+    def fn_only(values: list[int]) -> int:
+        return sum(values)
+
+    p = pipeline(
+        name="pl_started",
+        params=Params,
+        steps=[step("only", fn=fn_only)],
+        observers=[Observer(rec.record)],
+    )
+    run(p, params=Params(values=[1, 2, 3]))
+
+    started = next(
+        ctx for _, ctx in rec.events if isinstance(ctx, PipelineStartedContext)
+    )
+    # Step-scope fields must NOT leak into pipeline-level contexts:
+    assert not hasattr(started, "pipeline_scope") or started.pipeline_scope in (
+        None,
+        "",
+    )
+    assert (
+        not hasattr(started, "step_index_in_scope") or started.step_index_in_scope == 0
+    )
+    assert (
+        not hasattr(started, "step_total_in_scope") or started.step_total_in_scope == 0
+    )

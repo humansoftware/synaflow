@@ -118,6 +118,9 @@ class StepStartedContext(BaseObserverContext):
     step_name: str
     mode: StepMode
     on_error: OnError
+    pipeline_scope: str = ""
+    step_index_in_scope: int = 0
+    step_total_in_scope: int = 0
 
 
 @dataclass(frozen=True)
@@ -128,6 +131,9 @@ class StepCompletedContext(BaseObserverContext):
     success_count: int
     error_count: int
     completed_all_inputs: bool
+    pipeline_scope: str = ""
+    step_index_in_scope: int = 0
+    step_total_in_scope: int = 0
 
 
 @dataclass(frozen=True)
@@ -139,6 +145,9 @@ class StepFailedContext(BaseObserverContext):
     error_count: int
     completed_all_inputs: bool
     exception: BaseException
+    pipeline_scope: str = ""
+    step_index_in_scope: int = 0
+    step_total_in_scope: int = 0
 
 
 @dataclass(frozen=True)

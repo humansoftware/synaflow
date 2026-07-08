@@ -104,6 +104,12 @@ def _normalize_exported_dag_for_contract_assertions(dag_dict: dict) -> dict:
                 "output_contract",
                 "consumer_contracts",
                 "publish_plan",
+                # Issue #105: scope stamping fields don't affect DAG
+                # structure or execution levels, so they're excluded
+                # from the corpus contract assertion. They are still
+                # emitted by ``to_serializable()`` for runtime/UI use.
+                "step_index_in_scope",
+                "step_total_in_scope",
             }
         }
     return normalized

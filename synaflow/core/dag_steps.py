@@ -45,6 +45,8 @@ def validate_and_compile_step(
     resources: dict[str, DagNode],
     pipeline_name: str,
     observers: list | None = None,
+    step_index_in_scope: int = 0,
+    step_total_in_scope: int = 0,
 ) -> DagNode:
     sig = inspect.signature(step.fn)
     hints = get_safe_type_hints(step.fn)
@@ -78,6 +80,8 @@ def validate_and_compile_step(
         max_in_flight=step.max_in_flight,
         error_threshold_absolute=step.error_threshold_absolute,
         error_threshold_pct=step.error_threshold_pct,
+        step_index_in_scope=step_index_in_scope,
+        step_total_in_scope=step_total_in_scope,
     )
 
 
@@ -162,7 +166,7 @@ def validate_sync_async_consistency(
 
 
 def validate_no_duplicate_base_datasets(
-    steps: list,
+    steps: list[Step],
     pipeline_name: str,
 ) -> None:
     seen: dict[str, str] = {}

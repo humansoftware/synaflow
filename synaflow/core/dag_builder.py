@@ -55,7 +55,7 @@ from synaflow.core.dag import (
     PublishPlan,
 )
 from synaflow.core.dag_dependencies import initialize_parameters, initialize_resources
-from synaflow.core.definition import IncludeStep
+from synaflow.core.definition import IncludeStep, Step
 from synaflow.core.dag_expansion import expand_macros
 from synaflow.core.dag_steps import (
     validate_and_compile_step,
@@ -229,7 +229,9 @@ def _validate_params_type(params: Any, pipeline_name: str) -> None:
         )
 
 
-def _validate_declared_step_names(steps: list[Any], pipeline_name: str) -> None:
+def _validate_declared_step_names(
+    steps: list[Step | IncludeStep], pipeline_name: str
+) -> None:
     for step in steps:
         if hasattr(step, "name"):
             validate_unique_step_name(step.name, {}, pipeline_name)
@@ -238,7 +240,7 @@ def _validate_declared_step_names(steps: list[Any], pipeline_name: str) -> None:
 def _validate_resource_names(
     resources: dict[str, Any],
     params: type[NamedTuple],
-    expanded_steps: list[Any],
+    expanded_steps: list[Step],
     pipeline_name: str,
 ) -> None:
     if dataclasses.is_dataclass(params):
@@ -291,7 +293,7 @@ def validate_no_unused_resources(
 
 def _collect_pipeline_resources(
     pipeline_name: str,
-    steps: list[Any],
+    steps: list[Step | IncludeStep],
     resources: dict[str, Any],
     include_chain: tuple[str, ...] = (),
 ) -> dict[str, Any]:
@@ -628,17 +630,41 @@ def _compile_execution_plan(dag: Dag, indexes: _DagBuildIndexes) -> None:
 
 
 def _expand_and_validate_steps(
-    steps: list[Any],
+    steps: list[Step | IncludeStep],
     pipeline_name: str,
-) -> list[Any]:
+) -> list[Step]:
     _validate_declared_step_names(steps, pipeline_name)
     expanded_steps = expand_macros(steps, current_pipeline_name=pipeline_name)
     validate_no_duplicate_base_datasets(expanded_steps, pipeline_name)
     return expanded_steps
 
 
+def _assert_dag_invariants(dag: "Dag", pipeline_name: str) -> None:
+    """Loud invariant check run at the end of ``build_dag``.
+
+    Enforces that every compiled DagNode carries a non-empty
+    ``pipeline`` attribute. The compiler
+    (``validate_and_compile_step``) sets ``pipeline=step.pipeline or
+    pipeline_name`` so any None/empty value here means a step skipped
+    compilation or DagNode was constructed by hand. Loud failures beat
+    silent fallbacks in observer dispatch and ``step_scope_index``,
+    which trust this invariant.
+
+    Raises ``RuntimeError`` with a clear message naming the offending
+    step so the regression can be located quickly.
+    """
+    for step_name, node in dag.steps.items():
+        if not getattr(node, "pipeline", None):
+            raise RuntimeError(
+                f"build_dag invariant violation: pipeline "
+                f"{pipeline_name!r} compiled step {step_name!r} with "
+                "empty pipeline attribute. DagNode.pipeline is required "
+                "to be a non-empty string after compilation."
+            )
+
+
 def _compile_steps(
-    expanded_steps: list[Any],
+    expanded_steps: list[Step],
     pipeline_name: str,
     params: type[NamedTuple],
     resources: dict[str, Any],
@@ -659,6 +685,8 @@ def _compile_steps(
             resource_nodes,
             pipeline_name,
             observers=_resolve_step_observers(pipeline_observers, step.observers),
+            step_index_in_scope=step.index_in_scope,
+            step_total_in_scope=step.total_in_scope,
         )
         dag[step.name] = compiled_step
         produced[step.name] = compiled_step
@@ -689,7 +717,7 @@ def _finalize_dag(
 def build_dag(
     pipeline_name: str,
     params: type[NamedTuple],
-    steps: list[Any],
+    steps: list[Step | IncludeStep],
     resources: dict[str, Any] | None = None,
     memory_materializer_factory: Any = None,
     is_default_factory: bool = False,
@@ -734,6 +762,7 @@ def build_dag(
     # time and stored on the DAG. Not serialized (callables).
     dag_obj.resource_factories = effective_resources
     check_circular_dependencies(dag_obj, pipeline_name)
+    _assert_dag_invariants(dag_obj, pipeline_name)
 
     validate_no_unmaterialized_terminal_streams(dag_obj, pipeline_name, exports)
 

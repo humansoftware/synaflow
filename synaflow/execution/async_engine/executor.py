@@ -8,7 +8,7 @@ from typing import Any
 
 from synaflow.execution.async_engine.lifecycle_stream import AsyncLifecycleStream
 
-from synaflow.core.dag import Dag
+from synaflow.core.dag import Dag, DagNode
 from synaflow.core.definition import PipelineDef
 from synaflow.core.exceptions import (
     PipelineStopException,
@@ -28,7 +28,7 @@ from .event_dispatch import AsyncEventDispatcher
 from .iterator_utils import AsyncQueueBranch
 from synaflow.execution.stats import StepRunStats
 from .step_runner import (
-    AsyncStepConfig,
+    AsyncStepRuntimeConfig,
     AsyncStepRunner,
     wrap_deferred_output,
     collect_async_iterator,
@@ -213,18 +213,7 @@ class AsyncPipelineExecutor:
             step_name, node, unrolled, resource_stack
         )
 
-        step_config = AsyncStepConfig(
-            observers=node.observers,
-            mode=node.mode,
-            on_error=node.on_error,
-            max_in_flight=node.max_in_flight,
-            dataset_param_names=node.dataset_param_names,
-        )
-        step_config.error_threshold_absolute = getattr(
-            node, "error_threshold_absolute", None
-        )
-        step_config.error_threshold_pct = getattr(node, "error_threshold_pct", None)
-        step_config._dag_node = node
+        step_config = AsyncStepRuntimeConfig(dag_node=node)
 
         stats = StepRunStats()
 
@@ -256,7 +245,7 @@ class AsyncPipelineExecutor:
             events=self.events,
             stats=stats,
             each_mode_deps=unrolled,
-            step_config=step_config,
+            step_runtime_config=step_config,
             upstream_max_in_flight=upstream_max_in_flight,
         )
         await runner.run()
@@ -329,7 +318,7 @@ class AsyncPipelineExecutor:
             return history, True, e
 
     async def _materialize_with_events(
-        self, step_name: str, output: Any, node: Any, consumer_type: Any = None
+        self, step_name: str, output: Any, node: DagNode, consumer_type: Any = None
     ) -> tuple[Any, bool, BaseException | None]:
         materializer = self.scope.resolve_materializer(step_name, node)
         mat_name = materializer.__name__ if callable(materializer) else None
@@ -376,7 +365,7 @@ class AsyncPipelineExecutor:
 
     async def _emit_step_result(
         self,
-        node: Any,
+        node: DagNode,
         step_name: str,
         output: Any,
         stats: StepRunStats,
@@ -416,7 +405,7 @@ class AsyncPipelineExecutor:
         self,
         step_name: str,
         output: Any,
-        node: Any,
+        node: DagNode,
         stats: StepRunStats,
         consumers: list[str],
         deferred: bool,
@@ -435,7 +424,7 @@ class AsyncPipelineExecutor:
             await self._emit_step_result(node, step_name, items, stats, had_error, exc)
 
     async def _handle_stream_publish_error(
-        self, step_name: str, node: Any, exc: Exception
+        self, step_name: str, node: DagNode, exc: Exception
     ) -> None:
         await self.events.handle_error(step_name, exc)
         if node.on_error == OnError.STOP:
@@ -445,7 +434,7 @@ class AsyncPipelineExecutor:
         self,
         step_name: str,
         output: Any,
-        node: Any,
+        node: DagNode,
         consumers: list[str],
         deferred: bool,
     ) -> None:
@@ -471,7 +460,7 @@ class AsyncPipelineExecutor:
         self,
         step_name: str,
         output: Any,
-        node: Any,
+        node: DagNode,
         stats: StepRunStats,
         deferred: bool,
     ) -> None:
@@ -491,7 +480,7 @@ class AsyncPipelineExecutor:
         self,
         step_name: str,
         output: Any,
-        node: Any,
+        node: DagNode,
         stats: StepRunStats,
         deferred: bool,
     ) -> None:
@@ -509,7 +498,7 @@ class AsyncPipelineExecutor:
             await self._emit_step_result(node, step_name, output, stats, had_error, exc)
 
     async def publish(
-        self, step_name: str, output: Any, node: Any, stats: StepRunStats
+        self, step_name: str, output: Any, node: DagNode, stats: StepRunStats
     ) -> None:
         """Publish the output of a step."""
         deferred = node.mode == StepMode.EACH or (

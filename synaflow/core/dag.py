@@ -22,7 +22,7 @@ Both are @dataclass — plain data with behaviour, no hidden state.
 """
 
 from dataclasses import asdict, dataclass, field
-from typing import Any, Callable, Literal
+from typing import Any, Callable, Literal, NamedTuple
 
 import inspect
 import typing
@@ -94,6 +94,20 @@ class PublishPlan:
     max_in_flight: int
 
 
+class StepScopeIndex(NamedTuple):
+    """Scope-related metadata for a single step.
+
+    ``scope`` is the immediate pipeline the step belongs to (``node.pipeline``
+    with fallback to the top-level dag name). ``index`` is the 1-indexed
+    declaration order within that scope. ``total`` is the count of steps
+    declared in that scope across the flat DAG.
+    """
+
+    scope: str
+    index: int
+    total: int
+
+
 @dataclass
 class DagNode:
     fn: Callable | None = None
@@ -118,6 +132,8 @@ class DagNode:
     output_contract: OutputContract | None = None
     consumer_contracts: list[ConsumerContract] = field(default_factory=list)
     publish_plan: PublishPlan | None = None
+    step_index_in_scope: int = 0
+    step_total_in_scope: int = 0
 
     def __getitem__(self, key):
         return getattr(self, key)
@@ -160,6 +176,8 @@ class DagNode:
             ret["consumer_contracts"] = [asdict(c) for c in self.consumer_contracts]
         if self.publish_plan is not None:
             ret["publish_plan"] = asdict(self.publish_plan)
+        ret["step_index_in_scope"] = self.step_index_in_scope
+        ret["step_total_in_scope"] = self.step_total_in_scope
         return ret
 
 
@@ -310,3 +328,37 @@ class Dag:
                         in_degree[other_name] -= 1
 
         return levels
+
+    def step_scope_index(self, step_name: str) -> StepScopeIndex:
+        """Conveniência O(1): lê os 3 campos do DagNode.
+
+        Levanta ``KeyError`` se ``step_name`` não existir no DAG —
+        callers runtime só consultam steps que já conhecem (passaram pelo
+        ``EventDispatcher`` com o mesmo nome que veio do executor); a
+        ausência é bug do framework e deve propagar com mensagem clara.
+
+        Levanta ``RuntimeError`` se o ``DagNode.pipeline`` estiver vazio
+        — o invariante do framework é que toda DagNode pós-compilação
+        tem um scope não-vazio (atribuído em ``validate_and_compile_step``
+        via ``step.pipeline or pipeline_name``). Aqui nunca deve bater
+        no fallback silencioso; se bater, é regressão interna.
+        """
+        node = self.steps.get(step_name)
+        if node is None:
+            raise KeyError(
+                f"step_scope_index: step {step_name!r} not found in dag "
+                f"{self.name!r}. Runtime should only query steps present in "
+                "the DAG; absence indicates an internal framework bug."
+            )
+        if not node.pipeline:
+            raise RuntimeError(
+                f"step_scope_index: dag {self.name!r} step {step_name!r} "
+                "has empty pipeline attribute — internal framework bug. "
+                "DagNode.pipeline is required to be a non-empty string "
+                "after compilation (see validate_and_compile_step)."
+            )
+        return StepScopeIndex(
+            scope=node.pipeline,
+            index=node.step_index_in_scope,
+            total=node.step_total_in_scope,
+        )
