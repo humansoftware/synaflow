@@ -55,7 +55,13 @@ from synaflow.core.dag import (
     PublishPlan,
 )
 from synaflow.core.dag_dependencies import initialize_parameters, initialize_resources
-from synaflow.core.definition import IncludeStep, PipelineDef, Step
+from synaflow.core.definition import (
+    IncludeStep,
+    PipelineDef,
+    Step,
+    _validate_no_async_handlers,
+    _validate_no_sync_handlers,
+)
 from synaflow.core.dag_expansion import expand_macros
 from synaflow.core.dag_steps import (
     validate_and_compile_step,
@@ -752,5 +758,10 @@ def build_dag(pipeline_def: PipelineDef) -> Dag:
         pipeline_def.materializer,
         error_materializer,
     )
+
+    if dag_obj.requires_sync_runner or not dag_obj.requires_async_runner:
+        _validate_no_async_handlers(pipeline_def, dag_obj)
+    else:
+        _validate_no_sync_handlers(pipeline_def, dag_obj)
 
     return dag_obj

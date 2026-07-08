@@ -41,8 +41,9 @@ def test_given_compatibility_cases_when_constructed_then_validates_correctly(
     if should_pass:
         pipeline(name="t", params=P, steps=[step("s1", fn=s1), step("s2", fn=s2)])
     else:
+        p = pipeline(name="t", params=P, steps=[step("s1", fn=s1), step("s2", fn=s2)])
         with pytest.raises(ValueError, match="expects"):
-            pipeline(name="t", params=P, steps=[step("s1", fn=s1), step("s2", fn=s2)])
+            p.dag
 
 
 def test_given_two_consumers_of_same_producer_when_constructed_then_passes():

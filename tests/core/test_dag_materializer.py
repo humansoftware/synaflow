@@ -1,7 +1,5 @@
 from typing import AsyncGenerator, Generator, NamedTuple
-
 import pytest
-
 from synaflow import pipeline, step
 
 
@@ -10,6 +8,7 @@ class P(NamedTuple):
 
 
 def test_sync_pipeline_rejects_async_materializer():
+
     async def async_mat(g):
         pass
 
@@ -19,16 +18,18 @@ def test_sync_pipeline_rejects_async_materializer():
     def gen() -> Generator[int, None, None]:
         yield 1
 
+    p = pipeline(
+        name="test",
+        params=P,
+        materializer=factory,
+        steps=[step("items", fn=gen, force_materialize=True)],
+    )
     with pytest.raises(TypeError, match="is async but the pipeline runs synchronously"):
-        pipeline(
-            name="test",
-            params=P,
-            materializer=factory,
-            steps=[step("items", fn=gen, force_materialize=True)],
-        )
+        p.dag
 
 
 def test_async_pipeline_rejects_sync_materializer():
+
     def sync_mat(g):
         pass
 
@@ -38,36 +39,34 @@ def test_async_pipeline_rejects_sync_materializer():
     async def async_gen() -> AsyncGenerator[int, None]:
         yield 1
 
+    p = pipeline(
+        name="test",
+        params=P,
+        materializer=factory,
+        steps=[step("items", fn=async_gen, force_materialize=True)],
+    )
     with pytest.raises(
         TypeError, match="is synchronous but the pipeline runs asynchronously"
     ):
-        pipeline(
-            name="test",
-            params=P,
-            materializer=factory,
-            steps=[step("items", fn=async_gen, force_materialize=True)],
-        )
+        p.dag
 
 
 def test_step_materializer_rejects_incompatible():
+
     def sync_mat(g):
         pass
 
     async def async_gen() -> AsyncGenerator[int, None]:
         yield 1
 
+    p = pipeline(
+        name="test",
+        params=P,
+        steps=[
+            step("items", fn=async_gen, materializer=sync_mat, force_materialize=True)
+        ],
+    )
     with pytest.raises(
         TypeError, match="is synchronous but the pipeline runs asynchronously"
     ):
-        pipeline(
-            name="test",
-            params=P,
-            steps=[
-                step(
-                    "items",
-                    fn=async_gen,
-                    materializer=sync_mat,
-                    force_materialize=True,
-                )
-            ],
-        )
+        p.dag

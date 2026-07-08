@@ -518,7 +518,10 @@ async def test_runner_contract_uses_dag_node_max_in_flight_not_step_max_in_fligh
         ],
     )
 
-    # Mutate Step.max_in_flight. The executor should ignore this and use DagNode.max_in_flight (1).
+    # Force dag build first; then mutate the Step. The dag is already
+    # built and the runtime reads from the DagNode, so the Step mutation
+    # is ignored — the runtime uses the original max_in_flight=1.
+    p.dag
     p.steps[0].max_in_flight = 10
 
     await async_run(p, Count(count=20))

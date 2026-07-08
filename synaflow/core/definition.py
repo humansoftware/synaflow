@@ -1,10 +1,15 @@
-from dataclasses import dataclass, field
-from typing import Any, Callable
+from __future__ import annotations
 
-from synaflow.core.dag import Dag
+from dataclasses import dataclass, field
+from functools import cached_property
+from typing import TYPE_CHECKING, Any, Callable
+
 from synaflow.core.observers import Observer
 from synaflow.core.types import OnError, StepMode, StepParams
 from synaflow.core.adapters import is_async_callable
+
+if TYPE_CHECKING:
+    from synaflow.core.dag import Dag
 
 
 @dataclass
@@ -60,8 +65,6 @@ class PipelineDef:
     materializer: Callable | None = None
     error_materializer: Callable | None = None
     observers: list[Observer] = field(default_factory=list)
-    dag: Dag = field(default_factory=Dag)
-    _compiled: bool = False
     description: str = ""
 
     def fill_scope_metadata(self) -> None:
@@ -75,23 +78,28 @@ class PipelineDef:
             step.total_in_scope = scope_total
 
     def __post_init__(self) -> None:
-        # Lazy import breaks a circular dependency: ``dag_builder``
-        # imports Step / IncludeStep from this module, so importing it
-        # at module top would fail at first import of either side.
+        self.fill_scope_metadata()
+
+    @cached_property
+    def dag(self) -> "Dag":
+        """Compiled Dag for this pipeline. Built lazily on first access
+        via ``build_dag(self)`` and cached. Raises on any structural
+        error per the design-time validation contract. Removed when
+        the PipelineRegistry (issue #107) lands."""
         from synaflow.core.dag_builder import build_dag
 
-        self.fill_scope_metadata()
-        self.dag = build_dag(self)
-        self.requires_sync_runner = self.dag.requires_sync_runner
-        self.requires_async_runner = self.dag.requires_async_runner
+        return build_dag(self)
 
-        if self.requires_sync_runner or not self.requires_async_runner:
-            _validate_no_async_handlers(self)
-        else:
-            _validate_no_sync_handlers(self)
+    @property
+    def requires_sync_runner(self) -> bool:
+        return self.dag.requires_sync_runner
+
+    @property
+    def requires_async_runner(self) -> bool:
+        return self.dag.requires_async_runner
 
     def to_dict(self) -> dict:
-        """Exports the compiled DAG structure to a JSON-serializable dictionary."""
+        """Compiled DAG serialized as a JSON-serializable dict."""
         return self.dag.to_dict()
 
     def get_execution_levels(self) -> list[list[str]]:
@@ -104,9 +112,9 @@ step = Step
 include = IncludeStep
 
 
-def _validate_no_async_handlers(pipeline_def: PipelineDef) -> None:
-    all_observers: list = list(pipeline_def.dag.pipeline_observers)
-    for node in pipeline_def.dag.steps.values():
+def _validate_no_async_handlers(pipeline_def: PipelineDef, dag: "Dag") -> None:
+    all_observers: list = list(dag.pipeline_observers)
+    for node in dag.steps.values():
         all_observers.extend(node.observers)
 
     for obs in all_observers:
@@ -126,7 +134,7 @@ def _validate_no_async_handlers(pipeline_def: PipelineDef) -> None:
                 f"synchronously. Use sync handlers or switch to async_run()."
             )
 
-    for step_name, node in pipeline_def.dag.steps.items():
+    for step_name, node in dag.steps.items():
         if node.materializer is not None:
             if not callable(node.materializer):
                 raise TypeError(
@@ -171,9 +179,9 @@ def _validate_no_async_handlers(pipeline_def: PipelineDef) -> None:
                 )
 
 
-def _validate_no_sync_handlers(pipeline_def: PipelineDef) -> None:
-    all_observers: list = list(pipeline_def.dag.pipeline_observers)
-    for node in pipeline_def.dag.steps.values():
+def _validate_no_sync_handlers(pipeline_def: PipelineDef, dag: "Dag") -> None:
+    all_observers: list = list(dag.pipeline_observers)
+    for node in dag.steps.values():
         all_observers.extend(node.observers)
 
     for obs in all_observers:
@@ -193,7 +201,7 @@ def _validate_no_sync_handlers(pipeline_def: PipelineDef) -> None:
                 f"asynchronously. Use async handlers for async pipelines."
             )
 
-    for step_name, node in pipeline_def.dag.steps.items():
+    for step_name, node in dag.steps.items():
         if node.materializer is not None:
             if not callable(node.materializer):
                 raise TypeError(
