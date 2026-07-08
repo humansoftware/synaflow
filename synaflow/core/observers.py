@@ -53,16 +53,9 @@ class MaterializationEvent(Enum):
 
 @dataclass
 class Observer:
-    """Minimal public registration shape.
-
-    Carries only the final handler callable.  Event filtering, step
-    scoping, and other selection rules belong in wrapper helpers above
-    the core framework — the handler inspects ``ctx.event`` to decide
-    whether to act.
-
-    ``step_name`` does not belong here — scope is defined by where the
-    observer is registered (pipeline vs step).
-    """
+    """Public observer registration. Carries only the final handler;
+    filtering, step scoping, and other selection rules belong in
+    wrapper helpers — the handler inspects ``ctx.event`` to decide."""
 
     handler: Callable
 
@@ -74,12 +67,9 @@ class Observer:
 
 @dataclass
 class ResolvedObserver:
-    """Internal build-time resolution of a public Observer registration.
-
-    Carries the final handler and the registration origin so the DAG
-    JSON can preserve the real ``source`` without mutating the public
-    ``Observer`` object.
-    """
+    """Build-time resolution of a public Observer registration. Carries
+    the handler plus the registration origin so the DAG JSON preserves
+    the real ``source``."""
 
     handler: Callable
     source: str  # "pipeline" or "step"
@@ -184,12 +174,8 @@ def dispatch_observers(
     registrations: list[Observer],
     context: BaseObserverContext,
 ) -> None:
-    """Fire-and-forget synchronous dispatch.
-
-    Calls every registered handler unconditionally.  Handlers inspect
-    ``ctx.event`` to decide whether to act.  Observer failures are
-    logged and swallowed — they never affect step or pipeline execution.
-    """
+    """Fire-and-forget sync dispatch — handlers inspect ``ctx.event``;
+    failures are logged and never affect execution."""
     for reg in registrations:
         try:
             reg.handler(context)
@@ -201,12 +187,8 @@ async def dispatch_observers_async(
     registrations: list[Observer],
     context: BaseObserverContext,
 ) -> None:
-    """Fire-and-forget asynchronous dispatch.
-
-    Same semantics as ``dispatch_observers`` but awaits any awaitable
-    returned by a handler (supports ``async def``, ``functools.partial``,
-    and callable objects with ``async __call__``).
-    """
+    """Async fire-and-forget dispatch — awaits any awaitable handler;
+    same failure semantics as the sync version."""
     for reg in registrations:
         try:
             await reg.handler(context)

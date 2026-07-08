@@ -459,18 +459,8 @@ def _resolve_materializers(
 
 
 def _plan_materialization(dag: dict[str, DagNode], indexes: _DagBuildIndexes) -> None:
-    """
-    Compile the materialization plan once, in the builder.
-
-    Accepted design:
-      - materialization is a producer-level decision
-      - if any rule forces producer P to materialize, every consumer of P reads
-        from the materialized output
-      - runtime must not try to re-derive edge-level eager/lazy behavior
-
-    `materialize_output` is the runtime contract.
-    `_materialized_deps` is derived afterward only as consumer-side diagnostics.
-    """
+    """Compile producer-level materialization plan once, in the builder.
+    See ``docs/MATERIALIZATION_RUNTIME_CONTRACT.md`` for the full model."""
     producer_needs_materialize = {name: False for name in dag}
     producer_reasons = {name: set() for name in dag}
 
@@ -640,19 +630,9 @@ def _expand_and_validate_steps(
 
 
 def _assert_dag_invariants(dag: "Dag", pipeline_name: str) -> None:
-    """Loud invariant check run at the end of ``build_dag``.
-
-    Enforces that every compiled DagNode carries a non-empty
-    ``pipeline`` attribute. The compiler
-    (``validate_and_compile_step``) sets ``pipeline=step.pipeline or
-    pipeline_name`` so any None/empty value here means a step skipped
-    compilation or DagNode was constructed by hand. Loud failures beat
-    silent fallbacks in observer dispatch, which trusts this
-    invariant.
-
-    Raises ``RuntimeError`` with a clear message naming the offending
-    step so the regression can be located quickly.
-    """
+    """Loud invariant: every compiled DagNode carries a non-empty
+    ``pipeline`` attribute. RuntimeError on violation — absence is an
+    internal framework bug."""
     for step_name, node in dag.steps.items():
         if not getattr(node, "pipeline", None):
             raise RuntimeError(

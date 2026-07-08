@@ -65,35 +65,10 @@ class PipelineDef:
     description: str = ""
 
     def fill_scope_metadata(self, seen: frozenset[str] | None = None) -> None:
-        """Stamp ``index_in_scope`` / ``total_in_scope`` on every step
-        reachable from ``self.steps``.
-
-        Walks this pipeline's direct items in declaration order, 1-indexed:
-        a plain Step or IncludeStep at position ``i`` in this scope gets
-        ``index_in_scope=i``, ``total_in_scope=len(self.steps)``. For
-        ``IncludeStep``, recurses into the sub-pipeline so the inner
-        Steps carry the sub's scope metadata (their own position+total
-        inside the sub-pipeline definition).
-
-        Pure definition-time: no Dag, no expansion. The expansion pass
-        (``expand_macros``) propagates these values onto the adapter and
-        inner-sub-step wrappers it creates; ``_compile_steps`` then reads
-        them straight off the Step without a separate scope-counts
-        walker.
-
-        Cycle protection (``seen`` frozenset) is a safety net so a
-        graph mutated mid-flight (e.g. tests that build A, then append
-        an include to A.steps that references B which includes A back)
-        can't crash the stamper. The authoritative cycle check runs
-        later in ``build_dag`` via ``expand_macros`` and raises with a
-        clear "Infinite cycle detected" message.
-
-        NOTE: ``total_in_scope`` is the **definition-time** count for
-        that scope (the sub-pipeline's own ``len(steps)``), not the
-        concatenated run-time count across sibling includes. Observers
-        use the per-event count of completed steps to detect scope
-        completion; ``total_in_scope`` is diagnostic.
-        """
+        """Stamp ``index_in_scope`` / ``total_in_scope`` on direct steps;
+        recurse into sub-pipelines so inner steps carry their own scope
+        positions. Cycle protection via ``seen`` is a safety net —
+        authoritative detection lives in ``expand_macros``."""
         if seen is None:
             seen = frozenset()
         if self.name in seen:
@@ -126,11 +101,7 @@ class PipelineDef:
         return self.dag.to_dict()
 
     def get_execution_levels(self) -> list[list[str]]:
-        """
-        Returns the steps grouped into topological levels.
-        Steps in the same level have no dependencies on each other and
-        could theoretically be executed in parallel.
-        """
+        """Steps grouped into topological levels (no in-level dependencies)."""
         return self.dag.get_execution_levels()
 
 
