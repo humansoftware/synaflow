@@ -31,7 +31,6 @@ from .argument_builder import ArgumentBuilder
 from synaflow.execution.stats import StepRunStats
 from .step_runner import (
     StepRunner,
-    StepRuntimeConfig,
     collect_iterator,
     wrap_deferred_output,
 )
@@ -247,12 +246,6 @@ class PipelineExecutor:
         arguments, resource_stack = self.scope.build_arguments(step_name, node)
         unrolled = self.dag.each_inputs(step_name)
 
-        # The runtime executor passes only what runtime actually needs:
-        # the compiled ``DagNode``. Error thresholds, observers, mode,
-        # etc. are read straight from ``dag_node`` by the threshold /
-        # observer-resolution helpers — no redundant copies.
-        step_runtime_config = StepRuntimeConfig(dag_node=node)
-
         stats = StepRunStats()
 
         runner = StepRunner(
@@ -277,7 +270,7 @@ class PipelineExecutor:
             events=self.events,
             stats=stats,
             each_mode_deps=unrolled,
-            step_runtime_config=step_runtime_config,
+            dag_node=node,
         )
 
         runner.run()

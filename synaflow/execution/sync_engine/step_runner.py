@@ -22,21 +22,6 @@ from synaflow.execution.runtime_contract_validation import (
 from synaflow.execution.sync_engine.lifecycle_stream import LifecycleStream
 
 
-class StepRuntimeConfig:
-    """Runtime-side handle to a step being executed.
-
-    Carries the compiled ``DagNode`` (the design-time graph node). This
-    is the runtime-visible name for the previously-internal ``StepConfig``
-    POJO; today it bundles only ``dag_node`` because no other runtime
-    state diverges from the DagNode. Future divergence (e.g. observer
-    overrides applied per-run) belongs in this class as new attributes,
-    not by re-introducing loose kwargs at call sites.
-    """
-
-    def __init__(self, dag_node: DagNode) -> None:
-        self.dag_node: DagNode = dag_node
-
-
 def _wrap_started_stream(
     it: Iterator[Any],
     fire_started: Callable[[], None],
@@ -117,7 +102,7 @@ class StepRunner:
         state: ExecutionState,
         events: EventDispatcher,
         stats: StepRunStats,
-        step_runtime_config: StepRuntimeConfig | None = None,
+        dag_node: DagNode,
         each_mode_deps: list[str] | None = None,
     ) -> None:
         self.step_name = step_name
@@ -134,16 +119,7 @@ class StepRunner:
         self.events = events
         self.stats = stats
         self.each_mode_deps = each_mode_deps
-        # Required: the executor must supply a StepRuntimeConfig carrying
-        # the dag node. Tests that mock StepRunner directly can pass None
-        # for runtime metadata fields that aren't exercised.
-        if step_runtime_config is None:
-            raise TypeError(
-                "StepRunner requires step_runtime_config (carry the dag_node) "
-                "— there is no meaningful default; the executor always supplies "
-                "one built from the DagNode it is about to execute."
-            )
-        self.step_runtime_config = step_runtime_config
+        self.dag_node = dag_node
 
     def run(self) -> None:
         unrolled = []
@@ -155,9 +131,9 @@ class StepRunner:
             )
 
         lifecycle = StepLifecycle(
-            self.step_runtime_config.dag_node, self.step_name, self.events, self.stats
+            self.dag_node, self.step_name, self.events, self.stats
         )
-        output_contract = self.step_runtime_config.dag_node.output_contract
+        output_contract = self.dag_node.output_contract
         expects_sync_stream = (
             output_contract is not None
             and output_contract.runtime_kind == "sync_stream"
@@ -181,13 +157,13 @@ class StepRunner:
                 # Upstream threshold propagating through this consumer:
                 # the producer's generate() already dispatched FAILED.
                 pass
-            elif unrolled and has_threshold(self.step_runtime_config.dag_node):
+            elif unrolled and has_threshold(self.dag_node):
                 # This step's generate() already dispatched FAILED (path A).
                 pass
             elif not unrolled:
                 # ALL-mode manual raise by this step (path B, escape hatch)
                 completed_all_inputs = compute_completed_all_inputs_for_all(
-                    self.step_runtime_config.dag_node, self.arguments, exc
+                    self.dag_node, self.arguments, exc
                 )
                 self.events.handle_error(
                     self.step_name,
@@ -227,7 +203,7 @@ class StepRunner:
     def _emit_immediate_completion(
         self, output: Any, unrolled: list[str], lifecycle: StepLifecycle
     ) -> None:
-        dag_node = self.step_runtime_config.dag_node
+        dag_node = self.dag_node
         output_contract = dag_node.output_contract
         if unrolled or (
             output_contract is not None
@@ -291,11 +267,11 @@ class StepRunner:
                                 step_name=self.step_name, cause=exc
                             ) from exc
                 # post-loop, before generator ends
-                if has_threshold(self.step_runtime_config.dag_node):
+                if has_threshold(self.dag_node):
                     try:
                         check_threshold(
                             self.step_name,
-                            self.step_runtime_config.dag_node,
+                            self.dag_node,
                             invocation_count,
                             error_count,
                         )
@@ -309,7 +285,7 @@ class StepRunner:
                 else:
                     check_threshold(
                         self.step_name,
-                        self.step_runtime_config.dag_node,
+                        self.dag_node,
                         invocation_count,
                         error_count,
                     )
@@ -334,7 +310,7 @@ class StepRunner:
                     pass
 
     def _attach_cleanup(self, output: Any, arguments: dict[str, Any]) -> Any:
-        dag_node = self.step_runtime_config.dag_node
+        dag_node = self.dag_node
         output_contract = dag_node.output_contract
         if (
             output_contract is None
