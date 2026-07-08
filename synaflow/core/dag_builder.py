@@ -715,76 +715,62 @@ def _finalize_dag(
 
 
 def build_dag(pipeline_def: PipelineDef) -> Dag:
-    """Validate and compile a pipeline definition into a ``Dag``.
-
-    Single source of design-time validation: any structural error
-    (bad params type, step signature, resource conflict, cycle,
-    etc.) raises here. ``PipelineDef.__post_init__`` is the typical
-    caller, but external code (CLI, registry, tests) can also call
-    directly. Idempotent — same def produces the same dag.
-    """
-    pipeline_name = pipeline_def.name
-    params = pipeline_def.params
-    steps = pipeline_def.steps
-    resources = pipeline_def.resources
-    memory_materializer_factory = pipeline_def.materializer
-    error_materializer_factory = pipeline_def.error_materializer
-    pipeline_observers = pipeline_def.observers
-    exports = pipeline_def.exports
-
-    if error_materializer_factory is None:
-        error_materializer_factory = log_error_materializer_factory
-
-    _validate_params_type(params, pipeline_name)
-    pipeline_obs_resolved = _resolve_pipeline_observers(pipeline_observers or [])
-    expanded_steps = _expand_and_validate_steps(steps, pipeline_name)
-    effective_resources = _collect_pipeline_resources(
-        pipeline_name,
-        steps,
-        resources or {},
-        include_chain=(pipeline_name,),
+    """Compile ``pipeline_def`` into a ``Dag`` — single source of
+    design-time validation."""
+    error_materializer = (
+        pipeline_def.error_materializer or log_error_materializer_factory
     )
-    _validate_resource_names(effective_resources, params, expanded_steps, pipeline_name)
+
+    _validate_params_type(pipeline_def.params, pipeline_def.name)
+    pipeline_obs_resolved = _resolve_pipeline_observers(pipeline_def.observers or [])
+    expanded_steps = _expand_and_validate_steps(pipeline_def.steps, pipeline_def.name)
+    effective_resources = _collect_pipeline_resources(
+        pipeline_def.name,
+        pipeline_def.steps,
+        pipeline_def.resources or {},
+        include_chain=(pipeline_def.name,),
+    )
+    _validate_resource_names(
+        effective_resources,
+        pipeline_def.params,
+        expanded_steps,
+        pipeline_def.name,
+    )
     dag, produced = _compile_steps(
         expanded_steps,
-        pipeline_name,
-        params,
+        pipeline_def.name,
+        pipeline_def.params,
         effective_resources,
         pipeline_obs_resolved,
     )
-    validate_no_unused_resources(dag, effective_resources, pipeline_name)
+    validate_no_unused_resources(dag, effective_resources, pipeline_def.name)
     indexes = _build_dag_indexes(dag)
     _plan_materialization(dag, indexes)
     dag_obj = _finalize_dag(
-        pipeline_name,
+        pipeline_def.name,
         dag,
         produced,
         set(effective_resources),
-        error_materializer_factory,
+        error_materializer,
         pipeline_obs_resolved,
     )
-    # Propagate the merged resource factories to the DAG so the runtime
-    # can instantiate inherited sub-pipeline resources. Mirrors how
-    # materializers (§3.4) and pipeline_observers are resolved at build
-    # time and stored on the DAG. Not serialized (callables).
     dag_obj.resource_factories = effective_resources
-    check_circular_dependencies(dag_obj, pipeline_name)
-    _assert_dag_invariants(dag_obj, pipeline_name)
+    check_circular_dependencies(dag_obj, pipeline_def.name)
+    _assert_dag_invariants(dag_obj, pipeline_def.name)
 
-    validate_no_unmaterialized_terminal_streams(dag_obj, pipeline_name, exports)
-
-    validate_sync_async_consistency(
-        dag_obj,
-        pipeline_name,
+    validate_no_unmaterialized_terminal_streams(
+        dag_obj, pipeline_def.name, pipeline_def.exports
     )
+
+    validate_sync_async_consistency(dag_obj, pipeline_def.name)
 
     _compile_execution_plan(dag_obj, indexes)
 
     _resolve_materializers(
         dag_obj,
         indexes,
-        memory_materializer_factory,
-        error_materializer_factory,
+        pipeline_def.materializer,
+        error_materializer,
     )
 
     return dag_obj
