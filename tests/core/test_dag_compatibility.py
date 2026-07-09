@@ -1,7 +1,6 @@
+from synaflow.core.dag_builder import build_dag
 from typing import Generator, Iterator, NamedTuple
-
 import pytest
-
 from synaflow import pipeline, step
 
 
@@ -25,6 +24,7 @@ from synaflow import pipeline, step
 def test_given_compatibility_cases_when_constructed_then_validates_correctly(
     description, producer_return, consumer_param, should_pass
 ):
+
     class P(NamedTuple):
         pass
 
@@ -37,16 +37,16 @@ def test_given_compatibility_cases_when_constructed_then_validates_correctly(
         pass
 
     s2.__annotations__ = {"s1": consumer_param}
-
     if should_pass:
         pipeline(name="t", params=P, steps=[step("s1", fn=s1), step("s2", fn=s2)])
     else:
         p = pipeline(name="t", params=P, steps=[step("s1", fn=s1), step("s2", fn=s2)])
         with pytest.raises(ValueError, match="expects"):
-            p.dag
+            build_dag(p)
 
 
 def test_given_two_consumers_of_same_producer_when_constructed_then_passes():
+
     class P(NamedTuple):
         pass
 
@@ -67,6 +67,7 @@ def test_given_two_consumers_of_same_producer_when_constructed_then_passes():
 
 
 def test_given_step_with_no_params_when_constructed_then_passes():
+
     class P(NamedTuple):
         pass
 
@@ -77,6 +78,7 @@ def test_given_step_with_no_params_when_constructed_then_passes():
 
 
 def test_given_underscore_step_with_no_producer_when_constructed_then_passes():
+
     class P(NamedTuple):
         count: int = 3
 
@@ -86,14 +88,11 @@ def test_given_underscore_step_with_no_producer_when_constructed_then_passes():
     def side(items: int):
         pass
 
-    pipeline(
-        name="t",
-        params=P,
-        steps=[step("items", fn=gen), step("_side", fn=side)],
-    )
+    pipeline(name="t", params=P, steps=[step("items", fn=gen), step("_side", fn=side)])
 
 
 def test_given_param_type_is_nested_union_when_constructed_then_passes():
+
     class P(NamedTuple):
         x: int | str | None = 5
 
@@ -104,6 +103,7 @@ def test_given_param_type_is_nested_union_when_constructed_then_passes():
 
 
 def test_given_producer_list_int_consumer_int_to_iterator_int_when_constructed_then_passes():
+
     class P(NamedTuple):
         pass
 

@@ -9,6 +9,7 @@ from typing import Any
 from synaflow.execution.async_engine.lifecycle_stream import AsyncLifecycleStream
 
 from synaflow.core.dag import Dag, DagNode
+from synaflow.core.dag_builder import build_dag
 from synaflow.core.definition import PipelineDef
 from synaflow.core.exceptions import (
     PipelineStopException,
@@ -541,13 +542,14 @@ async def async_run(
     params: Any,
     overrides: ExecutionOverrides | None = None,
 ) -> None:
-    if getattr(pipeline, "requires_sync_runner", False):
+    dag = build_dag(pipeline)
+    if dag.requires_sync_runner:
         raise RuntimeError(
             "This pipeline contains synchronous streams (Iterator)."
             " It must be executed with run() or migrated to AsyncIterator."
         )
     await AsyncPipelineExecutor(
-        pipeline.dag,
+        dag,
         overrides=overrides,
-        resource_factories=pipeline.dag.resource_factories,
+        resource_factories=dag.resource_factories,
     ).execute(params)

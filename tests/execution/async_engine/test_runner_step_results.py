@@ -1,7 +1,6 @@
+from synaflow.core.dag_builder import build_dag
 from collections.abc import AsyncIterator, Iterator
-
 import pytest
-
 from synaflow import async_run
 from synaflow.execution.async_engine.executor import AsyncPipelineExecutor
 from tests.execution.async_engine.corpus import PACKS as ASYNC_PACKS
@@ -42,23 +41,19 @@ def _read_step_output(outputs, dag, step_name):
 @pytest.mark.parametrize("pack_name", ASYNC_PACK_NAMES)
 async def test_step_results(pack_name):
     pack = ASYNC_PACKS[pack_name]
-
-    executor = AsyncPipelineExecutor(pack.pipeline.dag)
-
+    executor = AsyncPipelineExecutor(build_dag(pack.pipeline))
     if pack.exception_match:
         with pytest.raises(Exception, match=pack.exception_match):
             await executor.execute(pack.input_params)
         return
-
     await executor.execute(pack.input_params)
-
     for step_name, expected in pack.step_results.items():
-        if pack.pipeline.dag.consumers_of(
-            step_name
-        ) and not pack.pipeline.dag.needs_materialize(step_name):
+        if build_dag(pack.pipeline).consumers_of(step_name) and (
+            not build_dag(pack.pipeline).needs_materialize(step_name)
+        ):
             continue
         actual = await _concrete(
-            _read_step_output(executor.outputs, pack.pipeline.dag, step_name)
+            _read_step_output(executor.outputs, build_dag(pack.pipeline), step_name)
         )
         assert actual == expected
 

@@ -1,3 +1,4 @@
+from synaflow.core.dag_builder import build_dag
 import pytest
 from typing import NamedTuple, Iterator
 from synaflow import pipeline, step
@@ -40,7 +41,7 @@ def test_original_case_1_all_stream_validates_successfully():
             step("s4", s4, mode=StepMode.EACH),
         ],
     )
-    assert my_pipe.dag is not None
+    assert build_dag(my_pipe) is not None
 
 
 def test_original_case_2_only_s4_materializes_validates_successfully():
@@ -75,7 +76,7 @@ def test_original_case_2_only_s4_materializes_validates_successfully():
             step("s4", s4, mode=StepMode.ALL),
         ],
     )
-    assert my_pipe.dag is not None
+    assert build_dag(my_pipe) is not None
 
 
 def test_original_case_4_only_s2_materializes_throws_design_time_error():
@@ -111,7 +112,7 @@ def test_original_case_4_only_s2_materializes_throws_design_time_error():
         ],
     )
     with pytest.raises(ValueError, match="Asymmetric lockstep materialization"):
-        p.dag
+        build_dag(p)
 
 
 def test_original_case_5_s2_and_s3b_materialize_validates_successfully():
@@ -146,7 +147,7 @@ def test_original_case_5_s2_and_s3b_materialize_validates_successfully():
             step("s4", s4, mode=StepMode.EACH),
         ],
     )
-    assert my_pipe.dag is not None
+    assert build_dag(my_pipe) is not None
 
 
 def test_nested_diamonds_with_bypass_throws_design_time_error():
@@ -194,7 +195,7 @@ def test_nested_diamonds_with_bypass_throws_design_time_error():
         ],
     )
     with pytest.raises(ValueError, match="Asymmetric lockstep materialization"):
-        p.dag
+        build_dag(p)
 
 
 def test_ultra_complex_diamond_staggered_joins_throws_design_time_error():
@@ -242,7 +243,7 @@ def test_ultra_complex_diamond_staggered_joins_throws_design_time_error():
         ],
     )
     with pytest.raises(ValueError, match="Asymmetric lockstep materialization"):
-        p.dag
+        build_dag(p)
 
 
 def test_given_cross_level_stream_bypass_throws_design_time_error():
@@ -271,4 +272,4 @@ def test_given_cross_level_stream_bypass_throws_design_time_error():
         ],
     )
     with pytest.raises(ValueError, match="Asymmetric lockstep materialization"):
-        p.dag
+        build_dag(p)

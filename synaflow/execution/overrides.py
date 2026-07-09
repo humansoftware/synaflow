@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from synaflow.core.constants import PIPELINE_SCOPE
+from synaflow.core.dag_builder import build_dag
 from synaflow.core.definition import PipelineDef
 from synaflow.core.naming import Scope
 from synaflow.core.observers import Observer, ResolvedObserver
@@ -167,38 +168,40 @@ class ExecutionOverrides:
 
 
 def _materializer_contract_keys(pipeline: PipelineDef) -> set[str]:
+    dag = build_dag(pipeline)
     return {
         step_name
-        for step_name, node in pipeline.dag.steps.items()
+        for step_name, node in dag.steps.items()
         if node.materializer is not None
     }
 
 
 def _materializer_fallback_values(pipeline: PipelineDef) -> dict[str, Any]:
+    dag = build_dag(pipeline)
     return {
         step_name: node.materializer
-        for step_name, node in pipeline.dag.steps.items()
+        for step_name, node in dag.steps.items()
         if node.materializer is not None
     }
 
 
 def _observer_contract_keys(pipeline: PipelineDef) -> set[str]:
+    dag = build_dag(pipeline)
     keys = set()
-    if pipeline.dag.pipeline_observers:
+    if dag.pipeline_observers:
         keys.add(PIPELINE_SCOPE)
-    keys.update(
-        step_name for step_name, node in pipeline.dag.steps.items() if node.observers
-    )
+    keys.update(step_name for step_name, node in dag.steps.items() if node.observers)
     return keys
 
 
 def _observer_fallback_values(
     pipeline: PipelineDef,
 ) -> dict[str, list[ResolvedObserver]]:
+    dag = build_dag(pipeline)
     values: dict[str, list[ResolvedObserver]] = {}
-    if pipeline.dag.pipeline_observers:
-        values[PIPELINE_SCOPE] = list(pipeline.dag.pipeline_observers)
-    for step_name, node in pipeline.dag.steps.items():
+    if dag.pipeline_observers:
+        values[PIPELINE_SCOPE] = list(dag.pipeline_observers)
+    for step_name, node in dag.steps.items():
         step_local = [
             observer for observer in node.observers if observer.source == "step"
         ]
@@ -208,4 +211,5 @@ def _observer_fallback_values(
 
 
 def _resource_contract_keys(pipeline: PipelineDef) -> set[str]:
-    return set(pipeline.dag.resource_factories)
+    dag = build_dag(pipeline)
+    return set(dag.resource_factories)

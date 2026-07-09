@@ -1,14 +1,10 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from functools import cached_property
-from typing import TYPE_CHECKING, Any, Callable
+from typing import Any, Callable
 
 from synaflow.core.observers import Observer
 from synaflow.core.types import OnError, StepMode, StepParams
-
-if TYPE_CHECKING:
-    from synaflow.core.dag import Dag
 
 
 @dataclass
@@ -79,31 +75,17 @@ class PipelineDef:
     def __post_init__(self) -> None:
         self.fill_scope_metadata()
 
-    @cached_property
-    def dag(self) -> "Dag":
-        """Compiled Dag for this pipeline. Built lazily on first access
-        via ``build_dag(self)`` and cached. Raises on any structural
-        error per the design-time validation contract. Removed when
-        the PipelineRegistry (issue #107) lands."""
-        from synaflow.core.dag_builder import build_dag
-
-        return build_dag(self)
-
-    @property
-    def requires_sync_runner(self) -> bool:
-        return self.dag.requires_sync_runner
-
-    @property
-    def requires_async_runner(self) -> bool:
-        return self.dag.requires_async_runner
-
     def to_dict(self) -> dict:
         """Compiled DAG serialized as a JSON-serializable dict."""
-        return self.dag.to_dict()
+        from synaflow.core.dag_builder import build_dag
+
+        return build_dag(self).to_dict()
 
     def get_execution_levels(self) -> list[list[str]]:
         """Steps grouped into topological levels (no in-level dependencies)."""
-        return self.dag.get_execution_levels()
+        from synaflow.core.dag_builder import build_dag
+
+        return build_dag(self).get_execution_levels()
 
 
 pipeline = PipelineDef

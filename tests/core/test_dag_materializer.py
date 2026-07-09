@@ -1,3 +1,4 @@
+from synaflow.core.dag_builder import build_dag
 from typing import AsyncGenerator, Generator, NamedTuple
 import pytest
 from synaflow import pipeline, step
@@ -25,7 +26,7 @@ def test_sync_pipeline_rejects_async_materializer():
         steps=[step("items", fn=gen, force_materialize=True)],
     )
     with pytest.raises(TypeError, match="is async but the pipeline runs synchronously"):
-        p.dag
+        build_dag(p)
 
 
 def test_async_pipeline_rejects_sync_materializer():
@@ -48,7 +49,7 @@ def test_async_pipeline_rejects_sync_materializer():
     with pytest.raises(
         TypeError, match="is synchronous but the pipeline runs asynchronously"
     ):
-        p.dag
+        build_dag(p)
 
 
 def test_step_materializer_rejects_incompatible():
@@ -69,4 +70,4 @@ def test_step_materializer_rejects_incompatible():
     with pytest.raises(
         TypeError, match="is synchronous but the pipeline runs asynchronously"
     ):
-        p.dag
+        build_dag(p)

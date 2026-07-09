@@ -1,3 +1,4 @@
+from synaflow.core.dag_builder import build_dag
 from typing import NamedTuple
 from collections.abc import Iterator, AsyncIterator
 import pytest
@@ -20,7 +21,7 @@ def test_given_sync_step_in_async_pipeline_then_raises():
         TypeError,
         match="step function 's' is synchronous but the pipeline runs asynchronously",
     ):
-        p.dag
+        build_dag(p)
 
 
 def test_given_async_observer_in_sync_pipeline_then_raises():
@@ -50,7 +51,7 @@ def test_given_async_observer_in_sync_pipeline_then_raises():
         TypeError,
         match="observer handler 'obs_handler' is async but the pipeline runs synchronously",
     ):
-        p.dag
+        build_dag(p)
 
 
 def test_given_sync_observer_in_async_pipeline_then_raises():
@@ -80,7 +81,7 @@ def test_given_sync_observer_in_async_pipeline_then_raises():
         TypeError,
         match="observer handler 'obs_handler' is synchronous but the pipeline runs asynchronously",
     ):
-        p.dag
+        build_dag(p)
 
 
 def test_given_async_materializer_in_sync_pipeline_then_raises():
@@ -107,7 +108,7 @@ def test_given_async_materializer_in_sync_pipeline_then_raises():
         TypeError,
         match="materializer 'mat_handler' is async but the pipeline runs synchronously",
     ):
-        p.dag
+        build_dag(p)
 
 
 def test_given_sync_materializer_in_async_pipeline_then_raises():
@@ -134,7 +135,7 @@ def test_given_sync_materializer_in_async_pipeline_then_raises():
         TypeError,
         match="materializer 'mat_handler' is synchronous but the pipeline runs asynchronously",
     ):
-        p.dag
+        build_dag(p)
 
 
 def test_given_async_error_materializer_in_sync_pipeline_then_raises():
@@ -169,7 +170,7 @@ def test_given_async_error_materializer_in_sync_pipeline_then_raises():
         TypeError,
         match="error_materializer 'err_handler' is async but the pipeline runs synchronously",
     ):
-        p.dag
+        build_dag(p)
 
 
 def test_given_sync_error_materializer_in_async_pipeline_then_raises():
@@ -204,7 +205,7 @@ def test_given_sync_error_materializer_in_async_pipeline_then_raises():
         TypeError,
         match="error_materializer 'err_handler' is synchronous but the pipeline runs asynchronously",
     ):
-        p.dag
+        build_dag(p)
 
 
 def test_given_duplicate_step_names_when_dag_built_then_raises():
@@ -218,7 +219,7 @@ def test_given_duplicate_step_names_when_dag_built_then_raises():
         steps=[step("s1", fn=lambda: None), step("s1", fn=lambda: None)],
     )
     with pytest.raises(ValueError, match="duplicate"):
-        p.dag
+        build_dag(p)
 
 
 def test_given_circular_dependency_when_dag_built_then_raises():
@@ -236,7 +237,7 @@ def test_given_circular_dependency_when_dag_built_then_raises():
         name="test", params=Empty, steps=[step("s1", fn=s1), step("s2", fn=s2)]
     )
     with pytest.raises(ValueError, match="no resource, prior step, or params field"):
-        p.dag
+        build_dag(p)
 
 
 def test_given_mode_each_when_no_iterable_dep_can_be_unrolled_then_raises():
@@ -253,7 +254,7 @@ def test_given_mode_each_when_no_iterable_dep_can_be_unrolled_then_raises():
         steps=[step("transform", fn=transform, mode=StepMode.EACH)],
     )
     with pytest.raises(ValueError, match="forced to EACH mode"):
-        p.dag
+        build_dag(p)
 
 
 def test_given_mode_all_when_signature_requires_each_then_raises():
@@ -270,7 +271,7 @@ def test_given_mode_all_when_signature_requires_each_then_raises():
         steps=[step("transform", fn=transform, mode=StepMode.ALL)],
     )
     with pytest.raises(ValueError, match="forced to ALL mode"):
-        p.dag
+        build_dag(p)
 
 
 def test_given_mode_each_when_output_would_require_nested_streams_then_raises():
@@ -288,7 +289,7 @@ def test_given_mode_each_when_output_would_require_nested_streams_then_raises():
         steps=[step("transform", fn=transform, mode=StepMode.EACH)],
     )
     with pytest.raises(ValueError, match="nested streams"):
-        p.dag
+        build_dag(p)
 
 
 def test_given_mode_each_when_consumer_would_require_iterator_of_lists_then_raises():
@@ -312,7 +313,7 @@ def test_given_mode_each_when_consumer_would_require_iterator_of_lists_then_rais
         ],
     )
     with pytest.raises(ValueError, match="nested streams"):
-        p.dag
+        build_dag(p)
 
 
 def test_given_mode_each_when_only_some_dependencies_can_be_unrolled_then_non_matching_dependencies_are_not_forced():
@@ -329,7 +330,7 @@ def test_given_mode_each_when_only_some_dependencies_can_be_unrolled_then_non_ma
         params=P,
         steps=[step("transform", fn=transform, mode=StepMode.EACH)],
     )
-    assert p.dag.steps["transform"].each_mode_deps == ["items"]
+    assert build_dag(p).steps["transform"].each_mode_deps == ["items"]
 
 
 def test_given_steps_with_same_base_dataset_when_dag_built_then_raises():
@@ -347,7 +348,7 @@ def test_given_steps_with_same_base_dataset_when_dag_built_then_raises():
         name="test", params=Empty, steps=[step("user", fn=fn1), step("users", fn=fn2)]
     )
     with pytest.raises(ValueError, match="both map to Base Dataset"):
-        p.dag
+        build_dag(p)
 
 
 def test_given_step_with_duplicate_base_params_when_dag_built_then_raises():
@@ -360,7 +361,7 @@ def test_given_step_with_duplicate_base_params_when_dag_built_then_raises():
 
     p = pipeline(name="test", params=P, steps=[step("fn", fn=fn)])
     with pytest.raises(ValueError, match="duplicate parameters"):
-        p.dag
+        build_dag(p)
 
 
 def test_given_smart_binding_with_singular_when_dag_built_then_resolves():
@@ -380,9 +381,9 @@ def test_given_smart_binding_with_singular_when_dag_built_then_resolves():
         params=P,
         steps=[step("items", fn=items), step("transform", fn=transform)],
     )
-    assert "items" in p.dag.steps["transform"].deps
-    assert p.dag.steps["transform"].dataset_param_names == {"items": "item"}
-    assert p.dag.consumers_of("items") == ["transform"]
+    assert "items" in build_dag(p).steps["transform"].deps
+    assert build_dag(p).steps["transform"].dataset_param_names == {"items": "item"}
+    assert build_dag(p).consumers_of("items") == ["transform"]
 
 
 def test_given_terminal_step_returning_iterator_when_not_materialized_then_raises():
@@ -396,7 +397,7 @@ def test_given_terminal_step_returning_iterator_when_not_materialized_then_raise
 
     p = pipeline(name="test", params=P, steps=[step("gen", fn=gen)])
     with pytest.raises(ValueError, match="terminal step 'gen' returns a stream type"):
-        p.dag
+        build_dag(p)
 
 
 def test_given_terminal_step_returning_async_iterator_when_not_materialized_then_raises():
@@ -411,7 +412,7 @@ def test_given_terminal_step_returning_async_iterator_when_not_materialized_then
 
     p = pipeline(name="test", params=P, steps=[step("gen", fn=gen)])
     with pytest.raises(ValueError, match="terminal step 'gen' returns a stream type"):
-        p.dag
+        build_dag(p)
 
 
 def test_given_terminal_step_returning_iterator_when_force_materialize_then_builds():
@@ -426,7 +427,7 @@ def test_given_terminal_step_returning_iterator_when_force_materialize_then_buil
     p = pipeline(
         name="test", params=P, steps=[step("gen", fn=gen, force_materialize=True)]
     )
-    assert "gen" in p.dag.steps
+    assert "gen" in build_dag(p).steps
 
 
 def test_given_terminal_step_returning_none_when_not_materialized_then_builds():
@@ -445,7 +446,7 @@ def test_given_terminal_step_returning_none_when_not_materialized_then_builds():
     p = pipeline(
         name="test", params=P, steps=[step("gen", fn=gen), step("consume", fn=consume)]
     )
-    assert "consume" in p.dag.steps
+    assert "consume" in build_dag(p).steps
 
 
 def test_given_non_terminal_step_returning_iterator_when_not_materialized_then_builds():
@@ -465,7 +466,7 @@ def test_given_non_terminal_step_returning_iterator_when_not_materialized_then_b
         params=P,
         steps=[step("gen", fn=gen), step("transform", fn=transform)],
     )
-    assert "gen" in p.dag.steps
+    assert "gen" in build_dag(p).steps
 
 
 def test_given_exported_step_returning_iterator_when_in_child_pipeline_then_builds():
@@ -480,7 +481,7 @@ def test_given_exported_step_returning_iterator_when_in_child_pipeline_then_buil
     child = pipeline(
         name="Child", params=ChildParams, exports="emit", steps=[step("emit", fn=emit)]
     )
-    assert "emit" in child.dag.steps
+    assert "emit" in build_dag(child).steps
 
 
 def test_given_non_callable_error_materializer_in_pipeline_then_raises():
@@ -499,7 +500,7 @@ def test_given_non_callable_error_materializer_in_pipeline_then_raises():
     with pytest.raises(
         TypeError, match="error materializer for step 'dummy' is not callable"
     ):
-        p.dag
+        build_dag(p)
 
 
 def test_given_non_callable_materializer_in_pipeline_then_raises():
@@ -518,7 +519,7 @@ def test_given_non_callable_materializer_in_pipeline_then_raises():
     with pytest.raises(
         TypeError, match="materializer for step 'dummy' is not callable"
     ):
-        p.dag
+        build_dag(p)
 
 
 def test_given_non_callable_step_fn_in_pipeline_then_raises():
@@ -528,4 +529,4 @@ def test_given_non_callable_step_fn_in_pipeline_then_raises():
 
     p = pipeline(name="test", params=Empty, steps=[step("dummy", fn="not callable")])
     with pytest.raises(ValueError, match="must have a callable 'fn'"):
-        p.dag
+        build_dag(p)

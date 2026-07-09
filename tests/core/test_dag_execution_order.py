@@ -1,3 +1,4 @@
+from synaflow.core.dag_builder import build_dag
 from typing import NamedTuple
 import pytest
 from synaflow import StepMode, pipeline, step
@@ -18,7 +19,7 @@ def test_given_output_compatible_but_executed_after_when_built_then_raises():
 
     p = pipeline(name="t", params=P, steps=[step("s1", fn=s1), step("s2", fn=s2)])
     with pytest.raises(ValueError, match="no resource, prior step, or params field"):
-        p.dag
+        build_dag(p)
 
 
 def test_given_independent_steps_when_constructed_then_passes():

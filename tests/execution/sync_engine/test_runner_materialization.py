@@ -1,8 +1,7 @@
+from synaflow.core.dag_builder import build_dag
 import inspect
 from typing import Generator, Iterator, NamedTuple
 from unittest.mock import MagicMock
-
-
 from synaflow import pipeline, step
 from synaflow.core.types import OnError
 
@@ -27,6 +26,7 @@ def mock_step(**params: type) -> MagicMock:
 def test_given_generator_and_scalar_and_iterator_consumers_when_run_then_no_materialization(
     run_pipeline,
 ):
+
     class P(NamedTuple):
         count: int = 3
 
@@ -45,6 +45,7 @@ def test_given_generator_and_scalar_and_iterator_consumers_when_run_then_no_mate
     materialized = []
 
     def spy_materialize(ctx):
+
         def concrete(g):
             materialized.append("called")
             return list(g)
@@ -55,13 +56,8 @@ def test_given_generator_and_scalar_and_iterator_consumers_when_run_then_no_mate
         name="test",
         params=P,
         materializer=spy_materialize,
-        steps=[
-            step("items", fn=gen),
-            step("a", fn=a),
-            step("b", fn=b),
-        ],
+        steps=[step("items", fn=gen), step("a", fn=a), step("b", fn=b)],
     )
-
     run_pipeline(my_pipeline, params=P())
     assert len(materialized) == 0
     assert [val for key, val in call_order if key == "a"] == [0, 1, 2]
@@ -71,6 +67,7 @@ def test_given_generator_and_scalar_and_iterator_consumers_when_run_then_no_mate
 def test_given_generator_and_list_consumer_when_run_then_materialized_once(
     run_pipeline,
 ):
+
     class P(NamedTuple):
         count: int = 3
 
@@ -88,6 +85,7 @@ def test_given_generator_and_list_consumer_when_run_then_materialized_once(
     materialized = []
 
     def spy_materialize(ctx):
+
         def concrete(g):
             materialized.append("called")
             return list(g)
@@ -98,13 +96,8 @@ def test_given_generator_and_list_consumer_when_run_then_materialized_once(
         name="test",
         params=P,
         materializer=spy_materialize,
-        steps=[
-            step("items", fn=gen),
-            step("a", fn=a),
-            step("b", fn=b),
-        ],
+        steps=[step("items", fn=gen), step("a", fn=a), step("b", fn=b)],
     )
-
     run_pipeline(my_pipeline, params=P())
     assert len(materialized) == 1
     assert [val for key, val in call_order if key == "a"] == [0, 1, 2]
@@ -114,6 +107,7 @@ def test_given_generator_and_list_consumer_when_run_then_materialized_once(
 def test_given_generator_and_each_transformer_and_iterator_consumer_when_run_then_no_materialization(
     run_pipeline,
 ):
+
     class P(NamedTuple):
         count: int = 3
 
@@ -134,6 +128,7 @@ def test_given_generator_and_each_transformer_and_iterator_consumer_when_run_the
     materialized = []
 
     def spy_materialize(ctx):
+
         def concrete(g):
             materialized.append("called")
             return list(g)
@@ -144,13 +139,8 @@ def test_given_generator_and_each_transformer_and_iterator_consumer_when_run_the
         name="test",
         params=P,
         materializer=spy_materialize,
-        steps=[
-            step("items", fn=gen),
-            step("a", fn=a),
-            step("b", fn=b),
-        ],
+        steps=[step("items", fn=gen), step("a", fn=a), step("b", fn=b)],
     )
-
     run_pipeline(my_pipeline, params=P())
     assert len(materialized) == 0
     assert [val for key, val in call_order if key == "a"] == [
@@ -168,6 +158,7 @@ def test_given_generator_and_each_transformer_and_iterator_consumer_when_run_the
 def test_given_generator_and_eager_each_and_eager_iterator_consumers_when_run_then_lockstep_order(
     run_pipeline,
 ):
+
     class P(NamedTuple):
         count: int = 3
 
@@ -186,13 +177,8 @@ def test_given_generator_and_eager_each_and_eager_iterator_consumers_when_run_th
     my_pipeline = pipeline(
         name="test",
         params=P,
-        steps=[
-            step("items", fn=gen),
-            step("a", fn=a),
-            step("b", fn=b),
-        ],
+        steps=[step("items", fn=gen), step("a", fn=a), step("b", fn=b)],
     )
-
     run_pipeline(my_pipeline, params=P())
     assert [val for key, val in call_order if key == "a"] == [0, 1, 2]
     assert [val for key, val in call_order if key == "b"] == [0, 1, 2]
@@ -201,6 +187,7 @@ def test_given_generator_and_eager_each_and_eager_iterator_consumers_when_run_th
 def test_given_two_generators_when_consumed_by_single_step_then_automatic_materialization(
     run_pipeline,
 ):
+
     class P(NamedTuple):
         count: int = 3
 
@@ -209,7 +196,7 @@ def test_given_two_generators_when_consumed_by_single_step_then_automatic_materi
 
     def gen2(count: int) -> Generator[int, None, None]:
         for i in range(count):
-            yield i + 10
+            yield (i + 10)
 
     call_order = []
 
@@ -222,6 +209,7 @@ def test_given_two_generators_when_consumed_by_single_step_then_automatic_materi
     materialized = []
 
     def spy_materialize(ctx):
+
         def concrete(g):
             materialized.append("called")
             return list(g)
@@ -232,13 +220,8 @@ def test_given_two_generators_when_consumed_by_single_step_then_automatic_materi
         name="test",
         params=P,
         materializer=spy_materialize,
-        steps=[
-            step("gen1", fn=gen1),
-            step("gen2", fn=gen2),
-            step("c", fn=c),
-        ],
+        steps=[step("gen1", fn=gen1), step("gen2", fn=gen2), step("c", fn=c)],
     )
-
     run_pipeline(my_pipeline, params=P())
     assert len(materialized) == 0
     assert [val for key, val in call_order if key == "c1"] == [0, 1, 2]
@@ -248,6 +231,7 @@ def test_given_two_generators_when_consumed_by_single_step_then_automatic_materi
 def test_given_chain_and_bypass_dependencies_when_run_then_no_materialization(
     run_pipeline,
 ):
+
     class P(NamedTuple):
         count: int = 3
 
@@ -268,6 +252,7 @@ def test_given_chain_and_bypass_dependencies_when_run_then_no_materialization(
     materialized = []
 
     def spy_materialize(ctx):
+
         def concrete(g):
             materialized.append("called")
             return list(g)
@@ -278,13 +263,8 @@ def test_given_chain_and_bypass_dependencies_when_run_then_no_materialization(
         name="test",
         params=P,
         materializer=spy_materialize,
-        steps=[
-            step("items", fn=gen),
-            step("a", fn=a),
-            step("b", fn=b),
-        ],
+        steps=[step("items", fn=gen), step("a", fn=a), step("b", fn=b)],
     )
-
     run_pipeline(my_pipeline, params=P())
     assert len(materialized) == 0
     assert [val for key, val in call_order if key == "a"] == [0, 1, 2]
@@ -295,6 +275,7 @@ def test_given_chain_and_bypass_dependencies_when_run_then_no_materialization(
 def test_given_collection_producer_and_scalar_transformer_and_iterator_consumer_when_run_then_lazy_stream_no_materialization(
     run_pipeline,
 ):
+
     class P(NamedTuple):
         count: int = 3
 
@@ -314,6 +295,7 @@ def test_given_collection_producer_and_scalar_transformer_and_iterator_consumer_
     materialized = []
 
     def spy_materialize(ctx):
+
         def concrete(g):
             materialized.append("called")
             return list(g)
@@ -324,13 +306,8 @@ def test_given_collection_producer_and_scalar_transformer_and_iterator_consumer_
         name="test",
         params=P,
         materializer=spy_materialize,
-        steps=[
-            step("items", fn=gen),
-            step("s2", fn=s2),
-            step("s3", fn=s3),
-        ],
+        steps=[step("items", fn=gen), step("s2", fn=s2), step("s3", fn=s3)],
     )
-
     run_pipeline(my_pipeline, params=P())
     assert len(materialized) == 0
     assert [val for key, val in call_order if key == "s2"] == [0, 1, 2]
@@ -338,6 +315,7 @@ def test_given_collection_producer_and_scalar_transformer_and_iterator_consumer_
 
 
 def test_given_step_materializer_when_run_then_overrides_pipeline_factory(run_pipeline):
+
     class P(NamedTuple):
         count: int = 3
 
@@ -368,7 +346,6 @@ def test_given_step_materializer_when_run_then_overrides_pipeline_factory(run_pi
             step("consumer", fn=consumer),
         ],
     )
-
     run_pipeline(my_pipeline, params=P())
     assert len(step_materialized) == 1
     assert len(pipeline_materialized) == 0
@@ -377,6 +354,7 @@ def test_given_step_materializer_when_run_then_overrides_pipeline_factory(run_pi
 def test_given_generator_and_iterator_and_list_consumers_when_run_then_iterator_consumer_receives_stream_and_list_consumer_receives_materialized_collection(
     run_pipeline,
 ):
+
     class P(NamedTuple):
         count: int = 3
 
@@ -387,6 +365,7 @@ def test_given_generator_and_iterator_and_list_consumers_when_run_then_iterator_
     materialized = []
 
     def spy_materialize(ctx):
+
         def concrete(g):
             materialized.append("called")
             return list(g)
@@ -405,15 +384,9 @@ def test_given_generator_and_iterator_and_list_consumers_when_run_then_iterator_
         name="test_mixed_fanout",
         params=P,
         materializer=spy_materialize,
-        steps=[
-            step("items", fn=gen),
-            step("lazy", fn=lazy),
-            step("eager", fn=eager),
-        ],
+        steps=[step("items", fn=gen), step("lazy", fn=lazy), step("eager", fn=eager)],
     )
-
     run_pipeline(my_pipeline, params=P())
-
     assert materialized == ["called"]
     assert observations["lazy_is_list"] is True
     assert observations["lazy_values"] == [0, 1, 2]
@@ -424,6 +397,7 @@ def test_given_generator_and_iterator_and_list_consumers_when_run_then_iterator_
 def test_given_scalar_output_with_on_error_stop_when_run_then_scalar_materializer_is_invoked(
     run_pipeline,
 ):
+
     class P(NamedTuple):
         x: int = 3
 
@@ -453,9 +427,7 @@ def test_given_scalar_output_with_on_error_stop_when_run_then_scalar_materialize
             step("consume", fn=consume),
         ],
     )
-
     run_pipeline(my_pipeline, params=P())
-
     assert materialized == [6]
 
 
@@ -485,17 +457,13 @@ def test_given_factory_with_context_when_run_then_context_is_injected(run_pipeli
         name="test_context",
         params=P,
         materializer=factory_with_ctx,
-        steps=[
-            step("items", fn=gen),
-            step("consumer", fn=consumer),
-        ],
+        steps=[step("items", fn=gen), step("consumer", fn=consumer)],
     )
-
     run_pipeline(my_pipeline, params=P())
     assert len(captured_context) >= 1
     assert captured_context[-1].pipeline_name == "test_context"
-    assert any(c.dataset_name == "items" for c in captured_context)
-    assert any(c.consumer_type == list[int] for c in captured_context)
+    assert any((c.dataset_name == "items" for c in captured_context))
+    assert any((c.consumer_type == list[int] for c in captured_context))
 
 
 def test_given_mixed_fanout_when_materializer_factory_receives_context_then_consumer_type_is_materialized_consumer_type(
@@ -525,23 +493,18 @@ def test_given_mixed_fanout_when_materializer_factory_receives_context_then_cons
         name="test_mixed_context",
         params=P,
         materializer=factory_with_ctx,
-        steps=[
-            step("items", fn=gen),
-            step("lazy", fn=lazy),
-            step("eager", fn=eager),
-        ],
+        steps=[step("items", fn=gen), step("lazy", fn=lazy), step("eager", fn=eager)],
     )
-
     run_pipeline(my_pipeline, params=P())
-
     runtime_contexts = [c for c in captured_context if c.dataset_name == "items"]
     assert runtime_contexts
-    assert all(c.consumer_type == list[int] for c in runtime_contexts)
+    assert all((c.consumer_type == list[int] for c in runtime_contexts))
 
 
 def test_given_two_unrolled_streams_with_different_lengths_when_run_then_missing_side_is_padded_with_none(
     run_pipeline,
 ):
+
     class P(NamedTuple):
         pass
 
@@ -570,15 +533,14 @@ def test_given_two_unrolled_streams_with_different_lengths_when_run_then_missing
             step("sink", fn=sink),
         ],
     )
-
     run_pipeline(my_pipeline, params=P())
-
     assert seen == [(1, 10), (2, None)]
 
 
 def test_given_two_unrolled_streams_with_one_empty_when_run_then_non_empty_side_still_emits_with_none_padding(
     run_pipeline,
 ):
+
     class P(NamedTuple):
         pass
 
@@ -608,9 +570,7 @@ def test_given_two_unrolled_streams_with_one_empty_when_run_then_non_empty_side_
             step("sink", fn=sink),
         ],
     )
-
     run_pipeline(my_pipeline, params=P())
-
     assert seen == [(None, 10), (None, 20)]
 
 
@@ -639,12 +599,8 @@ def test_given_step_non_builtin_type_and_iterator_consumer_when_run_then_execute
     my_pipeline = pipeline(
         name="test_custom_type_iterator_no_mat",
         params=P,
-        steps=[
-            step("producer", fn=producer),
-            step("consumer", fn=consumer),
-        ],
+        steps=[step("producer", fn=producer), step("consumer", fn=consumer)],
     )
-
     run_pipeline(my_pipeline, params=P())
     assert seen == [Row(id=1, name="alice"), Row(id=2, name="bob")]
 
@@ -668,19 +624,14 @@ def test_given_no_custom_materializer_and_non_builtin_type_when_not_materialized
 
     seen = []
 
-    # Consumed as a scalar (EACH mode) so needs_materialize is False
     def consumer(producer: Row):
         seen.append(producer)
 
     my_pipeline = pipeline(
         name="test_no_materializer_custom_type_not_materialized",
         params=P,
-        steps=[
-            step("producer", fn=producer),
-            step("consumer", fn=consumer),
-        ],
+        steps=[step("producer", fn=producer), step("consumer", fn=consumer)],
     )
-
     run_pipeline(my_pipeline, params=P())
     assert seen == [Row(id=1, name="alice"), Row(id=2, name="bob")]
 
@@ -688,6 +639,7 @@ def test_given_no_custom_materializer_and_non_builtin_type_when_not_materialized
 def test_given_diamond_topology_with_multiple_lazy_streams_when_run_then_no_deadlock(
     run_pipeline,
 ):
+
     class P(NamedTuple):
         pass
 
@@ -725,13 +677,10 @@ def test_given_diamond_topology_with_multiple_lazy_streams_when_run_then_no_dead
             step("finalize", fn=finalize),
         ],
     )
-
-    # Materialization propagates upstream through lazy stream chains.
-    assert my_pipeline.dag.steps["a"]._materialized_deps == []
-    assert my_pipeline.dag.steps["b"]._materialized_deps == []
-    assert my_pipeline.dag.steps["audit"]._materialized_deps == []
-    assert my_pipeline.dag.steps["finalize"]._materialized_deps == []
-
+    assert build_dag(my_pipeline).steps["a"]._materialized_deps == []
+    assert build_dag(my_pipeline).steps["b"]._materialized_deps == []
+    assert build_dag(my_pipeline).steps["audit"]._materialized_deps == []
+    assert build_dag(my_pipeline).steps["finalize"]._materialized_deps == []
     run_pipeline(my_pipeline, params=P())
     assert len(call_order) == 20
     assert len(audit_seen) == 10
@@ -740,6 +689,7 @@ def test_given_diamond_topology_with_multiple_lazy_streams_when_run_then_no_dead
 def test_given_multilevel_each_fanout_when_run_then_completes_without_materializing_intermediate(
     run_pipeline,
 ):
+
     class P(NamedTuple):
         pass
 
@@ -777,13 +727,8 @@ def test_given_multilevel_each_fanout_when_run_then_completes_without_materializ
             step("l2y", fn=l2y),
         ],
     )
-
-    # Asserting that intermediate step remains lazy and doesn't get materialized
-    assert my_pipeline.dag.steps["l1a"].materialize_output is False
-
+    assert build_dag(my_pipeline).steps["l1a"].materialize_output is False
     run_pipeline(my_pipeline, params=P())
-
-    # Asserting that terminal consumers receive all items
     assert seen_x == list(range(20))
     assert seen_y == list(range(20))
 
@@ -791,6 +736,7 @@ def test_given_multilevel_each_fanout_when_run_then_completes_without_materializ
 def test_given_custom_iterable_materializer_when_consumed_by_multiple_each_steps_then_iter_is_called_multiple_times(
     run_pipeline,
 ):
+
     class P(NamedTuple):
         pass
 
@@ -806,6 +752,7 @@ def test_given_custom_iterable_materializer_when_consumed_by_multiple_each_steps
     captured_mock = []
 
     def my_disk_materializer(ctx):
+
         def mat(g):
             instance = MockDiskBackedSet(g)
             captured_mock.append(instance)
@@ -839,13 +786,8 @@ def test_given_custom_iterable_materializer_when_consumed_by_multiple_each_steps
             step("c2", fn=consumer_2),
         ],
     )
-
     run_pipeline(my_pipeline, params=P())
-
-    # Asserting both consumers got the de-duplicated elements (order is arbitrary since it's a set)
     assert set(seen_c1) == {1, 2}
     assert set(seen_c2) == {1, 2}
-
-    # Verify the materializer was invoked only once but __iter__ was called twice (once for each EACH consumer)
     assert len(captured_mock) == 1
     assert captured_mock[0].iter_count == 2

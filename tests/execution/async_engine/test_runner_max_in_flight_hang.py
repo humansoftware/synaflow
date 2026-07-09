@@ -1,22 +1,10 @@
-"""Regression tests for Issue #103 (async engine parity).
+"Regression tests for Issue #103 (async engine parity).\n\nMirrors of tests in ``tests/execution/sync_engine/test_runner_max_in_flight_hang.py``.\nEach test exercises the same hang mechanism against the async engine so that\nthe parity check in ``tests/core/test_parity.py`` stays green and any future\nregression in either engine is caught by the same-name counterpart.\n\nThe tests use ``asyncio.wait_for`` as the bound on the async pipeline.  When\nthe framework no longer hangs, ``wait_for`` completes normally with the\nresult (or the exception captured by ``run_with_timeout``); when the bug is\npresent, the timeout fires and we report a hang.\n"
 
-Mirrors of tests in ``tests/execution/sync_engine/test_runner_max_in_flight_hang.py``.
-Each test exercises the same hang mechanism against the async engine so that
-the parity check in ``tests/core/test_parity.py`` stays green and any future
-regression in either engine is caught by the same-name counterpart.
-
-The tests use ``asyncio.wait_for`` as the bound on the async pipeline.  When
-the framework no longer hangs, ``wait_for`` completes normally with the
-result (or the exception captured by ``run_with_timeout``); when the bug is
-present, the timeout fires and we report a hang.
-"""
-
+from synaflow.core.dag_builder import build_dag
 import asyncio
 from collections.abc import AsyncGenerator, AsyncIterator
 from typing import NamedTuple
-
 import pytest
-
 from synaflow import OnError, async_run, pipeline, step
 
 
@@ -51,7 +39,7 @@ async def _run_with_timeout(coro, timeout: float = 5.0) -> BaseException | None:
         nonlocal raised
         try:
             await coro
-        except BaseException as exc:  # noqa: BLE001 - intentional pass-through
+        except BaseException as exc:
             raised = exc
 
     task = asyncio.create_task(runner())
@@ -66,11 +54,6 @@ async def _run_with_timeout(coro, timeout: float = 5.0) -> BaseException | None:
             f"Pipeline did not complete within {timeout}s (Issue #103)"
         ) from None
     return raised
-
-
-# ---------------------------------------------------------------------------
-# Test A — cleanup() hang via stuck AsyncQueueBranch pump
-# ---------------------------------------------------------------------------
 
 
 @pytest.mark.asyncio
@@ -91,19 +74,18 @@ async def test_given_fanout_pump_blocked_when_consumer_raises_then_cleanup_hangs
     user code synchronously.  cleanup() must use a bounded timeout so the
     pipeline terminates.
     """
-    source_blocked = asyncio.Event()  # never set → source blocks forever
+    source_blocked = asyncio.Event()
     pump_started = asyncio.Event()
 
     async def blocked_producer() -> AsyncGenerator[int, None]:
-        await source_blocked.wait()  # blocks forever (simulating stuck I/O)
-        yield 1  # unreachable
-        yield  # pragma: no cover
+        await source_blocked.wait()
+        yield 1
+        yield
 
     async def consumer_a(blocked_producer: AsyncIterator[int]) -> None:
-        # Touch the iterator to start the pump task.
         pump_started.set()
         async for _x in blocked_producer:
-            pass  # pragma: no cover
+            pass
 
     async def consumer_b(blocked_producer: AsyncIterator[int]) -> None:
         await pump_started.wait()
@@ -118,29 +100,17 @@ async def test_given_fanout_pump_blocked_when_consumer_raises_then_cleanup_hangs
             step("consumer_b", fn=consumer_b, on_error=OnError.STOP),
         ],
     )
-
     try:
         exc = await _run_with_timeout(
             async_run(pipeline_def, EmptyParams()), timeout=5.0
         )
-    # When the pipeline completes within the timeout, ``exc`` is the captured
-    # exception (or None for clean success).  When it hangs, ``_run_with_timeout``
-    # raises ``_HangDetected``.
-    except _HangDetected as hd:  # noqa: PERF203
+    except _HangDetected as hd:
         pytest.fail(
-            "AsyncPipelineExecutor hung: cleanup() must not block on "
-            "asyncio.gather() for pump tasks indefinitely.  See Issue #103. "
-            f"Runner task exception context: {hd!r}"
+            f"AsyncPipelineExecutor hung: cleanup() must not block on asyncio.gather() for pump tasks indefinitely.  See Issue #103. Runner task exception context: {hd!r}"
         )
     assert exc is None or isinstance(exc, BaseException), (
-        "AsyncPipelineExecutor hung: cleanup() must not block on "
-        "asyncio.gather() for pump tasks indefinitely.  See Issue #103."
+        "AsyncPipelineExecutor hung: cleanup() must not block on asyncio.gather() for pump tasks indefinitely.  See Issue #103."
     )
-
-
-# ---------------------------------------------------------------------------
-# Test B — _run_graph() hang via in-flight task that never completes
-# ---------------------------------------------------------------------------
 
 
 @pytest.mark.asyncio
@@ -149,7 +119,7 @@ async def test_given_blocking_step_when_another_step_raises_then_run_graph_hangs
     on ``await``); _run_graph() must wake the event when fatal_error is set
     even though the blocker still runs.
     """
-    step_blocked = asyncio.Event()  # never set
+    step_blocked = asyncio.Event()
     blocking_started = asyncio.Event()
 
     async def blocking_step() -> None:
@@ -168,28 +138,17 @@ async def test_given_blocking_step_when_another_step_raises_then_run_graph_hangs
             step("failing_step", fn=failing_step, on_error=OnError.STOP),
         ],
     )
-
     try:
         exc = await _run_with_timeout(
             async_run(pipeline_def, EmptyParams()), timeout=5.0
         )
-    # PipelineStopException is fine (it's the expected propagation); a
-    # _HangDetected would mean the run loop hung on event.wait().
-    except _HangDetected as hd:  # noqa: PERF203
+    except _HangDetected as hd:
         pytest.fail(
-            "AsyncPipelineExecutor hung: _run_graph() must not block on "
-            "event.wait() indefinitely when one step fails.  See Issue #103. "
-            f"Runner task exception context: {hd!r}"
+            f"AsyncPipelineExecutor hung: _run_graph() must not block on event.wait() indefinitely when one step fails.  See Issue #103. Runner task exception context: {hd!r}"
         )
     assert exc is None or isinstance(exc, BaseException), (
-        "AsyncPipelineExecutor hung: _run_graph() must not block on "
-        "event.wait() indefinitely when one step fails.  See Issue #103."
+        "AsyncPipelineExecutor hung: _run_graph() must not block on event.wait() indefinitely when one step fails.  See Issue #103."
     )
-
-
-# ---------------------------------------------------------------------------
-# Test C — production scenario: build_arguments() leaks AsyncQueueBranch
-# ---------------------------------------------------------------------------
 
 
 @pytest.mark.asyncio
@@ -235,27 +194,18 @@ async def test_given_build_arguments_raises_when_max_in_flight_active_then_pump_
 
     async def run_pipeline() -> None:
         await AsyncPipelineExecutor(
-            pipeline_def.dag,
-            resource_factories={},  # production bug: downloader missing
+            build_dag(pipeline_def), resource_factories={}
         ).execute(EmptyParams())
 
     try:
         exc = await _run_with_timeout(run_pipeline(), timeout=5.0)
-    except _HangDetected as hd:  # noqa: PERF203
+    except _HangDetected as hd:
         pytest.fail(
-            "AsyncPipelineExecutor hung: build_arguments() failures must not "
-            "leak AsyncQueueBranch slots that block the pump.  See Issue #103. "
-            f"Runner task exception context: {hd!r}"
+            f"AsyncPipelineExecutor hung: build_arguments() failures must not leak AsyncQueueBranch slots that block the pump.  See Issue #103. Runner task exception context: {hd!r}"
         )
     assert exc is None or isinstance(exc, BaseException), (
-        "AsyncPipelineExecutor hung: build_arguments() failures must not "
-        "leak AsyncQueueBranch slots that block the pump.  See Issue #103."
+        "AsyncPipelineExecutor hung: build_arguments() failures must not leak AsyncQueueBranch slots that block the pump.  See Issue #103."
     )
-
-
-# ---------------------------------------------------------------------------
-# Test D — build_arguments() failure WITHOUT bounded handoff completes fast
-# ---------------------------------------------------------------------------
 
 
 @pytest.mark.asyncio
@@ -291,27 +241,18 @@ async def test_given_build_arguments_raises_without_bounded_handoff_then_no_hang
 
     async def run_pipeline() -> None:
         await AsyncPipelineExecutor(
-            pipeline_def.dag,
-            resource_factories={},
+            build_dag(pipeline_def), resource_factories={}
         ).execute(EmptyParams())
 
     try:
         exc = await _run_with_timeout(run_pipeline(), timeout=5.0)
-    except _HangDetected as hd:  # noqa: PERF203
+    except _HangDetected as hd:
         pytest.fail(
-            "AsyncPipelineExecutor with max_in_flight=1 should fail fast.  "
-            "If this hangs, something else is blocking.  See Issue #103. "
-            f"Runner task exception context: {hd!r}"
+            f"AsyncPipelineExecutor with max_in_flight=1 should fail fast.  If this hangs, something else is blocking.  See Issue #103. Runner task exception context: {hd!r}"
         )
     assert exc is None or isinstance(exc, BaseException), (
-        "AsyncPipelineExecutor with max_in_flight=1 should fail fast.  If "
-        "this hangs, something else is blocking."
+        "AsyncPipelineExecutor with max_in_flight=1 should fail fast.  If this hangs, something else is blocking."
     )
-
-
-# ---------------------------------------------------------------------------
-# Test E — OnError.CONTINUE, consumer raises mid-iteration
-# ---------------------------------------------------------------------------
 
 
 @pytest.mark.asyncio
@@ -340,28 +281,17 @@ async def test_given_consumer_raises_with_on_error_continue_then_pump_drains():
             step("consumer", fn=consumer, on_error=OnError.CONTINUE),
         ],
     )
-
     try:
         exc = await _run_with_timeout(
             async_run(pipeline_def, EmptyParams()), timeout=5.0
         )
-    except _HangDetected as hd:  # noqa: PERF203
+    except _HangDetected as hd:
         pytest.fail(
-            "AsyncPipelineExecutor with OnError.CONTINUE should drain cleanly "
-            "— pump's finally-block sends EOF_MARKER regardless.  Hang here "
-            "means the cleanup timeout was not bounded.  See Issue #103. "
-            f"Runner task exception context: {hd!r}"
+            f"AsyncPipelineExecutor with OnError.CONTINUE should drain cleanly — pump's finally-block sends EOF_MARKER regardless.  Hang here means the cleanup timeout was not bounded.  See Issue #103. Runner task exception context: {hd!r}"
         )
     assert exc is None or isinstance(exc, BaseException), (
-        "AsyncPipelineExecutor with OnError.CONTINUE should drain cleanly "
-        "— pump's finally-block sends EOF_MARKER regardless.  Hang here "
-        "means the cleanup timeout was not bounded."
+        "AsyncPipelineExecutor with OnError.CONTINUE should drain cleanly — pump's finally-block sends EOF_MARKER regardless.  Hang here means the cleanup timeout was not bounded."
     )
-
-
-# ---------------------------------------------------------------------------
-# Test F — OnError.STOP, consumer raises mid-iteration with fanout
-# ---------------------------------------------------------------------------
 
 
 @pytest.mark.asyncio
@@ -396,27 +326,18 @@ async def test_given_consumer_raises_with_on_error_stop_and_fanout_then_pump_dra
             step("consumer_b", fn=consumer_b, on_error=OnError.STOP),
         ],
     )
-
     exc: BaseException | None
     try:
         exc = await _run_with_timeout(
             async_run(pipeline_def, EmptyParams()), timeout=5.0
         )
-    # If the run completed normally, exc is None.  If it raised, we expect
-    # PipelineStopException.  Any other exception is unexpected.  Hang is
-    # signalled by ``_HangDetected``.
-    except _HangDetected as hd:  # noqa: PERF203
+    except _HangDetected as hd:
         pytest.fail(
-            "AsyncPipelineExecutor with OnError.STOP should propagate "
-            "PipelineStopException.  Hang here means the run loop is "
-            "blocked.  See Issue #103. "
-            f"Runner task exception context: {hd!r}"
+            f"AsyncPipelineExecutor with OnError.STOP should propagate PipelineStopException.  Hang here means the run loop is blocked.  See Issue #103. Runner task exception context: {hd!r}"
         )
-        return  # unreachable: pytest.fail raises; silence linters
+        return
     assert exc is None or isinstance(exc, BaseException), (
-        "AsyncPipelineExecutor with OnError.STOP should propagate "
-        "PipelineStopException.  Hang here means the run loop is "
-        "blocked."
+        "AsyncPipelineExecutor with OnError.STOP should propagate PipelineStopException.  Hang here means the run loop is blocked."
     )
     if exc is not None:
         assert isinstance(exc, PipelineStopException)

@@ -1,25 +1,8 @@
-"""Design-time tests for `DagNode.step_index_in_scope` and
-`step_total_in_scope` (issue #105).
+"Design-time tests for `DagNode.step_index_in_scope` and\n`step_total_in_scope` (issue #105).\n\nThese verify the values are stamped onto each `DagNode` during\n`build_dag`, before any pipeline ever runs. They inspect the DAG only —\nno `run` calls, no observers, no executors.\n\nThe patterns mirror `tests/core/test_dag_expansion.py` to stay aligned\nwith what synaflow's dep wiring actually accepts. Note: we deliberately\navoid ``from __future__ import annotations`` because it changes how\n``get_type_hints`` resolves step annotations in include flows, which\nexposes a pre-existing mode-inference subtlety that's unrelated to this\nissue.\n"
 
-These verify the values are stamped onto each `DagNode` during
-`build_dag`, before any pipeline ever runs. They inspect the DAG only —
-no `run` calls, no observers, no executors.
-
-The patterns mirror `tests/core/test_dag_expansion.py` to stay aligned
-with what synaflow's dep wiring actually accepts. Note: we deliberately
-avoid ``from __future__ import annotations`` because it changes how
-``get_type_hints`` resolves step annotations in include flows, which
-exposes a pre-existing mode-inference subtlety that's unrelated to this
-issue.
-"""
-
+from synaflow.core.dag_builder import build_dag
 from typing import Iterator, NamedTuple
-
-
 from synaflow import include, pipeline, step
-# ---------------------------------------------------------------------------
-# Fixtures (mirroring test_dag_expansion.py patterns).
-# ---------------------------------------------------------------------------
 
 
 class BParams(NamedTuple):
@@ -55,32 +38,19 @@ def consolidate(my_text_processor: list[int]) -> int:
     return sum(my_text_processor)
 
 
-# ---------------------------------------------------------------------------
-# 1. Flat single pipeline: 1 scope, indices 1..N
-# ---------------------------------------------------------------------------
-
-
 def test_flat_pipeline_stamps_step_index_and_total_per_scope():
     p = pipeline(
         name="flat",
         params=BParams,
-        steps=[
-            step("func_b1", fn=func_b1),
-            step("func_b2", fn=func_b2),
-        ],
+        steps=[step("func_b1", fn=func_b1), step("func_b2", fn=func_b2)],
     )
-    dag = p.dag
+    dag = build_dag(p)
     flat_steps = [n for n in dag.steps.values() if n.pipeline == "flat"]
     assert len(flat_steps) >= 2
     for node in flat_steps:
         assert node.step_total_in_scope == len(flat_steps)
-    indices = sorted(n.step_index_in_scope for n in flat_steps)
+    indices = sorted((n.step_index_in_scope for n in flat_steps))
     assert indices == list(range(1, len(flat_steps) + 1))
-
-
-# ---------------------------------------------------------------------------
-# 2. Pipeline with 1 include: adapter in caller scope, inner steps in sub
-# ---------------------------------------------------------------------------
 
 
 def test_one_include_adapter_in_caller_inner_steps_in_sub():
@@ -92,28 +62,17 @@ def test_one_include_adapter_in_caller_inner_steps_in_sub():
             step("consolidate", fn=consolidate),
         ],
     )
-    dag = pipe_a.dag
-
+    dag = build_dag(pipe_a)
     main_steps = [n for n in dag.steps.values() if n.pipeline == "MainPipeline"]
     sub_steps = [n for n in dag.steps.values() if n.pipeline == "TextProcessor"]
-
-    # Main scope: adapter + consolidate (both declared at top level).
     assert len(main_steps) == 2
     for node in main_steps:
         assert node.step_total_in_scope == 2
-
-    # Sub scope: func_b1 + func_b2. Adapter belongs to MainPipeline.
     assert len(sub_steps) == 2
     for node in sub_steps:
         assert node.step_total_in_scope == 2, (
-            f"Sub step {node.pipeline!r} index={node.step_index_in_scope} "
-            f"total={node.step_total_in_scope} expected 2"
+            f"Sub step {node.pipeline!r} index={node.step_index_in_scope} total={node.step_total_in_scope} expected 2"
         )
-
-
-# ---------------------------------------------------------------------------
-# 3. Multiple sub-pipelines: independent scope totals
-# ---------------------------------------------------------------------------
 
 
 def test_multiple_includes_have_independent_scope_totals():
@@ -125,59 +84,26 @@ def test_multiple_includes_have_independent_scope_totals():
             include("textproc_b", pipeline=pipe_b, fn=prepare_b_each),
         ],
     )
-    dag = pipe_a.dag
-
+    dag = build_dag(pipe_a)
     main_steps = [n for n in dag.steps.values() if n.pipeline == "MainPipeline"]
     sub_steps = [n for n in dag.steps.values() if n.pipeline == "TextProcessor"]
-
-    # Two adapters in main scope.
     assert len(main_steps) == 2
     for node in main_steps:
         assert node.step_total_in_scope == 2
-
-    # Both includes reference pipe_b ("TextProcessor"), so they share
-    # scope: 4 inner step nodes (2 per include instance) — but each
-    # carries the SUB-pipeline's own definition size as its total
-    # (per-definition stamping, not concatenated).
     assert len(sub_steps) == 4
     for node in sub_steps:
         assert node.step_total_in_scope == 2
 
 
-# ---------------------------------------------------------------------------
-# 4. (deferred) 3-level nesting: master → cvm_reports → filters
-#
-# NOTE: Skipped due to a pre-existing framework bug in
-# `_expand_sub_pipeline_steps` (synaflow/core/dag_expansion.py). When a
-# sub-pipeline is itself included (cvm_reports by master), the second-
-# level expansion incorrectly reuses the outer sub-pipeline's name as
-# the `pipeline` field for ALL steps, including those expanded from a
-# nested include. As a result, innermost step names end up with
-# `pipeline=<caller>` instead of `pipeline=<innermost>`. This is
-# orthogonal to issue #105 and should be tracked in a separate issue.
-# ---------------------------------------------------------------------------
-
-
-# ---------------------------------------------------------------------------
-# 5. Invariant guarantees — pipeline must be set on DagNode, errors loud
-# ---------------------------------------------------------------------------
-
-
 def _build_master_pipe():
     """Local helper to build a simple include-based pipeline for the
     invariant-regression tests below. Mirrors test_dag_expansion.py."""
-
     master = pipeline(
         name="MainPipeline",
         params=AParams,
         steps=[include("my_text_processor", pipeline=pipe_b, fn=prepare_b_each)],
     )
     return master
-
-
-# ---------------------------------------------------------------------------
-# 5. Sibling includes of same SubPipelineDef share the scope
-# ---------------------------------------------------------------------------
 
 
 def test_sibling_includes_of_same_definition_share_scope_with_per_definition_totals():
@@ -195,20 +121,13 @@ def test_sibling_includes_of_same_definition_share_scope_with_per_definition_tot
             include("second", pipeline=pipe_b, fn=prepare_b_each),
         ],
     )
-    dag = pipe_a.dag
-
+    dag = build_dag(pipe_a)
     shared = [n for n in dag.steps.values() if n.pipeline == "TextProcessor"]
-    # Two includes of same definition = 4 inner steps sharing one scope name.
     assert len(shared) == 4
     for node in shared:
-        assert node.step_total_in_scope == 2  # per-definition, not concatenated
-    indices = sorted(n.step_index_in_scope for n in shared)
+        assert node.step_total_in_scope == 2
+    indices = sorted((n.step_index_in_scope for n in shared))
     assert indices == [1, 1, 2, 2]
-
-
-# ---------------------------------------------------------------------------
-# 7. to_serializable() emits the new fields
-# ---------------------------------------------------------------------------
 
 
 def test_dag_node_to_serializable_includes_step_index_and_total():
@@ -220,18 +139,12 @@ def test_dag_node_to_serializable_includes_step_index_and_total():
             step("consolidate", fn=consolidate),
         ],
     )
-    dag = pipe_a.dag
-    # Pick an inner sub step.
+    dag = build_dag(pipe_a)
     serialized = dag.steps["my_text_processor__func_b1"].to_serializable()
     assert "step_index_in_scope" in serialized
     assert "step_total_in_scope" in serialized
     assert isinstance(serialized["step_index_in_scope"], int)
     assert isinstance(serialized["step_total_in_scope"], int)
-
-
-# ---------------------------------------------------------------------------
-# 8. PipelineDef.fill_scope_metadata (design-time stamping)
-# ---------------------------------------------------------------------------
 
 
 def test_pipeline_def_fill_scope_metadata_stamps_direct_steps():
@@ -248,24 +161,18 @@ def test_pipeline_def_fill_scope_metadata_stamps_direct_steps():
             step("consolidate", fn=consolidate),
         ],
     )
-    # MainPipeline scope: 2 items (1 include + 1 plain step).
     assert pipe_a.steps[0].index_in_scope == 1
     assert pipe_a.steps[0].total_in_scope == 2
     assert pipe_a.steps[1].index_in_scope == 2
     assert pipe_a.steps[1].total_in_scope == 2
-    # pipe_b scope: 2 items (both plain steps).
     assert pipe_b.steps[0].index_in_scope == 1
     assert pipe_b.steps[0].total_in_scope == 2
     assert pipe_b.steps[1].index_in_scope == 2
     assert pipe_b.steps[1].total_in_scope == 2
-    # Inner wrappers in the compiled dag inherit sub-pipeline metadata.
-    # pipe_b has ``exports="func_b2"``, so the exported wrapper is
-    # named just ``"my_text_processor"`` (the include prefix), not
-    # ``my_text_processor__func_b2``.
     for inner in ("my_text_processor__func_b1", "my_text_processor"):
-        node = pipe_a.dag.steps[inner]
+        node = build_dag(pipe_a).steps[inner]
         assert node.pipeline == "TextProcessor"
-        assert node.step_total_in_scope == 2  # sub's OWN scope size
+        assert node.step_total_in_scope == 2
 
 
 def test_pipeline_def_fill_scope_metadata_multi_instance_uses_per_definition_total():
@@ -285,16 +192,7 @@ def test_pipeline_def_fill_scope_metadata_multi_instance_uses_per_definition_tot
             include("second", pipeline=pipe_b, fn=prepare_b_each),
         ],
     )
-    # MainPipeline scope has 2 items (both includes).
     for include_step in pipe_a.steps:
         assert include_step.total_in_scope == 2
-    # Both instances of pipe_b's inner wrappers report the SUB's own
-    # scope size, not the concatenated 4. The exported step in each
-    # include is named just the prefix (``first`` / ``second``).
-    for inner in (
-        "first__func_b1",
-        "first",
-        "second__func_b1",
-        "second",
-    ):
-        assert pipe_a.dag.steps[inner].step_total_in_scope == 2
+    for inner in ("first__func_b1", "first", "second__func_b1", "second"):
+        assert build_dag(pipe_a).steps[inner].step_total_in_scope == 2

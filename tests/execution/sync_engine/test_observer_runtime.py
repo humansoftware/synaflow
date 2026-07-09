@@ -1,9 +1,8 @@
+from synaflow.core.dag_builder import build_dag
 import logging
 from collections.abc import Iterator as Iter
 from typing import Iterator, NamedTuple
-
 import pytest
-
 from synaflow import (
     MaterializationEvent,
     Observer,
@@ -33,23 +32,14 @@ class EmptyParams(NamedTuple):
     pass
 
 
-# ---------------------------------------------------------------------------
-# Wrapper-level event filter (per spec: filtering lives above the core)
-# ---------------------------------------------------------------------------
-
-
 def on_event(event_type, handler):
+
     def wrapper(ctx):
         if ctx.event is event_type:
             return handler(ctx)
 
     wrapper.__name__ = getattr(handler, "__name__", "on_event")
     return wrapper
-
-
-# ---------------------------------------------------------------------------
-# Helper: observer that records all events for a specific event type
-# ---------------------------------------------------------------------------
 
 
 class EventRecorder:
@@ -60,11 +50,6 @@ class EventRecorder:
     def record(self, ctx):
         if self.event_type is None or ctx.event is self.event_type:
             self.events.append((type(ctx).__name__, ctx))
-
-
-# ---------------------------------------------------------------------------
-# Pipeline events
-# ---------------------------------------------------------------------------
 
 
 def test_given_pipeline_run_id_is_consistent_and_unique_per_run():
@@ -79,15 +64,10 @@ def test_given_pipeline_run_id_is_consistent_and_unique_per_run():
         steps=[step("dummy", fn=dummy)],
         observers=[Observer(rec.record)],
     )
-
     run(p, Params(values=[1]))
     run(p, Params(values=[2]))
-
-    # Assert p run
     run_ids = {ctx.run_id for _, ctx in rec.events}
     assert len(run_ids) == 2
-
-    # Assert each run_id has events associated with it
     for r_id in run_ids:
         assert isinstance(r_id, str) and len(r_id) > 0
 
@@ -104,14 +84,10 @@ def test_given_pipeline_observer_when_run_completes_then_started_and_completed_e
     p = pipeline(
         name="p",
         params=Params,
-        steps=[
-            step("gen", fn=gen),
-            step("consumer", fn=consumer),
-        ],
+        steps=[step("gen", fn=gen), step("consumer", fn=consumer)],
         observers=[Observer(rec.record)],
     )
     run(p, Params(values=[1, 2]))
-
     names = [e[0] for e in rec.events]
     assert "PipelineStartedContext" in names
     assert "PipelineCompletedContext" in names
@@ -135,7 +111,6 @@ def test_given_pipeline_observer_when_step_fails_stop_then_failed_emitted():
     )
     with pytest.raises(Exception):
         run(p, Params(values=[1]))
-
     assert len(rec.events) == 1
     name, ctx = rec.events[0]
     assert name == "PipelineFailedContext"
@@ -158,15 +133,9 @@ def test_given_pipeline_failed_context_then_has_fields():
     )
     with pytest.raises(Exception):
         run(p, Params(values=[1]))
-
     ctx = rec.events[0][1]
     assert ctx.pipeline_name == "my_pipe"
     assert ctx.event is PipelineEvent.FAILED
-
-
-# ---------------------------------------------------------------------------
-# Step events — ALL mode
-# ---------------------------------------------------------------------------
 
 
 def test_given_all_mode_step_when_succeeds_then_started_and_completed_emitted():
@@ -181,7 +150,6 @@ def test_given_all_mode_step_when_succeeds_then_started_and_completed_emitted():
         steps=[step("s", fn=identity, observers=[Observer(rec.record)])],
     )
     run(p, Params(values=[42]))
-
     names = [e[0] for e in rec.events]
     assert "StepStartedContext" in names
     assert "StepCompletedContext" in names
@@ -206,7 +174,6 @@ def test_given_all_mode_step_completed_then_counts_correct():
         ],
     )
     run(p, Params(values=[42]))
-
     ctx = rec.events[0][1]
     assert ctx.success_count == 1
     assert ctx.error_count == 0
@@ -234,16 +201,10 @@ def test_given_all_mode_step_when_fails_stop_then_failed_emitted():
     )
     with pytest.raises(Exception):
         run(p, Params(values=[1]))
-
     ctx = rec.events[0][1]
     assert isinstance(ctx, StepFailedContext)
     assert ctx.completed_all_inputs is False
     assert isinstance(ctx.exception, ValueError)
-
-
-# ---------------------------------------------------------------------------
-# Step events — EACH mode
-# ---------------------------------------------------------------------------
 
 
 def test_given_each_mode_step_when_all_items_succeed_then_completed_with_counts():
@@ -272,7 +233,6 @@ def test_given_each_mode_step_when_all_items_succeed_then_completed_with_counts(
         ],
     )
     run(p, Params(values=[1, 2, 3]))
-
     ctx = rec.events[0][1]
     assert isinstance(ctx, StepCompletedContext)
     assert ctx.mode == StepMode.EACH
@@ -314,7 +274,6 @@ def test_given_each_mode_step_when_some_fail_continue_then_completed_not_failed(
         ],
     )
     run(p, Params(values=[1, 2, 3]))
-
     assert len(rec_comp.events) == 1
     ctx = rec_comp.events[0][1]
     assert isinstance(ctx, StepCompletedContext)
@@ -352,16 +311,10 @@ def test_given_each_mode_step_when_item_fails_stop_then_failed_with_partial_coun
     )
     with pytest.raises(Exception):
         run(p, Params(values=[1, 2, 3]))
-
     ctx = rec.events[0][1]
     assert isinstance(ctx, StepFailedContext)
     assert ctx.completed_all_inputs is False
     assert isinstance(ctx.exception, ValueError)
-
-
-# ---------------------------------------------------------------------------
-# Materialization events
-# ---------------------------------------------------------------------------
 
 
 def test_given_step_with_list_consumer_when_materialized_then_events_emitted():
@@ -382,7 +335,6 @@ def test_given_step_with_list_consumer_when_materialized_then_events_emitted():
         ],
     )
     run(p, Params(values=[1, 2]))
-
     names = [e[0] for e in rec.events]
     assert "MaterializationStartedContext" in names
     assert "MaterializationCompletedContext" in names
@@ -415,7 +367,6 @@ def test_given_materialization_context_then_has_fields():
         ],
     )
     run(p, Params(values=[1]))
-
     ctx = rec.events[0][1]
     assert isinstance(ctx, MaterializationStartedContext)
     assert ctx.step_name == "gen"
@@ -427,6 +378,7 @@ def test_given_materialization_when_fails_then_failed_emitted():
     rec = EventRecorder(MaterializationEvent.FAILED)
 
     def bad_mat(ctx):
+
         def fail(value):
             raise ValueError("mat failed")
 
@@ -458,7 +410,6 @@ def test_given_materialization_when_fails_then_failed_emitted():
         run(p, Params(values=[1]))
     except Exception:
         pass
-
     assert len(rec.events) >= 1
     assert isinstance(rec.events[0][1].exception, ValueError)
 
@@ -488,16 +439,11 @@ def test_given_lazy_consumer_when_no_materialization_then_no_materialization_eve
         ],
     )
     run(p, Params(values=[1]))
-
     assert len(rec.events) == 0
 
 
-# ---------------------------------------------------------------------------
-# Observer failure isolation
-# ---------------------------------------------------------------------------
-
-
 def test_given_observer_raises_when_dispatched_then_step_still_succeeds(caplog):
+
     def bad_observer(ctx):
         raise RuntimeError("observer failure")
 
@@ -541,12 +487,8 @@ def test_given_observer_raises_when_dispatched_then_other_observers_still_called
     assert len(rec.events) == 1
 
 
-# ---------------------------------------------------------------------------
-# Laziness / materialization preservation
-# ---------------------------------------------------------------------------
-
-
 def test_given_observers_when_lazy_step_then_output_remains_iterator():
+
     def gen(values: list[int]) -> Iter[int]:
         yield from values
 
@@ -608,13 +550,13 @@ def test_given_step_returning_list_when_observed_then_success_count_reflects_log
         steps=[step("prod", fn=producer), step("cons", fn=consumer)],
         observers=[Observer(rec.record)],
     )
-
     run(p, params=Params(values=[1, 2, 3]))
-
     cons_event = next(
-        ctx
-        for name, ctx in rec.events
-        if isinstance(ctx, StepCompletedContext) and ctx.step_name == "cons"
+        (
+            ctx
+            for name, ctx in rec.events
+            if isinstance(ctx, StepCompletedContext) and ctx.step_name == "cons"
+        )
     )
     assert cons_event.success_count == 3
 
@@ -632,8 +574,6 @@ def test_given_lazy_generator_step_when_observed_then_step_started_event_fires_o
             isinstance(ctx, StepStartedContext)
             and getattr(ctx, "step_name", None) == "prod"
         ):
-            # the step started event should ONLY fire after the generator actually starts!
-            # or at the same time it is pulled.
             assert state["generator_started"] is True, (
                 "StepStarted fired before generator actually started!"
             )
@@ -645,20 +585,11 @@ def test_given_lazy_generator_step_when_observed_then_step_started_event_fires_o
     p = pipeline(
         name="test_p",
         params=Params,
-        steps=[
-            step("prod", fn=producer),
-            step("cons", fn=consumer),
-        ],
+        steps=[step("prod", fn=producer), step("cons", fn=consumer)],
         observers=[Observer(observer)],
     )
-
     run(p, params=Params(values=[]))
     assert state["step_started_event_fired"] is True
-
-
-# ---------------------------------------------------------------------------
-# issue #105: scope-stamped fields flow through to observer contexts
-# ---------------------------------------------------------------------------
 
 
 def test_given_step_started_context_carries_scope_index_and_total():
@@ -676,11 +607,12 @@ def test_given_step_started_context_carries_scope_index_and_total():
         observers=[Observer(rec.record)],
     )
     run(p, params=Params(values=[1, 2, 3]))
-
     started = next(
-        ctx
-        for _, ctx in rec.events
-        if isinstance(ctx, StepStartedContext) and ctx.step_name == "a"
+        (
+            ctx
+            for _, ctx in rec.events
+            if isinstance(ctx, StepStartedContext) and ctx.step_name == "a"
+        )
     )
     assert started.pipeline_scope == "scope_test"
     assert started.step_index_in_scope == 1
@@ -701,11 +633,12 @@ def test_given_step_completed_context_carries_scope_index_and_total():
         observers=[Observer(rec.record)],
     )
     run(p, params=Params(values=[1, 2, 3]))
-
     completed = next(
-        ctx
-        for _, ctx in rec.events
-        if isinstance(ctx, StepCompletedContext) and ctx.step_name == "a"
+        (
+            ctx
+            for _, ctx in rec.events
+            if isinstance(ctx, StepCompletedContext) and ctx.step_name == "a"
+        )
     )
     assert completed.pipeline_scope == "scope_test_done"
     assert completed.step_index_in_scope == 1
@@ -729,11 +662,12 @@ def test_given_step_failed_context_carries_scope_index_and_total():
         run(p, params=Params(values=[1]))
     except RuntimeError:
         pass
-
     failed = next(
-        ctx
-        for _, ctx in rec.events
-        if isinstance(ctx, StepFailedContext) and ctx.step_name == "a"
+        (
+            ctx
+            for _, ctx in rec.events
+            if isinstance(ctx, StepFailedContext) and ctx.step_name == "a"
+        )
     )
     assert failed.pipeline_scope == "scope_fail"
     assert failed.step_index_in_scope == 1
@@ -757,8 +691,6 @@ def test_given_step_in_sub_pipeline_reports_sub_pipeline_scope():
         return fn_inner * 10
 
     def adapter_fn(raw_strings: list[str]) -> Iterator[InnerParams]:
-        # All-mode include consumes the adapter's output once and
-        # dispatches per-instance to the inner pipeline.
         for s in raw_strings:
             yield InnerParams(text=s)
 
@@ -769,10 +701,7 @@ def test_given_step_in_sub_pipeline_reports_sub_pipeline_scope():
         name="Inner",
         params=InnerParams,
         exports="fn_export",
-        steps=[
-            step("fn_inner", fn=fn_inner),
-            step("fn_export", fn=fn_export),
-        ],
+        steps=[step("fn_inner", fn=fn_inner), step("fn_export", fn=fn_export)],
     )
     rec = EventRecorder()
     p = pipeline(
@@ -782,21 +711,14 @@ def test_given_step_in_sub_pipeline_reports_sub_pipeline_scope():
         observers=[Observer(rec.record)],
     )
     run(p, params=OuterParams(raw_strings=["a", "bb"]))
-
     started_by_name = {
         ctx.step_name: ctx
         for _, ctx in rec.events
         if isinstance(ctx, StepStartedContext)
     }
-    # Adapter reports the *caller's* scope.
     assert started_by_name["inner__adapter"].pipeline_scope == "OuterTwoLevel"
-    # Inner sub-step reports the *sub-pipeline's* scope.
     assert started_by_name["inner__fn_inner"].pipeline_scope == "Inner"
-    # Exported inner step collapses onto the include name ("inner").
-    # NOTE: in an orphan include (no downstream consumer), the export
-    # collapse is a dag node but may not actually execute in the run.
-    # We test the dag-level assertion of its scope directly instead.
-    inner_dag_node = p.dag.steps["inner"]
+    inner_dag_node = build_dag(p).steps["inner"]
     assert inner_dag_node.pipeline == "Inner"
     assert inner_dag_node.step_total_in_scope == 2
 
@@ -818,21 +740,15 @@ def test_given_step_index_in_scope_starts_at_one():
     p = pipeline(
         name="one_indexed",
         params=Params,
-        steps=[
-            step("fn_a", fn=fn_a),
-            step("fn_b", fn=fn_b),
-            step("fn_c", fn=fn_c),
-        ],
+        steps=[step("fn_a", fn=fn_a), step("fn_b", fn=fn_b), step("fn_c", fn=fn_c)],
         observers=[Observer(rec.record)],
     )
     run(p, params=Params(values=[7]))
-
     started = {
         ctx.step_name: ctx
         for _, ctx in rec.events
         if isinstance(ctx, StepStartedContext)
     }
-    # First step: index=1 (not 0); all share same total (3).
     assert started["fn_a"].step_index_in_scope == 1
     assert started["fn_a"].step_total_in_scope == 3
     assert started["fn_b"].step_index_in_scope == 2
@@ -860,11 +776,9 @@ def test_given_pipeline_started_context_does_not_carry_step_scope_fields():
         observers=[Observer(rec.record)],
     )
     run(p, params=Params(values=[1, 2, 3]))
-
     started = next(
-        ctx for _, ctx in rec.events if isinstance(ctx, PipelineStartedContext)
+        (ctx for _, ctx in rec.events if isinstance(ctx, PipelineStartedContext))
     )
-    # Step-scope fields must NOT leak into pipeline-level contexts:
     assert not hasattr(started, "pipeline_scope") or started.pipeline_scope in (
         None,
         "",

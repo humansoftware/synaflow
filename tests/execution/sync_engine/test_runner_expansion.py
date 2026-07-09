@@ -1,6 +1,5 @@
+from synaflow.core.dag_builder import build_dag
 from typing import Iterator, NamedTuple
-
-
 from synaflow import include, pipeline, step
 
 
@@ -46,13 +45,10 @@ def test_runner_executes_flattened_pipeline_each_mode():
             step("consolidate", fn=consolidate),
         ],
     )
-
     from synaflow.execution.sync_engine.executor import PipelineExecutor
 
-    executor = PipelineExecutor(pipe_a.dag)
+    executor = PipelineExecutor(build_dag(pipe_a))
     executor.execute(params=AParams(raw_texts=["hi", "world", "synaflow"]))
-    # len("hi") = 2, len("world") = 5, len("synaflow") = 8
-    # sum = 15
     assert executor.outputs["consolidate"] == 15
 
 
@@ -89,16 +85,9 @@ def test_given_sub_pipeline_resource_inherited_when_run_then_resource_is_injecte
         return SubParams(value=value)
 
     p = pipeline(
-        name="parent",
-        params=Params,
-        steps=[include("incl", pipeline=sub, fn=adapt)],
+        name="parent", params=Params, steps=[include("incl", pipeline=sub, fn=adapt)]
     )
-
     run(p, Params())
-
-    # The sub-pipeline's `db` resource is inherited into the parent; the
-    # executor must inject the DB instance into the sub-step without the
-    # parent declaring it. Regression for issue #100.
     assert len(seen) == 1
     db_instance, value = seen[0]
     assert isinstance(db_instance, DB)
@@ -123,7 +112,7 @@ def test_given_two_subs_same_resource_instance_when_run_then_resource_is_injecte
         seen.append((db, value))
         return value
 
-    shared = DB()  # a single instance, reused as the factory in both subs
+    shared = DB()
 
     def get_shared() -> DB:
         return shared
@@ -157,11 +146,7 @@ def test_given_two_subs_same_resource_instance_when_run_then_resource_is_injecte
             include("incl_b", pipeline=sub_b, fn=adapt_b),
         ],
     )
-
     run(p, Params())
-
-    # Both sub-steps must have run; the shared `db` resource is the
-    # same instance in both subs and is injected into both.
     assert len(seen) == 2
     for db_instance, value in seen:
         assert db_instance is shared

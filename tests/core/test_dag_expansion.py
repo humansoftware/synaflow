@@ -1,3 +1,4 @@
+from synaflow.core.dag_builder import build_dag
 from typing import Iterator, NamedTuple
 import pytest
 from synaflow import StepMode, include, pipeline, step
@@ -45,7 +46,7 @@ def test_pipeline_compiles_flattened_dag():
             step("consolidate", fn=consolidate),
         ],
     )
-    dag = pipe_a.dag
+    dag = build_dag(pipe_a)
     assert "my_text_processor__adapter" in dag
     assert "my_text_processor__func_b1" in dag
     assert "my_text_processor" in dag
@@ -66,7 +67,7 @@ def test_include_step_requires_return_type_hint():
         steps=[include("bad_sub", pipeline=pipe_b, fn=bad_adapter)],
     )
     with pytest.raises(ValueError, match="must have a return type hint"):
-        p.dag
+        build_dag(p)
 
 
 def test_include_step_requires_pipeline_exports():
@@ -79,7 +80,7 @@ def test_include_step_requires_pipeline_exports():
         steps=[include("bad_sub", pipeline=pipe_no_exports, fn=prepare_b_each)],
     )
     with pytest.raises(ValueError, match="does not define 'exports'"):
-        p.dag
+        build_dag(p)
 
 
 def test_include_step_requires_strict_type_hint():
@@ -93,7 +94,7 @@ def test_include_step_requires_strict_type_hint():
         steps=[include("bad_sub", pipeline=pipe_b, fn=bad_type_adapter)],
     )
     with pytest.raises(ValueError, match="must return 'BParams'"):
-        p.dag
+        build_dag(p)
 
 
 def test_infinite_cycle_detection():
@@ -123,7 +124,7 @@ def test_infinite_cycle_detection():
         steps=[include("start", pipeline=pipe_cycle_a, fn=dummy)],
     )
     with pytest.raises(ValueError, match="Infinite cycle detected"):
-        p.dag
+        build_dag(p)
 
 
 def test_sub_pipeline_preserves_explicit_step_mode_after_expansion():
@@ -158,8 +159,8 @@ def test_sub_pipeline_preserves_explicit_step_mode_after_expansion():
         params=ParentParams,
         steps=[include("child", pipeline=child, fn=adapt)],
     )
-    assert parent.dag.steps["child"].mode is StepMode.EACH
-    assert parent.dag.steps["child"].each_mode_deps == ["child__emit"]
+    assert build_dag(parent).steps["child"].mode is StepMode.EACH
+    assert build_dag(parent).steps["child"].each_mode_deps == ["child__emit"]
 
 
 def test_sub_pipeline_preserves_explicit_all_mode_after_expansion():
@@ -188,8 +189,8 @@ def test_sub_pipeline_preserves_explicit_all_mode_after_expansion():
         params=ParentParams,
         steps=[include("child", pipeline=child, fn=adapt)],
     )
-    assert parent.dag.steps["child"].mode is StepMode.ALL
-    assert parent.dag.steps["child"].each_mode_deps == []
+    assert build_dag(parent).steps["child"].mode is StepMode.ALL
+    assert build_dag(parent).steps["child"].each_mode_deps == []
 
 
 def test_include_expansion_preserves_pipeline_metadata_and_materializer_overrides():
@@ -236,8 +237,8 @@ def test_include_expansion_preserves_pipeline_metadata_and_materializer_override
         params=ParentParams,
         steps=[include("child", pipeline=child, fn=adapt)],
     )
-    adapter = parent.dag.steps["child__adapter"]
-    exported = parent.dag.steps["child"]
+    adapter = build_dag(parent).steps["child__adapter"]
+    exported = build_dag(parent).steps["child"]
     assert adapter.pipeline == "Parent"
     assert adapter.parent_pipeline is None
     assert exported.pipeline == "Child"
@@ -277,7 +278,7 @@ def test_include_expansion_rewrites_wrapper_signature_to_adapter_and_prefixed_in
         params=ParentParams,
         steps=[include("child", pipeline=child, fn=adapt)],
     )
-    wrapped = parent.dag.steps["child"].fn
+    wrapped = build_dag(parent).steps["child"].fn
     signature = wrapped.__signature__
     assert list(signature.parameters) == ["child__emit", "child__adapter"]
     assert signature.parameters["child__emit"].annotation is int
@@ -310,7 +311,7 @@ def test_sub_pipeline_preserves_max_in_flight_after_expansion():
         params=ParentParams,
         steps=[include("child", pipeline=child, fn=adapt)],
     )
-    assert parent.dag.steps["child"].max_in_flight == 30
+    assert build_dag(parent).steps["child"].max_in_flight == 30
 
 
 def test_adapter_step_serializes_default_max_in_flight():
@@ -364,5 +365,5 @@ def test_include_with_multiple_params_fields():
         exports="sub",
         steps=[include("sub", fn=adapter, pipeline=sub_pipeline)],
     )
-    assert "sub__adapter" in parent.dag
-    assert "sub" in parent.dag
+    assert "sub__adapter" in build_dag(parent)
+    assert "sub" in build_dag(parent)

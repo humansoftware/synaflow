@@ -1,5 +1,6 @@
-"""Build-time validation for error_threshold_absolute and error_threshold_pct."""
+"Build-time validation for error_threshold_absolute and error_threshold_pct."
 
+from synaflow.core.dag_builder import build_dag
 from typing import NamedTuple
 import pytest
 from synaflow import OnError, StepMode, pipeline, step
@@ -19,8 +20,8 @@ def test_given_no_threshold_when_compiled_then_dag_node_fields_are_none():
         return items
 
     p = pipeline(name="test", params=IntListParams, steps=[step("s", fn=fn)])
-    assert p.dag.steps["s"].error_threshold_absolute is None
-    assert p.dag.steps["s"].error_threshold_pct is None
+    assert build_dag(p).steps["s"].error_threshold_absolute is None
+    assert build_dag(p).steps["s"].error_threshold_pct is None
 
 
 def test_given_absolute_threshold_when_compiled_then_stored():
@@ -29,8 +30,8 @@ def test_given_absolute_threshold_when_compiled_then_stored():
         params=IntListParams,
         steps=[step("s", fn=_each_step, error_threshold_absolute=5)],
     )
-    assert p.dag.steps["s"].error_threshold_absolute == 5
-    assert p.dag.steps["s"].error_threshold_pct is None
+    assert build_dag(p).steps["s"].error_threshold_absolute == 5
+    assert build_dag(p).steps["s"].error_threshold_pct is None
 
 
 def test_given_pct_threshold_when_compiled_then_stored():
@@ -39,8 +40,8 @@ def test_given_pct_threshold_when_compiled_then_stored():
         params=IntListParams,
         steps=[step("s", fn=_each_step, error_threshold_pct=0.3)],
     )
-    assert p.dag.steps["s"].error_threshold_absolute is None
-    assert p.dag.steps["s"].error_threshold_pct == 0.3
+    assert build_dag(p).steps["s"].error_threshold_absolute is None
+    assert build_dag(p).steps["s"].error_threshold_pct == 0.3
 
 
 def test_given_both_thresholds_when_compiled_then_stored():
@@ -53,8 +54,8 @@ def test_given_both_thresholds_when_compiled_then_stored():
             )
         ],
     )
-    assert p.dag.steps["s"].error_threshold_absolute == 5
-    assert p.dag.steps["s"].error_threshold_pct == 0.3
+    assert build_dag(p).steps["s"].error_threshold_absolute == 5
+    assert build_dag(p).steps["s"].error_threshold_pct == 0.3
 
 
 def test_given_absolute_threshold_when_to_dict_then_present():
@@ -104,7 +105,7 @@ def test_given_pct_threshold_zero_when_built_then_raises():
         steps=[step("s", fn=_each_step, error_threshold_pct=0.0)],
     )
     with pytest.raises(ValueError, match="error_threshold_pct must be in"):
-        p.dag
+        build_dag(p)
 
 
 def test_given_pct_threshold_negative_when_built_then_raises():
@@ -114,7 +115,7 @@ def test_given_pct_threshold_negative_when_built_then_raises():
         steps=[step("s", fn=_each_step, error_threshold_pct=-0.1)],
     )
     with pytest.raises(ValueError, match="error_threshold_pct must be in"):
-        p.dag
+        build_dag(p)
 
 
 def test_given_pct_threshold_above_1_when_built_then_raises():
@@ -124,7 +125,7 @@ def test_given_pct_threshold_above_1_when_built_then_raises():
         steps=[step("s", fn=_each_step, error_threshold_pct=1.5)],
     )
     with pytest.raises(ValueError, match="error_threshold_pct must be in"):
-        p.dag
+        build_dag(p)
 
 
 def test_given_absolute_threshold_zero_when_built_then_raises():
@@ -134,7 +135,7 @@ def test_given_absolute_threshold_zero_when_built_then_raises():
         steps=[step("s", fn=_each_step, error_threshold_absolute=0)],
     )
     with pytest.raises(ValueError, match="error_threshold_absolute must be >= 1"):
-        p.dag
+        build_dag(p)
 
 
 def test_given_absolute_threshold_negative_when_built_then_raises():
@@ -144,7 +145,7 @@ def test_given_absolute_threshold_negative_when_built_then_raises():
         steps=[step("s", fn=_each_step, error_threshold_absolute=-3)],
     )
     with pytest.raises(ValueError, match="error_threshold_absolute must be >= 1"):
-        p.dag
+        build_dag(p)
 
 
 def test_given_absolute_threshold_with_on_error_stop_when_built_then_raises():
@@ -156,7 +157,7 @@ def test_given_absolute_threshold_with_on_error_stop_when_built_then_raises():
         ],
     )
     with pytest.raises(ValueError, match="on_error=STOP"):
-        p.dag
+        build_dag(p)
 
 
 def test_given_pct_threshold_with_on_error_stop_when_built_then_raises():
@@ -168,7 +169,7 @@ def test_given_pct_threshold_with_on_error_stop_when_built_then_raises():
         ],
     )
     with pytest.raises(ValueError, match="on_error=STOP"):
-        p.dag
+        build_dag(p)
 
 
 def test_given_explicit_all_mode_with_threshold_when_built_then_raises():
@@ -185,7 +186,7 @@ def test_given_explicit_all_mode_with_threshold_when_built_then_raises():
         steps=[step("s", fn=all_step, mode=StepMode.ALL, error_threshold_absolute=3)],
     )
     with pytest.raises(ValueError, match="mode=ALL"):
-        p.dag
+        build_dag(p)
 
 
 def test_given_auto_resolved_to_all_with_threshold_when_built_then_raises():
@@ -204,7 +205,7 @@ def test_given_auto_resolved_to_all_with_threshold_when_built_then_raises():
         steps=[step("s", fn=scalar_step, error_threshold_absolute=3)],
     )
     with pytest.raises(ValueError, match="mode=ALL"):
-        p.dag
+        build_dag(p)
 
 
 def test_given_sub_pipeline_step_with_threshold_when_expanded_then_propagated():
@@ -243,6 +244,6 @@ def test_given_sub_pipeline_step_with_threshold_when_expanded_then_propagated():
         params=ParentParams,
         steps=[include("sub", pipeline=sub_pipeline, fn=sub_adapter)],
     )
-    assert parent.dag.steps["sub"].error_threshold_absolute == 3
+    assert build_dag(parent).steps["sub"].error_threshold_absolute == 3
     d = parent.to_dict()
     assert d["steps"]["sub"]["error_threshold_absolute"] == 3

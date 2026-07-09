@@ -1,25 +1,9 @@
-"""Regression tests for Issue #103: PipelineExecutor hangs on step failure.
+'Regression tests for Issue #103: PipelineExecutor hangs on step failure.\n\nCovers the SyncFanout cleanup hang (Test A) and the production scenario\nwhere build_arguments() leaks a SyncQueueIterator branch (Test C and\nbaselines D, E, F).\n\nThe framework\'s contract for stuck workers is now: the worker is allowed\nto remain alive, ``run()`` blocks inside ``wait_for_workers_after_shutdown``\nwith a per-minute warning log so the user can identify which step is\nblocked; the user owns step progress.  Tests that depended on the old\n"abandon and daemonise" path (B and G) were removed — that contract is\nno longer supported.\n\nEach test runs the pipeline in a daemon watchdog thread with a 5 s\ntimeout.  The assertions expect the pipeline to EXIT within the timeout —\nthe framework bug is fixed.\n'
 
-Covers the SyncFanout cleanup hang (Test A) and the production scenario
-where build_arguments() leaks a SyncQueueIterator branch (Test C and
-baselines D, E, F).
-
-The framework's contract for stuck workers is now: the worker is allowed
-to remain alive, ``run()`` blocks inside ``wait_for_workers_after_shutdown``
-with a per-minute warning log so the user can identify which step is
-blocked; the user owns step progress.  Tests that depended on the old
-"abandon and daemonise" path (B and G) were removed — that contract is
-no longer supported.
-
-Each test runs the pipeline in a daemon watchdog thread with a 5 s
-timeout.  The assertions expect the pipeline to EXIT within the timeout —
-the framework bug is fixed.
-"""
-
+from synaflow.core.dag_builder import build_dag
 import threading
 from collections.abc import Iterator
 from typing import NamedTuple
-
 from synaflow import OnError, pipeline, run, step
 from synaflow.core.exceptions import PipelineStopException
 from synaflow.execution.sync_engine import PipelineExecutor
@@ -27,11 +11,6 @@ from synaflow.execution.sync_engine import PipelineExecutor
 
 class EmptyParams(NamedTuple):
     pass
-
-
-# ---------------------------------------------------------------------------
-# Test A — cleanup() hang via stuck SyncFanout _pump thread
-# ---------------------------------------------------------------------------
 
 
 def test_given_fanout_pump_blocked_when_consumer_raises_then_cleanup_hangs():
@@ -49,24 +28,21 @@ def test_given_fanout_pump_blocked_when_consumer_raises_then_cleanup_hangs():
     _stop because it is parked inside next().  cleanup() → fanout.join()
     blocks the main thread indefinitely.
     """
-    source_blocked = threading.Event()  # never set → source blocks forever
+    source_blocked = threading.Event()
     pump_started = threading.Event()
 
     def blocked_producer() -> Iterator[int]:
-        source_blocked.wait()  # blocks forever (simulating stuck I/O)
-        yield 1  # unreachable
+        source_blocked.wait()
+        yield 1
 
     def consumer_a(blocked_producer: Iterator[int]) -> None:
-        # Access the iterator — this lazily starts the _pump thread.
         it = iter(blocked_producer)
         pump_started.set()
-        # Now try to consume.  _queue.get() will block until an item or
-        # ExceptionMarker arrives.
         for _item in it:
             pass
 
     def consumer_b(blocked_producer: Iterator[int]) -> None:
-        pump_started.wait()  # guarantee the pump thread is alive
+        pump_started.wait()
         raise ValueError("consumer_b fails early")
 
     pipeline_def = pipeline(
@@ -75,14 +51,9 @@ def test_given_fanout_pump_blocked_when_consumer_raises_then_cleanup_hangs():
         steps=[
             step("blocked_producer", fn=blocked_producer, max_in_flight=3),
             step("consumer_a", fn=consumer_a),
-            # on_error=STOP ensures the failure propagates to step_done
-            # so fatal_error is set and the executor attempts to abort the
-            # pipeline (which calls fanout.abort() under the hood).  Default
-            # CONTINUE would swallow the exception.
             step("consumer_b", fn=consumer_b, on_error=OnError.STOP),
         ],
     )
-
     completed = threading.Event()
 
     def target() -> None:
@@ -94,17 +65,10 @@ def test_given_fanout_pump_blocked_when_consumer_raises_then_cleanup_hangs():
 
     watchdog = threading.Thread(target=target, daemon=True)
     watchdog.start()
-
     hang_detected = not completed.wait(timeout=5.0)
     assert not hang_detected, (
-        "Pipeline should not hang: cleanup() must not block on "
-        "fanout.join() indefinitely.  See Issue #103."
+        "Pipeline should not hang: cleanup() must not block on fanout.join() indefinitely.  See Issue #103."
     )
-
-
-# ---------------------------------------------------------------------------
-# Test C — production scenario: build_arguments() leaks a SyncQueueIterator
-# ---------------------------------------------------------------------------
 
 
 def test_given_build_arguments_raises_when_max_in_flight_active_then_pump_hangs_on_eof():
@@ -143,13 +107,8 @@ def test_given_build_arguments_raises_when_max_in_flight_active_then_pump_hangs_
         consumer_a_results.append(producer)
 
     def consumer_b(producer: int, downloader: Downloader) -> None:
-        # Never reached — build_arguments raises on downloader first.
         raise AssertionError("consumer_b must not run")
 
-    # DAG declares downloader (so DAG build succeeds and consumer_b's
-    # inputs_available() returns True via the dag.resource_factories
-    # shortcut).  We then run the executor with empty runtime
-    # resource_factories to simulate include()'s broken propagation.
     pipeline_def = pipeline(
         name="test_build_args_hang",
         params=EmptyParams,
@@ -160,33 +119,23 @@ def test_given_build_arguments_raises_when_max_in_flight_active_then_pump_hangs_
             step("consumer_b", fn=consumer_b),
         ],
     )
-
     completed = threading.Event()
 
     def target() -> None:
         try:
-            PipelineExecutor(
-                pipeline_def.dag,
-                resource_factories={},  # production bug: downloader missing
-            ).execute(EmptyParams())
+            PipelineExecutor(build_dag(pipeline_def), resource_factories={}).execute(
+                EmptyParams()
+            )
         except Exception:
             pass
         completed.set()
 
     watchdog = threading.Thread(target=target, daemon=True)
     watchdog.start()
-
     hang_detected = not completed.wait(timeout=5.0)
     assert not hang_detected, (
-        "Pipeline should not hang: build_arguments() failures must not leak "
-        "SyncQueueIterator branches that block the pump's EOF push.  "
-        "See Issue #103."
+        "Pipeline should not hang: build_arguments() failures must not leak SyncQueueIterator branches that block the pump's EOF push.  See Issue #103."
     )
-
-
-# ---------------------------------------------------------------------------
-# Test D — build_arguments() failure WITHOUT bounded handoff completes fast
-# ---------------------------------------------------------------------------
 
 
 def test_given_build_arguments_raises_without_bounded_handoff_then_no_hang():
@@ -216,37 +165,27 @@ def test_given_build_arguments_raises_without_bounded_handoff_then_no_hang():
         params=EmptyParams,
         resources={"downloader": make_downloader},
         steps=[
-            step("producer", fn=producer, max_in_flight=1),  # no fanout
+            step("producer", fn=producer, max_in_flight=1),
             step("consumer_b", fn=consumer_b),
         ],
     )
-
     completed = threading.Event()
 
     def target() -> None:
         try:
-            PipelineExecutor(
-                pipeline_def.dag,
-                resource_factories={},  # downloader missing at runtime
-            ).execute(EmptyParams())
+            PipelineExecutor(build_dag(pipeline_def), resource_factories={}).execute(
+                EmptyParams()
+            )
         except Exception:
             pass
         completed.set()
 
     watchdog = threading.Thread(target=target, daemon=True)
     watchdog.start()
-
     hang_detected = not completed.wait(timeout=5.0)
     assert not hang_detected, (
-        "Pipeline with max_in_flight=1 should fail fast on build_arguments "
-        "error — no SyncFanout, no leaked branch, no pump hang.  If this "
-        "fails, something else is blocking."
+        "Pipeline with max_in_flight=1 should fail fast on build_arguments error — no SyncFanout, no leaked branch, no pump hang.  If this fails, something else is blocking."
     )
-
-
-# ---------------------------------------------------------------------------
-# Test E — OnError.CONTINUE, consumer raises mid-iteration
-# ---------------------------------------------------------------------------
 
 
 def test_given_consumer_raises_with_on_error_continue_then_pump_drains():
@@ -266,7 +205,6 @@ def test_given_consumer_raises_with_on_error_continue_then_pump_drains():
         for i, x in enumerate(producer):
             if i >= 3:
                 raise ValueError("consumer fails early")
-            # drain a few items then bail
 
     pipeline_def = pipeline(
         name="test_continue_fanout",
@@ -276,7 +214,6 @@ def test_given_consumer_raises_with_on_error_continue_then_pump_drains():
             step("consumer", fn=consumer, on_error=OnError.CONTINUE),
         ],
     )
-
     completed = threading.Event()
 
     def target() -> None:
@@ -288,18 +225,10 @@ def test_given_consumer_raises_with_on_error_continue_then_pump_drains():
 
     watchdog = threading.Thread(target=target, daemon=True)
     watchdog.start()
-
     hang_detected = not completed.wait(timeout=5.0)
     assert not hang_detected, (
-        "Pipeline with OnError.CONTINUE should drain cleanly — branch is "
-        "closed by _close_managed_streams() even when on_error swallows "
-        "the exception.  Hang here means the pump's EOF push is broken."
+        "Pipeline with OnError.CONTINUE should drain cleanly — branch is closed by _close_managed_streams() even when on_error swallows the exception.  Hang here means the pump's EOF push is broken."
     )
-
-
-# ---------------------------------------------------------------------------
-# Test F — OnError.STOP, consumer raises mid-iteration with fanout
-# ---------------------------------------------------------------------------
 
 
 def test_given_consumer_raises_with_on_error_stop_and_fanout_then_pump_drains():
@@ -333,7 +262,6 @@ def test_given_consumer_raises_with_on_error_stop_and_fanout_then_pump_drains():
             step("consumer_b", fn=consumer_b, on_error=OnError.STOP),
         ],
     )
-
     completed = threading.Event()
     raised: list[BaseException] = []
 
@@ -346,12 +274,9 @@ def test_given_consumer_raises_with_on_error_stop_and_fanout_then_pump_drains():
 
     watchdog = threading.Thread(target=target, daemon=True)
     watchdog.start()
-
     hang_detected = not completed.wait(timeout=5.0)
     assert not hang_detected, (
-        "Pipeline with OnError.STOP should propagate PipelineStopException "
-        "and exit — pump's _stop check breaks the loop.  Hang here means "
-        "abort() is not setting _stop or the pump is ignoring it."
+        "Pipeline with OnError.STOP should propagate PipelineStopException and exit — pump's _stop check breaks the loop.  Hang here means abort() is not setting _stop or the pump is ignoring it."
     )
     assert len(raised) >= 1
     assert isinstance(raised[0], PipelineStopException)

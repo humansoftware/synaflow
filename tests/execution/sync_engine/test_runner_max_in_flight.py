@@ -1,11 +1,10 @@
+from synaflow.core.dag_builder import build_dag
 from collections.abc import Generator, Iterator
 from concurrent.futures import Future, ThreadPoolExecutor
 from time import sleep
 import threading
 from typing import NamedTuple
-
 import pytest
-
 from synaflow import OnError, pipeline, run, step
 from synaflow.core.exceptions import PipelineStopException
 
@@ -19,6 +18,7 @@ class Count(NamedTuple):
 
 
 def test_given_max_in_flight_1_when_linear_then_preserves_lockstep():
+
     def producer(count: int) -> Generator[int, None, None]:
         yield from range(count)
 
@@ -40,6 +40,7 @@ def test_given_max_in_flight_1_when_linear_then_preserves_lockstep():
 
 
 def test_given_max_in_flight_30_when_linear_then_pipeline_completes():
+
     def producer(count: int) -> Generator[int, None, None]:
         yield from range(count)
 
@@ -62,6 +63,7 @@ def test_given_max_in_flight_30_when_linear_then_pipeline_completes():
 
 
 def test_given_max_in_flight_on_terminal_step_when_terminal_then_no_effect():
+
     def producer(count: int) -> Generator[int, None, None]:
         yield from range(count)
 
@@ -81,6 +83,7 @@ def test_given_max_in_flight_on_terminal_step_when_terminal_then_no_effect():
 
 
 def test_given_max_in_flight_when_on_error_continue_then_still_works():
+
     def producer(count: int) -> Generator[int, None, None]:
         yield from range(count)
 
@@ -108,6 +111,7 @@ def test_given_max_in_flight_when_on_error_continue_then_still_works():
 
 
 def test_given_max_in_flight_3_when_fanout_two_consumers_then_both_get_all_items():
+
     def producer(count: int) -> Generator[int, None, None]:
         yield from range(count)
 
@@ -137,6 +141,7 @@ def test_given_max_in_flight_3_when_fanout_two_consumers_then_both_get_all_items
 
 
 def test_given_max_in_flight_fanout_when_terminal_consumers_do_not_iterate_then_run_completes():
+
     class P(NamedTuple):
         pass
 
@@ -160,25 +165,24 @@ def test_given_max_in_flight_fanout_when_terminal_consumers_do_not_iterate_then_
             step("consumer_b", fn=consumer_b),
         ],
     )
-
     failure: list[BaseException] = []
 
     def target() -> None:
         try:
             run(pipeline_def, P())
-        except BaseException as exc:  # pragma: no cover - asserted below
+        except BaseException as exc:
             failure.append(exc)
 
     thread = threading.Thread(target=target)
     thread.start()
     thread.join(timeout=5)
-
     assert failure == []
     assert not thread.is_alive()
     assert calls == ["a", "b"] or calls == ["b", "a"]
 
 
 def test_given_fanout_to_submit_and_await_barrier_when_max_in_flight_then_await_steps_drain():
+
     class P(NamedTuple):
         pass
 
@@ -220,19 +224,17 @@ def test_given_fanout_to_submit_and_await_barrier_when_max_in_flight_then_await_
             step("done", fn=done),
         ],
     )
-
     failure: list[BaseException] = []
 
     def target() -> None:
         try:
             run(p, P())
-        except BaseException as exc:  # pragma: no cover - asserted below
+        except BaseException as exc:
             failure.append(exc)
 
     thread = threading.Thread(target=target)
     thread.start()
     thread.join(timeout=5)
-
     assert failure == []
     assert not thread.is_alive()
     assert seen_a == [10, 20]
@@ -289,7 +291,6 @@ def test_given_max_in_flight_3_when_linear_stream_then_ahead_distance_stays_boun
         ],
     )
     run(p, Count(count=20))
-
     assert produced == list(range(20))
     assert consumed == list(range(20))
     assert max_seen_ahead <= 3
@@ -317,7 +318,6 @@ def test_given_max_in_flight_3_when_linear_stream_then_producer_blocks_before_it
         ],
     )
     run(p, Count(count=6))
-
     assert log.index("recv 0") < log.index("prod 4")
 
 
@@ -349,13 +349,13 @@ def test_given_max_in_flight_1_when_fanout_slow_branch_then_bound_is_exact():
         ],
     )
     run(p, Count(count=5))
-
     slow_0_index = log.index("slow-recv 0")
     prod_2_index = log.index("prod 2")
     assert slow_0_index < prod_2_index
 
 
 def test_given_max_in_flight_3_when_fanout_lazy_and_eager_then_both_receive_items():
+
     def producer(count: int) -> Generator[int, None, None]:
         yield from range(count)
 
@@ -379,12 +379,12 @@ def test_given_max_in_flight_3_when_fanout_lazy_and_eager_then_both_receive_item
         ],
     )
     run(p, Count(count=10))
-
     assert lazy_results == list(range(10))
     assert eager_results == [list(range(10))]
 
 
 def test_given_user_resource_with_close_when_used_as_param_then_executor_does_not_close_it():
+
     class Resource:
         def __init__(self) -> None:
             self.closed = False
@@ -401,13 +401,8 @@ def test_given_user_resource_with_close_when_used_as_param_then_executor_does_no
         seen.append(resource)
 
     resource = Resource()
-    p = pipeline(
-        name="test",
-        params=P,
-        steps=[step("use_resource", fn=use_resource)],
-    )
+    p = pipeline(name="test", params=P, steps=[step("use_resource", fn=use_resource)])
     run(p, P(resource=resource))
-
     assert seen == [resource]
     assert resource.closed is False
 
@@ -434,7 +429,6 @@ def test_given_max_in_flight_3_when_terminal_lazy_consumer_then_stream_drains_fu
         ],
     )
     run(p, Count(count=10))
-
     assert produced == list(range(10))
     assert consumed == list(range(10))
 
@@ -465,7 +459,6 @@ def test_given_max_in_flight_3_when_branch_stops_early_then_other_branch_finishe
         ],
     )
     run(p, Count(count=5))
-
     assert early == [0]
     assert full == [0, 1, 2, 3, 4]
 
@@ -492,7 +485,6 @@ def test_given_two_lazy_deps_with_max_in_flight_when_unrolled_then_pairs_are_pre
         ],
     )
     run(p, Count(count=5))
-
     assert pairs == [(0, 10), (1, 11), (2, 12), (3, 13), (4, 14)]
 
 
@@ -508,7 +500,7 @@ def test_given_flattening_stream_step_when_max_in_flight_2_then_internal_items_d
             log.append(f"emit {item}")
             yield item
             log.append(f"emit {item + 100}")
-            yield item + 100
+            yield (item + 100)
 
     def consumer(flatten: Iterator[int]) -> None:
         for item in flatten:
@@ -526,7 +518,6 @@ def test_given_flattening_stream_step_when_max_in_flight_2_then_internal_items_d
         ],
     )
     run(p, Count(count=3))
-
     assert seen == [0, 100, 1, 101, 2, 102]
     assert log.index("recv 0") < log.index("emit 1")
 
@@ -555,14 +546,13 @@ def test_given_fanout_lazy_and_eager_when_producer_stream_fails_then_pipeline_st
             step("eager_consumer", fn=eager_consumer, on_error=OnError.STOP),
         ],
     )
-
     with pytest.raises(PipelineStopException):
         run(p, Count(count=5))
-
     assert lazy_seen == []
 
 
 def test_given_threadpool_start_and_await_when_max_in_flight_5_then_only_five_tasks_start():
+
     class P(NamedTuple):
         count: int = 10
 
@@ -607,14 +597,13 @@ def test_given_threadpool_start_and_await_when_max_in_flight_5_then_only_five_ta
             step("await_result", fn=await_result),
         ],
     )
-
     result_holder = {}
     error_holder = {}
 
     def target():
         try:
             result_holder["done"] = run(p, P(count=10))
-        except BaseException as exc:  # pragma: no cover - assertion below
+        except BaseException as exc:
             error_holder["exc"] = exc
 
     thread = threading.Thread(target=target)
@@ -628,7 +617,6 @@ def test_given_threadpool_start_and_await_when_max_in_flight_5_then_only_five_ta
     release.set()
     thread.join(timeout=5)
     pool.shutdown(wait=True)
-
     assert "exc" not in error_holder
     assert not thread.is_alive()
 
@@ -657,15 +645,9 @@ def test_runner_contract_uses_dag_node_max_in_flight_not_step_max_in_flight():
             step("consumer", fn=consumer),
         ],
     )
-
-    # Force dag build first; then mutate the Step. The dag is already
-    # built and the runtime reads from the DagNode, so the Step mutation
-    # is ignored — the runtime uses the original max_in_flight=1.
-    p.dag
-    p.steps[0].max_in_flight = 10
-
+    dag = build_dag(p)
+    dag.steps["producer"].max_in_flight = 10
     run(p, Count(count=20))
-
     assert produced == list(range(20))
     assert consumed == list(range(20))
     assert max_seen_ahead <= 1
@@ -674,6 +656,7 @@ def test_runner_contract_uses_dag_node_max_in_flight_not_step_max_in_flight():
 def test_given_multilevel_each_fanout_when_run_max_in_flight_1_then_completes(
     run_pipeline,
 ):
+
     class P(NamedTuple):
         pass
 
@@ -711,9 +694,7 @@ def test_given_multilevel_each_fanout_when_run_max_in_flight_1_then_completes(
             step("l2y", fn=l2y, max_in_flight=1),
         ],
     )
-
     run_pipeline(my_pipeline, params=P())
-
     assert seen_x == list(range(20))
     assert seen_y == list(range(20))
 
@@ -721,6 +702,7 @@ def test_given_multilevel_each_fanout_when_run_max_in_flight_1_then_completes(
 def test_given_multilevel_each_fanout_when_run_max_in_flight_3_then_completes(
     run_pipeline,
 ):
+
     class P(NamedTuple):
         pass
 
@@ -758,8 +740,6 @@ def test_given_multilevel_each_fanout_when_run_max_in_flight_3_then_completes(
             step("l2y", fn=l2y, max_in_flight=3),
         ],
     )
-
     run_pipeline(my_pipeline, params=P())
-
     assert seen_x == list(range(20))
     assert seen_y == list(range(20))

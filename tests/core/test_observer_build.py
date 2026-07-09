@@ -1,3 +1,4 @@
+from synaflow.core.dag_builder import build_dag
 from typing import NamedTuple
 import pytest
 from synaflow import Observer, include, pipeline, step
@@ -54,7 +55,7 @@ def test_given_pipeline_observers_when_build_then_dag_stores_them():
         steps=[step("s", fn=lambda x: x + 1)],
         observers=[Observer(h)],
     )
-    dag = p.dag
+    dag = build_dag(p)
     assert len(dag.pipeline_observers) == 1
     assert dag.pipeline_observers[0].handler is h
 
@@ -68,7 +69,7 @@ def test_given_pipeline_observers_when_build_then_all_steps_inherit_them():
         observers=[Observer(h)],
     )
     for name in ("a", "b"):
-        node_obs = p.dag[name].observers
+        node_obs = build_dag(p)[name].observers
         assert len(node_obs) >= 1
         assert any((o.handler is h for o in node_obs))
 
@@ -80,7 +81,7 @@ def test_given_step_observers_when_build_then_dagnode_has_them():
         params=Params,
         steps=[step("a", fn=lambda x: x + 1, observers=[Observer(h)])],
     )
-    node_obs = p.dag["a"].observers
+    node_obs = build_dag(p)["a"].observers
     assert len(node_obs) >= 1
     assert any((o.handler is h for o in node_obs))
 
@@ -94,7 +95,7 @@ def test_given_pipeline_and_step_observers_when_build_then_effective_is_union():
         steps=[step("a", fn=lambda x: x + 1, observers=[Observer(h_step)])],
         observers=[Observer(h_pipe)],
     )
-    node_obs = p.dag["a"].observers
+    node_obs = build_dag(p)["a"].observers
     assert len(node_obs) == 2
     assert node_obs[0].handler is h_pipe
     assert node_obs[1].handler is h_step
@@ -108,7 +109,7 @@ def test_given_duplicate_registrations_when_build_then_not_deduplicated():
         steps=[step("a", fn=lambda x: x + 1, observers=[Observer(h)])],
         observers=[Observer(h)],
     )
-    node_obs = p.dag["a"].observers
+    node_obs = build_dag(p)["a"].observers
     assert len(node_obs) == 2
 
 
@@ -214,7 +215,7 @@ def test_given_async_handler_in_sync_pipeline_when_build_then_validation_error()
         observers=[Observer(h)],
     )
     with pytest.raises(TypeError, match="async"):
-        p.dag
+        build_dag(p)
 
 
 def test_given_async_partial_handler_in_sync_pipeline_when_build_then_validation_error():
@@ -231,7 +232,7 @@ def test_given_async_partial_handler_in_sync_pipeline_when_build_then_validation
         observers=[Observer(partial_h)],
     )
     with pytest.raises(TypeError, match="async"):
-        p.dag
+        build_dag(p)
 
 
 def test_given_sync_handler_in_sync_pipeline_when_build_then_ok():
@@ -242,12 +243,12 @@ def test_given_sync_handler_in_sync_pipeline_when_build_then_ok():
         steps=[step("a", fn=lambda x: x + 1)],
         observers=[Observer(h)],
     )
-    assert p.dag is not None
+    assert build_dag(p) is not None
 
 
 def test_given_sync_pipeline_without_observers_when_build_then_ok():
     p = pipeline(name="p", params=Params, steps=[step("a", fn=lambda x: x + 1)])
-    assert p.dag is not None
+    assert build_dag(p) is not None
 
 
 class SubParams(NamedTuple):
@@ -270,7 +271,7 @@ def test_given_sub_pipeline_observers_when_include_then_expanded_step_inherits()
     main = pipeline(
         name="main", params=Params, steps=[include("incl", pipeline=sub, fn=adapter)]
     )
-    dag = main.dag
+    dag = build_dag(main)
     node_obs = dag["incl"].observers
     assert len(node_obs) == 1
     assert node_obs[0].handler is h
@@ -292,7 +293,7 @@ def test_given_sub_step_observers_when_include_then_expanded_step_preserves():
     main = pipeline(
         name="main", params=Params, steps=[include("incl", pipeline=sub, fn=adapter)]
     )
-    dag = main.dag
+    dag = build_dag(main)
     node_obs = dag["incl"].observers
     assert len(node_obs) >= 1
     step_obs = [o for o in node_obs if o.source == "step"]
@@ -317,7 +318,7 @@ def test_given_sub_pipeline_and_sub_step_observers_when_include_then_both_preser
     main = pipeline(
         name="main", params=Params, steps=[include("incl", pipeline=sub, fn=adapter)]
     )
-    dag = main.dag
+    dag = build_dag(main)
     node_obs = dag["incl"].observers
     assert len(node_obs) == 2
     assert node_obs[0].handler is h_sub
