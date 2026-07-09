@@ -218,11 +218,10 @@ def test_scope_step_totals_aggregate_by_scope():
     }
 
 
-def test_pipeline_step_is_excluded_from_scope_step_totals_to_dict():
-    """Empty scope means the dag has only params + resources — no
-    scope_step_totals key. Defensive: keeps existing serialization
-    shape stable."""
+def test_empty_dag_serializes_empty_scope_step_totals():
+    """Even an empty dag emits the ``scope_step_totals`` key with an
+    empty dict — stable JSON contract is preferable to key absence."""
     from synaflow.core.dag import Dag
 
     empty_dag = Dag(steps={})
-    assert empty_dag.to_dict().get("scope_step_totals", {}) == {}
+    assert empty_dag.to_dict()["scope_step_totals"] == {}
