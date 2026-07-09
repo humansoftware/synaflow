@@ -3,6 +3,12 @@ from collections.abc import Iterator
 from typing import NamedTuple
 from synaflow.core.types import MaterializeContext
 from .conftest import build_minimal_dag
+from synaflow.core.dag_builder import log_error_materializer_factory
+from synaflow.core.dag_builder import memory_materializer_factory
+import pytest
+from synaflow.core.types import ErrorMaterializeContext
+from dataclasses import dataclass
+from synaflow import pipeline, step
 
 
 def test_given_step_level_materializer_when_dag_built_then_step_materializer_wins():
@@ -54,26 +60,21 @@ def test_given_no_custom_materializer_when_dag_built_then_default_factory_used()
 
 
 def test_given_default_factory_when_consumer_type_is_scalar_then_returns_identity():
-    from synaflow.core.dag_builder import memory_materializer_factory as _def
-    from synaflow.core.types import MaterializeContext
 
     ctx = MaterializeContext(
         pipeline_name="test", dataset_name="step1", item_type=str, consumer_type=str
     )
-    mat = _def(ctx)
+    mat = memory_materializer_factory(ctx)
     assert mat(42) == 42
 
 
 def test_given_default_factory_when_consumer_type_is_none_then_raises():
-    from synaflow.core.dag_builder import memory_materializer_factory as _def
-    from synaflow.core.types import MaterializeContext
-    import pytest
 
     ctx = MaterializeContext(
         pipeline_name="test", dataset_name="step1", item_type=int, consumer_type=None
     )
     with pytest.raises(ValueError, match="Cannot infer memory materializer"):
-        _def(ctx)
+        memory_materializer_factory(ctx)
 
 
 def test_given_scalar_producer_when_dag_built_then_materializer_is_default_factory():
@@ -97,16 +98,13 @@ def test_given_scalar_producer_when_dag_built_then_materializer_is_default_facto
 
 
 def test_given_default_error_factory_when_called_then_returns_callable():
-    from synaflow.core.dag_builder import log_error_materializer_factory as _def
-    from synaflow.core.types import ErrorMaterializeContext
 
     ctx = ErrorMaterializeContext(pipeline_name="test", dataset_name="step1")
-    handler = _def(ctx)
+    handler = log_error_materializer_factory(ctx)
     assert callable(handler)
 
 
 def test_given_pipeline_created_without_error_factory_then_uses_default():
-    from synaflow.core.dag_builder import log_error_materializer_factory as _def
 
     class P(NamedTuple):
         x: int = 1
@@ -118,11 +116,10 @@ def test_given_pipeline_created_without_error_factory_then_uses_default():
         pass
 
     p = build_minimal_dag(producer_fn=producer, consumer_fn=consumer, params=P)
-    assert build_dag(p).error_materializer_factory is _def
+    assert build_dag(p).error_materializer_factory is log_error_materializer_factory
 
 
 def test_given_no_custom_materializer_when_non_builtin_inner_type_used_then_raises():
-    from dataclasses import dataclass
 
     @dataclass
     class Row:
@@ -134,8 +131,6 @@ def test_given_no_custom_materializer_when_non_builtin_inner_type_used_then_rais
 
 
 def test_given_no_custom_materializer_when_non_builtin_inner_type_used_then_dag_builds():
-    from dataclasses import dataclass
-    from collections.abc import Iterator
 
     @dataclass
     class Row:
@@ -156,9 +151,6 @@ def test_given_no_custom_materializer_when_non_builtin_inner_type_used_then_dag_
 
 
 def test_given_no_custom_materializer_and_non_builtin_inner_type_when_not_materialized_then_dag_builds():
-    from dataclasses import dataclass
-    from collections.abc import Iterator
-    from synaflow import pipeline, step
 
     @dataclass
     class Row:
@@ -184,9 +176,6 @@ def test_given_no_custom_materializer_and_non_builtin_inner_type_when_not_materi
 
 
 def test_given_step_materializer_when_non_builtin_inner_type_used_then_dag_builds():
-    from dataclasses import dataclass
-    from collections.abc import Iterator
-    from synaflow import pipeline, step
 
     @dataclass
     class Row:
@@ -214,8 +203,6 @@ def test_given_step_materializer_when_non_builtin_inner_type_used_then_dag_build
 
 
 def test_given_builtin_concrete_materializer_when_signature_not_inspectable_then_dag_builds():
-    from collections.abc import Iterator
-    from synaflow import pipeline, step
 
     class Params(NamedTuple):
         pass
@@ -240,9 +227,6 @@ def test_given_builtin_concrete_materializer_when_signature_not_inspectable_then
 
 
 def test_given_pipeline_materializer_when_non_builtin_inner_type_used_then_dag_builds():
-    from dataclasses import dataclass
-    from collections.abc import Iterator
-    from synaflow import pipeline, step
 
     @dataclass
     class Row:

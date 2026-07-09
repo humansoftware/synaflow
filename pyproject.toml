@@ -134,6 +134,9 @@ major_on_zero = false
 [tool.ruff]
 exclude = ["boilerplates"]
 
+[tool.ruff.lint]
+extend-select = ["PLC0415"]
+
 
 
 

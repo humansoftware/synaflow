@@ -4,6 +4,8 @@ from synaflow.core.dag_builder import build_dag
 from typing import NamedTuple
 import pytest
 from synaflow import OnError, StepMode, pipeline, step
+from collections.abc import Iterator
+from synaflow import include
 
 
 class IntListParams(NamedTuple):
@@ -64,7 +66,7 @@ def test_given_absolute_threshold_when_to_dict_then_present():
         params=IntListParams,
         steps=[step("s", fn=_each_step, error_threshold_absolute=5)],
     )
-    d = p.to_dict()
+    d = build_dag(p).to_dict()
     assert d["steps"]["s"]["error_threshold_absolute"] == 5
     assert "error_threshold_pct" not in d["steps"]["s"]
 
@@ -75,14 +77,14 @@ def test_given_pct_threshold_when_to_dict_then_present():
         params=IntListParams,
         steps=[step("s", fn=_each_step, error_threshold_pct=0.5)],
     )
-    d = p.to_dict()
+    d = build_dag(p).to_dict()
     assert d["steps"]["s"]["error_threshold_pct"] == 0.5
     assert "error_threshold_absolute" not in d["steps"]["s"]
 
 
 def test_given_no_threshold_when_to_dict_then_fields_absent():
     p = pipeline(name="test", params=IntListParams, steps=[step("s", fn=_each_step)])
-    d = p.to_dict()
+    d = build_dag(p).to_dict()
     assert "error_threshold_absolute" not in d["steps"]["s"]
     assert "error_threshold_pct" not in d["steps"]["s"]
 
@@ -94,7 +96,7 @@ def test_given_pct_threshold_at_1_when_to_dict_then_present():
         params=IntListParams,
         steps=[step("s", fn=_each_step, error_threshold_pct=1.0)],
     )
-    d = p.to_dict()
+    d = build_dag(p).to_dict()
     assert d["steps"]["s"]["error_threshold_pct"] == 1.0
 
 
@@ -210,8 +212,6 @@ def test_given_auto_resolved_to_all_with_threshold_when_built_then_raises():
 
 def test_given_sub_pipeline_step_with_threshold_when_expanded_then_propagated():
     """Thresholds on sub-pipeline steps must be propagated during expansion."""
-    from collections.abc import Iterator
-    from synaflow import include
 
     class SubParams(NamedTuple):
         items: list[int] = [1, 2, 3]
@@ -245,5 +245,5 @@ def test_given_sub_pipeline_step_with_threshold_when_expanded_then_propagated():
         steps=[include("sub", pipeline=sub_pipeline, fn=sub_adapter)],
     )
     assert build_dag(parent).steps["sub"].error_threshold_absolute == 3
-    d = parent.to_dict()
+    d = build_dag(parent).to_dict()
     assert d["steps"]["sub"]["error_threshold_absolute"] == 3

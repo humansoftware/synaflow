@@ -636,7 +636,6 @@ def test_given_pipeline_started_context_default_scope_step_totals_is_empty_dict(
     """Constructing PipelineStartedContext without the kwarg
     yields an empty dict — keeps backward compatibility for code that
     builds contexts directly (e.g., tests, mock observers)."""
-    from synaflow.core.observers import PipelineStartedContext
 
     ctx = PipelineStartedContext(
         pipeline_name="p",
@@ -724,10 +723,6 @@ def test_given_repeated_includes_then_aggregator_completes_each_scope_independen
             self.is_complete_log: dict[str, list[bool]] = {}
 
         def __call__(self, ctx) -> None:
-            from synaflow.core.observers import (
-                PipelineStartedContext,
-                StepCompletedContext,
-            )
 
             if isinstance(ctx, PipelineStartedContext):
                 self.totals = dict(ctx.scope_step_totals)
@@ -827,10 +822,6 @@ def test_given_nested_includes_then_inner_scope_completes_before_outer_scope():
             self.completion_order: list[str] = []
 
         def __call__(self, ctx) -> None:
-            from synaflow.core.observers import (
-                PipelineStartedContext,
-                StepCompletedContext,
-            )
 
             if isinstance(ctx, PipelineStartedContext):
                 self.totals = dict(ctx.scope_step_totals)

@@ -1,6 +1,8 @@
 from synaflow.core.dag_builder import build_dag
 from typing import Iterator, NamedTuple
 from synaflow import include, pipeline, step
+from synaflow.execution.sync_engine.executor import PipelineExecutor
+from synaflow.execution.sync_engine.executor import run
 
 
 class BParams(NamedTuple):
@@ -45,7 +47,6 @@ def test_runner_executes_flattened_pipeline_each_mode():
             step("consolidate", fn=consolidate),
         ],
     )
-    from synaflow.execution.sync_engine.executor import PipelineExecutor
 
     executor = PipelineExecutor(build_dag(pipe_a))
     executor.execute(params=AParams(raw_texts=["hi", "world", "synaflow"]))
@@ -53,7 +54,6 @@ def test_runner_executes_flattened_pipeline_each_mode():
 
 
 def test_given_sub_pipeline_resource_inherited_when_run_then_resource_is_injected():
-    from synaflow.execution.sync_engine.executor import run
 
     class DB:
         pass
@@ -95,7 +95,6 @@ def test_given_sub_pipeline_resource_inherited_when_run_then_resource_is_injecte
 
 
 def test_given_two_subs_same_resource_instance_when_run_then_resource_is_injected():
-    from synaflow.execution.sync_engine.executor import run
 
     class DB:
         pass

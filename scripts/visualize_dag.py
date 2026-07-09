@@ -9,6 +9,7 @@ Output: writes a Mermaid markdown diagram to stdout.
 """
 
 import argparse
+import importlib
 import json
 import sys
 from pathlib import Path
@@ -25,8 +26,6 @@ def _load_corpus_json(pipeline_name: str) -> dict:
         sys.exit(1)
 
     sys.path.insert(0, str(corpus_dir.parent.parent))
-    import importlib
-
     mod = importlib.import_module(f"tests.execution.{engine}.corpus.{pipeline_name}")
     return mod.pack.json_dag
 

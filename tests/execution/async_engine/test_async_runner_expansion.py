@@ -2,6 +2,8 @@ from synaflow.core.dag_builder import build_dag
 from typing import AsyncIterator, NamedTuple
 import pytest
 from synaflow import include, pipeline, step
+from synaflow.execution.async_engine.executor import AsyncPipelineExecutor
+from synaflow import async_run
 
 
 class BParams(NamedTuple):
@@ -47,7 +49,6 @@ async def test_runner_executes_flattened_pipeline_each_mode():
             step("consolidar", fn=consolidar),
         ],
     )
-    from synaflow.execution.async_engine.executor import AsyncPipelineExecutor
 
     executor = AsyncPipelineExecutor(build_dag(pipe_a))
     await executor.execute(params=AParams(textos_brutos=["oi", "mundo", "synaflow"]))
@@ -56,7 +57,6 @@ async def test_runner_executes_flattened_pipeline_each_mode():
 
 @pytest.mark.asyncio
 async def test_given_sub_pipeline_resource_inherited_when_run_then_resource_is_injected():
-    from synaflow import async_run
 
     class DB:
         pass
@@ -99,7 +99,6 @@ async def test_given_sub_pipeline_resource_inherited_when_run_then_resource_is_i
 
 @pytest.mark.asyncio
 async def test_given_two_subs_same_resource_instance_when_run_then_resource_is_injected():
-    from synaflow import async_run
 
     class DB:
         pass

@@ -4,6 +4,9 @@ import pytest
 from synaflow import StepMode, pipeline, step
 from tests.execution.async_engine.corpus import PACKS as ASYNC_PACKS
 from tests.execution.sync_engine.corpus import PACKS as SYNC_PACKS
+from synaflow.core.dag import Dag, DagNode
+from collections.abc import Iterator
+from synaflow.core.types import OnError
 
 
 def test_given_output_compatible_but_executed_after_when_built_then_raises():
@@ -117,15 +120,17 @@ def _normalize_exported_dag_for_contract_assertions(dag_dict: dict) -> dict:
 @pytest.mark.parametrize("pack_name, pack", list(PACKS.items()), ids=list(PACKS.keys()))
 def test_corpus_execution_levels(pack_name, pack):
     if pack.expected_execution_levels is not None:
-        assert pack.pipeline.get_execution_levels() == pack.expected_execution_levels
+        assert (
+            build_dag(pack.pipeline).get_execution_levels()
+            == pack.expected_execution_levels
+        )
     if pack.json_dag is not None:
         assert _normalize_exported_dag_for_contract_assertions(
-            pack.pipeline.to_dict()
+            build_dag(pack.pipeline).to_dict()
         ) == _normalize_exported_dag_for_contract_assertions(pack.json_dag)
 
 
 def test_given_diamond_dag_when_consumers_of_branch_then_returns_merge():
-    from synaflow.core.dag import Dag, DagNode
 
     dag = Dag(name="test")
     dag.steps = {
@@ -140,7 +145,6 @@ def test_given_diamond_dag_when_consumers_of_branch_then_returns_merge():
 
 
 def test_given_single_consumer_when_output_key_then_returns_producer_name():
-    from synaflow.core.dag import Dag, DagNode
 
     dag = Dag(name="test")
     dag.steps = {
@@ -151,7 +155,6 @@ def test_given_single_consumer_when_output_key_then_returns_producer_name():
 
 
 def test_given_multiple_consumers_when_output_key_then_scopes_by_consumer():
-    from synaflow.core.dag import Dag, DagNode
 
     dag = Dag(name="test")
     dag.steps = {
@@ -164,7 +167,6 @@ def test_given_multiple_consumers_when_output_key_then_scopes_by_consumer():
 
 
 def test_given_step_name_prefixed_with_underscore_when_is_hidden_step_then_true():
-    from synaflow.core.dag import Dag
 
     dag = Dag(name="test")
     assert dag.is_hidden_step("_internal") is True
@@ -172,7 +174,6 @@ def test_given_step_name_prefixed_with_underscore_when_is_hidden_step_then_true(
 
 
 def test_given_hidden_step_when_is_terminal_step_then_true_even_with_consumers():
-    from synaflow.core.dag import Dag, DagNode
 
     dag = Dag(name="test")
     dag.steps = {
@@ -183,7 +184,6 @@ def test_given_hidden_step_when_is_terminal_step_then_true_even_with_consumers()
 
 
 def test_given_visible_step_without_consumers_when_is_terminal_step_then_true():
-    from synaflow.core.dag import Dag, DagNode
 
     dag = Dag(name="test")
     dag.steps = {"producer": DagNode(deps={})}
@@ -191,7 +191,6 @@ def test_given_visible_step_without_consumers_when_is_terminal_step_then_true():
 
 
 def test_given_visible_step_with_consumers_when_is_terminal_step_then_false():
-    from synaflow.core.dag import Dag, DagNode
 
     dag = Dag(name="test")
     dag.steps = {
@@ -202,8 +201,6 @@ def test_given_visible_step_with_consumers_when_is_terminal_step_then_false():
 
 
 def test_given_each_mode_when_each_inputs_then_returns_correct_deps():
-    from collections.abc import Iterator
-    from synaflow.core.dag import Dag, DagNode
 
     dag = Dag(name="test")
     dag.steps = {
@@ -214,8 +211,6 @@ def test_given_each_mode_when_each_inputs_then_returns_correct_deps():
 
 
 def test_given_standard_mode_when_each_inputs_then_returns_empty():
-    from collections.abc import Iterator
-    from synaflow.core.dag import Dag, DagNode
 
     dag = Dag(name="test")
     dag.steps = {
@@ -226,7 +221,6 @@ def test_given_standard_mode_when_each_inputs_then_returns_empty():
 
 
 def test_given_dag_node_with_resolved_each_mode_when_each_inputs_then_reads_from_dag():
-    from synaflow.core.dag import Dag, DagNode
 
     dag = Dag(name="test")
     dag.steps = {
@@ -239,7 +233,6 @@ def test_given_dag_node_with_resolved_each_mode_when_each_inputs_then_reads_from
 
 
 def test_given_materialized_producer_when_needs_materialize_then_true():
-    from synaflow.core.dag import Dag, DagNode
 
     dag = Dag(name="test")
     dag.steps = {
@@ -251,7 +244,6 @@ def test_given_materialized_producer_when_needs_materialize_then_true():
 
 
 def test_given_linear_dag_when_get_execution_levels_then_returns_sequential_levels():
-    from synaflow.core.dag import Dag, DagNode
 
     dag = Dag(name="test")
     dag.steps = {
@@ -263,7 +255,6 @@ def test_given_linear_dag_when_get_execution_levels_then_returns_sequential_leve
 
 
 def test_given_diamond_dag_when_get_execution_levels_then_parallel_in_same_level():
-    from synaflow.core.dag import Dag, DagNode
 
     dag = Dag(name="test")
     dag.steps = {
@@ -279,7 +270,6 @@ def test_given_diamond_dag_when_get_execution_levels_then_parallel_in_same_level
 
 
 def test_given_independent_steps_when_get_execution_levels_then_all_in_same_level():
-    from synaflow.core.dag import Dag, DagNode
 
     dag = Dag(name="test")
     dag.steps = {"a": DagNode(deps={}), "b": DagNode(deps={})}
@@ -287,8 +277,6 @@ def test_given_independent_steps_when_get_execution_levels_then_all_in_same_leve
 
 
 def test_given_dag_when_to_dict_then_returns_correct_structure():
-    from synaflow.core.dag import Dag, DagNode
-    from synaflow.core.types import OnError
 
     dag = Dag(name="unit_test")
     dag.params = {"count": int}

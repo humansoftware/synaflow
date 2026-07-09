@@ -20,6 +20,8 @@ from synaflow.serializers import (
     pickle_serializer,
 )
 from synaflow.core.types import ErrorMaterializeContext
+from collections.abc import AsyncIterator
+from synaflow import include
 
 
 def test_given_step_level_error_materializer_when_dag_built_then_accepted():
@@ -436,7 +438,6 @@ def test_given_composite_error_materializer_when_fails_then_calls_all_underlying
 
 @pytest.mark.asyncio
 async def test_given_async_stream_and_lazy_consumer_with_force_materialize_then_materializer_is_called():
-    from collections.abc import AsyncIterator
 
     class P(NamedTuple):
         pass
@@ -471,8 +472,6 @@ async def test_given_async_stream_and_lazy_consumer_with_force_materialize_then_
 
 
 def test_given_include_when_no_explicit_materializer_then_sub_steps_remain_lazy():
-    from collections.abc import Iterator
-    from synaflow import include
 
     class P(NamedTuple):
         pass
@@ -579,7 +578,6 @@ async def test_given_async_composite_error_materializer_when_fails_then_calls_al
 
 
 def test_given_include_with_explicit_pipeline_materializer_then_propagates_to_sub_steps():
-    from synaflow import include
 
     class P(NamedTuple):
         pass
@@ -616,7 +614,6 @@ def test_given_include_with_explicit_pipeline_materializer_then_propagates_to_su
 
 
 def test_given_include_with_step_materializer_overriding_pipeline_materializer_then_step_wins():
-    from synaflow import include
 
     class P(NamedTuple):
         pass
@@ -656,7 +653,6 @@ def test_given_include_with_step_materializer_overriding_pipeline_materializer_t
 
 
 def test_given_include_with_explicit_pipeline_error_materializer_then_propagates_to_sub_steps():
-    from synaflow import include
 
     class P(NamedTuple):
         pass
@@ -689,7 +685,6 @@ def test_given_include_with_explicit_pipeline_error_materializer_then_propagates
 
 
 def test_given_include_with_step_error_materializer_overriding_pipeline_error_materializer_then_step_wins():
-    from synaflow import include
 
     class P(NamedTuple):
         pass
@@ -839,7 +834,6 @@ def test_given_sync_stream_and_lazy_consumer_with_step_materializer_then_materia
 
 @pytest.mark.asyncio
 async def test_given_async_stream_and_lazy_consumer_with_step_materializer_then_materializer_not_called():
-    from collections.abc import AsyncIterator
 
     class P(NamedTuple):
         pass

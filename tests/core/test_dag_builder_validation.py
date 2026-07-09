@@ -3,6 +3,7 @@ from typing import NamedTuple
 from collections.abc import Iterator, AsyncIterator
 import pytest
 from synaflow import StepMode, pipeline, step, Observer, OnError
+from collections.abc import Generator
 
 
 def test_given_sync_step_in_async_pipeline_then_raises():
@@ -275,7 +276,6 @@ def test_given_mode_all_when_signature_requires_each_then_raises():
 
 
 def test_given_mode_each_when_output_would_require_nested_streams_then_raises():
-    from collections.abc import Iterator
 
     class P(NamedTuple):
         items: list[int] = [1, 2, 3]
@@ -293,7 +293,6 @@ def test_given_mode_each_when_output_would_require_nested_streams_then_raises():
 
 
 def test_given_mode_each_when_consumer_would_require_iterator_of_lists_then_raises():
-    from collections.abc import Iterator
 
     class P(NamedTuple):
         items: list[int] = [1, 2, 3]
@@ -365,7 +364,6 @@ def test_given_step_with_duplicate_base_params_when_dag_built_then_raises():
 
 
 def test_given_smart_binding_with_singular_when_dag_built_then_resolves():
-    from collections.abc import Generator
 
     class P(NamedTuple):
         count: int = 3
@@ -387,7 +385,6 @@ def test_given_smart_binding_with_singular_when_dag_built_then_resolves():
 
 
 def test_given_terminal_step_returning_iterator_when_not_materialized_then_raises():
-    from collections.abc import Iterator
 
     class P(NamedTuple):
         items: list[int]
@@ -401,7 +398,6 @@ def test_given_terminal_step_returning_iterator_when_not_materialized_then_raise
 
 
 def test_given_terminal_step_returning_async_iterator_when_not_materialized_then_raises():
-    from collections.abc import AsyncIterator
 
     class P(NamedTuple):
         items: list[int]
@@ -416,7 +412,6 @@ def test_given_terminal_step_returning_async_iterator_when_not_materialized_then
 
 
 def test_given_terminal_step_returning_iterator_when_force_materialize_then_builds():
-    from collections.abc import Iterator
 
     class P(NamedTuple):
         items: list[int]
@@ -431,7 +426,6 @@ def test_given_terminal_step_returning_iterator_when_force_materialize_then_buil
 
 
 def test_given_terminal_step_returning_none_when_not_materialized_then_builds():
-    from collections.abc import Iterator
 
     class P(NamedTuple):
         items: list[int]
@@ -450,7 +444,6 @@ def test_given_terminal_step_returning_none_when_not_materialized_then_builds():
 
 
 def test_given_non_terminal_step_returning_iterator_when_not_materialized_then_builds():
-    from collections.abc import Iterator
 
     class P(NamedTuple):
         items: list[int]
@@ -470,7 +463,6 @@ def test_given_non_terminal_step_returning_iterator_when_not_materialized_then_b
 
 
 def test_given_exported_step_returning_iterator_when_in_child_pipeline_then_builds():
-    from collections.abc import Iterator
 
     class ChildParams(NamedTuple):
         items: list[int]

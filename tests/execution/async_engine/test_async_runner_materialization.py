@@ -7,6 +7,10 @@ from typing import AsyncGenerator, AsyncIterator, NamedTuple
 from unittest.mock import AsyncMock as MagicMock
 from synaflow import async_run, pipeline, step
 from synaflow.core.types import OnError
+from synaflow.core.types import MaterializeContext
+from dataclasses import dataclass
+from collections.abc import AsyncGenerator as AbcAsyncGenerator
+from collections.abc import AsyncIterator as AbcAsyncIterator
 
 
 def mock_step(**params: type) -> MagicMock:
@@ -361,7 +365,6 @@ async def test_given_step_materializer_when_run_then_overrides_pipeline_factory(
 
 
 async def test_given_factory_with_context_when_run_then_context_is_injected():
-    from synaflow.core.types import MaterializeContext
 
     class P(NamedTuple):
         count: int = 3
@@ -397,7 +400,6 @@ async def test_given_factory_with_context_when_run_then_context_is_injected():
 
 
 async def test_given_mixed_fanout_when_materializer_factory_receives_context_then_consumer_type_is_materialized_consumer_type():
-    from synaflow.core.types import MaterializeContext
 
     class P(NamedTuple):
         count: int = 3
@@ -584,9 +586,6 @@ async def test_given_scalar_output_with_on_error_stop_when_run_then_scalar_mater
 
 
 async def test_given_step_non_builtin_type_and_iterator_consumer_when_run_then_executes_successfully():
-    from dataclasses import dataclass
-    from collections.abc import AsyncGenerator, AsyncIterator
-    from synaflow import async_run
 
     @dataclass
     class Row:
@@ -596,13 +595,13 @@ async def test_given_step_non_builtin_type_and_iterator_consumer_when_run_then_e
     class P(NamedTuple):
         pass
 
-    async def producer() -> AsyncGenerator[Row, None]:
+    async def producer() -> AbcAsyncGenerator[Row, None]:
         yield Row(id=1, name="alice")
         yield Row(id=2, name="bob")
 
     seen = []
 
-    async def consumer(producer: AsyncIterator[Row]):
+    async def consumer(producer: AbcAsyncIterator[Row]):
         async for item in producer:
             seen.append(item)
 
@@ -616,9 +615,6 @@ async def test_given_step_non_builtin_type_and_iterator_consumer_when_run_then_e
 
 
 async def test_given_no_custom_materializer_and_non_builtin_type_when_not_materialized_then_executes_successfully():
-    from dataclasses import dataclass
-    from collections.abc import AsyncGenerator
-    from synaflow import async_run
 
     @dataclass
     class Row:
@@ -628,7 +624,7 @@ async def test_given_no_custom_materializer_and_non_builtin_type_when_not_materi
     class P(NamedTuple):
         pass
 
-    async def producer() -> AsyncGenerator[Row, None]:
+    async def producer() -> AbcAsyncGenerator[Row, None]:
         yield Row(id=1, name="alice")
         yield Row(id=2, name="bob")
 
@@ -749,7 +745,6 @@ async def test_given_multilevel_each_fanout_when_run_then_completes_without_mate
 
 @pytest.mark.asyncio
 async def test_given_terminal_stream_with_no_observers_bypass_validation():
-    from typing import NamedTuple
 
     class DummyParams(NamedTuple):
         values: list[int]

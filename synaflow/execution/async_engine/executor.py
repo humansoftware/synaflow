@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 import uuid
 from collections.abc import AsyncGenerator, AsyncIterator, Generator, Iterator
 from contextlib import AsyncExitStack
@@ -275,8 +276,6 @@ class AsyncPipelineExecutor:
                 timeout=1.0,
             )
         except asyncio.TimeoutError:
-            import logging
-
             logging.getLogger("synaflow").warning(
                 "Async pump tasks did not exit within timeout; likely blocked "
                 "in user code.  Abandoning the pumps; they will leak.  See "

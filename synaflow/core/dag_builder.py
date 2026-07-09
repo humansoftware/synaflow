@@ -71,6 +71,7 @@ from synaflow.core.dag_steps import (
     validate_unique_step_name,
 )
 from synaflow.core.dag_topology import check_circular_dependencies
+from synaflow.core.lockstep_validation import validate_lockstep_symmetry
 from synaflow.core.observers import (
     Observer,
     ResolvedObserver,
@@ -83,6 +84,7 @@ from synaflow.core.type_compatibility import (
     is_materialized_consumer,
     is_scalar,
     is_sync_stream_type,
+    is_type_compatible,
 )
 from synaflow.core.types import ErrorMaterializeContext, MaterializeContext, StepMode
 
@@ -507,8 +509,6 @@ def _resolve_materializers(
             return consumers[0].deps.get(step_name)
 
         consumer_type = mat_consumers[0].deps.get(step_name)
-        from synaflow.core.type_compatibility import is_type_compatible
-
         for other in mat_consumers[1:]:
             other_tp = other.deps.get(step_name)
             if (
@@ -644,8 +644,6 @@ def _plan_materialization(dag: dict[str, DagNode], indexes: _DagBuildIndexes) ->
     for producer_name, node in dag.items():
         node.materialize_output = producer_needs_materialize[producer_name]
         node._materialize_reasons = sorted(producer_reasons[producer_name])
-
-    from synaflow.core.lockstep_validation import validate_lockstep_symmetry
 
     # Extract pipeline name from the first node that has it
     pipeline_name = "unknown"

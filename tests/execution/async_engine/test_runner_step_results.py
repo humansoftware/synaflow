@@ -4,6 +4,12 @@ import pytest
 from synaflow import async_run
 from synaflow.execution.async_engine.executor import AsyncPipelineExecutor
 from tests.execution.async_engine.corpus import PACKS as ASYNC_PACKS
+from tests.execution.async_engine.corpus.error_handling import (
+    error_pipeline,
+    ErrorHandlingParams,
+    errors_list,
+)
+
 
 ASYNC_PACK_NAMES = (
     "async_explicit_modes",
@@ -60,11 +66,6 @@ async def test_step_results(pack_name):
 
 @pytest.mark.asyncio
 async def test_error_handling_corpus_registers_error():
-    from tests.execution.async_engine.corpus.error_handling import (
-        error_pipeline,
-        ErrorHandlingParams,
-        errors_list,
-    )
 
     errors_list.clear()
     await async_run(error_pipeline, ErrorHandlingParams())
