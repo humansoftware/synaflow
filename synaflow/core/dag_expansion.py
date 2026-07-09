@@ -12,13 +12,42 @@ def expand_macros(
     steps: list[Step | IncludeStep],
     current_pipeline_name: str | None = None,
     parent_chain: str | None = None,
-) -> list[Step]:
-    expanded = []
+    scope_path: str | None = None,
+) -> list[tuple[str, Step]]:
+    """Expand a pipeline's direct steps into a flat list of
+    ``(scope_id, Step)`` tuples.
+
+    The ``scope_id`` identifies the *instance* of the include using
+    ``__`` separators, so repeated and nested includes produce
+    distinct ids:
+
+    * root direct step: ``current_pipeline_name``
+    * adapter step: parent's scope (the include happens *in* the caller)
+    * sub-pipeline inner step: ``"{parent_scope}__{include_name}"``
+
+    Scope paths are transient plumbing — they are not written back onto
+    ``Step`` or ``IncludeStep`` instances. ``_compile_steps`` (Stop C)
+    reads them off the tuple to stamp ``DagNode`` metadata.
+    """
+    effective_scope = (
+        scope_path if scope_path is not None else (current_pipeline_name or "")
+    )
+    expanded: list[tuple[str, Step]] = []
     for step in steps:
         if isinstance(step, IncludeStep):
-            expanded.extend(_expand_include(step, current_pipeline_name, parent_chain))
+            sub_scope_path = (
+                f"{effective_scope}__{step.name}" if effective_scope else step.name
+            )
+            sub_exps = _expand_include(
+                step,
+                current_pipeline_name,
+                parent_chain,
+                effective_scope,
+                sub_scope_path,
+            )
+            expanded.extend(sub_exps)
         else:
-            expanded.append(step)
+            expanded.append((effective_scope, step))
     return expanded
 
 
@@ -123,17 +152,19 @@ def _expand_sub_pipeline_steps(
     sub_pipeline_param_fields: list[str],
     sub_pipeline_resource_fields: list[str],
     new_parent_chain: str | None,
-) -> list[Step]:
+    sub_scope_path: str,
+) -> list[tuple[str, Step]]:
     prefix = include_step.name
     sub_pipeline = include_step.pipeline
-    expanded_steps: list[Step] = []
+    expanded_steps: list[tuple[str, Step]] = []
     sub_steps = expand_macros(
         sub_pipeline.steps,
         current_pipeline_name=sub_pipeline.name,
         parent_chain=new_parent_chain,
+        scope_path=sub_scope_path,
     )
 
-    for sub_step in sub_steps:
+    for sub_step_scope_id, sub_step in sub_steps:
         wrapped_fn = _wrap_sub_step_fn(
             sub_step.fn,
             prefix,
@@ -147,22 +178,27 @@ def _expand_sub_pipeline_steps(
             sub_step,
         )
         expanded_steps.append(
-            Step(
-                name=_build_expanded_step_name(prefix, sub_step, sub_pipeline.exports),
-                fn=wrapped_fn,
-                on_error=sub_step.on_error,
-                mode=sub_step.mode,
-                params=sub_step.params,
-                materializer=materializer,
-                error_materializer=error_materializer,
-                force_materialize=sub_step.force_materialize,
-                description=sub_step.description,
-                pipeline=sub_pipeline.name,
-                parent_pipeline=new_parent_chain,
-                observers=observers,
-                max_in_flight=sub_step.max_in_flight,
-                error_threshold_absolute=sub_step.error_threshold_absolute,
-                error_threshold_pct=sub_step.error_threshold_pct,
+            (
+                sub_step_scope_id,
+                Step(
+                    name=_build_expanded_step_name(
+                        prefix, sub_step, sub_pipeline.exports
+                    ),
+                    fn=wrapped_fn,
+                    on_error=sub_step.on_error,
+                    mode=sub_step.mode,
+                    params=sub_step.params,
+                    materializer=materializer,
+                    error_materializer=error_materializer,
+                    force_materialize=sub_step.force_materialize,
+                    description=sub_step.description,
+                    pipeline=sub_pipeline.name,
+                    parent_pipeline=new_parent_chain,
+                    observers=observers,
+                    max_in_flight=sub_step.max_in_flight,
+                    error_threshold_absolute=sub_step.error_threshold_absolute,
+                    error_threshold_pct=sub_step.error_threshold_pct,
+                ),
             )
         )
 
@@ -173,7 +209,9 @@ def _expand_include(
     include_step: IncludeStep,
     current_pipeline_name: str | None = None,
     parent_chain: str | None = None,
-) -> list[Step]:
+    parent_scope_path: str = "",
+    sub_scope_path: str = "",
+) -> list[tuple[str, Step]]:
     prefix = include_step.name
     sub_pipeline = include_step.pipeline
     adapter_name = f"{prefix}__adapter"
@@ -192,8 +230,9 @@ def _expand_include(
         sub_pipeline_param_fields,
         sub_pipeline_resource_fields,
         new_parent_chain,
+        sub_scope_path,
     )
-    return [adapter_step, *expanded_steps]
+    return [(parent_scope_path, adapter_step), *expanded_steps]
 
 
 def _build_argument_mapping(

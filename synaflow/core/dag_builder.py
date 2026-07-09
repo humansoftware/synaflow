@@ -245,14 +245,14 @@ def _validate_declared_step_names(
 def _validate_resource_names(
     resources: dict[str, Any],
     params: type[NamedTuple],
-    expanded_steps: list[Step],
+    expanded_steps: list[tuple[str, Step]],
     pipeline_name: str,
 ) -> None:
     if dataclasses.is_dataclass(params):
         param_fields = {f.name for f in dataclasses.fields(params)}
     else:
         param_fields = set(getattr(params, "_fields", []))
-    step_names = {step.name for step in expanded_steps}
+    step_names = {step.name for _, step in expanded_steps}
 
     for resource_name in resources:
         if resource_name in param_fields:
@@ -761,7 +761,7 @@ def _compile_execution_plan(dag: Dag, indexes: _DagBuildIndexes) -> None:
 def _expand_and_validate_steps(
     steps: list[Step | IncludeStep],
     pipeline_name: str,
-) -> list[Step]:
+) -> list[tuple[str, Step]]:
     _validate_declared_step_names(steps, pipeline_name)
     expanded_steps = expand_macros(steps, current_pipeline_name=pipeline_name)
     validate_no_duplicate_base_datasets(expanded_steps, pipeline_name)
@@ -783,7 +783,7 @@ def _assert_dag_invariants(dag: "Dag", pipeline_name: str) -> None:
 
 
 def _compile_steps(
-    expanded_steps: list[Step],
+    expanded_steps: list[tuple[str, Step]],
     pipeline_name: str,
     params: type[NamedTuple],
     resources: dict[str, Any],
@@ -794,7 +794,7 @@ def _compile_steps(
     produced.update(initialize_resources(resources))
     resource_nodes = initialize_resources(resources)
 
-    for step in expanded_steps:
+    for scope_id, step in expanded_steps:
         validate_step_is_callable(step, pipeline_name)
         validate_unique_step_name(step.name, dag, pipeline_name, is_expanded=True)
 

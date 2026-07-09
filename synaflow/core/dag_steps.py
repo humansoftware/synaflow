@@ -162,11 +162,11 @@ def validate_sync_async_consistency(
 
 
 def validate_no_duplicate_base_datasets(
-    steps: list[Step],
+    steps: list[tuple[str, Step]],
     pipeline_name: str,
 ) -> None:
     seen: dict[str, str] = {}
-    for s in steps:
+    for _, s in steps:
         base = get_base_dataset_name(s.name)
         if base in seen and s.name != seen[base]:
             raise ValueError(
