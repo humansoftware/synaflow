@@ -11,6 +11,7 @@ from synaflow import (
     PipelineEvent,
     StepEvent,
     async_run,
+    include,
     pipeline,
     step,
 )
@@ -709,30 +710,64 @@ async def test_given_lazy_generator_step_when_observed_then_step_started_event_f
 
 
 @pytest.mark.asyncio
-async def test_given_pipeline_started_context_does_not_carry_step_scope_fields():
-    """PipelineStartedContext is intentionally unchanged."""
+async def test_given_pipeline_started_context_exposes_scope_step_totals():
+    """PipelineStartedContext.scope_step_totals exposes the dag-level
+    dict (async parity of sync test)."""
+
+    class _Scope(NamedTuple):
+        values: list[int] = []
+
+    rec = EventRecorder()
+
+    async def fn_only(values: list[int]) -> int:
+        return sum(values)
+
+    sub = pipeline(
+        name="Sub", params=_Scope, exports="only", steps=[step("only", fn=fn_only)]
+    )
+
+    async def adapt_sub(values: list[int]) -> _Scope:
+        return _Scope(values=values)
+
+    p = pipeline(
+        name="pl_started",
+        params=_Scope,
+        steps=[
+            include(name="first", pipeline=sub, fn=adapt_sub),
+            step("solo", fn=fn_only),
+        ],
+        observers=[Observer(rec.async_record)],
+    )
+    await async_run(p, params=_Scope(values=[1, 2, 3]))
+    started = next(
+        (ctx for _, ctx in rec.events if isinstance(ctx, PipelineStartedContext))
+    )
+    assert started.scope_step_totals == {
+        "pl_started": 2,
+        "pl_started__first": 1,
+    }
+
+
+@pytest.mark.asyncio
+async def test_given_pipeline_started_context_default_scope_step_totals_is_empty_dict():
+    """Field always present (stable contract)."""
+
+    class _Scope(NamedTuple):
+        values: list[int] = []
+
     rec = EventRecorder()
 
     async def fn_only(values: list[int]) -> int:
         return sum(values)
 
     p = pipeline(
-        name="pl_started",
-        params=Params,
+        name="trivial",
+        params=_Scope,
         steps=[step("only", fn=fn_only)],
         observers=[Observer(rec.async_record)],
     )
-    await async_run(p, params=Params(values=[1, 2, 3]))
+    await async_run(p, params=_Scope(values=[1]))
     started = next(
         (ctx for _, ctx in rec.events if isinstance(ctx, PipelineStartedContext))
     )
-    assert not hasattr(started, "pipeline_scope") or started.pipeline_scope in (
-        None,
-        "",
-    )
-    assert (
-        not hasattr(started, "step_index_in_scope") or started.step_index_in_scope == 0
-    )
-    assert (
-        not hasattr(started, "step_total_in_scope") or started.step_total_in_scope == 0
-    )
+    assert started.scope_step_totals == {"trivial": 1}

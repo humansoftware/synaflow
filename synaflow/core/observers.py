@@ -14,7 +14,7 @@ semantics, laziness, or materialization decisions.
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any, Callable
 
@@ -89,7 +89,7 @@ class BaseObserverContext:
 
 @dataclass(frozen=True)
 class PipelineStartedContext(BaseObserverContext):
-    pass
+    scope_step_totals: dict[str, int] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)

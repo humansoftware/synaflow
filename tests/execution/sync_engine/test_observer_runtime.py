@@ -7,6 +7,7 @@ from synaflow import (
     Observer,
     PipelineEvent,
     StepEvent,
+    include,
     pipeline,
     run,
     step,
@@ -590,12 +591,53 @@ def test_given_lazy_generator_step_when_observed_then_step_started_event_fires_o
     assert state["step_started_event_fired"] is True
 
 
-def test_given_pipeline_started_context_does_not_carry_step_scope_fields():
-    """PipelineStartedContext is intentionally unchanged: consumer
-    derives per-scope totals from step_started events themselves."""
+def test_given_pipeline_started_context_exposes_scope_step_totals():
+    """PipelineStartedContext.scope_step_totals exposes the dag-level
+    dict to consumers so they can detect scope completion without
+    waiting for the last step event."""
 
-    class _Empty(NamedTuple):
-        pass
+    class _Scope(NamedTuple):
+        values: list[int] = []
+
+    rec = EventRecorder()
+
+    def fn_only(values: list[int]) -> int:
+        return sum(values)
+
+    sub = pipeline(
+        name="Sub", params=_Scope, exports="only", steps=[step("only", fn=fn_only)]
+    )
+
+    def adapt_sub(values: list[int]) -> _Scope:
+        return _Scope(values=values)
+
+    p = pipeline(
+        name="pl_started",
+        params=_Scope,
+        steps=[
+            include(name="first", pipeline=sub, fn=adapt_sub),
+            step("solo", fn=fn_only),
+        ],
+        observers=[Observer(rec.record)],
+    )
+    run(p, params=_Scope(values=[1, 2, 3]))
+    started = next(
+        (ctx for _, ctx in rec.events if isinstance(ctx, PipelineStartedContext))
+    )
+    # Each include contributes 1 adapter; root direct step adds 1.
+    # Sub-pipeline exposes 1 inner.
+    assert started.scope_step_totals == {
+        "pl_started": 2,
+        "pl_started__first": 1,
+    }
+
+
+def test_given_pipeline_started_context_default_scope_step_totals_is_empty_dict():
+    """Field always present (stable contract); empty for trivially
+    scope-free pipelines would only happen with no steps at all."""
+
+    class _Scope(NamedTuple):
+        values: list[int] = []
 
     rec = EventRecorder()
 
@@ -603,22 +645,13 @@ def test_given_pipeline_started_context_does_not_carry_step_scope_fields():
         return sum(values)
 
     p = pipeline(
-        name="pl_started",
-        params=Params,
+        name="trivial",
+        params=_Scope,
         steps=[step("only", fn=fn_only)],
         observers=[Observer(rec.record)],
     )
-    run(p, params=Params(values=[1, 2, 3]))
+    run(p, params=_Scope(values=[1]))
     started = next(
         (ctx for _, ctx in rec.events if isinstance(ctx, PipelineStartedContext))
     )
-    assert not hasattr(started, "pipeline_scope") or started.pipeline_scope in (
-        None,
-        "",
-    )
-    assert (
-        not hasattr(started, "step_index_in_scope") or started.step_index_in_scope == 0
-    )
-    assert (
-        not hasattr(started, "step_total_in_scope") or started.step_total_in_scope == 0
-    )
+    assert started.scope_step_totals == {"trivial": 1}

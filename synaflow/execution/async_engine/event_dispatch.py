@@ -78,6 +78,7 @@ class AsyncEventDispatcher:
             pipeline_name=self._dag.name,
             run_id=self._run_id,
             event=PipelineEvent.STARTED,
+            scope_step_totals=dict(self._dag.scope_step_totals),
         )
         await dispatch_observers_async(registrations, ctx)
 
