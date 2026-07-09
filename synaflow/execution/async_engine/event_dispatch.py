@@ -119,8 +119,6 @@ class AsyncEventDispatcher:
             mode=dag_node.mode,
             on_error=dag_node.on_error,
             pipeline_scope=dag_node.pipeline,
-            step_index_in_scope=dag_node.step_index_in_scope,
-            step_total_in_scope=dag_node.step_total_in_scope,
         )
         await dispatch_observers_async(registrations, ctx)
 
@@ -146,8 +144,6 @@ class AsyncEventDispatcher:
             error_count=error_count,
             completed_all_inputs=completed_all_inputs,
             pipeline_scope=dag_node.pipeline,
-            step_index_in_scope=dag_node.step_index_in_scope,
-            step_total_in_scope=dag_node.step_total_in_scope,
         )
         await dispatch_observers_async(registrations, ctx)
 
@@ -175,8 +171,6 @@ class AsyncEventDispatcher:
             completed_all_inputs=completed_all_inputs,
             exception=exception,
             pipeline_scope=dag_node.pipeline,
-            step_index_in_scope=dag_node.step_index_in_scope,
-            step_total_in_scope=dag_node.step_total_in_scope,
         )
         await dispatch_observers_async(registrations, ctx)
 

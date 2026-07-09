@@ -118,8 +118,6 @@ class DagNode:
     output_contract: OutputContract | None = None
     consumer_contracts: list[ConsumerContract] = field(default_factory=list)
     publish_plan: PublishPlan | None = None
-    step_index_in_scope: int = 0
-    step_total_in_scope: int = 0
 
     def __getitem__(self, key):
         return getattr(self, key)
@@ -162,8 +160,9 @@ class DagNode:
             ret["consumer_contracts"] = [asdict(c) for c in self.consumer_contracts]
         if self.publish_plan is not None:
             ret["publish_plan"] = asdict(self.publish_plan)
-        ret["step_index_in_scope"] = self.step_index_in_scope
-        ret["step_total_in_scope"] = self.step_total_in_scope
+        # Scope metadata (pipeline_scope, step_index_in_scope,
+        # step_total_in_scope) is no longer stored on the node —
+        # computed by build_dag in Stop C of issue #107 rework.
         return ret
 
 

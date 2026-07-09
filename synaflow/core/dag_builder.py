@@ -804,8 +804,6 @@ def _compile_steps(
             resource_nodes,
             pipeline_name,
             observers=_resolve_step_observers(pipeline_observers, step.observers),
-            step_index_in_scope=step.index_in_scope,
-            step_total_in_scope=step.total_in_scope,
         )
         dag[step.name] = compiled_step
         produced[step.name] = compiled_step

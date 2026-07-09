@@ -84,8 +84,6 @@ def _build_adapter_step(
         description=include_step.description,
         pipeline=current_pipeline_name,
         parent_pipeline=parent_chain,
-        index_in_scope=include_step.index_in_scope,
-        total_in_scope=include_step.total_in_scope,
     )
 
 
@@ -165,8 +163,6 @@ def _expand_sub_pipeline_steps(
                 max_in_flight=sub_step.max_in_flight,
                 error_threshold_absolute=sub_step.error_threshold_absolute,
                 error_threshold_pct=sub_step.error_threshold_pct,
-                index_in_scope=sub_step.index_in_scope,
-                total_in_scope=sub_step.total_in_scope,
             )
         )
 

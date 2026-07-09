@@ -102,8 +102,6 @@ def _normalize_exported_dag_for_contract_assertions(dag_dict: dict) -> dict:
                 "output_contract",
                 "consumer_contracts",
                 "publish_plan",
-                "step_index_in_scope",
-                "step_total_in_scope",
             }
         }
     return normalized
