@@ -788,11 +788,12 @@ def _compile_steps(
     params: type[NamedTuple],
     resources: dict[str, Any],
     pipeline_observers: list[ResolvedObserver],
-) -> tuple[dict[str, DagNode], dict[str, DagNode]]:
+) -> tuple[dict[str, DagNode], dict[str, DagNode], dict[str, str]]:
     dag: dict[str, DagNode] = {}
     produced = initialize_parameters(params)
     produced.update(initialize_resources(resources))
     resource_nodes = initialize_resources(resources)
+    scope_id_by_step_name: dict[str, str] = {}
 
     for scope_id, step in expanded_steps:
         validate_step_is_callable(step, pipeline_name)
@@ -807,8 +808,49 @@ def _compile_steps(
         )
         dag[step.name] = compiled_step
         produced[step.name] = compiled_step
+        scope_id_by_step_name[step.name] = scope_id
 
-    return dag, produced
+    return dag, produced, scope_id_by_step_name
+
+
+def _stamp_scope_metadata(
+    dag: "Dag",
+    scope_id_by_step_name: dict[str, str],
+) -> None:
+    """Stamp scope metadata on every DagNode and aggregate
+    dag.scope_step_totals.
+
+    Called once, after the dag is fully built and validated, so the
+    flattening of dag.get_execution_levels() reflects the final
+    graph topology. The flattened levels are filtered by scope to
+    produce a per-scope topological ordering, then each scope's
+    steps receive a 0-based step_index_in_scope and the same
+    step_total_in_scope (the count of steps in that scope).
+
+    DagNode.pipeline (immediate pipeline name) is preserved — only
+    the three new fields are added here.
+    """
+    flat_topo = [
+        step_name for level in dag.get_execution_levels() for step_name in level
+    ]
+
+    by_scope: dict[str, list[str]] = {}
+    for step_name in flat_topo:
+        scope_id = scope_id_by_step_name.get(step_name, "")
+        by_scope.setdefault(scope_id, []).append(step_name)
+
+    scope_step_totals: dict[str, int] = {
+        scope_id: len(names) for scope_id, names in by_scope.items()
+    }
+    dag.scope_step_totals = scope_step_totals
+
+    for scope_id, names in by_scope.items():
+        total = len(names)
+        for idx, step_name in enumerate(names):
+            node = dag[step_name]
+            node.pipeline_scope = scope_id
+            node.step_index_in_scope = idx
+            node.step_total_in_scope = total
 
 
 def _finalize_dag(
@@ -853,7 +895,7 @@ def build_dag(pipeline_def: PipelineDef) -> Dag:
         expanded_steps,
         pipeline_def.name,
     )
-    dag, produced = _compile_steps(
+    dag, produced, scope_id_by_step_name = _compile_steps(
         expanded_steps,
         pipeline_def.name,
         pipeline_def.params,
@@ -894,5 +936,7 @@ def build_dag(pipeline_def: PipelineDef) -> Dag:
         _validate_no_async_handlers(pipeline_def, dag_obj)
     else:
         _validate_no_sync_handlers(pipeline_def, dag_obj)
+
+    _stamp_scope_metadata(dag_obj, scope_id_by_step_name)
 
     return dag_obj

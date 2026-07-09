@@ -26,8 +26,8 @@ def expand_macros(
     * sub-pipeline inner step: ``"{parent_scope}__{include_name}"``
 
     Scope paths are transient plumbing — they are not written back onto
-    ``Step`` or ``IncludeStep`` instances. ``_compile_steps`` (Stop C)
-    reads them off the tuple to stamp ``DagNode`` metadata.
+    ``Step`` or ``IncludeStep`` instances. ``_compile_steps`` reads them
+    off the tuple to stamp ``DagNode`` metadata.
     """
     effective_scope = (
         scope_path if scope_path is not None else (current_pipeline_name or "")

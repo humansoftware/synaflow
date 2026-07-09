@@ -102,6 +102,13 @@ def _normalize_exported_dag_for_contract_assertions(dag_dict: dict) -> dict:
                 "output_contract",
                 "consumer_contracts",
                 "publish_plan",
+                # Scope metadata has dedicated tests in
+                # ``test_dag_scope_stamping`` — exclude from the
+                # execution-order corpus check so the corpus fixtures
+                # don't need a full rewrite.
+                "pipeline_scope",
+                "step_index_in_scope",
+                "step_total_in_scope",
             }
         }
     return normalized
