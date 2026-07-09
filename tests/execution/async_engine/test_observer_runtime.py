@@ -750,7 +750,21 @@ async def test_given_pipeline_started_context_exposes_scope_step_totals():
 
 @pytest.mark.asyncio
 async def test_given_pipeline_started_context_default_scope_step_totals_is_empty_dict():
-    """Field always present (stable contract)."""
+    """Constructing PipelineStartedContext without the kwarg
+    yields an empty dict — async parity."""
+    from synaflow.core.observers import PipelineStartedContext
+
+    ctx = PipelineStartedContext(
+        pipeline_name="p",
+        run_id="r",
+        event=PipelineEvent.STARTED,
+    )
+    assert ctx.scope_step_totals == {}
+
+
+@pytest.mark.asyncio
+async def test_given_repeated_includes_when_step_completed_then_observer_sees_distinct_pipeline_scope():
+    """Async parity of the sync regression test for #105 root cause."""
 
     class _Scope(NamedTuple):
         values: list[int] = []
@@ -760,14 +774,30 @@ async def test_given_pipeline_started_context_default_scope_step_totals_is_empty
     async def fn_only(values: list[int]) -> int:
         return sum(values)
 
-    p = pipeline(
-        name="trivial",
+    async def adapt_sub(values: list[int]) -> _Scope:
+        return _Scope(values=values)
+
+    sub = pipeline(
+        name="Sub",
         params=_Scope,
+        exports="only",
         steps=[step("only", fn=fn_only)],
+    )
+
+    p = pipeline(
+        name="R",
+        params=_Scope,
+        steps=[
+            include(name="first", pipeline=sub, fn=adapt_sub),
+            include(name="second", pipeline=sub, fn=adapt_sub),
+        ],
         observers=[Observer(rec.async_record)],
     )
-    await async_run(p, params=_Scope(values=[1]))
-    started = next(
-        (ctx for _, ctx in rec.events if isinstance(ctx, PipelineStartedContext))
-    )
-    assert started.scope_step_totals == {"trivial": 1}
+    await async_run(p, params=_Scope(values=[1, 2]))
+    completed = {
+        ctx.step_name: ctx
+        for _, ctx in rec.events
+        if isinstance(ctx, StepCompletedContext)
+    }
+    assert completed["first"].pipeline_scope == "R__first"
+    assert completed["second"].pipeline_scope == "R__second"

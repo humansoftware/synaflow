@@ -633,8 +633,23 @@ def test_given_pipeline_started_context_exposes_scope_step_totals():
 
 
 def test_given_pipeline_started_context_default_scope_step_totals_is_empty_dict():
-    """Field always present (stable contract); empty for trivially
-    scope-free pipelines would only happen with no steps at all."""
+    """Constructing PipelineStartedContext without the kwarg
+    yields an empty dict — keeps backward compatibility for code that
+    builds contexts directly (e.g., tests, mock observers)."""
+    from synaflow.core.observers import PipelineStartedContext
+
+    ctx = PipelineStartedContext(
+        pipeline_name="p",
+        run_id="r",
+        event=PipelineEvent.STARTED,
+    )
+    assert ctx.scope_step_totals == {}
+
+
+def test_given_repeated_includes_when_step_completed_then_observer_sees_distinct_pipeline_scope():
+    """Regression for #105 root cause: step events must emit
+    ``pipeline_scope`` as the path-based scope_id (``R__first`` vs
+    ``R__second``), NOT the immediate pipeline name (``Sub``)."""
 
     class _Scope(NamedTuple):
         values: list[int] = []
@@ -644,14 +659,30 @@ def test_given_pipeline_started_context_default_scope_step_totals_is_empty_dict(
     def fn_only(values: list[int]) -> int:
         return sum(values)
 
-    p = pipeline(
-        name="trivial",
+    def adapt_sub(values: list[int]) -> _Scope:
+        return _Scope(values=values)
+
+    sub = pipeline(
+        name="Sub",
         params=_Scope,
+        exports="only",
         steps=[step("only", fn=fn_only)],
+    )
+
+    p = pipeline(
+        name="R",
+        params=_Scope,
+        steps=[
+            include(name="first", pipeline=sub, fn=adapt_sub),
+            include(name="second", pipeline=sub, fn=adapt_sub),
+        ],
         observers=[Observer(rec.record)],
     )
-    run(p, params=_Scope(values=[1]))
-    started = next(
-        (ctx for _, ctx in rec.events if isinstance(ctx, PipelineStartedContext))
-    )
-    assert started.scope_step_totals == {"trivial": 1}
+    run(p, params=_Scope(values=[1, 2]))
+    completed = {
+        ctx.step_name: ctx
+        for _, ctx in rec.events
+        if isinstance(ctx, StepCompletedContext)
+    }
+    assert completed["first"].pipeline_scope == "R__first"
+    assert completed["second"].pipeline_scope == "R__second"
