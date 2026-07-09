@@ -220,9 +220,12 @@ def test_step_run_stats() -> None:
 async def test_step_runner_simple() -> None:
     from contextlib import AsyncExitStack
     from unittest.mock import AsyncMock, MagicMock
-    from synaflow.execution.async_engine.step_runner import AsyncStepRunner
+    from synaflow.core.dag import DagNode
+    from synaflow.execution.async_engine.step_runner import (
+        AsyncStepRunner,
+    )
     from synaflow.execution.stats import StepRunStats
-    from synaflow.core.types import OnError
+    from synaflow.core.types import OnError, StepMode
 
     stats = StepRunStats()
     ran = []
@@ -237,6 +240,12 @@ async def test_step_runner_simple() -> None:
     mock_events.step_started = AsyncMock()
     mock_events.step_completed = AsyncMock()
 
+    dag_node = DagNode(
+        fn=fn,
+        mode=StepMode.ALL,
+        on_error=OnError.STOP,
+        observers=[],
+    )
     runner = AsyncStepRunner(
         step_name="s1",
         fn=fn,
@@ -251,6 +260,7 @@ async def test_step_runner_simple() -> None:
         state=MagicMock(),
         events=mock_events,
         stats=stats,
+        dag_node=dag_node,
     )
     await runner.run()
 

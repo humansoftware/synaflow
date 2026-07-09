@@ -1,23 +1,24 @@
+from synaflow.core.dag_builder import build_dag
 from synaflow.core.adapters import async_adapter
 import functools
 import logging
 from collections.abc import AsyncIterator
 from typing import NamedTuple
-
 import pytest
-
 from synaflow import (
     MaterializationEvent,
     Observer,
     PipelineEvent,
     StepEvent,
     async_run,
+    include,
     pipeline,
     step,
 )
 from synaflow.core.observers import (
     MaterializationStartedContext,
     PipelineFailedContext,
+    PipelineStartedContext,
     StepCompletedContext,
     StepFailedContext,
     StepStartedContext,
@@ -34,11 +35,6 @@ class EmptyParams(NamedTuple):
     pass
 
 
-# ---------------------------------------------------------------------------
-# Wrapper-level event filter (per spec: filtering lives above the core)
-# ---------------------------------------------------------------------------
-
-
 def on_event(event_type, handler):
     from synaflow.core.adapters import async_adapter
 
@@ -50,11 +46,6 @@ def on_event(event_type, handler):
 
     wrapper.__name__ = getattr(handler, "__name__", "on_event")
     return wrapper
-
-
-# ---------------------------------------------------------------------------
-# Helper: observer that records all events for a specific event type
-# ---------------------------------------------------------------------------
 
 
 class EventRecorder:
@@ -71,11 +62,6 @@ class EventRecorder:
             self.events.append((type(ctx).__name__, ctx))
 
 
-# ---------------------------------------------------------------------------
-# Pipeline events
-# ---------------------------------------------------------------------------
-
-
 @pytest.mark.asyncio
 async def test_given_pipeline_run_id_is_consistent_and_unique_per_run():
     rec = EventRecorder()
@@ -89,15 +75,10 @@ async def test_given_pipeline_run_id_is_consistent_and_unique_per_run():
         steps=[step("dummy", fn=dummy)],
         observers=[Observer(async_adapter(rec.record))],
     )
-
-    await AsyncPipelineExecutor(p.dag).execute(Params(values=[1]))
-    await AsyncPipelineExecutor(p.dag).execute(Params(values=[2]))
-
-    # Assert p run
+    await AsyncPipelineExecutor(build_dag(p)).execute(Params(values=[1]))
+    await AsyncPipelineExecutor(build_dag(p)).execute(Params(values=[2]))
     run_ids = {ctx.run_id for _, ctx in rec.events}
     assert len(run_ids) == 2
-
-    # Assert each run_id has events associated with it
     for r_id in run_ids:
         assert isinstance(r_id, str) and len(r_id) > 0
 
@@ -116,14 +97,10 @@ async def test_given_pipeline_observer_when_run_completes_then_started_and_compl
     p = pipeline(
         name="p",
         params=Params,
-        steps=[
-            step("gen", fn=gen),
-            step("consumer", fn=consumer),
-        ],
+        steps=[step("gen", fn=gen), step("consumer", fn=consumer)],
         observers=[Observer(async_adapter(rec.record))],
     )
-    await AsyncPipelineExecutor(p.dag).execute(Params(values=[1, 2]))
-
+    await AsyncPipelineExecutor(build_dag(p)).execute(Params(values=[1, 2]))
     names = [e[0] for e in rec.events]
     assert "PipelineStartedContext" in names
     assert "PipelineCompletedContext" in names
@@ -147,8 +124,7 @@ async def test_given_pipeline_observer_when_step_fails_stop_then_failed_emitted(
         observers=[Observer(on_event(PipelineEvent.FAILED, rec.record))],
     )
     with pytest.raises(Exception):
-        await AsyncPipelineExecutor(p.dag).execute(Params(values=[1]))
-
+        await AsyncPipelineExecutor(build_dag(p)).execute(Params(values=[1]))
     assert len(rec.events) == 1
     name, ctx = rec.events[0]
     assert name == "PipelineFailedContext"
@@ -171,16 +147,10 @@ async def test_given_pipeline_failed_context_then_has_fields():
         observers=[Observer(on_event(PipelineEvent.FAILED, rec.record))],
     )
     with pytest.raises(Exception):
-        await AsyncPipelineExecutor(p.dag).execute(Params(values=[1]))
-
+        await AsyncPipelineExecutor(build_dag(p)).execute(Params(values=[1]))
     ctx = rec.events[0][1]
     assert ctx.pipeline_name == "my_pipe"
     assert ctx.event is PipelineEvent.FAILED
-
-
-# ---------------------------------------------------------------------------
-# Step events — ALL mode
-# ---------------------------------------------------------------------------
 
 
 @pytest.mark.asyncio
@@ -195,8 +165,7 @@ async def test_given_all_mode_step_when_succeeds_then_started_and_completed_emit
         params=Params,
         steps=[step("s", fn=identity, observers=[Observer(async_adapter(rec.record))])],
     )
-    await AsyncPipelineExecutor(p.dag).execute(Params(values=[42]))
-
+    await AsyncPipelineExecutor(build_dag(p)).execute(Params(values=[42]))
     names = [e[0] for e in rec.events]
     assert "StepStartedContext" in names
     assert "StepCompletedContext" in names
@@ -221,8 +190,7 @@ async def test_given_all_mode_step_completed_then_counts_correct():
             )
         ],
     )
-    await AsyncPipelineExecutor(p.dag).execute(Params(values=[42]))
-
+    await AsyncPipelineExecutor(build_dag(p)).execute(Params(values=[42]))
     ctx = rec.events[0][1]
     assert ctx.success_count == 1
     assert ctx.error_count == 0
@@ -250,17 +218,11 @@ async def test_given_all_mode_step_when_fails_stop_then_failed_emitted():
         ],
     )
     with pytest.raises(Exception):
-        await AsyncPipelineExecutor(p.dag).execute(Params(values=[1]))
-
+        await AsyncPipelineExecutor(build_dag(p)).execute(Params(values=[1]))
     ctx = rec.events[0][1]
     assert isinstance(ctx, StepFailedContext)
     assert ctx.completed_all_inputs is False
     assert isinstance(ctx.exception, ValueError)
-
-
-# ---------------------------------------------------------------------------
-# Step events — EACH mode
-# ---------------------------------------------------------------------------
 
 
 @pytest.mark.asyncio
@@ -290,8 +252,7 @@ async def test_given_each_mode_step_when_all_items_succeed_then_completed_with_c
             step("collect", fn=collect),
         ],
     )
-    await AsyncPipelineExecutor(p.dag).execute(Params(values=[1, 2, 3]))
-
+    await AsyncPipelineExecutor(build_dag(p)).execute(Params(values=[1, 2, 3]))
     ctx = rec.events[0][1]
     assert isinstance(ctx, StepCompletedContext)
     assert ctx.mode == StepMode.EACH
@@ -334,8 +295,7 @@ async def test_given_each_mode_step_when_some_fail_continue_then_completed_not_f
             step("collect", fn=collect),
         ],
     )
-    await AsyncPipelineExecutor(p.dag).execute(Params(values=[1, 2, 3]))
-
+    await AsyncPipelineExecutor(build_dag(p)).execute(Params(values=[1, 2, 3]))
     assert len(rec_comp.events) == 1
     ctx = rec_comp.events[0][1]
     assert isinstance(ctx, StepCompletedContext)
@@ -374,17 +334,11 @@ async def test_given_each_mode_step_when_item_fails_stop_then_failed_with_partia
         ],
     )
     with pytest.raises(Exception):
-        await AsyncPipelineExecutor(p.dag).execute(Params(values=[1, 2, 3]))
-
+        await AsyncPipelineExecutor(build_dag(p)).execute(Params(values=[1, 2, 3]))
     ctx = rec.events[0][1]
     assert isinstance(ctx, StepFailedContext)
     assert ctx.completed_all_inputs is False
     assert isinstance(ctx.exception, ValueError)
-
-
-# ---------------------------------------------------------------------------
-# Materialization events
-# ---------------------------------------------------------------------------
 
 
 @pytest.mark.asyncio
@@ -406,8 +360,7 @@ async def test_given_step_with_list_consumer_when_materialized_then_events_emitt
             step("collect", fn=collect),
         ],
     )
-    await AsyncPipelineExecutor(p.dag).execute(Params(values=[1, 2]))
-
+    await AsyncPipelineExecutor(build_dag(p)).execute(Params(values=[1, 2]))
     names = [e[0] for e in rec.events]
     assert "MaterializationStartedContext" in names
     assert "MaterializationCompletedContext" in names
@@ -441,8 +394,7 @@ async def test_given_materialization_context_then_has_fields():
             step("collect", fn=collect),
         ],
     )
-    await AsyncPipelineExecutor(p.dag).execute(Params(values=[1]))
-
+    await AsyncPipelineExecutor(build_dag(p)).execute(Params(values=[1]))
     ctx = rec.events[0][1]
     assert isinstance(ctx, MaterializationStartedContext)
     assert ctx.step_name == "gen"
@@ -455,6 +407,7 @@ async def test_given_materialization_when_fails_then_failed_emitted():
     rec = EventRecorder(MaterializationEvent.FAILED)
 
     def bad_mat(ctx):
+
         async def fail(value):
             raise ValueError("mat failed")
 
@@ -484,10 +437,9 @@ async def test_given_materialization_when_fails_then_failed_emitted():
         ],
     )
     try:
-        await AsyncPipelineExecutor(p.dag).execute(Params(values=[1]))
+        await AsyncPipelineExecutor(build_dag(p)).execute(Params(values=[1]))
     except Exception:
         pass
-
     assert len(rec.events) >= 1
     assert isinstance(rec.events[0][1].exception, ValueError)
 
@@ -518,18 +470,13 @@ async def test_given_lazy_consumer_when_no_materialization_then_no_materializati
             step("passthrough", fn=passthrough),
         ],
     )
-    await AsyncPipelineExecutor(p.dag).execute(Params(values=[1]))
-
+    await AsyncPipelineExecutor(build_dag(p)).execute(Params(values=[1]))
     assert len(rec.events) == 0
-
-
-# ---------------------------------------------------------------------------
-# Observer failure isolation
-# ---------------------------------------------------------------------------
 
 
 @pytest.mark.asyncio
 async def test_given_observer_raises_when_dispatched_then_step_still_succeeds(caplog):
+
     async def bad_observer(ctx):
         raise RuntimeError("observer failure")
 
@@ -542,7 +489,7 @@ async def test_given_observer_raises_when_dispatched_then_step_still_succeeds(ca
         steps=[step("s", fn=ok_step, observers=[Observer(bad_observer)])],
     )
     caplog.set_level(logging.DEBUG)
-    await AsyncPipelineExecutor(p.dag).execute(Params(values=[1]))
+    await AsyncPipelineExecutor(build_dag(p)).execute(Params(values=[1]))
     assert "observer failure" in caplog.text
 
 
@@ -570,17 +517,13 @@ async def test_given_observer_raises_when_dispatched_then_other_observers_still_
             )
         ],
     )
-    await AsyncPipelineExecutor(p.dag).execute(Params(values=[1]))
+    await AsyncPipelineExecutor(build_dag(p)).execute(Params(values=[1]))
     assert len(rec.events) == 1
-
-
-# ---------------------------------------------------------------------------
-# Laziness / materialization preservation
-# ---------------------------------------------------------------------------
 
 
 @pytest.mark.asyncio
 async def test_given_observers_when_lazy_step_then_output_remains_iterator():
+
     async def gen(values: list[int]) -> AsyncIterator[int]:
         for v in values:
             yield v
@@ -597,7 +540,7 @@ async def test_given_observers_when_lazy_step_then_output_remains_iterator():
             step("lazy_consumer", fn=lazy_consumer),
         ],
     )
-    await AsyncPipelineExecutor(p.dag).execute(Params(values=[1, 2]))
+    await AsyncPipelineExecutor(build_dag(p)).execute(Params(values=[1, 2]))
 
 
 @pytest.mark.asyncio
@@ -626,13 +569,8 @@ async def test_given_materialization_observer_when_lazy_step_then_materializatio
             step("lazy_consumer", fn=lazy_consumer),
         ],
     )
-    await AsyncPipelineExecutor(p.dag).execute(Params(values=[1, 2]))
+    await AsyncPipelineExecutor(build_dag(p)).execute(Params(values=[1, 2]))
     assert len(rec.events) == 0
-
-
-# ---------------------------------------------------------------------------
-# Async handler support
-# ---------------------------------------------------------------------------
 
 
 @pytest.mark.asyncio
@@ -728,13 +666,13 @@ async def test_given_step_returning_list_when_observed_then_success_count_reflec
         steps=[step("prod", fn=producer), step("cons", fn=consumer)],
         observers=[Observer(async_adapter(rec.record))],
     )
-
     await async_run(p, params=Params(values=[1, 2, 3]))
-
     cons_event = next(
-        ctx
-        for name, ctx in rec.events
-        if isinstance(ctx, StepCompletedContext) and ctx.step_name == "cons"
+        (
+            ctx
+            for name, ctx in rec.events
+            if isinstance(ctx, StepCompletedContext) and ctx.step_name == "cons"
+        )
     )
     assert cons_event.success_count == 3
 
@@ -764,12 +702,316 @@ async def test_given_lazy_generator_step_when_observed_then_step_started_event_f
     p = pipeline(
         name="test_p",
         params=Params,
-        steps=[
-            step("prod", fn=producer),
-            step("cons", fn=consumer),
-        ],
+        steps=[step("prod", fn=producer), step("cons", fn=consumer)],
         observers=[Observer(async_adapter(observer))],
     )
-
     await async_run(p, params=Params(values=[]))
     assert state["step_started_event_fired"] is True
+
+
+@pytest.mark.asyncio
+async def test_given_pipeline_started_context_exposes_scope_step_totals():
+    """PipelineStartedContext.scope_step_totals exposes the dag-level
+    dict (async parity of sync test)."""
+
+    class _Scope(NamedTuple):
+        values: list[int] = []
+
+    rec = EventRecorder()
+
+    async def fn_only(values: list[int]) -> int:
+        return sum(values)
+
+    sub = pipeline(
+        name="Sub", params=_Scope, exports="only", steps=[step("only", fn=fn_only)]
+    )
+
+    async def adapt_sub(values: list[int]) -> _Scope:
+        return _Scope(values=values)
+
+    p = pipeline(
+        name="pl_started",
+        params=_Scope,
+        steps=[
+            include(name="first", pipeline=sub, fn=adapt_sub),
+            step("solo", fn=fn_only),
+        ],
+        observers=[Observer(rec.async_record)],
+    )
+    await async_run(p, params=_Scope(values=[1, 2, 3]))
+    started = next(
+        (ctx for _, ctx in rec.events if isinstance(ctx, PipelineStartedContext))
+    )
+    assert started.scope_step_totals == {
+        "pl_started": 2,
+        "pl_started__first": 1,
+    }
+
+
+@pytest.mark.asyncio
+async def test_given_pipeline_started_context_default_scope_step_totals_is_empty_dict():
+    """Constructing PipelineStartedContext without the kwarg
+    yields an empty dict — async parity."""
+    from synaflow.core.observers import PipelineStartedContext
+
+    ctx = PipelineStartedContext(
+        pipeline_name="p",
+        run_id="r",
+        event=PipelineEvent.STARTED,
+    )
+    assert ctx.scope_step_totals == {}
+
+
+@pytest.mark.asyncio
+async def test_given_repeated_includes_when_step_completed_then_observer_sees_distinct_pipeline_scope():
+    """Async parity of the sync regression test for #105 root cause."""
+
+    class _Scope(NamedTuple):
+        values: list[int] = []
+
+    rec = EventRecorder()
+
+    async def fn_only(values: list[int]) -> int:
+        return sum(values)
+
+    async def adapt_sub(values: list[int]) -> _Scope:
+        return _Scope(values=values)
+
+    sub = pipeline(
+        name="Sub",
+        params=_Scope,
+        exports="only",
+        steps=[step("only", fn=fn_only)],
+    )
+
+    p = pipeline(
+        name="R",
+        params=_Scope,
+        steps=[
+            include(name="first", pipeline=sub, fn=adapt_sub),
+            include(name="second", pipeline=sub, fn=adapt_sub),
+        ],
+        observers=[Observer(rec.async_record)],
+    )
+    await async_run(p, params=_Scope(values=[1, 2]))
+    completed = {
+        ctx.step_name: ctx
+        for _, ctx in rec.events
+        if isinstance(ctx, StepCompletedContext)
+    }
+    assert completed["first"].pipeline_scope == "R__first"
+    assert completed["second"].pipeline_scope == "R__second"
+
+
+@pytest.mark.asyncio
+async def test_given_repeated_includes_then_aggregator_completes_each_scope_independently():
+    """Async parity of the repeated-includes aggregator test for #105.
+    Records per-scope ``is_complete`` sequence and asserts both
+    instances show ``[False, False, True]``."""
+
+    class _SubParams(NamedTuple):
+        x: int = 0
+
+    async def fn_keep(x: int) -> int:
+        return x
+
+    async def adapt(x: int) -> _SubParams:
+        return _SubParams(x=x)
+
+    sub = pipeline(
+        name="Sub",
+        params=_SubParams,
+        exports="end",
+        steps=[
+            step("alpha", fn=fn_keep),
+            step("beta", fn=fn_keep),
+            step("end", fn=fn_keep),
+        ],
+    )
+
+    class _Aggregator:
+        def __init__(self) -> None:
+            self.totals: dict[str, int] = {}
+            self.done: dict[str, int] = {}
+            self.is_complete_log: dict[str, list[bool]] = {}
+
+        async def __call__(self, ctx) -> None:
+            from synaflow.core.observers import (
+                PipelineStartedContext,
+                StepCompletedContext,
+            )
+
+            if isinstance(ctx, PipelineStartedContext):
+                self.totals = dict(ctx.scope_step_totals)
+                self.done = {scope: 0 for scope in self.totals}
+                self.is_complete_log = {scope: [] for scope in self.totals}
+            elif isinstance(ctx, StepCompletedContext):
+                scope = ctx.pipeline_scope
+                self.done[scope] += 1
+                self.is_complete_log[scope].append(
+                    self.done[scope] == self.totals.get(scope, 0)
+                )
+
+    agg = _Aggregator()
+    p = pipeline(
+        name="R",
+        params=_SubParams,
+        steps=[
+            include(name="first", pipeline=sub, fn=adapt),
+            include(name="second", pipeline=sub, fn=adapt),
+        ],
+        observers=[Observer(agg)],
+    )
+    await async_run(p, params=_SubParams(x=1))
+
+    assert set(agg.totals) == {"R", "R__first", "R__second"}
+    assert agg.totals["R__first"] == 3
+    assert agg.totals["R__second"] == 3
+    assert agg.totals["R"] == 2
+    for scope, count in agg.done.items():
+        assert count == agg.totals[scope]
+    assert agg.is_complete_log["R__first"] == [False, False, True]
+    assert agg.is_complete_log["R__second"] == [False, False, True]
+
+
+@pytest.mark.asyncio
+async def test_given_nested_includes_then_inner_scope_completes_before_outer_scope():
+    """Async parity of nested-includes scope completion order.
+    Asserts scope finish order: R__outer__inner -> R__outer -> R."""
+
+    class _SubParams(NamedTuple):
+        x: int = 0
+
+    async def fn_keep(x: int) -> int:
+        return x
+
+    async def adapt(x: int) -> _SubParams:
+        return _SubParams(x=x)
+
+    async def fn_outer_end(inner: int) -> int:
+        return inner
+
+    async def fn_root_done(outer: int) -> int:
+        return outer
+
+    inner = pipeline(
+        name="I",
+        params=_SubParams,
+        exports="only",
+        steps=[step("a", fn=fn_keep), step("only", fn=fn_keep)],
+    )
+    outer = pipeline(
+        name="O",
+        params=_SubParams,
+        exports="end",
+        steps=[
+            include(name="inner", pipeline=inner, fn=adapt),
+            step("end", fn=fn_outer_end),
+        ],
+    )
+
+    class _Aggregator:
+        def __init__(self) -> None:
+            self.totals: dict[str, int] = {}
+            self.done: dict[str, int] = {}
+            self.completion_order: list[str] = []
+
+        async def __call__(self, ctx) -> None:
+            from synaflow.core.observers import (
+                PipelineStartedContext,
+                StepCompletedContext,
+            )
+
+            if isinstance(ctx, PipelineStartedContext):
+                self.totals = dict(ctx.scope_step_totals)
+                self.done = {scope: 0 for scope in self.totals}
+            elif isinstance(ctx, StepCompletedContext):
+                scope = ctx.pipeline_scope
+                self.done[scope] += 1
+                if (
+                    self.done[scope] == self.totals.get(scope, 0)
+                    and scope not in self.completion_order
+                ):
+                    self.completion_order.append(scope)
+
+    agg = _Aggregator()
+    p = pipeline(
+        name="R",
+        params=_SubParams,
+        steps=[
+            include(name="outer", pipeline=outer, fn=adapt),
+            step("done", fn=fn_root_done),
+        ],
+        observers=[Observer(agg)],
+    )
+    await async_run(p, params=_SubParams(x=1))
+
+    assert agg.totals["R"] == 2
+    assert agg.totals["R__outer"] == 2
+    assert agg.totals["R__outer__inner"] == 2
+    for scope, count in agg.done.items():
+        assert count == agg.totals[scope]
+    assert agg.completion_order == ["R__outer__inner", "R__outer", "R"]
+
+
+@pytest.mark.asyncio
+async def test_given_step_started_context_carries_dag_node_scope_metadata():
+    """Async regression: StepStartedContext surfaces DagNode scope."""
+
+    class _Scope(NamedTuple):
+        x: int = 0
+
+    rec = EventRecorder()
+
+    async def fn1(x: int) -> int:
+        return x
+
+    async def fn2(x: int) -> int:
+        return x
+
+    p = pipeline(
+        name="scope_started",
+        params=_Scope,
+        steps=[step("first", fn=fn1), step("second", fn=fn2)],
+        observers=[Observer(rec.async_record)],
+    )
+    await async_run(p, params=_Scope(x=1))
+    started_by_step = {
+        ctx.step_name: ctx
+        for _, ctx in rec.events
+        if isinstance(ctx, StepStartedContext)
+    }
+    assert started_by_step["first"].pipeline_scope == "scope_started"
+    assert started_by_step["second"].pipeline_scope == "scope_started"
+    assert started_by_step["first"].step_index_in_scope == 0
+    assert started_by_step["second"].step_index_in_scope == 1
+    assert started_by_step["first"].step_total_in_scope == 2
+    assert started_by_step["second"].step_total_in_scope == 2
+
+
+@pytest.mark.asyncio
+async def test_given_step_failed_context_carries_dag_node_scope_metadata():
+    """Async regression: StepFailedContext also carries DagNode scope."""
+
+    class _Scope(NamedTuple):
+        x: int = 0
+
+    rec = EventRecorder()
+
+    async def fn_first(x: int) -> int:
+        return x
+
+    async def fn_boom(x: int) -> int:
+        raise RuntimeError("expected failure")
+
+    p = pipeline(
+        name="scope_failed",
+        params=_Scope,
+        steps=[step("first", fn=fn_first), step("boom", fn=fn_boom)],
+        observers=[Observer(rec.async_record)],
+    )
+    await async_run(p, params=_Scope(x=1))
+    failed = next(ctx for _, ctx in rec.events if isinstance(ctx, StepFailedContext))
+    assert failed.pipeline_scope == "scope_failed"
+    assert failed.step_index_in_scope == 1
+    assert failed.step_total_in_scope == 2

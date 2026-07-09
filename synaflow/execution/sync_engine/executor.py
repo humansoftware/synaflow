@@ -7,7 +7,8 @@ from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
 from typing import Any
 
-from synaflow.core.dag import Dag
+from synaflow.core.dag import Dag, DagNode
+from synaflow.core.dag_builder import build_dag
 from synaflow.core.definition import PipelineDef
 from synaflow.core.exceptions import (
     PipelineStopException,
@@ -31,7 +32,6 @@ from .argument_builder import ArgumentBuilder
 from synaflow.execution.stats import StepRunStats
 from .step_runner import (
     StepRunner,
-    StepConfig,
     collect_iterator,
     wrap_deferred_output,
 )
@@ -247,19 +247,6 @@ class PipelineExecutor:
         arguments, resource_stack = self.scope.build_arguments(step_name, node)
         unrolled = self.dag.each_inputs(step_name)
 
-        step_config = StepConfig(
-            observers=node.observers,
-            mode=node.mode,
-            on_error=node.on_error,
-            max_in_flight=node.max_in_flight,
-            dataset_param_names=node.dataset_param_names,
-        )
-        step_config.error_threshold_absolute = getattr(
-            node, "error_threshold_absolute", None
-        )
-        step_config.error_threshold_pct = getattr(node, "error_threshold_pct", None)
-        step_config._dag_node = node
-
         stats = StepRunStats()
 
         runner = StepRunner(
@@ -284,7 +271,7 @@ class PipelineExecutor:
             events=self.events,
             stats=stats,
             each_mode_deps=unrolled,
-            step_config=step_config,
+            dag_node=node,
         )
 
         runner.run()
@@ -294,7 +281,7 @@ class PipelineExecutor:
     # ------------------------------------------------------------------
 
     def publish(
-        self, step_name: str, output: Any, node: Any, stats: StepRunStats
+        self, step_name: str, output: Any, node: DagNode, stats: StepRunStats
     ) -> None:
         publish_plan = node.publish_plan
         output_contract = node.output_contract
@@ -383,7 +370,7 @@ class PipelineExecutor:
                 f"{type(output).__name__} at runtime."
             )
 
-    def _maybe_wrap_stream(self, output: Any, node: Any) -> Any:
+    def _maybe_wrap_stream(self, output: Any, node: DagNode) -> Any:
         if node.publish_plan is None or node.publish_plan.handoff != "bounded_iterator":
             return output
         if node.max_in_flight <= 1:
@@ -452,7 +439,7 @@ class PipelineExecutor:
         self,
         step_name: str,
         output: Any,
-        node: Any,
+        node: DagNode,
         stats: StepRunStats,
         consumers: list[str],
         deferred: bool,
@@ -482,7 +469,7 @@ class PipelineExecutor:
         self,
         step_name: str,
         output: Any,
-        node: Any,
+        node: DagNode,
         stats: StepRunStats,
         deferred: bool,
     ) -> None:
@@ -498,7 +485,7 @@ class PipelineExecutor:
 
     def _emit_step_result(
         self,
-        node: Any,
+        node: DagNode,
         step_name: str,
         output: Any,
         stats: StepRunStats,
@@ -544,15 +531,16 @@ def run(
     worker_shutdown_poll_seconds: float = 0.5,
     worker_shutdown_log_every_seconds: float = 60.0,
 ) -> None:
-    if getattr(pipeline, "requires_async_runner", False):
+    dag = build_dag(pipeline)
+    if dag.requires_async_runner:
         raise RuntimeError(
             "This pipeline contains async features (async def or AsyncIterator)"
             " and must be executed with async_run()."
         )
     PipelineExecutor(
-        pipeline.dag,
+        dag,
         overrides=overrides,
-        resource_factories=pipeline.dag.resource_factories,
+        resource_factories=dag.resource_factories,
         worker_shutdown_poll_seconds=worker_shutdown_poll_seconds,
         worker_shutdown_log_every_seconds=worker_shutdown_log_every_seconds,
     ).execute(params)

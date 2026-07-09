@@ -5,6 +5,7 @@ from contextlib import ExitStack
 
 from synaflow.core.types import OnError, StepMode
 from synaflow.core.exceptions import PipelineStopException, ThresholdExceededException
+from synaflow.core.dag import DagNode
 from synaflow.execution.state import ExecutionState
 from synaflow.execution.sync_engine.event_dispatch import EventDispatcher
 from synaflow.execution.sync_engine.step_lifecycle import StepLifecycle
@@ -19,25 +20,6 @@ from synaflow.execution.runtime_contract_validation import (
     satisfies_sync_iterator_contract,
 )
 from synaflow.execution.sync_engine.lifecycle_stream import LifecycleStream
-
-
-class StepConfig:
-    def __init__(
-        self,
-        observers: list[Any],
-        mode: StepMode,
-        on_error: OnError,
-        max_in_flight: int,
-        dataset_param_names: dict[str, str],
-    ) -> None:
-        self.observers = observers
-        self.mode = mode
-        self.on_error = on_error
-        self.max_in_flight = max_in_flight
-        self.dataset_param_names = dataset_param_names
-        self.error_threshold_absolute: int | None = None
-        self.error_threshold_pct: float | None = None
-        self._dag_node: Any = None
 
 
 def _wrap_started_stream(
@@ -80,21 +62,21 @@ def collect_iterator(
 def wrap_deferred_output(
     step_name: str,
     output: Any,
-    node: Any,
+    dag_node: DagNode,
     events: EventDispatcher,
     stats: StepRunStats,
 ) -> Any:
-    if has_threshold(node):
+    if has_threshold(dag_node):
         return output
 
     def handle_end(count: int) -> None:
-        if node.mode == StepMode.ALL:
+        if dag_node.mode == StepMode.ALL:
             stats.set_counts(count, 0)
 
-        if has_threshold(node):
+        if has_threshold(dag_node):
             return
         events.step_completed(
-            node,
+            dag_node,
             step_name,
             success_count=stats.success_count,
             error_count=stats.error_count,
@@ -120,8 +102,8 @@ class StepRunner:
         state: ExecutionState,
         events: EventDispatcher,
         stats: StepRunStats,
+        dag_node: DagNode,
         each_mode_deps: list[str] | None = None,
-        step_config: StepConfig | None = None,
     ) -> None:
         self.step_name = step_name
         self.fn = fn
@@ -137,16 +119,7 @@ class StepRunner:
         self.events = events
         self.stats = stats
         self.each_mode_deps = each_mode_deps
-
-        if step_config is None:
-            step_config = StepConfig(
-                observers=[],
-                mode=StepMode.EACH if is_each_mode else StepMode.ALL,
-                on_error=on_error,
-                max_in_flight=max_in_flight,
-                dataset_param_names=dataset_param_names,
-            )
-        self.step_config = step_config
+        self.dag_node = dag_node
 
     def run(self) -> None:
         unrolled = []
@@ -158,10 +131,9 @@ class StepRunner:
             )
 
         lifecycle = StepLifecycle(
-            self.step_config, self.step_name, self.events, self.stats
+            self.dag_node, self.step_name, self.events, self.stats
         )
-        dag_node = getattr(self.step_config, "_dag_node", None)
-        output_contract = getattr(dag_node, "output_contract", None)
+        output_contract = self.dag_node.output_contract
         expects_sync_stream = (
             output_contract is not None
             and output_contract.runtime_kind == "sync_stream"
@@ -185,13 +157,13 @@ class StepRunner:
                 # Upstream threshold propagating through this consumer:
                 # the producer's generate() already dispatched FAILED.
                 pass
-            elif unrolled and has_threshold(self.step_config):
+            elif unrolled and has_threshold(self.dag_node):
                 # This step's generate() already dispatched FAILED (path A).
                 pass
             elif not unrolled:
                 # ALL-mode manual raise by this step (path B, escape hatch)
                 completed_all_inputs = compute_completed_all_inputs_for_all(
-                    self.step_config, self.arguments, exc
+                    self.dag_node, self.arguments, exc
                 )
                 self.events.handle_error(
                     self.step_name,
@@ -231,8 +203,8 @@ class StepRunner:
     def _emit_immediate_completion(
         self, output: Any, unrolled: list[str], lifecycle: StepLifecycle
     ) -> None:
-        dag_node = getattr(self.step_config, "_dag_node", None)
-        output_contract = getattr(dag_node, "output_contract", None)
+        dag_node = self.dag_node
+        output_contract = dag_node.output_contract
         if unrolled or (
             output_contract is not None
             and output_contract.completion_policy == "on_exhaustion"
@@ -295,11 +267,11 @@ class StepRunner:
                                 step_name=self.step_name, cause=exc
                             ) from exc
                 # post-loop, before generator ends
-                if has_threshold(self.step_config):
+                if has_threshold(self.dag_node):
                     try:
                         check_threshold(
                             self.step_name,
-                            self.step_config,
+                            self.dag_node,
                             invocation_count,
                             error_count,
                         )
@@ -312,7 +284,10 @@ class StepRunner:
                     lifecycle.finish(completed_all_inputs=True)
                 else:
                     check_threshold(
-                        self.step_name, self.step_config, invocation_count, error_count
+                        self.step_name,
+                        self.dag_node,
+                        invocation_count,
+                        error_count,
                     )
             finally:
                 self.stats.set_counts(invocation_count - error_count, error_count)
@@ -335,8 +310,8 @@ class StepRunner:
                     pass
 
     def _attach_cleanup(self, output: Any, arguments: dict[str, Any]) -> Any:
-        dag_node = getattr(self.step_config, "_dag_node", None)
-        output_contract = getattr(dag_node, "output_contract", None)
+        dag_node = self.dag_node
+        output_contract = dag_node.output_contract
         if (
             output_contract is None
             or output_contract.runtime_kind != "sync_stream"

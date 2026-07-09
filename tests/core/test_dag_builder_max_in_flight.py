@@ -1,7 +1,6 @@
+from synaflow.core.dag_builder import build_dag
 from typing import NamedTuple
-
 import pytest
-
 from synaflow import pipeline, step
 
 
@@ -11,23 +10,19 @@ class Empty(NamedTuple):
 
 def test_given_max_in_flight_default_when_compiled_then_dag_node_has_1():
     p = pipeline(name="test", params=Empty, steps=[step("s", fn=lambda: None)])
-    assert p.dag.steps["s"].max_in_flight == 1
+    assert build_dag(p).steps["s"].max_in_flight == 1
 
 
 def test_given_max_in_flight_explicit_when_compiled_then_stored():
     p = pipeline(
-        name="test",
-        params=Empty,
-        steps=[step("s", fn=lambda: None, max_in_flight=30)],
+        name="test", params=Empty, steps=[step("s", fn=lambda: None, max_in_flight=30)]
     )
-    assert p.dag.steps["s"].max_in_flight == 30
+    assert build_dag(p).steps["s"].max_in_flight == 30
 
 
 def test_given_max_in_flight_serialized_when_to_dict_then_present():
     p = pipeline(
-        name="test",
-        params=Empty,
-        steps=[step("s", fn=lambda: None, max_in_flight=30)],
+        name="test", params=Empty, steps=[step("s", fn=lambda: None, max_in_flight=30)]
     )
     d = p.to_dict()
     assert d["steps"]["s"]["max_in_flight"] == 30
@@ -39,49 +34,48 @@ def test_given_max_in_flight_default_when_to_dict_then_present():
     assert d["steps"]["s"]["max_in_flight"] == 1
 
 
-def test_given_max_in_flight_zero_when_compiled_then_raises():
+def test_given_max_in_flight_zero_when_built_then_raises():
+    p = pipeline(
+        name="test", params=Empty, steps=[step("s", fn=lambda: None, max_in_flight=0)]
+    )
     with pytest.raises(ValueError, match="max_in_flight must be >= 1"):
-        pipeline(
-            name="test",
-            params=Empty,
-            steps=[step("s", fn=lambda: None, max_in_flight=0)],
-        )
+        build_dag(p)
 
 
-def test_given_max_in_flight_negative_when_compiled_then_raises():
+def test_given_max_in_flight_negative_when_built_then_raises():
+    p = pipeline(
+        name="test", params=Empty, steps=[step("s", fn=lambda: None, max_in_flight=-5)]
+    )
     with pytest.raises(ValueError, match="max_in_flight must be >= 1"):
-        pipeline(
-            name="test",
-            params=Empty,
-            steps=[step("s", fn=lambda: None, max_in_flight=-5)],
-        )
+        build_dag(p)
 
 
-def test_given_max_in_flight_non_int_when_compiled_then_raises():
+def test_given_max_in_flight_non_int_when_built_then_raises():
+    p = pipeline(
+        name="test", params=Empty, steps=[step("s", fn=lambda: None, max_in_flight=3.5)]
+    )
     with pytest.raises(ValueError, match="max_in_flight must be an integer"):
-        pipeline(
-            name="test",
-            params=Empty,
-            steps=[step("s", fn=lambda: None, max_in_flight=3.5)],
-        )
+        build_dag(p)
 
 
-def test_given_max_in_flight_string_when_compiled_then_raises():
+def test_given_max_in_flight_string_when_built_then_raises():
+    p = pipeline(
+        name="test",
+        params=Empty,
+        steps=[step("s", fn=lambda: None, max_in_flight="30")],
+    )
     with pytest.raises(ValueError, match="max_in_flight must be an integer"):
-        pipeline(
-            name="test",
-            params=Empty,
-            steps=[step("s", fn=lambda: None, max_in_flight="30")],
-        )
+        build_dag(p)
 
 
-def test_given_max_in_flight_bool_when_compiled_then_raises():
+def test_given_max_in_flight_bool_when_built_then_raises():
+    p = pipeline(
+        name="test",
+        params=Empty,
+        steps=[step("s", fn=lambda: None, max_in_flight=True)],
+    )
     with pytest.raises(ValueError, match="max_in_flight must be an integer"):
-        pipeline(
-            name="test",
-            params=Empty,
-            steps=[step("s", fn=lambda: None, max_in_flight=True)],
-        )
+        build_dag(p)
 
 
 def test_adapter_steps_serialize_max_in_flight_1():
@@ -111,9 +105,7 @@ def test_adapter_steps_serialize_max_in_flight_1():
     p = pipeline(
         name="main",
         params=MainParams,
-        steps=[
-            include("sub_instance", pipeline=sub_pipe, fn=adapter),
-        ],
+        steps=[include("sub_instance", pipeline=sub_pipe, fn=adapter)],
     )
     d = p.to_dict()
     assert d["steps"]["sub_instance__adapter"]["max_in_flight"] == 1

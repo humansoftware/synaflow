@@ -118,6 +118,11 @@ class DagNode:
     output_contract: OutputContract | None = None
     consumer_contracts: list[ConsumerContract] = field(default_factory=list)
     publish_plan: PublishPlan | None = None
+    # Scope metadata stamped once during ``build_dag`` after the
+    # full dag is constructed (see ``_stamp_scope_metadata``).
+    pipeline_scope: str = ""
+    step_index_in_scope: int = 0
+    step_total_in_scope: int = 0
 
     def __getitem__(self, key):
         return getattr(self, key)
@@ -160,6 +165,9 @@ class DagNode:
             ret["consumer_contracts"] = [asdict(c) for c in self.consumer_contracts]
         if self.publish_plan is not None:
             ret["publish_plan"] = asdict(self.publish_plan)
+        ret["pipeline_scope"] = self.pipeline_scope
+        ret["step_index_in_scope"] = self.step_index_in_scope
+        ret["step_total_in_scope"] = self.step_total_in_scope
         return ret
 
 
@@ -191,6 +199,9 @@ class Dag:
     requires_async_runner: bool = False
     error_materializer_factory: Any = None
     pipeline_observers: list = field(default_factory=list)
+    # Aggregated totals per scope_id, populated by
+    # ``_stamp_scope_metadata`` after the dag is fully built.
+    scope_step_totals: dict[str, int] = field(default_factory=dict)
 
     def __getitem__(self, key):
         return self.steps[key]
@@ -248,6 +259,7 @@ class Dag:
             result["pipeline_observers"] = _serialize_pipeline_observers(
                 self.pipeline_observers
             )
+        result["scope_step_totals"] = dict(self.scope_step_totals)
         return result
 
     def consumers_of(self, step_name: str) -> list[str]:

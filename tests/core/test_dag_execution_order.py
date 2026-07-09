@@ -1,13 +1,13 @@
+from synaflow.core.dag_builder import build_dag
 from typing import NamedTuple
-
 import pytest
-
 from synaflow import StepMode, pipeline, step
 from tests.execution.async_engine.corpus import PACKS as ASYNC_PACKS
 from tests.execution.sync_engine.corpus import PACKS as SYNC_PACKS
 
 
-def test_given_output_compatible_but_executed_after_when_constructed_then_raises():
+def test_given_output_compatible_but_executed_after_when_built_then_raises():
+
     class P(NamedTuple):
         x: int = 1
 
@@ -17,11 +17,13 @@ def test_given_output_compatible_but_executed_after_when_constructed_then_raises
     def s2(x: int) -> int:
         return x
 
+    p = pipeline(name="t", params=P, steps=[step("s1", fn=s1), step("s2", fn=s2)])
     with pytest.raises(ValueError, match="no resource, prior step, or params field"):
-        pipeline(name="t", params=P, steps=[step("s1", fn=s1), step("s2", fn=s2)])
+        build_dag(p)
 
 
 def test_given_independent_steps_when_constructed_then_passes():
+
     class P(NamedTuple):
         a: int = 1
         b: int = 2
@@ -36,6 +38,7 @@ def test_given_independent_steps_when_constructed_then_passes():
 
 
 def test_given_independent_steps_reversed_when_constructed_then_passes():
+
     class P(NamedTuple):
         a: int = 1
         b: int = 2
@@ -50,6 +53,7 @@ def test_given_independent_steps_reversed_when_constructed_then_passes():
 
 
 def test_given_fan_out_when_constructed_then_passes():
+
     class P(NamedTuple):
         x: int = 5
 
@@ -68,12 +72,7 @@ def test_given_fan_out_when_constructed_then_passes():
     pipeline(
         name="t",
         params=P,
-        steps=[
-            step("gen", fn=gen),
-            step("a", fn=a),
-            step("b", fn=b),
-            step("c", fn=c),
-        ],
+        steps=[step("gen", fn=gen), step("a", fn=a), step("b", fn=b), step("c", fn=c)],
     )
 
 
@@ -92,7 +91,6 @@ def _normalize_exported_dag_for_contract_assertions(dag_dict: dict) -> dict:
         normalized["error_materializer"] = dag_dict["error_materializer"]
     if "pipeline_observers" in dag_dict:
         normalized["pipeline_observers"] = list(dag_dict["pipeline_observers"])
-
     for step_name, step_def in dag_dict["steps"].items():
         normalized["steps"][step_name] = {
             key: value
@@ -104,6 +102,13 @@ def _normalize_exported_dag_for_contract_assertions(dag_dict: dict) -> dict:
                 "output_contract",
                 "consumer_contracts",
                 "publish_plan",
+                # Scope metadata has dedicated tests in
+                # ``test_dag_scope_stamping`` — exclude from the
+                # execution-order corpus check so the corpus fixtures
+                # don't need a full rewrite.
+                "pipeline_scope",
+                "step_index_in_scope",
+                "step_total_in_scope",
             }
         }
     return normalized
@@ -142,7 +147,6 @@ def test_given_single_consumer_when_output_key_then_returns_producer_name():
         "producer": DagNode(deps={}),
         "consumer": DagNode(deps={"producer": int}),
     }
-
     assert dag.output_key("producer", "consumer") == "producer"
 
 
@@ -155,7 +159,6 @@ def test_given_multiple_consumers_when_output_key_then_scopes_by_consumer():
         "left": DagNode(deps={"producer": int}),
         "right": DagNode(deps={"producer": int}),
     }
-
     assert dag.output_key("producer", "left") == "producer__left"
     assert dag.output_key("producer", "right") == "producer__right"
 
@@ -164,7 +167,6 @@ def test_given_step_name_prefixed_with_underscore_when_is_hidden_step_then_true(
     from synaflow.core.dag import Dag
 
     dag = Dag(name="test")
-
     assert dag.is_hidden_step("_internal") is True
     assert dag.is_hidden_step("visible") is False
 
@@ -177,7 +179,6 @@ def test_given_hidden_step_when_is_terminal_step_then_true_even_with_consumers()
         "_internal": DagNode(deps={}),
         "consumer": DagNode(deps={"_internal": int}),
     }
-
     assert dag.is_terminal_step("_internal") is True
 
 
@@ -185,10 +186,7 @@ def test_given_visible_step_without_consumers_when_is_terminal_step_then_true():
     from synaflow.core.dag import Dag, DagNode
 
     dag = Dag(name="test")
-    dag.steps = {
-        "producer": DagNode(deps={}),
-    }
-
+    dag.steps = {"producer": DagNode(deps={})}
     assert dag.is_terminal_step("producer") is True
 
 
@@ -200,13 +198,11 @@ def test_given_visible_step_with_consumers_when_is_terminal_step_then_false():
         "producer": DagNode(deps={}),
         "consumer": DagNode(deps={"producer": int}),
     }
-
     assert dag.is_terminal_step("producer") is False
 
 
 def test_given_each_mode_when_each_inputs_then_returns_correct_deps():
     from collections.abc import Iterator
-
     from synaflow.core.dag import Dag, DagNode
 
     dag = Dag(name="test")
@@ -219,7 +215,6 @@ def test_given_each_mode_when_each_inputs_then_returns_correct_deps():
 
 def test_given_standard_mode_when_each_inputs_then_returns_empty():
     from collections.abc import Iterator
-
     from synaflow.core.dag import Dag, DagNode
 
     dag = Dag(name="test")
@@ -237,12 +232,9 @@ def test_given_dag_node_with_resolved_each_mode_when_each_inputs_then_reads_from
     dag.steps = {
         "items": DagNode(output=list[int], deps={}),
         "transform": DagNode(
-            deps={"items": int},
-            mode=StepMode.EACH,
-            each_mode_deps=["items"],
+            deps={"items": int}, mode=StepMode.EACH, each_mode_deps=["items"]
         ),
     }
-
     assert dag.each_inputs("transform") == ["items"]
 
 
@@ -255,7 +247,6 @@ def test_given_materialized_producer_when_needs_materialize_then_true():
         "lazy": DagNode(deps={"producer": int}),
         "eager": DagNode(deps={"producer": list[int]}),
     }
-
     assert dag.needs_materialize("producer") is True
 
 
@@ -291,10 +282,7 @@ def test_given_independent_steps_when_get_execution_levels_then_all_in_same_leve
     from synaflow.core.dag import Dag, DagNode
 
     dag = Dag(name="test")
-    dag.steps = {
-        "a": DagNode(deps={}),
-        "b": DagNode(deps={}),
-    }
+    dag.steps = {"a": DagNode(deps={}), "b": DagNode(deps={})}
     assert dag.get_execution_levels() == [["a", "b"]]
 
 
@@ -312,9 +300,8 @@ def test_given_dag_when_to_dict_then_returns_correct_structure():
             on_error=OnError.CONTINUE,
             mode=StepMode.EACH,
             each_mode_deps=["count"],
-        ),
+        )
     }
-
     result = dag.to_dict()
     assert result["name"] == "unit_test"
     assert result["params"] == {"count": "int"}

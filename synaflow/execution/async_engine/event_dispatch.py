@@ -6,9 +6,7 @@ step-level observers. It triggers lifecycle events (started, completed, failed)
 and handles error contexts during pipeline execution.
 """
 
-from typing import Any
-
-from synaflow.core.dag import Dag
+from synaflow.core.dag import Dag, DagNode
 from synaflow.execution.overrides import ExecutionOverrides
 from synaflow.core.constants import PIPELINE_SCOPE
 from synaflow.core.types import ErrorContext
@@ -38,14 +36,19 @@ class AsyncEventDispatcher:
     appropriate context objects for each event type (e.g., PipelineStartedContext,
     StepFailedContext) and routes them to observers, applying any execution overrides
     that may modify the observer lists.
+
+    Step-level methods take the ``DagNode`` directly (no ``Any`` /
+    ``AsyncStepConfig`` indirection). The runtime executor passes the
+    compiled ``DagNode`` it is about to execute; tests construct one
+    with the same shape.
     """
 
     def __init__(
         self, dag: Dag, run_id: str, overrides: ExecutionOverrides | None = None
     ):
-        self._dag = dag
-        self._run_id = run_id
-        self._overrides = overrides
+        self._dag: Dag = dag
+        self._run_id: str = run_id
+        self._overrides: ExecutionOverrides | None = overrides
 
     @property
     def run_id(self) -> str:
@@ -58,9 +61,9 @@ class AsyncEventDispatcher:
             PIPELINE_SCOPE, self._dag.pipeline_observers
         )
 
-    def _resolve_step_observers(self, node: Any, step_name: str) -> list:
+    def _resolve_step_observers(self, dag_node: DagNode, step_name: str) -> list:
         pipeline_observers = self._resolve_pipeline_observers()
-        step_observers = [obs for obs in node.observers if obs.source == "step"]
+        step_observers = [obs for obs in dag_node.observers if obs.source == "step"]
         if self._overrides is not None:
             step_observers = self._overrides.observers.resolve(
                 step_name, step_observers
@@ -75,6 +78,7 @@ class AsyncEventDispatcher:
             pipeline_name=self._dag.name,
             run_id=self._run_id,
             event=PipelineEvent.STARTED,
+            scope_step_totals=dict(self._dag.scope_step_totals),
         )
         await dispatch_observers_async(registrations, ctx)
 
@@ -104,8 +108,8 @@ class AsyncEventDispatcher:
         )
         await dispatch_observers_async(registrations, ctx)
 
-    async def step_started(self, node: Any, step_name: str) -> None:
-        registrations = self._resolve_step_observers(node, step_name)
+    async def step_started(self, dag_node: DagNode, step_name: str) -> None:
+        registrations = self._resolve_step_observers(dag_node, step_name)
         if not registrations:
             return
         ctx = StepStartedContext(
@@ -113,20 +117,23 @@ class AsyncEventDispatcher:
             run_id=self._run_id,
             event=StepEvent.STARTED,
             step_name=step_name,
-            mode=node.mode,
-            on_error=node.on_error,
+            mode=dag_node.mode,
+            on_error=dag_node.on_error,
+            pipeline_scope=dag_node.pipeline_scope,
+            step_index_in_scope=dag_node.step_index_in_scope,
+            step_total_in_scope=dag_node.step_total_in_scope,
         )
         await dispatch_observers_async(registrations, ctx)
 
     async def step_completed(
         self,
-        node: Any,
+        dag_node: DagNode,
         step_name: str,
         success_count: int = 0,
         error_count: int = 0,
         completed_all_inputs: bool = True,
     ) -> None:
-        registrations = self._resolve_step_observers(node, step_name)
+        registrations = self._resolve_step_observers(dag_node, step_name)
         if not registrations:
             return
         ctx = StepCompletedContext(
@@ -134,24 +141,27 @@ class AsyncEventDispatcher:
             run_id=self._run_id,
             event=StepEvent.COMPLETED,
             step_name=step_name,
-            mode=node.mode,
-            on_error=node.on_error,
+            mode=dag_node.mode,
+            on_error=dag_node.on_error,
             success_count=success_count,
             error_count=error_count,
             completed_all_inputs=completed_all_inputs,
+            pipeline_scope=dag_node.pipeline_scope,
+            step_index_in_scope=dag_node.step_index_in_scope,
+            step_total_in_scope=dag_node.step_total_in_scope,
         )
         await dispatch_observers_async(registrations, ctx)
 
     async def step_failed(
         self,
-        node: Any,
+        dag_node: DagNode,
         step_name: str,
         success_count: int = 0,
         error_count: int = 0,
         completed_all_inputs: bool = True,
         exception: BaseException | None = None,
     ) -> None:
-        registrations = self._resolve_step_observers(node, step_name)
+        registrations = self._resolve_step_observers(dag_node, step_name)
         if not registrations:
             return
         ctx = StepFailedContext(
@@ -159,23 +169,26 @@ class AsyncEventDispatcher:
             run_id=self._run_id,
             event=StepEvent.FAILED,
             step_name=step_name,
-            mode=node.mode,
-            on_error=node.on_error,
+            mode=dag_node.mode,
+            on_error=dag_node.on_error,
             success_count=success_count,
             error_count=error_count,
             completed_all_inputs=completed_all_inputs,
             exception=exception,
+            pipeline_scope=dag_node.pipeline_scope,
+            step_index_in_scope=dag_node.step_index_in_scope,
+            step_total_in_scope=dag_node.step_total_in_scope,
         )
         await dispatch_observers_async(registrations, ctx)
 
     async def materialization_started(
         self,
         step_name: str,
-        node: Any,
-        consumer_type: Any = None,
+        dag_node: DagNode,
+        consumer_type: object = None,
         materializer_name: str | None = None,
     ) -> None:
-        registrations = self._resolve_step_observers(node, step_name)
+        registrations = self._resolve_step_observers(dag_node, step_name)
         if not registrations:
             return
         ctx = MaterializationStartedContext(
@@ -192,11 +205,11 @@ class AsyncEventDispatcher:
     async def materialization_completed(
         self,
         step_name: str,
-        node: Any,
-        consumer_type: Any = None,
+        dag_node: DagNode,
+        consumer_type: object = None,
         materializer_name: str | None = None,
     ) -> None:
-        registrations = self._resolve_step_observers(node, step_name)
+        registrations = self._resolve_step_observers(dag_node, step_name)
         if not registrations:
             return
         ctx = MaterializationCompletedContext(
@@ -213,12 +226,12 @@ class AsyncEventDispatcher:
     async def materialization_failed(
         self,
         step_name: str,
-        node: Any,
-        consumer_type: Any = None,
+        dag_node: DagNode,
+        consumer_type: object = None,
         materializer_name: str | None = None,
         exception: BaseException | None = None,
     ) -> None:
-        registrations = self._resolve_step_observers(node, step_name)
+        registrations = self._resolve_step_observers(dag_node, step_name)
         if not registrations:
             return
         ctx = MaterializationFailedContext(

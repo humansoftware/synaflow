@@ -1,9 +1,8 @@
+from synaflow.core.dag_builder import build_dag
 from collections.abc import AsyncGenerator, AsyncIterator
 from typing import NamedTuple
-
 import asyncio
 import pytest
-
 from synaflow import OnError, async_run, pipeline, step
 from synaflow.core.exceptions import PipelineStopException
 
@@ -18,6 +17,7 @@ class Count(NamedTuple):
 
 @pytest.mark.asyncio
 async def test_given_max_in_flight_1_when_linear_then_preserves_lockstep():
+
     async def producer(count: int) -> AsyncGenerator[int, None]:
         for i in range(count):
             yield i
@@ -41,6 +41,7 @@ async def test_given_max_in_flight_1_when_linear_then_preserves_lockstep():
 
 @pytest.mark.asyncio
 async def test_given_max_in_flight_30_when_linear_then_pipeline_completes():
+
     async def producer(count: int) -> AsyncGenerator[int, None]:
         for i in range(count):
             yield i
@@ -65,6 +66,7 @@ async def test_given_max_in_flight_30_when_linear_then_pipeline_completes():
 
 @pytest.mark.asyncio
 async def test_given_max_in_flight_on_terminal_step_when_terminal_then_no_effect():
+
     async def producer(count: int) -> AsyncGenerator[int, None]:
         for i in range(count):
             yield i
@@ -86,6 +88,7 @@ async def test_given_max_in_flight_on_terminal_step_when_terminal_then_no_effect
 
 @pytest.mark.asyncio
 async def test_given_max_in_flight_when_on_error_continue_then_still_works():
+
     async def producer(count: int) -> AsyncGenerator[int, None]:
         for i in range(count):
             yield i
@@ -140,8 +143,6 @@ async def test_given_max_in_flight_when_producer_does_not_exceed_bounded_ahead()
     await async_run(p, Count(count=20))
     assert produced == list(range(20))
     assert consumed == list(range(20))
-    # The producer records "ahead" before yielding the current item, so the
-    # observed gap can include the item being handed off plus the bounded queue.
     assert max_seen_ahead <= 4
 
 
@@ -167,7 +168,6 @@ async def test_given_max_in_flight_3_when_linear_stream_then_producer_blocks_bef
         ],
     )
     await async_run(p, Count(count=6))
-
     assert log.index("recv 0") < log.index("prod 4")
 
 
@@ -197,7 +197,6 @@ async def test_given_max_in_flight_3_when_linear_stream_then_ahead_distance_stay
         ],
     )
     await async_run(p, Count(count=20))
-
     assert produced == list(range(20))
     assert consumed == list(range(20))
     assert max_seen_ahead <= 4
@@ -230,7 +229,6 @@ async def test_given_max_in_flight_1_when_fanout_slow_branch_then_bound_is_exact
         ],
     )
     await async_run(p, Count(count=5))
-
     slow_0_index = log.index("slow-recv 0")
     prod_2_index = log.index("prod 2")
     assert slow_0_index < prod_2_index
@@ -271,6 +269,7 @@ async def test_given_max_in_flight_3_when_fanout_two_consumers_then_both_get_all
 
 @pytest.mark.asyncio
 async def test_given_max_in_flight_3_when_fanout_lazy_and_eager_then_both_receive_items():
+
     async def producer(count: int) -> AsyncGenerator[int, None]:
         for i in range(count):
             yield i
@@ -295,7 +294,6 @@ async def test_given_max_in_flight_3_when_fanout_lazy_and_eager_then_both_receiv
         ],
     )
     await async_run(p, Count(count=10))
-
     assert lazy_results == list(range(10))
     assert eager_results == [list(range(10))]
 
@@ -304,6 +302,7 @@ async def test_given_max_in_flight_3_when_fanout_lazy_and_eager_then_both_receiv
 async def test_given_user_resource_with_close_when_used_as_param_then_executor_does_not_close_it() -> (
     None
 ):
+
     class Resource:
         def __init__(self) -> None:
             self.closed = False
@@ -320,13 +319,8 @@ async def test_given_user_resource_with_close_when_used_as_param_then_executor_d
         seen.append(resource)
 
     resource = Resource()
-    p = pipeline(
-        name="test",
-        params=P,
-        steps=[step("use_resource", fn=use_resource)],
-    )
+    p = pipeline(name="test", params=P, steps=[step("use_resource", fn=use_resource)])
     await async_run(p, P(resource=resource))
-
     assert seen == [resource]
     assert resource.closed is False
 
@@ -354,7 +348,6 @@ async def test_given_max_in_flight_3_when_terminal_lazy_consumer_then_stream_dra
         ],
     )
     await async_run(p, Count(count=10))
-
     assert produced == list(range(10))
     assert consumed == list(range(10))
 
@@ -387,7 +380,6 @@ async def test_given_max_in_flight_3_when_branch_stops_early_then_other_branch_f
         ],
     )
     await async_run(p, Count(count=5))
-
     assert early == [0]
     assert full == [0, 1, 2, 3, 4]
 
@@ -417,7 +409,6 @@ async def test_given_two_lazy_deps_with_max_in_flight_when_unrolled_then_pairs_a
         ],
     )
     await async_run(p, Count(count=5))
-
     assert pairs == [(0, 10), (1, 11), (2, 12), (3, 13), (4, 14)]
 
 
@@ -439,7 +430,7 @@ async def test_given_flattening_stream_step_when_max_in_flight_2_then_internal_i
             yield item
             produced.append(item + 100)
             max_seen_ahead = max(max_seen_ahead, len(produced) - len(consumed))
-            yield item + 100
+            yield (item + 100)
 
     async def consumer(flatten: AsyncIterator[int]) -> None:
         async for item in flatten:
@@ -456,7 +447,6 @@ async def test_given_flattening_stream_step_when_max_in_flight_2_then_internal_i
         ],
     )
     await async_run(p, Count(count=3))
-
     assert consumed == [0, 100, 1, 101, 2, 102]
     assert max_seen_ahead <= 3
 
@@ -486,10 +476,8 @@ async def test_given_fanout_lazy_and_eager_when_producer_stream_fails_then_pipel
             step("eager_consumer", fn=eager_consumer, on_error=OnError.STOP),
         ],
     )
-
     with pytest.raises(PipelineStopException):
         await async_run(p, Count(count=5))
-
     assert lazy_seen == []
 
 
@@ -517,12 +505,9 @@ async def test_runner_contract_uses_dag_node_max_in_flight_not_step_max_in_fligh
             step("consumer", fn=consumer),
         ],
     )
-
-    # Mutate Step.max_in_flight. The executor should ignore this and use DagNode.max_in_flight (1).
-    p.steps[0].max_in_flight = 10
-
+    dag = build_dag(p)
+    dag.steps["producer"].max_in_flight = 10
     await async_run(p, Count(count=20))
-
     assert produced == list(range(20))
     assert consumed == list(range(20))
     assert max_seen_ahead <= 3
@@ -530,6 +515,7 @@ async def test_runner_contract_uses_dag_node_max_in_flight_not_step_max_in_fligh
 
 @pytest.mark.asyncio
 async def test_given_multilevel_each_fanout_when_run_max_in_flight_1_then_completes():
+
     class P(NamedTuple):
         pass
 
@@ -567,15 +553,14 @@ async def test_given_multilevel_each_fanout_when_run_max_in_flight_1_then_comple
             step("l2y", fn=l2y, max_in_flight=1),
         ],
     )
-
     await async_run(my_pipeline, params=P())
-
     assert seen_x == list(range(20))
     assert seen_y == list(range(20))
 
 
 @pytest.mark.asyncio
 async def test_given_multilevel_each_fanout_when_run_max_in_flight_3_then_completes():
+
     class P(NamedTuple):
         pass
 
@@ -613,8 +598,6 @@ async def test_given_multilevel_each_fanout_when_run_max_in_flight_3_then_comple
             step("l2y", fn=l2y, max_in_flight=3),
         ],
     )
-
     await async_run(my_pipeline, params=P())
-
     assert seen_x == list(range(20))
     assert seen_y == list(range(20))

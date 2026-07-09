@@ -183,9 +183,10 @@ def test_step_run_stats() -> None:
 def test_step_runner_simple() -> None:
     from contextlib import ExitStack
     from unittest.mock import MagicMock
+    from synaflow.core.dag import DagNode
     from synaflow.execution.sync_engine.step_runner import StepRunner
     from synaflow.execution.stats import StepRunStats
-    from synaflow.core.types import OnError
+    from synaflow.core.types import OnError, StepMode
 
     stats = StepRunStats()
     ran = []
@@ -194,10 +195,14 @@ def test_step_runner_simple() -> None:
         ran.append(x)
         return x * 2
 
-    # Simple test stub of StepRunner
-    # Verify that calling runner.run() executes the function and calls publisher
     outputs = []
     mock_events = MagicMock()
+    dag_node = DagNode(
+        fn=fn,
+        mode=StepMode.ALL,
+        on_error=OnError.STOP,
+        observers=[],
+    )
     runner = StepRunner(
         step_name="s1",
         fn=fn,
@@ -209,9 +214,10 @@ def test_step_runner_simple() -> None:
         is_each_mode=False,
         should_drain=False,
         publisher=outputs.append,
-        state=None,  # mocked or stubbed
-        events=mock_events,  # mocked or stubbed
+        state=None,
+        events=mock_events,
         stats=stats,
+        dag_node=dag_node,
     )
     runner.run()
 

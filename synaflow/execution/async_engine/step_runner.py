@@ -6,6 +6,7 @@ from typing import Any, Callable
 
 from synaflow.core.types import OnError, StepMode
 from synaflow.core.exceptions import PipelineStopException, ThresholdExceededException
+from synaflow.core.dag import DagNode
 from synaflow.execution.state import ExecutionState
 from synaflow.execution.async_engine.event_dispatch import AsyncEventDispatcher
 from synaflow.execution.async_engine.step_lifecycle import AsyncStepLifecycle
@@ -19,25 +20,6 @@ from synaflow.execution.threshold import (
 )
 from synaflow.execution.async_engine.iterator_utils import AsyncQueueBranch
 from synaflow.execution.async_engine.constants import EOF_MARKER
-
-
-class AsyncStepConfig:
-    def __init__(
-        self,
-        observers: list[Any],
-        mode: Any,
-        on_error: Any,
-        max_in_flight: int,
-        dataset_param_names: dict[str, str],
-    ) -> None:
-        self.observers = observers
-        self.mode = mode
-        self.on_error = on_error
-        self.max_in_flight = max_in_flight
-        self.dataset_param_names = dataset_param_names
-        self.error_threshold_absolute: int | None = None
-        self.error_threshold_pct: float | None = None
-        self._dag_node: Any = None
 
 
 def _wrap_started_stream(
@@ -83,21 +65,21 @@ async def collect_async_iterator(
 def wrap_deferred_output(
     step_name: str,
     output: Any,
-    node: Any,
+    dag_node: DagNode,
     events: AsyncEventDispatcher,
     stats: StepRunStats,
 ) -> Any:
-    if has_threshold(node):
+    if has_threshold(dag_node):
         return output
 
     async def handle_end(count: int) -> None:
-        if node.mode == StepMode.ALL:
+        if dag_node.mode == StepMode.ALL:
             stats.set_counts(count, 0)
 
-        if has_threshold(node):
+        if has_threshold(dag_node):
             return
         await events.step_completed(
-            node,
+            dag_node,
             step_name,
             success_count=stats.success_count,
             error_count=stats.error_count,
@@ -123,8 +105,8 @@ class AsyncStepRunner:
         state: ExecutionState,
         events: AsyncEventDispatcher,
         stats: StepRunStats,
+        dag_node: DagNode,
         each_mode_deps: list[str] | None = None,
-        step_config: AsyncStepConfig | None = None,
         upstream_max_in_flight: dict[str, int] | None = None,
     ) -> None:
         self.step_name = step_name
@@ -141,22 +123,13 @@ class AsyncStepRunner:
         self.events = events
         self.stats = stats
         self.each_mode_deps = each_mode_deps
+        self.dag_node = dag_node
         self.upstream_max_in_flight = upstream_max_in_flight or {}
-
-        if step_config is None:
-            step_config = AsyncStepConfig(
-                observers=[],
-                mode=StepMode.EACH if is_each_mode else StepMode.ALL,
-                on_error=on_error,
-                max_in_flight=max_in_flight,
-                dataset_param_names=dataset_param_names,
-            )
-        self.step_config = step_config
 
     async def run(self) -> None:
         stats = self.stats
         step_name = self.step_name
-        node = self.step_config
+        node = self.dag_node
         unrolled = self.each_mode_deps or []
         lifecycle = AsyncStepLifecycle(node, step_name, self.events, stats)
 
@@ -300,11 +273,11 @@ class AsyncStepRunner:
                                 step_name=self.step_name, cause=exc
                             ) from exc
                 # pos-loop, before generator ends
-                if has_threshold(self.step_config):
+                if has_threshold(self.dag_node):
                     try:
                         check_threshold(
                             self.step_name,
-                            self.step_config,
+                            self.dag_node,
                             invocation_count,
                             error_count,
                         )
@@ -317,7 +290,10 @@ class AsyncStepRunner:
                     await lifecycle.finish(completed_all_inputs=True)
                 else:
                     check_threshold(
-                        self.step_name, self.step_config, invocation_count, error_count
+                        self.step_name,
+                        self.dag_node,
+                        invocation_count,
+                        error_count,
                     )
             finally:
                 self.stats.set_counts(invocation_count - error_count, error_count)

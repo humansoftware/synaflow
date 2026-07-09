@@ -1,7 +1,6 @@
+from synaflow.core.dag_builder import build_dag
 from typing import AsyncIterator, NamedTuple
-
 import pytest
-
 from synaflow import include, pipeline, step
 
 
@@ -48,13 +47,10 @@ async def test_runner_executes_flattened_pipeline_each_mode():
             step("consolidar", fn=consolidar),
         ],
     )
-
     from synaflow.execution.async_engine.executor import AsyncPipelineExecutor
 
-    executor = AsyncPipelineExecutor(pipe_a.dag)
+    executor = AsyncPipelineExecutor(build_dag(pipe_a))
     await executor.execute(params=AParams(textos_brutos=["oi", "mundo", "synaflow"]))
-    # len("oi") = 2, len("mundo") = 5, len("synaflow") = 8
-    # sum = 15
     assert executor.outputs["consolidar"] == 15
 
 
@@ -88,20 +84,13 @@ async def test_given_sub_pipeline_resource_inherited_when_run_then_resource_is_i
         exports="use",
     )
 
-    # The include adapter must be async because async_run() enforces
-    # all step fns (including the generated adapter step) to be async
-    # for an async pipeline (see PipelineDef._validate_no_sync_handlers).
     async def adapt(value: int) -> SubParams:
         return SubParams(value=value)
 
     p = pipeline(
-        name="parent",
-        params=Params,
-        steps=[include("incl", pipeline=sub, fn=adapt)],
+        name="parent", params=Params, steps=[include("incl", pipeline=sub, fn=adapt)]
     )
-
     await async_run(p, Params())
-
     assert len(seen) == 1
     db_instance, value = seen[0]
     assert isinstance(db_instance, DB)
@@ -127,7 +116,7 @@ async def test_given_two_subs_same_resource_instance_when_run_then_resource_is_i
         seen.append((db, value))
         return value
 
-    shared = DB()  # a single instance, reused as the factory in both subs
+    shared = DB()
 
     def get_shared() -> DB:
         return shared
@@ -161,11 +150,7 @@ async def test_given_two_subs_same_resource_instance_when_run_then_resource_is_i
             include("incl_b", pipeline=sub_b, fn=adapt_b),
         ],
     )
-
     await async_run(p, Params())
-
-    # Both sub-steps must have run; the shared `db` resource is the
-    # same instance in both subs and is injected into both.
     assert len(seen) == 2
     for db_instance, value in seen:
         assert db_instance is shared

@@ -55,7 +55,12 @@ from synaflow.core.dag import (
     PublishPlan,
 )
 from synaflow.core.dag_dependencies import initialize_parameters, initialize_resources
-from synaflow.core.definition import IncludeStep
+from synaflow.core.definition import (
+    IncludeStep,
+    PipelineDef,
+    Step,
+)
+from synaflow.core.adapters import is_async_callable
 from synaflow.core.dag_expansion import expand_macros
 from synaflow.core.dag_steps import (
     validate_and_compile_step,
@@ -229,7 +234,9 @@ def _validate_params_type(params: Any, pipeline_name: str) -> None:
         )
 
 
-def _validate_declared_step_names(steps: list[Any], pipeline_name: str) -> None:
+def _validate_declared_step_names(
+    steps: list[Step | IncludeStep], pipeline_name: str
+) -> None:
     for step in steps:
         if hasattr(step, "name"):
             validate_unique_step_name(step.name, {}, pipeline_name)
@@ -238,14 +245,14 @@ def _validate_declared_step_names(steps: list[Any], pipeline_name: str) -> None:
 def _validate_resource_names(
     resources: dict[str, Any],
     params: type[NamedTuple],
-    expanded_steps: list[Any],
+    expanded_steps: list[tuple[str, Step]],
     pipeline_name: str,
 ) -> None:
     if dataclasses.is_dataclass(params):
         param_fields = {f.name for f in dataclasses.fields(params)}
     else:
         param_fields = set(getattr(params, "_fields", []))
-    step_names = {step.name for step in expanded_steps}
+    step_names = {step.name for _, step in expanded_steps}
 
     for resource_name in resources:
         if resource_name in param_fields:
@@ -291,7 +298,7 @@ def validate_no_unused_resources(
 
 def _collect_pipeline_resources(
     pipeline_name: str,
-    steps: list[Any],
+    steps: list[Step | IncludeStep],
     resources: dict[str, Any],
     include_chain: tuple[str, ...] = (),
 ) -> dict[str, Any]:
@@ -317,6 +324,140 @@ def _collect_pipeline_resources(
         _merge_resources(merged, sub_resources, pipeline_name)
 
     return merged
+
+
+def _validate_no_async_handlers(pipeline_def: PipelineDef, dag) -> None:
+    all_observers: list = list(dag.pipeline_observers)
+    for node in dag.steps.values():
+        all_observers.extend(node.observers)
+
+    for obs in all_observers:
+        handler = obs.handler
+        if not callable(handler):
+            raise TypeError(
+                f"Pipeline '{pipeline_def.name}': observer handler is not callable."
+            )
+        elif is_async_callable(handler):
+            handler_name = getattr(handler, "__name__", str(handler))
+            func = getattr(handler, "func", None)
+            if func is not None:
+                handler_name = f"partial of '{func.__name__}'"
+            raise TypeError(
+                f"Pipeline '{pipeline_def.name}': observer handler "
+                f"'{handler_name}' is async but the pipeline runs "
+                f"synchronously. Use sync handlers or switch to async_run()."
+            )
+
+    for step_name, node in dag.steps.items():
+        if node.materializer is not None:
+            if not callable(node.materializer):
+                raise TypeError(
+                    f"Pipeline '{pipeline_def.name}': materializer for step '{step_name}' is not callable."
+                )
+            elif is_async_callable(node.materializer):
+                mat_name = getattr(
+                    node.materializer, "__name__", str(node.materializer)
+                )
+                raise TypeError(
+                    f"Pipeline '{pipeline_def.name}': materializer "
+                    f"'{mat_name}' is async but the pipeline runs "
+                    f"synchronously."
+                )
+
+        if node.error_materializer is not None:
+            if not callable(node.error_materializer):
+                raise TypeError(
+                    f"Pipeline '{pipeline_def.name}': error materializer for step '{step_name}' is not callable."
+                )
+            elif is_async_callable(node.error_materializer):
+                mat_name = getattr(
+                    node.error_materializer, "__name__", str(node.error_materializer)
+                )
+                raise TypeError(
+                    f"Pipeline '{pipeline_def.name}': error_materializer "
+                    f"'{mat_name}' is async but the pipeline runs "
+                    f"synchronously."
+                )
+
+        if node.fn is not None:
+            if not callable(node.fn):
+                raise TypeError(
+                    f"Pipeline '{pipeline_def.name}': step function for step '{step_name}' is not callable."
+                )
+            elif is_async_callable(node.fn):
+                fn_name = getattr(node.fn, "__name__", str(node.fn))
+                raise TypeError(
+                    f"Pipeline '{pipeline_def.name}': step function "
+                    f"'{fn_name}' is async but the pipeline runs "
+                    f"synchronously."
+                )
+
+
+def _validate_no_sync_handlers(pipeline_def: PipelineDef, dag) -> None:
+    all_observers: list = list(dag.pipeline_observers)
+    for node in dag.steps.values():
+        all_observers.extend(node.observers)
+
+    for obs in all_observers:
+        handler = obs.handler
+        if not callable(handler):
+            raise TypeError(
+                f"Pipeline '{pipeline_def.name}': observer handler is not callable."
+            )
+        elif not is_async_callable(handler):
+            handler_name = getattr(handler, "__name__", str(handler))
+            func = getattr(handler, "func", None)
+            if func is not None:
+                handler_name = f"partial of '{func.__name__}'"
+            raise TypeError(
+                f"Pipeline '{pipeline_def.name}': observer handler "
+                f"'{handler_name}' is synchronous but the pipeline runs "
+                f"asynchronously. Use async handlers for async pipelines."
+            )
+
+    for step_name, node in dag.steps.items():
+        if node.materializer is not None:
+            if not callable(node.materializer):
+                raise TypeError(
+                    f"Pipeline '{pipeline_def.name}': materializer for step '{step_name}' is not callable."
+                )
+            elif not is_async_callable(node.materializer):
+                mat_name = getattr(
+                    node.materializer, "__name__", str(node.materializer)
+                )
+                raise TypeError(
+                    f"Pipeline '{pipeline_def.name}': materializer "
+                    f"'{mat_name}' is synchronous but the pipeline runs "
+                    f"asynchronously."
+                )
+
+        if node.error_materializer is not None:
+            if not callable(node.error_materializer):
+                raise TypeError(
+                    f"Pipeline '{pipeline_def.name}': error materializer for step '{step_name}' is not callable."
+                )
+            elif not is_async_callable(node.error_materializer):
+                mat_name = getattr(
+                    node.error_materializer, "__name__", str(node.error_materializer)
+                )
+                raise TypeError(
+                    f"Pipeline '{pipeline_def.name}': error_materializer "
+                    f"'{mat_name}' is synchronous but the pipeline runs "
+                    f"asynchronously."
+                )
+
+        if node.fn is not None:
+            if not callable(node.fn):
+                raise TypeError(
+                    f"Pipeline '{pipeline_def.name}': step function for step '{step_name}' is not callable."
+                )
+            elif not is_async_callable(node.fn):
+                fn_name = getattr(node.fn, "__name__", str(node.fn))
+                raise TypeError(
+                    f"Pipeline '{pipeline_def.name}': step function "
+                    f"'{fn_name}' is synchronous but the pipeline runs "
+                    f"asynchronously. Use async handlers for async pipelines."
+                )
 
 
 def _resolve_pipeline_observers(
@@ -457,18 +598,8 @@ def _resolve_materializers(
 
 
 def _plan_materialization(dag: dict[str, DagNode], indexes: _DagBuildIndexes) -> None:
-    """
-    Compile the materialization plan once, in the builder.
-
-    Accepted design:
-      - materialization is a producer-level decision
-      - if any rule forces producer P to materialize, every consumer of P reads
-        from the materialized output
-      - runtime must not try to re-derive edge-level eager/lazy behavior
-
-    `materialize_output` is the runtime contract.
-    `_materialized_deps` is derived afterward only as consumer-side diagnostics.
-    """
+    """Compile producer-level materialization plan once, in the builder.
+    See ``docs/MATERIALIZATION_RUNTIME_CONTRACT.md`` for the full model."""
     producer_needs_materialize = {name: False for name in dag}
     producer_reasons = {name: set() for name in dag}
 
@@ -628,28 +759,43 @@ def _compile_execution_plan(dag: Dag, indexes: _DagBuildIndexes) -> None:
 
 
 def _expand_and_validate_steps(
-    steps: list[Any],
+    steps: list[Step | IncludeStep],
     pipeline_name: str,
-) -> list[Any]:
+) -> list[tuple[str, Step]]:
     _validate_declared_step_names(steps, pipeline_name)
     expanded_steps = expand_macros(steps, current_pipeline_name=pipeline_name)
     validate_no_duplicate_base_datasets(expanded_steps, pipeline_name)
     return expanded_steps
 
 
+def _assert_dag_invariants(dag: "Dag", pipeline_name: str) -> None:
+    """Loud invariant: every compiled DagNode carries a non-empty
+    ``pipeline`` attribute. RuntimeError on violation — absence is an
+    internal framework bug."""
+    for step_name, node in dag.steps.items():
+        if not getattr(node, "pipeline", None):
+            raise RuntimeError(
+                f"build_dag invariant violation: pipeline "
+                f"{pipeline_name!r} compiled step {step_name!r} with "
+                "empty pipeline attribute. DagNode.pipeline is required "
+                "to be a non-empty string after compilation."
+            )
+
+
 def _compile_steps(
-    expanded_steps: list[Any],
+    expanded_steps: list[tuple[str, Step]],
     pipeline_name: str,
     params: type[NamedTuple],
     resources: dict[str, Any],
     pipeline_observers: list[ResolvedObserver],
-) -> tuple[dict[str, DagNode], dict[str, DagNode]]:
+) -> tuple[dict[str, DagNode], dict[str, DagNode], dict[str, str]]:
     dag: dict[str, DagNode] = {}
     produced = initialize_parameters(params)
     produced.update(initialize_resources(resources))
     resource_nodes = initialize_resources(resources)
+    scope_id_by_step_name: dict[str, str] = {}
 
-    for step in expanded_steps:
+    for scope_id, step in expanded_steps:
         validate_step_is_callable(step, pipeline_name)
         validate_unique_step_name(step.name, dag, pipeline_name, is_expanded=True)
 
@@ -662,8 +808,49 @@ def _compile_steps(
         )
         dag[step.name] = compiled_step
         produced[step.name] = compiled_step
+        scope_id_by_step_name[step.name] = scope_id
 
-    return dag, produced
+    return dag, produced, scope_id_by_step_name
+
+
+def _stamp_scope_metadata(
+    dag: "Dag",
+    scope_id_by_step_name: dict[str, str],
+) -> None:
+    """Stamp scope metadata on every DagNode and aggregate
+    dag.scope_step_totals.
+
+    Called once, after the dag is fully built and validated, so the
+    flattening of dag.get_execution_levels() reflects the final
+    graph topology. The flattened levels are filtered by scope to
+    produce a per-scope topological ordering, then each scope's
+    steps receive a 0-based step_index_in_scope and the same
+    step_total_in_scope (the count of steps in that scope).
+
+    DagNode.pipeline (immediate pipeline name) is preserved — only
+    the three new fields are added here.
+    """
+    flat_topo = [
+        step_name for level in dag.get_execution_levels() for step_name in level
+    ]
+
+    by_scope: dict[str, list[str]] = {}
+    for step_name in flat_topo:
+        scope_id = scope_id_by_step_name.get(step_name, "")
+        by_scope.setdefault(scope_id, []).append(step_name)
+
+    scope_step_totals: dict[str, int] = {
+        scope_id: len(names) for scope_id, names in by_scope.items()
+    }
+    dag.scope_step_totals = scope_step_totals
+
+    for scope_id, names in by_scope.items():
+        total = len(names)
+        for idx, step_name in enumerate(names):
+            node = dag[step_name]
+            node.pipeline_scope = scope_id
+            node.step_index_in_scope = idx
+            node.step_total_in_scope = total
 
 
 def _finalize_dag(
@@ -686,69 +873,70 @@ def _finalize_dag(
     return dag_obj
 
 
-def build_dag(
-    pipeline_name: str,
-    params: type[NamedTuple],
-    steps: list[Any],
-    resources: dict[str, Any] | None = None,
-    memory_materializer_factory: Any = None,
-    is_default_factory: bool = False,
-    error_materializer_factory: Any = None,
-    pipeline_observers: list[Observer] | None = None,
-    exports: str | None = None,
-) -> Dag:
-    if error_materializer_factory is None:
-        error_materializer_factory = log_error_materializer_factory
-
-    _validate_params_type(params, pipeline_name)
-    pipeline_obs_resolved = _resolve_pipeline_observers(pipeline_observers or [])
-    expanded_steps = _expand_and_validate_steps(steps, pipeline_name)
-    effective_resources = _collect_pipeline_resources(
-        pipeline_name,
-        steps,
-        resources or {},
-        include_chain=(pipeline_name,),
+def build_dag(pipeline_def: PipelineDef) -> Dag:
+    """Compile ``pipeline_def`` into a ``Dag`` — single source of
+    design-time validation."""
+    error_materializer = (
+        pipeline_def.error_materializer or log_error_materializer_factory
     )
-    _validate_resource_names(effective_resources, params, expanded_steps, pipeline_name)
-    dag, produced = _compile_steps(
+
+    _validate_params_type(pipeline_def.params, pipeline_def.name)
+    pipeline_obs_resolved = _resolve_pipeline_observers(pipeline_def.observers or [])
+    expanded_steps = _expand_and_validate_steps(pipeline_def.steps, pipeline_def.name)
+    effective_resources = _collect_pipeline_resources(
+        pipeline_def.name,
+        pipeline_def.steps,
+        pipeline_def.resources or {},
+        include_chain=(pipeline_def.name,),
+    )
+    _validate_resource_names(
+        effective_resources,
+        pipeline_def.params,
         expanded_steps,
-        pipeline_name,
-        params,
+        pipeline_def.name,
+    )
+    dag, produced, scope_id_by_step_name = _compile_steps(
+        expanded_steps,
+        pipeline_def.name,
+        pipeline_def.params,
         effective_resources,
         pipeline_obs_resolved,
     )
-    validate_no_unused_resources(dag, effective_resources, pipeline_name)
+    validate_no_unused_resources(dag, effective_resources, pipeline_def.name)
     indexes = _build_dag_indexes(dag)
     _plan_materialization(dag, indexes)
     dag_obj = _finalize_dag(
-        pipeline_name,
+        pipeline_def.name,
         dag,
         produced,
         set(effective_resources),
-        error_materializer_factory,
+        error_materializer,
         pipeline_obs_resolved,
     )
-    # Propagate the merged resource factories to the DAG so the runtime
-    # can instantiate inherited sub-pipeline resources. Mirrors how
-    # materializers (§3.4) and pipeline_observers are resolved at build
-    # time and stored on the DAG. Not serialized (callables).
     dag_obj.resource_factories = effective_resources
-    check_circular_dependencies(dag_obj, pipeline_name)
+    check_circular_dependencies(dag_obj, pipeline_def.name)
+    _assert_dag_invariants(dag_obj, pipeline_def.name)
 
-    validate_no_unmaterialized_terminal_streams(dag_obj, pipeline_name, exports)
-
-    validate_sync_async_consistency(
-        dag_obj,
-        pipeline_name,
+    validate_no_unmaterialized_terminal_streams(
+        dag_obj, pipeline_def.name, pipeline_def.exports
     )
+
+    validate_sync_async_consistency(dag_obj, pipeline_def.name)
 
     _compile_execution_plan(dag_obj, indexes)
 
     _resolve_materializers(
         dag_obj,
         indexes,
-        memory_materializer_factory,
-        error_materializer_factory,
+        pipeline_def.materializer,
+        error_materializer,
     )
+
+    if dag_obj.requires_sync_runner or not dag_obj.requires_async_runner:
+        _validate_no_async_handlers(pipeline_def, dag_obj)
+    else:
+        _validate_no_sync_handlers(pipeline_def, dag_obj)
+
+    _stamp_scope_metadata(dag_obj, scope_id_by_step_name)
 
     return dag_obj
