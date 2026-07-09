@@ -686,3 +686,253 @@ def test_given_repeated_includes_when_step_completed_then_observer_sees_distinct
     }
     assert completed["first"].pipeline_scope == "R__first"
     assert completed["second"].pipeline_scope == "R__second"
+
+
+def test_given_repeated_includes_then_aggregator_completes_each_scope_independently():
+    """Issue #105 acceptance: a consumer aggregating per-scope
+    completion must NOT conflate repeated includes of the same
+    PipelineDef. The aggregator records the per-scope
+    ``is_complete`` boolean at each step event and asserts the
+    sequence for both instances is ``[False, False, True]``
+    — proving no instance can be marked complete before its last
+    step fires."""
+
+    class _SubParams(NamedTuple):
+        x: int = 0
+
+    def fn_keep(x: int) -> int:
+        return x
+
+    def adapt(x: int) -> _SubParams:
+        return _SubParams(x=x)
+
+    sub = pipeline(
+        name="Sub",
+        params=_SubParams,
+        exports="end",
+        steps=[
+            step("alpha", fn=fn_keep),
+            step("beta", fn=fn_keep),
+            step("end", fn=fn_keep),
+        ],
+    )
+
+    class _Aggregator:
+        def __init__(self) -> None:
+            self.totals: dict[str, int] = {}
+            self.done: dict[str, int] = {}
+            self.is_complete_log: dict[str, list[bool]] = {}
+
+        def __call__(self, ctx) -> None:
+            from synaflow.core.observers import (
+                PipelineStartedContext,
+                StepCompletedContext,
+            )
+
+            if isinstance(ctx, PipelineStartedContext):
+                self.totals = dict(ctx.scope_step_totals)
+                self.done = {scope: 0 for scope in self.totals}
+                self.is_complete_log = {scope: [] for scope in self.totals}
+            elif isinstance(ctx, StepCompletedContext):
+                scope = ctx.pipeline_scope
+                self.done[scope] += 1
+                self.is_complete_log[scope].append(
+                    self.done[scope] == self.totals.get(scope, 0)
+                )
+
+    agg = _Aggregator()
+    p = pipeline(
+        name="R",
+        params=_SubParams,
+        steps=[
+            include(name="first", pipeline=sub, fn=adapt),
+            include(name="second", pipeline=sub, fn=adapt),
+        ],
+        observers=[Observer(agg)],
+    )
+    run(p, params=_SubParams(x=1))
+
+    # Path-based identity: each include instance is its own scope.
+    assert set(agg.totals) == {"R", "R__first", "R__second"}
+    assert agg.totals["R__first"] == 3
+    assert agg.totals["R__second"] == 3
+    assert agg.totals["R"] == 2
+    assert agg.done["R__first"] == 3
+    assert agg.done["R__second"] == 3
+    assert agg.done["R"] == 2
+    for scope, count in agg.done.items():
+        assert count == agg.totals[scope]
+    # The repeated-include contract: each instance has 3 internal
+    # steps in scope, and the consumer sees ``[False, False, True]``
+    # — never ``True`` before the last event of that scope.
+    assert agg.is_complete_log["R__first"] == [False, False, True]
+    assert agg.is_complete_log["R__second"] == [False, False, True]
+
+
+def test_given_nested_includes_then_inner_scope_completes_before_outer_scope():
+    """Nested include with explicit dependency chain. The aggregator
+    records the order in which each scope reaches ``done == totals``
+    and asserts:
+
+        R__outer__inner then R__outer then R
+
+    so the consumer must not mark R (the root scope) complete until
+    the very last step in that scope fires. Issue #105 acceptance:
+    path-based scope_id + per-scope totals is the only contract that
+    allows per-instance completion detection."""
+
+    class _SubParams(NamedTuple):
+        x: int = 0
+
+    def fn_keep(x: int) -> int:
+        return x
+
+    def adapt(x: int) -> _SubParams:
+        return _SubParams(x=x)
+
+    # Outer's "end" step takes a parameter named ``inner`` — that is
+    # the include's name within O. After expansion in R, the include's
+    # exported step (where "only" collapses onto the include prefix
+    # in R__outer__inner) becomes the producer step at R__outer scope
+    # under the name ``outer__inner`` — exactly what the wrap rewrites
+    # ``inner`` to. The dep forces ``outer`` to wait for inner.
+    def fn_outer_end(inner: int) -> int:
+        return inner
+
+    # R's "done" step similarly depends on the include "outer"'s
+    # export (named "outer" in R because "end" is O's export).
+    def fn_root_done(outer: int) -> int:
+        return outer
+
+    inner = pipeline(
+        name="I",
+        params=_SubParams,
+        exports="only",
+        steps=[step("a", fn=fn_keep), step("only", fn=fn_keep)],
+    )
+    outer = pipeline(
+        name="O",
+        params=_SubParams,
+        exports="end",
+        steps=[
+            include(name="inner", pipeline=inner, fn=adapt),
+            step("end", fn=fn_outer_end),
+        ],
+    )
+
+    class _Aggregator:
+        def __init__(self) -> None:
+            self.totals: dict[str, int] = {}
+            self.done: dict[str, int] = {}
+            self.completion_order: list[str] = []
+
+        def __call__(self, ctx) -> None:
+            from synaflow.core.observers import (
+                PipelineStartedContext,
+                StepCompletedContext,
+            )
+
+            if isinstance(ctx, PipelineStartedContext):
+                self.totals = dict(ctx.scope_step_totals)
+                self.done = {scope: 0 for scope in self.totals}
+            elif isinstance(ctx, StepCompletedContext):
+                scope = ctx.pipeline_scope
+                self.done[scope] += 1
+                if (
+                    self.done[scope] == self.totals.get(scope, 0)
+                    and scope not in self.completion_order
+                ):
+                    self.completion_order.append(scope)
+
+    agg = _Aggregator()
+    p = pipeline(
+        name="R",
+        params=_SubParams,
+        steps=[
+            include(name="outer", pipeline=outer, fn=adapt),
+            step("done", fn=fn_root_done),
+        ],
+        observers=[Observer(agg)],
+    )
+    run(p, params=_SubParams(x=1))
+
+    assert "R" in agg.totals
+    assert "R__outer" in agg.totals
+    assert "R__outer__inner" in agg.totals
+    # R has 2 steps: outer__adapter + 'done' (which depends on outer)
+    assert agg.totals["R"] == 2
+    assert agg.totals["R__outer"] == 2
+    assert agg.totals["R__outer__inner"] == 2
+    for scope, count in agg.done.items():
+        assert count == agg.totals[scope]
+    # Scope finish order follows the dep chain:
+    # outer__inner (R__outer__inner complete) ->
+    # outer (R__outer complete, depends on inner) ->
+    # done (R complete, depends on outer).
+    assert agg.completion_order == ["R__outer__inner", "R__outer", "R"]
+
+
+def test_given_step_started_context_carries_dag_node_scope_metadata():
+    """Regression: StepStartedContext must surface the DagNode's stamped
+    scope fields (``pipeline_scope``, ``step_index_in_scope``,
+    ``step_total_in_scope``). Issue #105 — without these, the bug
+    remains visible at ``step_started``."""
+
+    class _Scope(NamedTuple):
+        x: int = 0
+
+    rec = EventRecorder()
+
+    def fn1(x: int) -> int:
+        return x
+
+    def fn2(x: int) -> int:
+        return x
+
+    p = pipeline(
+        name="scope_started",
+        params=_Scope,
+        steps=[step("first", fn=fn1), step("second", fn=fn2)],
+        observers=[Observer(rec.record)],
+    )
+    run(p, params=_Scope(x=1))
+    started_by_step = {
+        ctx.step_name: ctx
+        for _, ctx in rec.events
+        if isinstance(ctx, StepStartedContext)
+    }
+    assert started_by_step["first"].pipeline_scope == "scope_started"
+    assert started_by_step["second"].pipeline_scope == "scope_started"
+    assert started_by_step["first"].step_index_in_scope == 0
+    assert started_by_step["second"].step_index_in_scope == 1
+    assert started_by_step["first"].step_total_in_scope == 2
+    assert started_by_step["second"].step_total_in_scope == 2
+
+
+def test_given_step_failed_context_carries_dag_node_scope_metadata():
+    """Regression: StepFailedContext must also carry the DagNode's
+    stamped scope fields. Issue #105 — a failing step must still be
+    identifiable by its scope, index, and total."""
+
+    class _Scope(NamedTuple):
+        x: int = 0
+
+    rec = EventRecorder()
+
+    def fn_first(x: int) -> int:
+        return x
+
+    def fn_boom(x: int) -> int:
+        raise RuntimeError("expected failure")
+
+    p = pipeline(
+        name="scope_failed",
+        params=_Scope,
+        steps=[step("first", fn=fn_first), step("boom", fn=fn_boom)],
+        observers=[Observer(rec.record)],
+    )
+    run(p, params=_Scope(x=1))
+    failed = next(ctx for _, ctx in rec.events if isinstance(ctx, StepFailedContext))
+    assert failed.pipeline_scope == "scope_failed"
+    assert failed.step_index_in_scope == 1
+    assert failed.step_total_in_scope == 2

@@ -801,3 +801,217 @@ async def test_given_repeated_includes_when_step_completed_then_observer_sees_di
     }
     assert completed["first"].pipeline_scope == "R__first"
     assert completed["second"].pipeline_scope == "R__second"
+
+
+@pytest.mark.asyncio
+async def test_given_repeated_includes_then_aggregator_completes_each_scope_independently():
+    """Async parity of the repeated-includes aggregator test for #105.
+    Records per-scope ``is_complete`` sequence and asserts both
+    instances show ``[False, False, True]``."""
+
+    class _SubParams(NamedTuple):
+        x: int = 0
+
+    async def fn_keep(x: int) -> int:
+        return x
+
+    async def adapt(x: int) -> _SubParams:
+        return _SubParams(x=x)
+
+    sub = pipeline(
+        name="Sub",
+        params=_SubParams,
+        exports="end",
+        steps=[
+            step("alpha", fn=fn_keep),
+            step("beta", fn=fn_keep),
+            step("end", fn=fn_keep),
+        ],
+    )
+
+    class _Aggregator:
+        def __init__(self) -> None:
+            self.totals: dict[str, int] = {}
+            self.done: dict[str, int] = {}
+            self.is_complete_log: dict[str, list[bool]] = {}
+
+        async def __call__(self, ctx) -> None:
+            from synaflow.core.observers import (
+                PipelineStartedContext,
+                StepCompletedContext,
+            )
+
+            if isinstance(ctx, PipelineStartedContext):
+                self.totals = dict(ctx.scope_step_totals)
+                self.done = {scope: 0 for scope in self.totals}
+                self.is_complete_log = {scope: [] for scope in self.totals}
+            elif isinstance(ctx, StepCompletedContext):
+                scope = ctx.pipeline_scope
+                self.done[scope] += 1
+                self.is_complete_log[scope].append(
+                    self.done[scope] == self.totals.get(scope, 0)
+                )
+
+    agg = _Aggregator()
+    p = pipeline(
+        name="R",
+        params=_SubParams,
+        steps=[
+            include(name="first", pipeline=sub, fn=adapt),
+            include(name="second", pipeline=sub, fn=adapt),
+        ],
+        observers=[Observer(agg)],
+    )
+    await async_run(p, params=_SubParams(x=1))
+
+    assert set(agg.totals) == {"R", "R__first", "R__second"}
+    assert agg.totals["R__first"] == 3
+    assert agg.totals["R__second"] == 3
+    assert agg.totals["R"] == 2
+    for scope, count in agg.done.items():
+        assert count == agg.totals[scope]
+    assert agg.is_complete_log["R__first"] == [False, False, True]
+    assert agg.is_complete_log["R__second"] == [False, False, True]
+
+
+@pytest.mark.asyncio
+async def test_given_nested_includes_then_inner_scope_completes_before_outer_scope():
+    """Async parity of nested-includes scope completion order.
+    Asserts scope finish order: R__outer__inner -> R__outer -> R."""
+
+    class _SubParams(NamedTuple):
+        x: int = 0
+
+    async def fn_keep(x: int) -> int:
+        return x
+
+    async def adapt(x: int) -> _SubParams:
+        return _SubParams(x=x)
+
+    async def fn_outer_end(inner: int) -> int:
+        return inner
+
+    async def fn_root_done(outer: int) -> int:
+        return outer
+
+    inner = pipeline(
+        name="I",
+        params=_SubParams,
+        exports="only",
+        steps=[step("a", fn=fn_keep), step("only", fn=fn_keep)],
+    )
+    outer = pipeline(
+        name="O",
+        params=_SubParams,
+        exports="end",
+        steps=[
+            include(name="inner", pipeline=inner, fn=adapt),
+            step("end", fn=fn_outer_end),
+        ],
+    )
+
+    class _Aggregator:
+        def __init__(self) -> None:
+            self.totals: dict[str, int] = {}
+            self.done: dict[str, int] = {}
+            self.completion_order: list[str] = []
+
+        async def __call__(self, ctx) -> None:
+            from synaflow.core.observers import (
+                PipelineStartedContext,
+                StepCompletedContext,
+            )
+
+            if isinstance(ctx, PipelineStartedContext):
+                self.totals = dict(ctx.scope_step_totals)
+                self.done = {scope: 0 for scope in self.totals}
+            elif isinstance(ctx, StepCompletedContext):
+                scope = ctx.pipeline_scope
+                self.done[scope] += 1
+                if (
+                    self.done[scope] == self.totals.get(scope, 0)
+                    and scope not in self.completion_order
+                ):
+                    self.completion_order.append(scope)
+
+    agg = _Aggregator()
+    p = pipeline(
+        name="R",
+        params=_SubParams,
+        steps=[
+            include(name="outer", pipeline=outer, fn=adapt),
+            step("done", fn=fn_root_done),
+        ],
+        observers=[Observer(agg)],
+    )
+    await async_run(p, params=_SubParams(x=1))
+
+    assert agg.totals["R"] == 2
+    assert agg.totals["R__outer"] == 2
+    assert agg.totals["R__outer__inner"] == 2
+    for scope, count in agg.done.items():
+        assert count == agg.totals[scope]
+    assert agg.completion_order == ["R__outer__inner", "R__outer", "R"]
+
+
+@pytest.mark.asyncio
+async def test_given_step_started_context_carries_dag_node_scope_metadata():
+    """Async regression: StepStartedContext surfaces DagNode scope."""
+
+    class _Scope(NamedTuple):
+        x: int = 0
+
+    rec = EventRecorder()
+
+    async def fn1(x: int) -> int:
+        return x
+
+    async def fn2(x: int) -> int:
+        return x
+
+    p = pipeline(
+        name="scope_started",
+        params=_Scope,
+        steps=[step("first", fn=fn1), step("second", fn=fn2)],
+        observers=[Observer(rec.async_record)],
+    )
+    await async_run(p, params=_Scope(x=1))
+    started_by_step = {
+        ctx.step_name: ctx
+        for _, ctx in rec.events
+        if isinstance(ctx, StepStartedContext)
+    }
+    assert started_by_step["first"].pipeline_scope == "scope_started"
+    assert started_by_step["second"].pipeline_scope == "scope_started"
+    assert started_by_step["first"].step_index_in_scope == 0
+    assert started_by_step["second"].step_index_in_scope == 1
+    assert started_by_step["first"].step_total_in_scope == 2
+    assert started_by_step["second"].step_total_in_scope == 2
+
+
+@pytest.mark.asyncio
+async def test_given_step_failed_context_carries_dag_node_scope_metadata():
+    """Async regression: StepFailedContext also carries DagNode scope."""
+
+    class _Scope(NamedTuple):
+        x: int = 0
+
+    rec = EventRecorder()
+
+    async def fn_first(x: int) -> int:
+        return x
+
+    async def fn_boom(x: int) -> int:
+        raise RuntimeError("expected failure")
+
+    p = pipeline(
+        name="scope_failed",
+        params=_Scope,
+        steps=[step("first", fn=fn_first), step("boom", fn=fn_boom)],
+        observers=[Observer(rec.async_record)],
+    )
+    await async_run(p, params=_Scope(x=1))
+    failed = next(ctx for _, ctx in rec.events if isinstance(ctx, StepFailedContext))
+    assert failed.pipeline_scope == "scope_failed"
+    assert failed.step_index_in_scope == 1
+    assert failed.step_total_in_scope == 2
