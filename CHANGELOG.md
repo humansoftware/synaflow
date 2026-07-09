@@ -2,6 +2,505 @@
 
 
 
+## v0.27.0 (2026-07-09)
+
+### Feature
+
+* feat: scope-aware step lifecycle observers (#105); build_dag cleanup (#107) (#106)
+
+* feat(observers): expose pipeline_scope and step totals on step events (#105)
+
+Stamp `pipeline_scope`, `step_index_in_scope`, and
+`step_total_in_scope` onto each `DagNode` at DAG build time so step
+lifecycle events (started / completed / failed) can accurately report
+per-sub-pipeline progress. Downstream consumers like the Postgres
+`db_observer` can now flip a sub-pipeline from RUNNING to COMPLETED
+only after the LAST step of that sub-pipeline has fired.
+
+Implementation:
+
+* Counts come from `PipelineDef.count_scope_steps()` at design time,
+  walking the include graph via `IncludeStep.pipeline` — NOT from a
+  second pass over the post-expansion flat step list. The walker
+  accumulates per-include-instantiation so multi-instance includes of
+  the same sub-pipeline concatenate into a single inner-scope total.
+  Cycle detection via a `seen` frozenset is a safety net; the
+  authoritative `validate_no_unused_resources` runs first.
+* `Dag` exposes `scope_for(step_name)`, `scope_total(scope)`, and
+  `scope_counts()` accessors backed by `_scope_counts` (precomputed
+  from the definition tree, stamped at build time).
+* A loud `_assert_dag_invariants` in `dag_builder.build_dag` raises
+  `RuntimeError` if any compiled DagNode has an empty `pipeline`,
+  catching regressions before observers see them. Helper
+  `Dag.step_scope_index` raises `RuntimeError` (not silent fallback)
+  on the same condition.
+
+Refactor — eliminate the `StepConfig` wrapper indirection:
+
+* `StepConfig` / `AsyncStepConfig` → `StepRuntimeConfig` /
+  `AsyncStepRuntimeConfig` carrying only the `DagNode` (the
+  duplicated `observers`/`mode`/`on_error`/`max_in_flight`/`dataset_param_names`/`error_threshold_*`
+  fields were dead copies — threshold.py reads `node.error_threshold_*`
+  directly and observers are resolved at the dispatcher).
+* `_dag_node` back-reference → public `dag_node: DagNode` attribute.
+* `EventDispatcher.step_started(dag_node, step_name)` /
+  `step_completed` / `step_failed` / `materialization_*` take the
+  `DagNode` directly — no more `_resolve_dag_node` band-aid that
+  unwrapped `StepConfig → DagNode` at the event boundary. Same on the
+  async dispatcher.
+* `StepLifecycle` and `AsyncStepLifecycle` take `dag_node: DagNode`
+  directly instead of forwarding through a step-config wrapper.
+* `StepRunner` / `AsyncStepRunner` take `step_runtime_config` (no
+  separate `dag_node` parameter — no double-passing). Lazy fallback
+  for tests removed; `StepRuntimeConfig` is required (a real DagNode
+  is trivial to construct).
+* Type annotations everywhere: `node: Any` → `node: DagNode` across
+  executor / step_lifecycle / event_dispatch signatures.
+
+Backward compatibility: the new observer-context fields have
+zero/empty-string defaults so existing observers continue to work.
+
+* refactor(dag): build_dag accepts PipelineDef (issue #107 step 1)
+
+Replace 9-arg build_dag(pipeline_name, params, steps, ...) with single-arg
+build_dag(pipe_def). Building the dag IS the validation; signature now
+matches the single object that carries every input. is_default_factory
+boolean hack eliminated (derived from pipe_def.materializer is None
+internally).
+
+No behavior change; PipelineDef.__post_init__ still calls build_dag on
+construction and caches the result on self.dag. The dag field itself
+goes away in the next step.
+
+* refactor(dag): drop local var extraction in build_dag (issue #107 step 2a)
+
+PipelineDef fields are now read inline as pipeline_def.X throughout
+build_dag. Removed the 7-line block of destructuring assignments that
+shadowed attributes with no transformation. The one local that
+remains (error_materializer) carries the log_error_materializer_factory
+fallback, so its name documents the resolved value.
+
+Also trimmed the verbose module-level comment in build_dag and the
+4-line inline comment about resource_factories — the code is now
+self-documenting.
+
+* refactor(execution): drop StepRuntimeConfig wrapper, pass dag_node directly (issue #107 step 2b)
+
+The single-field StepRuntimeConfig class added no value over passing
+the DagNode itself. StepRunner.__init__ now takes dag_node: DagNode
+as a required param (no default, no lazy None-check); the
+TypeError on missing arg is raised by Python itself.
+
+Executor builds StepRunner(dag_node=node) without the intermediate
+wrapper construction. The 4-line comment about the wrapper
+disappears with the class.
+
+* refactor(execution): drop AsyncStepRuntimeConfig wrapper (issue #107 step 2c)
+
+Mirror of step 2b (sync): the single-field AsyncStepRuntimeConfig added
+no value. AsyncStepRunner now takes dag_node: DagNode as a required
+param directly. Async executor passes dag_node=node without the
+intermediate wrapper construction.
+
+* refactor(core): drop StepScopeIndex NamedTuple + Dag.step_scope_index helper (issue #107 step 2d)
+
+The 3-field NamedTuple wrapper around DagNode.pipeline/step_index_in_scope/
+step_total_in_scope added no value. Consumers read those public DagNode
+fields directly. Dropped:
+  - StepScopeIndex class in synaflow/core/dag.py
+  - Dag.step_scope_index method
+  - 8 tests (4 in test_dag_scope.py, 2 in sync test_observer_runtime.py,
+    2 in async test_observer_runtime.py) that exercised only the
+    helper. The underlying DagNode fields remain tested in
+    test_dag_scope.py scope tests.
+  - The namedtuple import from synaflow/core/dag.py
+  - One stale reference to the helper in dag_builder._assert_dag_invariants
+    docstring.
+
+* refactor(core): trim verbose docstrings in dag_builder/definition/observers (issue #107 step 2e)
+
+Lexical cleanup only — no behavior change.
+
+Trimmed 6 verbose docstrings (&gt;= 4 lines) to 1-3 lines that preserve
+the load-bearing design intent:
+  - dag_builder._plan_materialization: 12 -&gt; 2 lines (pointer to
+    docs/MATERIALIZATION_RUNTIME_CONTRACT.md for the full model)
+  - dag_builder._assert_dag_invariants: 13 -&gt; 3 lines (keeps the
+    &#39;absence is internal framework bug&#39; warning that justifies the
+    loud failure)
+  - definition.fill_scope_metadata: 29 -&gt; 4 lines (drops the
+    recursion/cycle-prose, kept brief — 3a will shorten further when
+    the method becomes non-recursive)
+  - definition.get_execution_levels: 5 -&gt; 1 line
+  - observers.Observer / ResolvedObserver / dispatch_observers* : 6-10
+    -&gt; 2-3 lines each (kept the &#39;filtering/scoping belongs in wrapper
+    helpers&#39; design note for Observer)
+
+Left intact:
+  - dag_steps.validate_no_unmaterialized_terminal_streams (16 lines)
+    — documents a non-obvious deadlock/data-loss rule; the only doc
+    of its kind in the codebase.
+
+* refactor(definition): fill_scope_metadata is non-recursive (issue #107 step 3a)
+
+Each PipelineDef stamps only its own direct steps. Sub-pipelines
+are separate instances with their own __post_init__ that runs at
+construction time, so they stamp themselves.
+
+The recursion + &#39;seen&#39; frozenset cycle protection was unnecessary:
+the tree of PipelineDef instances is well-formed by construction
+(sub-pipeline must exist before being referenced in an IncludeStep),
+and the authoritative cycle detector stays in expand_macros where it
+raises &#39;Infinite cycle detected&#39;.
+
+Body: 13 lines -&gt; 5 lines. The &#39;seen&#39; parameter is gone.
+
+Test rename: &#39;stamps_direct_steps_and_recurses&#39; -&gt; &#39;stamps_direct_steps&#39;.
+The &#39;pipe_b&#39; module-level fixture is built at import time, so its
+own __post_init__ has already stamped its steps before any test
+constructs a parent pipeline — the observable behavior is unchanged.
+
+* refactor(definition): dag is lazy cached_property; build moved to build_dag (issue #107 step 3b)
+
+PipelineDef.dag
+  - Was: eager dataclass field, built in __post_init__ via build_dag(self)
+  - Now: @cached_property, built lazily on first access via build_dag(self)
+    and cached. Effect: pipeline() never raises on design-time errors;
+    those surface on p.dag (or build_dag(p)) access, or at first run.
+
+PipelineDef.__post_init__
+  - Was: self.fill_scope_metadata() + build_dag(self) + requires_* cache
+    + handler validation
+  - Now: just self.fill_scope_metadata(). The lazy build handles the rest.
+
+PipelineDef.requires_sync_runner / requires_async_runner
+  - Was: dataclass fields assigned from self.dag.requires_*
+  - Now: @property delegates to self.dag.requires_* — same API, lazy.
+
+PipelineDef.to_dict / get_execution_levels
+  - Kept as public methods delegating to self.dag.
+
+Handler validation ordering
+  - Was: called from __post_init__ AFTER build_dag had resolved
+    materializers. Now called from inside build_dag AFTER
+    _resolve_materializers (preserved ordering — a sync factory
+    returning an async callable would otherwise pass).
+
+build_dag ordering
+  - validate_sync_async_consistency -&gt; _compile_execution_plan -&gt;
+    _resolve_materializers -&gt; handler validation. Handler validation
+    must run AFTER materializer resolution.
+
+Test contract migration (105+2 tests)
+  - 105 tests were &#39;when_constructed_then_raises&#39; / &#39;when_compiled
+    _then_raises&#39;. Rewritten via AST script: p = pipeline(...);
+    with pytest.raises(...): p.dag. Test function names updated
+    &#39;when_constructed_then_raises&#39; -&gt; &#39;when_built_then_raises&#39;
+    where the name was explicit.
+
+  - 2 tests mutated Step.max_in_flight AFTER pipeline() but BEFORE
+    first .dag access. With the old eager build the mutation was
+    ignored; with the lazy build it would be picked up. Updated
+    tests to trigger p.dag build BEFORE the mutation, preserving
+    the test intent (DagNode is the runtime source of truth).
+
+Final: 704/704 passing. Dag is on-demand, validation explicit via
+build_dag. The pipeline_def.dag API still works (cached_property
++ requires_* properties) — full removal happens when the
+PipelineRegistry (issue #107) lands.
+
+* refactor(dag_builder): move handler validators out of definition.py
+
+The two handler-kind validators (_validate_no_async_handlers and
+_validate_no_sync_handlers) belonged to dag_builder.py conceptually
+— they operate on the compiled Dag (pipeline_observers, step nodes
+with their resolved materializers/error_materializers/fn), raising
+on incompatible handler kinds. They were scheduled in build_dag
+right after _resolve_materializers (depends on resolved handlers,
+not on the raw PipelineDef).
+
+But the definitions lived in core/definition.py because of an
+accident in 3b&#39;s pivot: I moved the call sites from __post_init__
+into build_dag, but never moved the defs. The result was a
+circular-ish import (dag_builder importing from definition for
+validators; definition carrying validation logic that needed
+adapters.is_async_callable — which forced the import block).
+
+This commit moves the defs into dag_builder.py next to the other
+validators (validate_no_unused_resources, validate_no_unmaterialized
+_terminal_streams, validate_sync_async_consistency, _assert_dag
+_invariants, _compile_execution_plan). The is_async_callable import
+in definition.py is dropped — that module is now back to defining
+data containers only (PipelineDef, Step, IncludeStep, observer
+classes). Stop 0 of issue #107 cleanup.
+
+No behavior change. 704/704 tests passing.
+
+* refactor(definition): drop .dag attribute; clients call build_dag(pipeline) (issue #107 step 3b)
+
+PipelineDef loses its .dag cached_property + requires_sync_runner /
+requires_async_runner properties entirely. Per the design — building
+IS the validation, and the dag must not be a hidden lazy property on
+the def — callers explicitly invoke build_dag(p).
+
+Production callers migrated:
+  - run() / async_run() both build_dag(p) internally; dag is held in
+    a local variable that exposes requires_sync_runner /
+    requires_async_runner / resource_factories. Replaces the previous
+    getattr() defensive dance against the missing properties.
+  - overrides._materializer_*, _observer_*, _resource_* helpers all
+    build_dag once into a local and reuse.
+
+PipelineDef.to_dict / get_execution_levels:
+  - Kept as public methods. They delegate to build_dag(self).to_dict()
+    / get_execution_levels(). Lazy import of build_dag inside the
+    method body avoids the import cycle (definition.py &lt;-&gt; dag_builder).
+
+105+2 tests migrated to build_dag(p) (instead of .dag access). Done
+via two AST scripts:
+  - migrate_dag_attr.py: rewrites &#39;&lt;pipe&gt;.dag&#39; (one or more levels
+    of attribute chain) into &#39;build_dag(&lt;pipe&gt;)&#39;. Adds the import at
+    the top of the file when needed. Handles chained access like
+    &#39;pack.pipeline.dag&#39; and known pipe names: p, my_pipeline, my_pipe,
+    pipeline_def, pack_pipeline, pack, parent, child, sub, main, top,
+    inner, outer, root_pipe, sub_pipe, pipe_a, pipe_b, pipe, pipeline.
+  - fix_imports_after_docstring.py: post-pass to move imports the
+    script inserted BEFORE a module-level raw-string expression
+    (which ruff calls E402 &#39;module-level import not at top of file&#39;)
+    back into the proper position.
+
+Two test_pep563_annotations.py  comments that the AST
+unparse lost were re-added manually. One f-string nested-quote
+artifact (Python 3.12 syntax leaked into a 3.10-compatible test file)
+was fixed by switching outer quotes from &#39; to &#34;.
+
+test_runner_contract_uses_dag_node_max_in_flight:
+  - The &#39;mutate Step after build&#39; test was rewritten: build_dag into
+    a local &#39;dag&#39;, mutate &#39;dag.steps[...].max_in_flight&#39; (the dag node,
+    not the Step), then run(p). This preserves the test&#39;s intent:
+    runtime reads max_in_flight from the DagNode, Step mutations
+    after build are ignored.
+
+Final state: 704/704 tests passing, ruff all-checks green, pre-commit
+green. Follows Fase 0 (c677819) which moved the handler validators
+out of definition.py so this change doesn&#39;t reintroduce the cycle.
+
+Future: PipelineRegistry (issue #107 step 3c) — will absorb the
+build_dag() call inside executor APIs and expose it as
+registry.get_entry(name).dag.
+
+* refactor(definition): drop scope fields; deferred stamping (issue #107 step A)
+
+Removes the 1-based declaration-order stamping from PipelineDef so scope
+metadata is computed cleanly in build_dag (path-based identity, 0-based
+topological index).
+
+Removals:
+- Step/IncludeStep.index_in_scope, total_in_scope
+- PipelineDef.fill_scope_metadata + __post_init__
+- DagNode.step_index_in_scope, step_total_in_scope + to_serializable
+- dag_steps.validate_and_compile_step: drops the two kwargs
+- dag_builder._compile_steps: drops the two kwargs
+- dag_expansion: drops the two kwargs in adapter/sub_step builders
+- event_dispatch (sync/async): drops the two kwargs; defaults to 0
+
+Deleted tests that asserted the deprecated semantics:
+- tests/core/test_dag_scope.py (full file)
+- 3 tests in tests/core/test_dag_builder.py (fill_scope_metadata_*, to_serializable scope)
+- 5 tests in each test_observer_runtime.py (sync + async)
+- tests/core/test_dag_execution_order.py: drops step_*_in_scope from expected-keys set
+
+Suites: 704 -&gt; 684 (-20). The removed tests are re-added in Stop B/C/E
+with the new path-based identity and 0-based topological indexing.
+
+Part of #107 (registry + CLI refactor), addresses #105 design.
+
+* refactor(expansion): thread scope_id through expand_macros (issue #105 v2)
+
+Builds on Stop A: scope metadata now flows as transient tuple data
+through expansion, never written onto Step/IncludeStep instances.
+
+expand_macros(...) takes a new scope_path kwarg and returns
+list[tuple[str, Step]] instead of list[Step].
+
+Scope identity semantics:
+- Root direct step: scope_id = current_pipeline_name
+- Adapter step: scope_id = parent&#39;s scope (the include happens *in* the
+  caller; the adapter reports the caller&#39;s scope)
+- Sub-pipeline inner step: scope_id = &#39;{parent_scope}__{include_name}&#39;
+  (cumulative, identifies the include *instance*, not the
+  underlying PipelineDef)
+
+Repeated includes of the same PipelineDef yield distinct scope_ids;
+nested includes yield cumulative paths with __ separators.
+
+Downstream updates (shape change cascades):
+- _expand_include / _expand_sub_pipeline_steps forward scope_path
+- _expand_and_validate_steps, _compile_steps accept tuples
+- _validate_resource_names, validate_no_duplicate_base_datasets
+  iterate over tuples (use step.name without scope_id)
+
+DagNode.pipeline is preserved as-is (Stop C will decide migration).
+
+6 tests added in tests/core/test_expand_macros_scope_paths.py covering
+flat, single-include, nested, repeated, and no-name cases.
+
+Suites: 684 -&gt; 690 (+6).
+
+Part of #107 (registry + CLI refactor), addresses #105 scope identity.
+
+* refactor(dag_builder): stamp scope metadata on DagNode (issue #105 v2)
+
+Adds the three scope fields back onto DagNode and a dag-level
+scope_step_totals dict, populated by a single _stamp_scope_metadata
+pass after the full dag is built and validated. Serialization
+includes both the per-node fields and the dag-level dict (part of
+the compiled external contract).
+
+New DagNode fields (all default to safe placeholders, stamped on
+during build_dag):
+- pipeline_scope: str (path-based scope_id, __-separated)
+- step_index_in_scope: int (0-based topological within scope)
+- step_total_in_scope: int (count of steps in that scope)
+
+New Dag field:
+- scope_step_totals: dict[str, int] keyed by scope_id
+
+Flow:
+- _compile_steps(...) returns (dag_nodes, produced, scope_id_by_step_name)
+- build_dag calls _stamp_scope_metadata(dag, scope_id_by_step_name) at the
+  end of the pipeline (after all validation/materialization).
+- _stamp_scope_metadata flattens dag.get_execution_levels() to get
+  topological order, groups names by scope, then assigns 0-based
+  indices per scope (within topo order, no second topo algorithm).
+
+DagNode.pipeline is preserved as-is (immediate pipeline name) — the
+new fields carry scope identity, single source of truth for the
+scope emitted in observer contexts (Stop D).
+
+DagNode.to_serializable() and Dag.to_dict() emit the new fields.
+
+12 new tests in tests/core/test_dag_scope_stamping.py:
+- root, adapter (caller&#39;s scope), nested include (cumulative path),
+  repeated includes (distinct scope_ids)
+- 0-based indexing
+- topological order within scope (diamond)
+- scope_step_totals dict at dag level
+- to_dict serialization includes both node fields and dict
+- empty dag preserves shape
+
+Tests for the legacy corpus (tests/core/test_dag_execution_order.py)
+extend _normalize_exported_dag_for_contract_assertions to ignore the
+new scope keys (covered by the dedicated scope tests).
+
+Suites: 690 -&gt; 702 (+12).
+
+Part of #107 (registry + CLI refactor), addresses #105 scope identity.
+
+* test(dag): rename empty-dag scope_step_totals test for stable contract
+
+The empty dag emits scope_step_totals as an empty dict by design
+(preferable to key absence for the JSON contract). Rename and assert
+exact equality.
+
+* feat(observers): expose scope_step_totals in PipelineStartedContext
+
+Adds a scope_step_totals: dict[str, int] field to
+PipelineStartedContext. Consumers can now detect scope completion
+without waiting for the final step event: track done_count[scope_id]
+and compare against scope_step_totals[scope_id].
+
+EventDispatcher (sync + async) reads self._dag.scope_step_totals
+when building the context — no new constructor argument, no extra
+state on the dispatcher.
+
+PipelineStartedContext gets from dataclasses import field and a
+default of empty dict (kept stable for the JSON contract; the live
+dag populates the dict at run time).
+
+Replaces the prior negative test
+test_given_pipeline_started_context_does_not_carry_step_scope_fields
+with two new tests:
+- test_given_pipeline_started_context_exposes_scope_step_totals
+- test_given_pipeline_started_context_default_scope_step_totals_is_empty_dict
+
+Sync + async parity.
+
+Suites: 702 -&gt; 704 (+2, -1 obsolete; net +1).
+
+Closes #105 in conjunction with Stops A/B/C: observers can report
+per-sub-pipeline progress accurately.
+
+* fix(dispatch): forward DagNode scope fields into StepXContext (issue #105)
+
+Stop D exposed scope_step_totals on PipelineStartedContext but
+the three step events (StepStartedContext, StepCompletedContext,
+StepFailedContext) were still emitting pipeline_scope=dag_node.pipeline
+— the immediate PipelineDef name, not the path-based scope_id stamped
+in Stop C. This meant the repeated-includes bug remained for any
+observer reading step events: both inner steps from the same sub
+shared pipeline_scope == &#39;Sub&#39; and indices defaulted to 0.
+
+Sync and async dispatchers now forward:
+- pipeline_scope = dag_node.pipeline_scope  (path-based)
+- step_index_in_scope = dag_node.step_index_in_scope  (0-based topological)
+- step_total_in_scope = dag_node.step_total_in_scope  (per-scope count)
+
+DagNode.pipeline&#39;s semantic (immediate pipeline name) is preserved
+for any consumer that still reads it; the new fields are the
+single source of truth for scope identity in observer contexts.
+
+Two new regression tests (sync + async):
+test_given_repeated_includes_when_step_completed_then_observer_sees_distinct_pipeline_scope
+proves that observer sees R__first and R__second for two
+includes of the same sub.
+
+Also fixes test_given_pipeline_started_context_default_scope_step_totals_is_empty_dict
+(which was running a real pipeline that always has a non-empty dict).
+Now it constructs PipelineStartedContext directly to assert the
+default is an empty dict — backward-compatible for code that builds
+contexts directly without the kwarg.
+
+Suites: 704 -&gt; 706 (+2 regression tests). All other tests pass
+unchanged; the observer-contexts scope semantics now matches the
+DagNode metadata.
+
+Part of #107 (registry + CLI refactor), addresses #105.
+
+* test(observer): aggregator proves per-instance completion (issue #105)
+
+Two minimal observer/aggregator tests in each engine (sync + async):
+
+test_given_repeated_includes_then_aggregator_completes_each_scope_independently
+- Two includes of the same sub (&#39;Sub&#39;) with 3 internal steps each.
+- Aggregator tracks done[pipeline_scope] vs
+  PipelineStartedContext.scope_step_totals.
+- Verifies the path-based scope_id keeps the two instances apart:
+  totals has R__first and R__second separately, both reach their
+  total before the run completes.
+- Includes the invariant: done[scope] &lt;= totals[scope] for every
+  scope (never over-counts).
+
+test_given_nested_includes_then_inner_scope_completes_before_outer_scope
+- One outer include with 1 inner include; both sub-pipelines run.
+- Inner scope is R__outer__inner; outer adapter in R__outer; outer
+  in R. Verifies all three scopes report independent completion.
+
+Sync + async parity (same logic, async-compatible aggregator).
+
+Suites: 706 -&gt; 710 (+4, 2 per engine).
+
+Closes issue #105: scope-aware lifecycle observers can now report
+per-sub-pipeline progress accurately. The path-based identity and
+per-scope totals, combined with the public observer contract,
+let consumers mark a scope complete only after its instance&#39;s
+final step has fired.
+
+---------
+
+Co-authored-by: Marcelo Elias Del Valle &lt;marcelo@mvalle.br&gt; ([`267a130`](https://github.com/humansoftware/synaflow/commit/267a1301fbc52ab5ab0c4b8268e751f8b5f1885d))
+
+
 ## v0.26.1 (2026-07-07)
 
 ### Fix
