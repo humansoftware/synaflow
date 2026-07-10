@@ -1484,7 +1484,7 @@ from synaflow import pipeline, step, run, PipelineRegistry</p>
     ],
 )
 catalog = PipelineRegistry()
-catalog["sync_example"] = p
+catalog.add(p)
 run(catalog.get_dag("sync_example"), p.params_type())</p>
 </div>
 </div>
@@ -1511,7 +1511,7 @@ from synaflow import pipeline, step, async_run, PipelineRegistry</p>
     ],
 )
 catalog = PipelineRegistry()
-catalog["async_example"] = p
+catalog.add(p)
 async_run(catalog.get_dag("async_example"), p.params_type())</p>
 </div>
 </div>

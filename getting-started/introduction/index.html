@@ -1614,7 +1614,7 @@ section maps SynaFlow concepts to Java Streams and LINQ.</p>
 <a id="__codelineno-0-22" name="__codelineno-0-22" href="#__codelineno-0-22"></a>    <span class="p">],</span>
 <a id="__codelineno-0-23" name="__codelineno-0-23" href="#__codelineno-0-23"></a><span class="p">)</span>
 <a id="__codelineno-0-24" name="__codelineno-0-24" href="#__codelineno-0-24"></a><span class="n">catalog</span> <span class="o">=</span> <span class="n">PipelineRegistry</span><span class="p">()</span>
-<a id="__codelineno-0-25" name="__codelineno-0-25" href="#__codelineno-0-25"></a><span class="n">catalog</span><span class="p">[</span><span class="s2">&quot;quickstart&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">p</span>
+<a id="__codelineno-0-25" name="__codelineno-0-25" href="#__codelineno-0-25"></a><span class="n">catalog</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">p</span><span class="p">)</span>
 <a id="__codelineno-0-26" name="__codelineno-0-26" href="#__codelineno-0-26"></a>
 <a id="__codelineno-0-27" name="__codelineno-0-27" href="#__codelineno-0-27"></a><span class="n">run</span><span class="p">(</span><span class="n">catalog</span><span class="o">.</span><span class="n">get_dag</span><span class="p">(</span><span class="s2">&quot;quickstart&quot;</span><span class="p">),</span> <span class="n">Params</span><span class="p">(</span><span class="n">count</span><span class="o">=</span><span class="mi">5</span><span class="p">))</span>
 </code></pre></div>

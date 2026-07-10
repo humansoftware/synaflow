@@ -1404,7 +1404,7 @@ from synaflow import pipeline, step, run, PipelineRegistry</p>
     ],
 )
 catalog = PipelineRegistry()
-catalog["tutorial"] = p</p>
+catalog.add(p)</p>
 <p>run(catalog.get_dag("tutorial"), Params(message="SynaFlow"))</p>
 <h1 id="output-s-1-y-1-n-1-a-1-f-1-l-1-o-1-w-1">Output: {'s': 1, 'y': 1, 'n': 1, 'a': 1, 'f': 1, 'l': 1, 'o': 1, 'w': 1}<a class="headerlink" href="#output-s-1-y-1-n-1-a-1-f-1-l-1-o-1-w-1" title="Permanent link">&para;</a></h1>
 </div>
@@ -1439,7 +1439,7 @@ from synaflow import pipeline, step, async_run, PipelineRegistry</p>
     ],
 )
 catalog = PipelineRegistry()
-catalog["tutorial"] = p</p>
+catalog.add(p)</p>
 <p>async_run(catalog.get_dag("tutorial"), Params(message="SynaFlow"))</p>
 <h1 id="output-s-1-y-1-n-1-a-1-f-1-l-1-o-1-w-1_1">Output: {'s': 1, 'y': 1, 'n': 1, 'a': 1, 'f': 1, 'l': 1, 'o': 1, 'w': 1}<a class="headerlink" href="#output-s-1-y-1-n-1-a-1-f-1-l-1-o-1-w-1_1" title="Permanent link">&para;</a></h1>
 </div>

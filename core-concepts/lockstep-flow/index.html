@@ -1651,7 +1651,7 @@ from synaflow import pipeline, step, run, PipelineRegistry</p>
     ],
 )
 catalog = PipelineRegistry()
-catalog["lockstep_demo"] = p</p>
+catalog.add(p)</p>
 <p>run(catalog.get_dag("lockstep_demo"), Params(count=5))</p>
 </div>
 </div>
@@ -1684,7 +1684,7 @@ from synaflow import pipeline, step, async_run, PipelineRegistry</p>
     ],
 )
 catalog = PipelineRegistry()
-catalog["lockstep_demo"] = p</p>
+catalog.add(p)</p>
 <p>async_run(catalog.get_dag("lockstep_demo"), Params(count=5))</p>
 </div>
 </div>

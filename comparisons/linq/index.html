@@ -1543,7 +1543,7 @@ from synaflow import pipeline, step, run, PipelineRegistry</p>
     ],
 )
 catalog = PipelineRegistry()
-catalog["linq_demo"] = p
+catalog.add(p)
 run(catalog.get_dag("linq_demo"), p.params_type()(count=10))</p>
 <h1 id="output-6-8-10-12-14-16-18">Output: [6, 8, 10, 12, 14, 16, 18]<a class="headerlink" href="#output-6-8-10-12-14-16-18" title="Permanent link">&para;</a></h1>
 </div>

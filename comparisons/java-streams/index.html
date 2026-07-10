@@ -1549,7 +1549,7 @@ from synaflow import pipeline, step, run, PipelineRegistry</p>
     ],
 )
 catalog = PipelineRegistry()
-catalog["streams"] = p
+catalog.add(p)
 run(catalog.get_dag("streams"), p.params_type()(count=10))</p>
 <h1 id="output-6-8-10-12-14-16-18">Output: [6, 8, 10, 12, 14, 16, 18]<a class="headerlink" href="#output-6-8-10-12-14-16-18" title="Permanent link">&para;</a></h1>
 </div>
@@ -1583,7 +1583,7 @@ from synaflow import pipeline, step, async_run, PipelineRegistry</p>
     ],
 )
 catalog = PipelineRegistry()
-catalog["streams"] = p
+catalog.add(p)
 async_run(catalog.get_dag("streams"), p.params_type()(count=10))</p>
 </div>
 </div>
@@ -1674,7 +1674,7 @@ decides the concrete storage:</p>
 <a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a>    <span class="n">memory_materializer_factory</span><span class="o">=</span><span class="n">disk_materializer</span><span class="p">(</span><span class="s2">&quot;/mnt/ssd&quot;</span><span class="p">),</span>
 <a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a><span class="p">)</span>
 <a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a><span class="n">catalog</span> <span class="o">=</span> <span class="n">PipelineRegistry</span><span class="p">()</span>
-<a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a><span class="n">catalog</span><span class="p">[</span><span class="s2">&quot;big_data&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">p</span>
+<a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a><span class="n">catalog</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">p</span><span class="p">)</span>
 </code></pre></div>
 <p>The consumer code doesn't change — it still says <code>def fn(data: list[int])</code>.
 Whether that list lives in RAM, on SSD, in S3, or in a database is entirely

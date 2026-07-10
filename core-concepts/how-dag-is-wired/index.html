@@ -1692,7 +1692,7 @@ from synaflow import pipeline, step, run, PipelineRegistry</p>
     ],
 )
 catalog = PipelineRegistry()
-catalog["basic_example"] = p</p>
+catalog.add(p)</p>
 </div>
 </div>
 </div>
@@ -1724,7 +1724,7 @@ from synaflow import pipeline, step, async_run, PipelineRegistry</p>
     ],
 )
 catalog = PipelineRegistry()
-catalog["basic_example"] = p</p>
+catalog.add(p)</p>
 </div>
 </div>
 </div>
@@ -1843,7 +1843,7 @@ dependencies and do <strong>not</strong> become dataflow nodes:</p>
 <a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a>    <span class="n">steps</span><span class="o">=</span><span class="p">[</span><span class="n">step</span><span class="p">(</span><span class="s2">&quot;load_user&quot;</span><span class="p">,</span> <span class="n">fn</span><span class="o">=</span><span class="n">load_user</span><span class="p">)],</span>
 <a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a><span class="p">)</span>
 <a id="__codelineno-6-8" name="__codelineno-6-8" href="#__codelineno-6-8"></a><span class="n">catalog</span> <span class="o">=</span> <span class="n">PipelineRegistry</span><span class="p">()</span>
-<a id="__codelineno-6-9" name="__codelineno-6-9" href="#__codelineno-6-9"></a><span class="n">catalog</span><span class="p">[</span><span class="s2">&quot;users&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">p</span>
+<a id="__codelineno-6-9" name="__codelineno-6-9" href="#__codelineno-6-9"></a><span class="n">catalog</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">p</span><span class="p">)</span>
 </code></pre></div>
 <p>Here <code>get_db</code> is a production resource factory with a return type annotation
 such as <code>def get_db() -&gt; DB: ...</code>.</p>

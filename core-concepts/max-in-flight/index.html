@@ -1686,7 +1686,7 @@ from typing import NamedTuple</p>
     ],
 )
 catalog = PipelineRegistry()
-catalog["bounded_requests"] = p</p>
+catalog.add(p)</p>
 <p>run(catalog.get_dag("bounded_requests"), Params(urls=["a", "b", "c"]))
 pool.shutdown(wait=True)</p>
 </div>
@@ -1722,7 +1722,7 @@ from typing import NamedTuple</p>
     ],
 )
 catalog = PipelineRegistry()
-catalog["bounded_requests_async"] = p</p>
+catalog.add(p)</p>
 <p>await async_run(catalog.get_dag("bounded_requests_async"), Params(urls=["a", "b", "c"]))</p>
 </div>
 </div>
@@ -1942,7 +1942,7 @@ from typing import NamedTuple</p>
     ],
 )
 catalog = PipelineRegistry()
-catalog["bounded_http_sync"] = p</p>
+catalog.add(p)</p>
 <p>run(
     p,
     Params(
@@ -2002,7 +2002,7 @@ from typing import NamedTuple</p>
         ],
     )
     catalog = PipelineRegistry()
-    catalog[&quot;bounded_http_async&quot;] = p
+    catalog.add(p)
 
     await async_run(
         p,

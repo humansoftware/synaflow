@@ -1548,7 +1548,7 @@ from synaflow import pipeline, step, run, PipelineRegistry</p>
     ],
 )
 catalog = PipelineRegistry()
-catalog["materialize_example"] = p</p>
+catalog.add(p)</p>
 </div>
 </div>
 </div>
@@ -1578,7 +1578,7 @@ from synaflow import pipeline, step, async_run, PipelineRegistry</p>
     ],
 )
 catalog = PipelineRegistry()
-catalog["materialize_example"] = p</p>
+catalog.add(p)</p>
 </div>
 </div>
 </div>
@@ -1657,7 +1657,7 @@ from synaflow import pipeline, step, run, OnError, PipelineRegistry</p>
     ],
 )
 catalog = PipelineRegistry()
-catalog["continue_example"] = p
+catalog.add(p)
 run(catalog.get_dag("continue_example"), p.params_type())</p>
 <h1 id="output-0-10-30-40-item-2-skipped">Output: 0, 10, 30, 40  (item 2 skipped)<a class="headerlink" href="#output-0-10-30-40-item-2-skipped" title="Permanent link">&para;</a></h1>
 </div>
@@ -1690,7 +1690,7 @@ from synaflow import pipeline, step, async_run, OnError, PipelineRegistry</p>
     ],
 )
 catalog = PipelineRegistry()
-catalog["continue_example"] = p
+catalog.add(p)
 async_run(catalog.get_dag("continue_example"), p.params_type())</p>
 <h1 id="output-0-10-30-40-item-2-skipped_1">Output: 0, 10, 30, 40  (item 2 skipped)<a class="headerlink" href="#output-0-10-30-40-item-2-skipped_1" title="Permanent link">&para;</a></h1>
 </div>
@@ -1732,7 +1732,7 @@ partial output. Configure per-step or per-pipeline:</p>
 <a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a>    <span class="n">error_materializer_factory</span><span class="o">=</span><span class="n">disk_error_materializer</span><span class="p">(</span><span class="s2">&quot;/tmp/errors&quot;</span><span class="p">),</span>
 <a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a><span class="p">)</span>
 <a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a><span class="n">catalog</span> <span class="o">=</span> <span class="n">PipelineRegistry</span><span class="p">()</span>
-<a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a><span class="n">catalog</span><span class="p">[</span><span class="s2">&quot;robust&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">p</span>
+<a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a><span class="n">catalog</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">p</span><span class="p">)</span>
 <a id="__codelineno-1-13" name="__codelineno-1-13" href="#__codelineno-1-13"></a>
 <a id="__codelineno-1-14" name="__codelineno-1-14" href="#__codelineno-1-14"></a><span class="c1"># Per-step override</span>
 <a id="__codelineno-1-15" name="__codelineno-1-15" href="#__codelineno-1-15"></a><span class="n">step</span><span class="p">(</span><span class="s2">&quot;critical&quot;</span><span class="p">,</span> <span class="n">fn</span><span class="o">=</span><span class="n">do_work</span><span class="p">,</span>

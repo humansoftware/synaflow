@@ -1474,7 +1474,7 @@ from synaflow import pipeline, step, run, PipelineRegistry</p>
     ],
 )
 catalog = PipelineRegistry()
-catalog["event_processor"] = p</p>
+catalog.add(p)</p>
 <p>run(catalog.get_dag("event_processor"), Window(events=[{"id": 1, "amount": 10}, {"id": 2, "amount": 20}]))</p>
 </div>
 </div>
@@ -1505,7 +1505,7 @@ from synaflow import pipeline, step, async_run, PipelineRegistry</p>
     ],
 )
 catalog = PipelineRegistry()
-catalog["event_processor"] = p</p>
+catalog.add(p)</p>
 <p>async_run(catalog.get_dag("event_processor"), Window(events=[{"id": 1, "amount": 10}, {"id": 2, "amount": 20}]))</p>
 </div>
 </div>
@@ -1547,7 +1547,7 @@ from synaflow import pipeline, step, run, OnError, PipelineRegistry</p>
     ],
 )
 catalog = PipelineRegistry()
-catalog["idempotent"] = p</p>
+catalog.add(p)</p>
 </div>
 </div>
 </div>
@@ -1573,7 +1573,7 @@ from synaflow import pipeline, step, async_run, OnError, PipelineRegistry</p>
     ],
 )
 catalog = PipelineRegistry()
-catalog["idempotent"] = p</p>
+catalog.add(p)</p>
 </div>
 </div>
 </div>

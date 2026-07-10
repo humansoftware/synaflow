@@ -1691,7 +1691,7 @@ from synaflow import pipeline, step, run, PipelineRegistry</p>
     ],
 )
 catalog = PipelineRegistry()
-catalog["example"] = p</p>
+catalog.add(p)</p>
 <p>run(catalog.get_dag("example"), Params(count=5))</p>
 </div>
 </div>
@@ -1727,7 +1727,7 @@ from synaflow import pipeline, step, async_run, PipelineRegistry</p>
     ],
 )
 catalog = PipelineRegistry()
-catalog["example"] = p</p>
+catalog.add(p)</p>
 <p>async_run(catalog.get_dag("example"), Params(count=5))</p>
 </div>
 </div>
@@ -1777,7 +1777,7 @@ from synaflow import pipeline, step, run, OnError, PipelineRegistry</p>
     ],
 )
 catalog = PipelineRegistry()
-catalog["realistic"] = p</p>
+catalog.add(p)</p>
 <p>run(catalog.get_dag("realistic"), Params(limit=100_000))</p>
 </div>
 </div>
@@ -1818,7 +1818,7 @@ from synaflow import pipeline, step, async_run, OnError, PipelineRegistry</p>
     ],
 )
 catalog = PipelineRegistry()
-catalog["realistic"] = p</p>
+catalog.add(p)</p>
 <p>async_run(catalog.get_dag("realistic"), Params(limit=100_000))</p>
 </div>
 </div>
