@@ -537,11 +537,15 @@ class AsyncPipelineExecutor:
 
 
 async def async_run(
-    pipeline: PipelineDef,
+    pipeline_or_dag: PipelineDef | Dag,
     params: Any,
     overrides: ExecutionOverrides | None = None,
 ) -> None:
-    dag = build_dag(pipeline)
+    dag = (
+        pipeline_or_dag
+        if isinstance(pipeline_or_dag, Dag)
+        else build_dag(pipeline_or_dag)
+    )
     if dag.requires_sync_runner:
         raise RuntimeError(
             "This pipeline contains synchronous streams (Iterator)."

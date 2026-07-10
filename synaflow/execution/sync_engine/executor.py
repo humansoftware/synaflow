@@ -524,14 +524,18 @@ class PipelineExecutor:
 
 
 def run(
-    pipeline: PipelineDef,
+    pipeline_or_dag: PipelineDef | Dag,
     params: Any,
     overrides: ExecutionOverrides | None = None,
     *,
     worker_shutdown_poll_seconds: float = 0.5,
     worker_shutdown_log_every_seconds: float = 60.0,
 ) -> None:
-    dag = build_dag(pipeline)
+    dag = (
+        pipeline_or_dag
+        if isinstance(pipeline_or_dag, Dag)
+        else build_dag(pipeline_or_dag)
+    )
     if dag.requires_async_runner:
         raise RuntimeError(
             "This pipeline contains async features (async def or AsyncIterator)"
