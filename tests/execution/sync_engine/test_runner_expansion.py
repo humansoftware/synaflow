@@ -47,7 +47,6 @@ def test_runner_executes_flattened_pipeline_each_mode():
             step("consolidate", fn=consolidate),
         ],
     )
-
     executor = PipelineExecutor(build_dag(pipe_a))
     executor.execute(params=AParams(raw_texts=["hi", "world", "synaflow"]))
     assert executor.outputs["consolidate"] == 15
@@ -87,7 +86,7 @@ def test_given_sub_pipeline_resource_inherited_when_run_then_resource_is_injecte
     p = pipeline(
         name="parent", params=Params, steps=[include("incl", pipeline=sub, fn=adapt)]
     )
-    run(p, Params())
+    run(build_dag(p), Params())
     assert len(seen) == 1
     db_instance, value = seen[0]
     assert isinstance(db_instance, DB)
@@ -145,7 +144,7 @@ def test_given_two_subs_same_resource_instance_when_run_then_resource_is_injecte
             include("incl_b", pipeline=sub_b, fn=adapt_b),
         ],
     )
-    run(p, Params())
+    run(build_dag(p), Params())
     assert len(seen) == 2
     for db_instance, value in seen:
         assert db_instance is shared

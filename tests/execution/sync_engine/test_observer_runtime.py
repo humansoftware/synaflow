@@ -1,3 +1,4 @@
+from synaflow.core.dag_builder import build_dag
 import logging
 from collections.abc import Iterator as Iter
 from typing import Iterator, NamedTuple
@@ -63,8 +64,8 @@ def test_given_pipeline_run_id_is_consistent_and_unique_per_run():
         steps=[step("dummy", fn=dummy)],
         observers=[Observer(rec.record)],
     )
-    run(p, Params(values=[1]))
-    run(p, Params(values=[2]))
+    run(build_dag(p), Params(values=[1]))
+    run(build_dag(p), Params(values=[2]))
     run_ids = {ctx.run_id for _, ctx in rec.events}
     assert len(run_ids) == 2
     for r_id in run_ids:
@@ -86,7 +87,7 @@ def test_given_pipeline_observer_when_run_completes_then_started_and_completed_e
         steps=[step("gen", fn=gen), step("consumer", fn=consumer)],
         observers=[Observer(rec.record)],
     )
-    run(p, Params(values=[1, 2]))
+    run(build_dag(p), Params(values=[1, 2]))
     names = [e[0] for e in rec.events]
     assert "PipelineStartedContext" in names
     assert "PipelineCompletedContext" in names
@@ -109,7 +110,7 @@ def test_given_pipeline_observer_when_step_fails_stop_then_failed_emitted():
         observers=[Observer(on_event(PipelineEvent.FAILED, rec.record))],
     )
     with pytest.raises(Exception):
-        run(p, Params(values=[1]))
+        run(build_dag(p), Params(values=[1]))
     assert len(rec.events) == 1
     name, ctx = rec.events[0]
     assert name == "PipelineFailedContext"
@@ -131,7 +132,7 @@ def test_given_pipeline_failed_context_then_has_fields():
         observers=[Observer(on_event(PipelineEvent.FAILED, rec.record))],
     )
     with pytest.raises(Exception):
-        run(p, Params(values=[1]))
+        run(build_dag(p), Params(values=[1]))
     ctx = rec.events[0][1]
     assert ctx.pipeline_name == "my_pipe"
     assert ctx.event is PipelineEvent.FAILED
@@ -148,7 +149,7 @@ def test_given_all_mode_step_when_succeeds_then_started_and_completed_emitted():
         params=Params,
         steps=[step("s", fn=identity, observers=[Observer(rec.record)])],
     )
-    run(p, Params(values=[42]))
+    run(build_dag(p), Params(values=[42]))
     names = [e[0] for e in rec.events]
     assert "StepStartedContext" in names
     assert "StepCompletedContext" in names
@@ -172,7 +173,7 @@ def test_given_all_mode_step_completed_then_counts_correct():
             )
         ],
     )
-    run(p, Params(values=[42]))
+    run(build_dag(p), Params(values=[42]))
     ctx = rec.events[0][1]
     assert ctx.success_count == 1
     assert ctx.error_count == 0
@@ -199,7 +200,7 @@ def test_given_all_mode_step_when_fails_stop_then_failed_emitted():
         ],
     )
     with pytest.raises(Exception):
-        run(p, Params(values=[1]))
+        run(build_dag(p), Params(values=[1]))
     ctx = rec.events[0][1]
     assert isinstance(ctx, StepFailedContext)
     assert ctx.completed_all_inputs is False
@@ -231,7 +232,7 @@ def test_given_each_mode_step_when_all_items_succeed_then_completed_with_counts(
             step("collect", fn=collect),
         ],
     )
-    run(p, Params(values=[1, 2, 3]))
+    run(build_dag(p), Params(values=[1, 2, 3]))
     ctx = rec.events[0][1]
     assert isinstance(ctx, StepCompletedContext)
     assert ctx.mode == StepMode.EACH
@@ -272,7 +273,7 @@ def test_given_each_mode_step_when_some_fail_continue_then_completed_not_failed(
             step("collect", fn=collect),
         ],
     )
-    run(p, Params(values=[1, 2, 3]))
+    run(build_dag(p), Params(values=[1, 2, 3]))
     assert len(rec_comp.events) == 1
     ctx = rec_comp.events[0][1]
     assert isinstance(ctx, StepCompletedContext)
@@ -309,7 +310,7 @@ def test_given_each_mode_step_when_item_fails_stop_then_failed_with_partial_coun
         ],
     )
     with pytest.raises(Exception):
-        run(p, Params(values=[1, 2, 3]))
+        run(build_dag(p), Params(values=[1, 2, 3]))
     ctx = rec.events[0][1]
     assert isinstance(ctx, StepFailedContext)
     assert ctx.completed_all_inputs is False
@@ -333,7 +334,7 @@ def test_given_step_with_list_consumer_when_materialized_then_events_emitted():
             step("collect", fn=collect),
         ],
     )
-    run(p, Params(values=[1, 2]))
+    run(build_dag(p), Params(values=[1, 2]))
     names = [e[0] for e in rec.events]
     assert "MaterializationStartedContext" in names
     assert "MaterializationCompletedContext" in names
@@ -365,7 +366,7 @@ def test_given_materialization_context_then_has_fields():
             step("collect", fn=collect),
         ],
     )
-    run(p, Params(values=[1]))
+    run(build_dag(p), Params(values=[1]))
     ctx = rec.events[0][1]
     assert isinstance(ctx, MaterializationStartedContext)
     assert ctx.step_name == "gen"
@@ -406,7 +407,7 @@ def test_given_materialization_when_fails_then_failed_emitted():
         ],
     )
     try:
-        run(p, Params(values=[1]))
+        run(build_dag(p), Params(values=[1]))
     except Exception:
         pass
     assert len(rec.events) >= 1
@@ -437,7 +438,7 @@ def test_given_lazy_consumer_when_no_materialization_then_no_materialization_eve
             step("passthrough", fn=passthrough),
         ],
     )
-    run(p, Params(values=[1]))
+    run(build_dag(p), Params(values=[1]))
     assert len(rec.events) == 0
 
 
@@ -455,7 +456,7 @@ def test_given_observer_raises_when_dispatched_then_step_still_succeeds(caplog):
         steps=[step("s", fn=ok_step, observers=[Observer(bad_observer)])],
     )
     caplog.set_level(logging.DEBUG)
-    run(p, Params(values=[1]))
+    run(build_dag(p), Params(values=[1]))
     assert "observer failure" in caplog.text
 
 
@@ -482,7 +483,7 @@ def test_given_observer_raises_when_dispatched_then_other_observers_still_called
             )
         ],
     )
-    run(p, Params(values=[1]))
+    run(build_dag(p), Params(values=[1]))
     assert len(rec.events) == 1
 
 
@@ -503,7 +504,7 @@ def test_given_observers_when_lazy_step_then_output_remains_iterator():
             step("lazy_consumer", fn=lazy_consumer),
         ],
     )
-    run(p, Params(values=[1, 2]))
+    run(build_dag(p), Params(values=[1, 2]))
 
 
 def test_given_materialization_observer_when_lazy_step_then_materialization_not_triggered():
@@ -530,7 +531,7 @@ def test_given_materialization_observer_when_lazy_step_then_materialization_not_
             step("lazy_consumer", fn=lazy_consumer),
         ],
     )
-    run(p, Params(values=[1, 2]))
+    run(build_dag(p), Params(values=[1, 2]))
     assert len(rec.events) == 0
 
 
@@ -549,7 +550,7 @@ def test_given_step_returning_list_when_observed_then_success_count_reflects_log
         steps=[step("prod", fn=producer), step("cons", fn=consumer)],
         observers=[Observer(rec.record)],
     )
-    run(p, params=Params(values=[1, 2, 3]))
+    run(build_dag(p), params=Params(values=[1, 2, 3]))
     cons_event = next(
         (
             ctx
@@ -587,7 +588,7 @@ def test_given_lazy_generator_step_when_observed_then_step_started_event_fires_o
         steps=[step("prod", fn=producer), step("cons", fn=consumer)],
         observers=[Observer(observer)],
     )
-    run(p, params=Params(values=[]))
+    run(build_dag(p), params=Params(values=[]))
     assert state["step_started_event_fired"] is True
 
 
@@ -620,27 +621,19 @@ def test_given_pipeline_started_context_exposes_scope_step_totals():
         ],
         observers=[Observer(rec.record)],
     )
-    run(p, params=_Scope(values=[1, 2, 3]))
+    run(build_dag(p), params=_Scope(values=[1, 2, 3]))
     started = next(
         (ctx for _, ctx in rec.events if isinstance(ctx, PipelineStartedContext))
     )
-    # Each include contributes 1 adapter; root direct step adds 1.
-    # Sub-pipeline exposes 1 inner.
-    assert started.scope_step_totals == {
-        "pl_started": 2,
-        "pl_started__first": 1,
-    }
+    assert started.scope_step_totals == {"pl_started": 2, "pl_started__first": 1}
 
 
 def test_given_pipeline_started_context_default_scope_step_totals_is_empty_dict():
     """Constructing PipelineStartedContext without the kwarg
     yields an empty dict — keeps backward compatibility for code that
     builds contexts directly (e.g., tests, mock observers)."""
-
     ctx = PipelineStartedContext(
-        pipeline_name="p",
-        run_id="r",
-        event=PipelineEvent.STARTED,
+        pipeline_name="p", run_id="r", event=PipelineEvent.STARTED
     )
     assert ctx.scope_step_totals == {}
 
@@ -662,12 +655,8 @@ def test_given_repeated_includes_when_step_completed_then_observer_sees_distinct
         return _Scope(values=values)
 
     sub = pipeline(
-        name="Sub",
-        params=_Scope,
-        exports="only",
-        steps=[step("only", fn=fn_only)],
+        name="Sub", params=_Scope, exports="only", steps=[step("only", fn=fn_only)]
     )
-
     p = pipeline(
         name="R",
         params=_Scope,
@@ -677,7 +666,7 @@ def test_given_repeated_includes_when_step_completed_then_observer_sees_distinct
         ],
         observers=[Observer(rec.record)],
     )
-    run(p, params=_Scope(values=[1, 2]))
+    run(build_dag(p), params=_Scope(values=[1, 2]))
     completed = {
         ctx.step_name: ctx
         for _, ctx in rec.events
@@ -723,7 +712,6 @@ def test_given_repeated_includes_then_aggregator_completes_each_scope_independen
             self.is_complete_log: dict[str, list[bool]] = {}
 
         def __call__(self, ctx) -> None:
-
             if isinstance(ctx, PipelineStartedContext):
                 self.totals = dict(ctx.scope_step_totals)
                 self.done = {scope: 0 for scope in self.totals}
@@ -745,9 +733,7 @@ def test_given_repeated_includes_then_aggregator_completes_each_scope_independen
         ],
         observers=[Observer(agg)],
     )
-    run(p, params=_SubParams(x=1))
-
-    # Path-based identity: each include instance is its own scope.
+    run(build_dag(p), params=_SubParams(x=1))
     assert set(agg.totals) == {"R", "R__first", "R__second"}
     assert agg.totals["R__first"] == 3
     assert agg.totals["R__second"] == 3
@@ -757,9 +743,6 @@ def test_given_repeated_includes_then_aggregator_completes_each_scope_independen
     assert agg.done["R"] == 2
     for scope, count in agg.done.items():
         assert count == agg.totals[scope]
-    # The repeated-include contract: each instance has 3 internal
-    # steps in scope, and the consumer sees ``[False, False, True]``
-    # — never ``True`` before the last event of that scope.
     assert agg.is_complete_log["R__first"] == [False, False, True]
     assert agg.is_complete_log["R__second"] == [False, False, True]
 
@@ -785,17 +768,9 @@ def test_given_nested_includes_then_inner_scope_completes_before_outer_scope():
     def adapt(x: int) -> _SubParams:
         return _SubParams(x=x)
 
-    # Outer's "end" step takes a parameter named ``inner`` — that is
-    # the include's name within O. After expansion in R, the include's
-    # exported step (where "only" collapses onto the include prefix
-    # in R__outer__inner) becomes the producer step at R__outer scope
-    # under the name ``outer__inner`` — exactly what the wrap rewrites
-    # ``inner`` to. The dep forces ``outer`` to wait for inner.
     def fn_outer_end(inner: int) -> int:
         return inner
 
-    # R's "done" step similarly depends on the include "outer"'s
-    # export (named "outer" in R because "end" is O's export).
     def fn_root_done(outer: int) -> int:
         return outer
 
@@ -822,7 +797,6 @@ def test_given_nested_includes_then_inner_scope_completes_before_outer_scope():
             self.completion_order: list[str] = []
 
         def __call__(self, ctx) -> None:
-
             if isinstance(ctx, PipelineStartedContext):
                 self.totals = dict(ctx.scope_step_totals)
                 self.done = {scope: 0 for scope in self.totals}
@@ -845,21 +819,15 @@ def test_given_nested_includes_then_inner_scope_completes_before_outer_scope():
         ],
         observers=[Observer(agg)],
     )
-    run(p, params=_SubParams(x=1))
-
+    run(build_dag(p), params=_SubParams(x=1))
     assert "R" in agg.totals
     assert "R__outer" in agg.totals
     assert "R__outer__inner" in agg.totals
-    # R has 2 steps: outer__adapter + 'done' (which depends on outer)
     assert agg.totals["R"] == 2
     assert agg.totals["R__outer"] == 2
     assert agg.totals["R__outer__inner"] == 2
     for scope, count in agg.done.items():
         assert count == agg.totals[scope]
-    # Scope finish order follows the dep chain:
-    # outer__inner (R__outer__inner complete) ->
-    # outer (R__outer complete, depends on inner) ->
-    # done (R complete, depends on outer).
     assert agg.completion_order == ["R__outer__inner", "R__outer", "R"]
 
 
@@ -886,7 +854,7 @@ def test_given_step_started_context_carries_dag_node_scope_metadata():
         steps=[step("first", fn=fn1), step("second", fn=fn2)],
         observers=[Observer(rec.record)],
     )
-    run(p, params=_Scope(x=1))
+    run(build_dag(p), params=_Scope(x=1))
     started_by_step = {
         ctx.step_name: ctx
         for _, ctx in rec.events
@@ -922,8 +890,8 @@ def test_given_step_failed_context_carries_dag_node_scope_metadata():
         steps=[step("first", fn=fn_first), step("boom", fn=fn_boom)],
         observers=[Observer(rec.record)],
     )
-    run(p, params=_Scope(x=1))
-    failed = next(ctx for _, ctx in rec.events if isinstance(ctx, StepFailedContext))
+    run(build_dag(p), params=_Scope(x=1))
+    failed = next((ctx for _, ctx in rec.events if isinstance(ctx, StepFailedContext)))
     assert failed.pipeline_scope == "scope_failed"
     assert failed.step_index_in_scope == 1
     assert failed.step_total_in_scope == 2

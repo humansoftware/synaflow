@@ -10,7 +10,6 @@ from tests.execution.async_engine.corpus.error_handling import (
     errors_list,
 )
 
-
 ASYNC_PACK_NAMES = (
     "async_explicit_modes",
     "async_linear",
@@ -66,7 +65,6 @@ async def test_step_results(pack_name):
 
 @pytest.mark.asyncio
 async def test_error_handling_corpus_registers_error():
-
     errors_list.clear()
-    await async_run(error_pipeline, ErrorHandlingParams())
+    await async_run(build_dag(error_pipeline), ErrorHandlingParams())
     assert errors_list == ["gen failed"]

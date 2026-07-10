@@ -10,8 +10,6 @@ from typing import Any
 from synaflow.execution.async_engine.lifecycle_stream import AsyncLifecycleStream
 
 from synaflow.core.dag import Dag, DagNode
-from synaflow.core.dag_builder import build_dag
-from synaflow.core.definition import PipelineDef
 from synaflow.core.exceptions import (
     PipelineStopException,
     StepExecutionError,
@@ -537,15 +535,10 @@ class AsyncPipelineExecutor:
 
 
 async def async_run(
-    pipeline_or_dag: PipelineDef | Dag,
+    dag: Dag,
     params: Any,
     overrides: ExecutionOverrides | None = None,
 ) -> None:
-    dag = (
-        pipeline_or_dag
-        if isinstance(pipeline_or_dag, Dag)
-        else build_dag(pipeline_or_dag)
-    )
     if dag.requires_sync_runner:
         raise RuntimeError(
             "This pipeline contains synchronous streams (Iterator)."

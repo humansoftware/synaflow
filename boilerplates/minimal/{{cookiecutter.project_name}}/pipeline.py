@@ -1,7 +1,7 @@
 from collections.abc import Generator, Iterator
 from typing import NamedTuple
 
-from synaflow import pipeline, step, run
+from synaflow import PipelineRegistry, pipeline, run, step
 
 
 class Params(NamedTuple):
@@ -24,18 +24,23 @@ def consumer(transformer: Iterator[int]) -> None:
         print(x)
 
 
-def main():
-    p = pipeline(
-        name="{{ cookiecutter.project_name }}",
-        params=Params,
-        steps=[
-            step("producer", fn=producer),
-            step("transformer", fn=transformer),
-            step("consumer", fn=consumer),
-        ],
-    )
+# Design-time: the catalog is built at module load. ``catalog.get_dag(name)``
+# compiles the Dag on first call and caches it for subsequent runs.
+catalog = PipelineRegistry()
+catalog["{{ cookiecutter.project_name }}"] = pipeline(
+    name="{{ cookiecutter.project_name }}",
+    params=Params,
+    steps=[
+        step("producer", fn=producer),
+        step("transformer", fn=transformer),
+        step("consumer", fn=consumer),
+    ],
+)
 
-    run(p, Params(count=5))
+
+def main():
+    # Runtime: consume the prebuilt Dag, never recompile.
+    run(catalog.get_dag("{{ cookiecutter.project_name }}"), Params(count=5))
 
 
 if __name__ == "__main__":

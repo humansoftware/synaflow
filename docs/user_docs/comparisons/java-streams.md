@@ -35,7 +35,8 @@ critical difference: persistence backends.
 
     ```python
     from collections.abc import Generator, Iterator
-    from synaflow import pipeline, step, run
+    from synaflow import pipeline, step, run, PipelineRegistry
+
 
     def producer(count: int) -> Generator[int, None, None]:
         yield from range(count)
@@ -60,15 +61,18 @@ critical difference: persistence backends.
             step("collector", fn=collector),
         ],
     )
-    run(p, p.params_type()(count=10))
+    catalog = PipelineRegistry()
+    catalog["streams"] = p
+    run(catalog.get_dag("streams"), p.params_type()(count=10))
     # Output: [6, 8, 10, 12, 14, 16, 18]
-    ```
+```
 
 === "SynaFlow (Async)"
 
     ```python
     from collections.abc import AsyncGenerator, AsyncIterator
-    from synaflow import pipeline, step, async_run
+    from synaflow import pipeline, step, async_run, PipelineRegistry
+
 
     async def producer(count: int) -> AsyncGenerator[int, None]:
         for i in range(count):
@@ -94,8 +98,10 @@ critical difference: persistence backends.
             step("collector", fn=collector),
         ],
     )
-    async_run(p, p.params_type()(count=10))
-    ```
+    catalog = PipelineRegistry()
+    catalog["streams"] = p
+    async_run(catalog.get_dag("streams"), p.params_type()(count=10))
+```
 
 ## No nested streams — by design
 
@@ -121,7 +127,7 @@ consecutive `T → Iterator[T]` steps still produce a flat `Iterator[T]`:
 
     # step2's output is ListType(str) → flat list of strings
     # NOT Iterator[Iterator[str]]
-    ```
+```
 
 === "Async"
 
@@ -135,7 +141,7 @@ consecutive `T → Iterator[T]` steps still produce a flat `Iterator[T]`:
     async def step2(step1: int) -> AsyncGenerator[str, None]:
         yield str(step1)
         yield str(step1 * 10)
-    ```
+```
 
 This is deliberate. Every SynaFlow pipeline operates on **flat, typed streams**.
 There is no use case that requires nested iterators — if you need grouping, use
@@ -159,7 +165,8 @@ decides the concrete storage:
 | Always in-memory | Disk, network, S3, database — any backend with the right protocol |
 
 ```python
-from synaflow import pipeline, step, run, disk_materializer
+from synaflow import pipeline, step, run, disk_materializer, PipelineRegistry
+
 
 # Consumer asks for list[T] — transparently stored on disk
 p = pipeline(
@@ -168,6 +175,9 @@ p = pipeline(
     steps=[...],
     memory_materializer_factory=disk_materializer("/mnt/ssd"),
 )
+catalog = PipelineRegistry()
+catalog["big_data"] = p
+
 ```
 
 The consumer code doesn't change — it still says `def fn(data: list[int])`.

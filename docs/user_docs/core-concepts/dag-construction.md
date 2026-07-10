@@ -14,7 +14,8 @@ SynaFlow builds a Directed Acyclic Graph from your function type hints — no ma
    - **Lockstep Symmetry** (Detects structural topologies that guarantee runtime deadlocks. See [Asymmetric Lockstep Deadlocks](../advanced/asymmetric-lockstep-deadlocks.md))
 
 ```python
-from synaflow import pipeline, step
+from synaflow import pipeline, step, PipelineRegistry
+
 
 p = pipeline(
     name="example",
@@ -25,6 +26,9 @@ p = pipeline(
         step("consumer", fn=consumer),
     ],
 )
+catalog = PipelineRegistry()
+catalog["example"] = p
+
 ```
 
 ## The DAG JSON

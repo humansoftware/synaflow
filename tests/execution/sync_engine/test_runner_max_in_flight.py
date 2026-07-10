@@ -35,7 +35,7 @@ def test_given_max_in_flight_1_when_linear_then_preserves_lockstep():
             step("consumer", fn=consumer),
         ],
     )
-    run(p, Count(count=5))
+    run(build_dag(p), Count(count=5))
     assert results == [0, 1, 2, 3, 4]
 
 
@@ -58,7 +58,7 @@ def test_given_max_in_flight_30_when_linear_then_pipeline_completes():
             step("consumer", fn=consumer),
         ],
     )
-    run(p, Count(count=5))
+    run(build_dag(p), Count(count=5))
     assert results == [0, 1, 2, 3, 4]
 
 
@@ -79,7 +79,7 @@ def test_given_max_in_flight_on_terminal_step_when_terminal_then_no_effect():
             step("terminal", fn=terminal),
         ],
     )
-    run(p, Count(count=5))
+    run(build_dag(p), Count(count=5))
 
 
 def test_given_max_in_flight_when_on_error_continue_then_still_works():
@@ -106,7 +106,7 @@ def test_given_max_in_flight_when_on_error_continue_then_still_works():
             step("consumer", fn=consumer, on_error=OnError.CONTINUE),
         ],
     )
-    run(p, Count(count=5))
+    run(build_dag(p), Count(count=5))
     assert results == [0, 1, 3, 4]
 
 
@@ -135,7 +135,7 @@ def test_given_max_in_flight_3_when_fanout_two_consumers_then_both_get_all_items
             step("consumer_b", fn=consumer_b),
         ],
     )
-    run(p, Count(count=10))
+    run(build_dag(p), Count(count=10))
     assert results_a == list(range(10))
     assert results_b == list(range(10))
 
@@ -169,7 +169,7 @@ def test_given_max_in_flight_fanout_when_terminal_consumers_do_not_iterate_then_
 
     def target() -> None:
         try:
-            run(pipeline_def, P())
+            run(build_dag(pipeline_def), P())
         except BaseException as exc:
             failure.append(exc)
 
@@ -228,7 +228,7 @@ def test_given_fanout_to_submit_and_await_barrier_when_max_in_flight_then_await_
 
     def target() -> None:
         try:
-            run(p, P())
+            run(build_dag(p), P())
         except BaseException as exc:
             failure.append(exc)
 
@@ -262,7 +262,7 @@ def test_given_max_in_flight_when_producer_does_not_exceed_bounded_ahead():
             step("consumer", fn=consumer),
         ],
     )
-    run(p, Count(count=20))
+    run(build_dag(p), Count(count=20))
     assert results == list(range(20))
 
 
@@ -290,7 +290,7 @@ def test_given_max_in_flight_3_when_linear_stream_then_ahead_distance_stays_boun
             step("consumer", fn=consumer),
         ],
     )
-    run(p, Count(count=20))
+    run(build_dag(p), Count(count=20))
     assert produced == list(range(20))
     assert consumed == list(range(20))
     assert max_seen_ahead <= 3
@@ -317,7 +317,7 @@ def test_given_max_in_flight_3_when_linear_stream_then_producer_blocks_before_it
             step("consumer", fn=consumer),
         ],
     )
-    run(p, Count(count=6))
+    run(build_dag(p), Count(count=6))
     assert log.index("recv 0") < log.index("prod 4")
 
 
@@ -348,7 +348,7 @@ def test_given_max_in_flight_1_when_fanout_slow_branch_then_bound_is_exact():
             step("slow", fn=slow),
         ],
     )
-    run(p, Count(count=5))
+    run(build_dag(p), Count(count=5))
     slow_0_index = log.index("slow-recv 0")
     prod_2_index = log.index("prod 2")
     assert slow_0_index < prod_2_index
@@ -378,7 +378,7 @@ def test_given_max_in_flight_3_when_fanout_lazy_and_eager_then_both_receive_item
             step("eager_consumer", fn=eager_consumer),
         ],
     )
-    run(p, Count(count=10))
+    run(build_dag(p), Count(count=10))
     assert lazy_results == list(range(10))
     assert eager_results == [list(range(10))]
 
@@ -402,7 +402,7 @@ def test_given_user_resource_with_close_when_used_as_param_then_executor_does_no
 
     resource = Resource()
     p = pipeline(name="test", params=P, steps=[step("use_resource", fn=use_resource)])
-    run(p, P(resource=resource))
+    run(build_dag(p), P(resource=resource))
     assert seen == [resource]
     assert resource.closed is False
 
@@ -428,7 +428,7 @@ def test_given_max_in_flight_3_when_terminal_lazy_consumer_then_stream_drains_fu
             step("terminal", fn=terminal),
         ],
     )
-    run(p, Count(count=10))
+    run(build_dag(p), Count(count=10))
     assert produced == list(range(10))
     assert consumed == list(range(10))
 
@@ -458,7 +458,7 @@ def test_given_max_in_flight_3_when_branch_stops_early_then_other_branch_finishe
             step("full_consumer", fn=full_consumer),
         ],
     )
-    run(p, Count(count=5))
+    run(build_dag(p), Count(count=5))
     assert early == [0]
     assert full == [0, 1, 2, 3, 4]
 
@@ -484,7 +484,7 @@ def test_given_two_lazy_deps_with_max_in_flight_when_unrolled_then_pairs_are_pre
             step("join", fn=join),
         ],
     )
-    run(p, Count(count=5))
+    run(build_dag(p), Count(count=5))
     assert pairs == [(0, 10), (1, 11), (2, 12), (3, 13), (4, 14)]
 
 
@@ -517,7 +517,7 @@ def test_given_flattening_stream_step_when_max_in_flight_2_then_internal_items_d
             step("consumer", fn=consumer),
         ],
     )
-    run(p, Count(count=3))
+    run(build_dag(p), Count(count=3))
     assert seen == [0, 100, 1, 101, 2, 102]
     assert log.index("recv 0") < log.index("emit 1")
 
@@ -547,7 +547,7 @@ def test_given_fanout_lazy_and_eager_when_producer_stream_fails_then_pipeline_st
         ],
     )
     with pytest.raises(PipelineStopException):
-        run(p, Count(count=5))
+        run(build_dag(p), Count(count=5))
     assert lazy_seen == []
 
 
@@ -602,7 +602,7 @@ def test_given_threadpool_start_and_await_when_max_in_flight_5_then_only_five_ta
 
     def target():
         try:
-            result_holder["done"] = run(p, P(count=10))
+            result_holder["done"] = run(build_dag(p), P(count=10))
         except BaseException as exc:
             error_holder["exc"] = exc
 
@@ -647,7 +647,7 @@ def test_runner_contract_uses_dag_node_max_in_flight_not_step_max_in_flight():
     )
     dag = build_dag(p)
     dag.steps["producer"].max_in_flight = 10
-    run(p, Count(count=20))
+    run(build_dag(p), Count(count=20))
     assert produced == list(range(20))
     assert consumed == list(range(20))
     assert max_seen_ahead <= 1

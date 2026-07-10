@@ -26,7 +26,8 @@ flowchart LR
     ```python
     from collections.abc import Generator, Iterator
     from typing import NamedTuple
-    from synaflow import pipeline, step, run
+    from synaflow import pipeline, step, run, PipelineRegistry
+
 
     class Params(NamedTuple):
         count: int
@@ -51,9 +52,11 @@ flowchart LR
             step("consumer", fn=consumer),
         ],
     )
+    catalog = PipelineRegistry()
+    catalog["example"] = p
 
-    run(p, Params(count=5))
-    ```
+    run(catalog.get_dag("example"), Params(count=5))
+```
 
     **Output:** `Consumed: 0` · `Consumed: 10` · `Consumed: 20` · `Consumed: 30` · `Consumed: 40`
 
@@ -62,7 +65,8 @@ flowchart LR
     ```python
     from collections.abc import AsyncGenerator, AsyncIterator
     from typing import NamedTuple
-    from synaflow import pipeline, step, async_run
+    from synaflow import pipeline, step, async_run, PipelineRegistry
+
 
     class Params(NamedTuple):
         count: int
@@ -88,9 +92,11 @@ flowchart LR
             step("consumer", fn=consumer),
         ],
     )
+    catalog = PipelineRegistry()
+    catalog["example"] = p
 
-    async_run(p, Params(count=5))
-    ```
+    async_run(catalog.get_dag("example"), Params(count=5))
+```
 
     **Output:** `Consumed: 0` · `Consumed: 10` · `Consumed: 20` · `Consumed: 30` · `Consumed: 40`
 
@@ -110,7 +116,8 @@ All in under 30 lines of user code.
     ```python
     from collections import Counter
     from collections.abc import Generator, Iterator
-    from synaflow import pipeline, step, run, OnError
+    from synaflow import pipeline, step, run, OnError, PipelineRegistry
+
 
     class Params(NamedTuple):
         limit: int = 100_000
@@ -145,16 +152,19 @@ All in under 30 lines of user code.
             step("audit", fn=audit, force_materialize=True),  # persist to disk
         ],
     )
+    catalog = PipelineRegistry()
+    catalog["realistic"] = p
 
-    run(p, Params(limit=100_000))
-    ```
+    run(catalog.get_dag("realistic"), Params(limit=100_000))
+```
 
 === "Async"
 
     ```python
     from collections import Counter
     from collections.abc import AsyncGenerator, AsyncIterator
-    from synaflow import pipeline, step, async_run, OnError
+    from synaflow import pipeline, step, async_run, OnError, PipelineRegistry
+
 
     class Params(NamedTuple):
         limit: int = 100_000
@@ -189,9 +199,11 @@ All in under 30 lines of user code.
             step("audit", fn=audit, force_materialize=True),
         ],
     )
+    catalog = PipelineRegistry()
+    catalog["realistic"] = p
 
-    async_run(p, Params(limit=100_000))
-    ```
+    async_run(catalog.get_dag("realistic"), Params(limit=100_000))
+```
 
 **What's happening here:**
 

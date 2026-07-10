@@ -1,9 +1,8 @@
+from synaflow.core.dag_builder import build_dag
 import inspect
 from typing import NamedTuple
 from unittest.mock import AsyncMock as MagicMock
 from unittest.mock import call
-
-
 from synaflow import async_run, pipeline, step
 
 
@@ -25,25 +24,23 @@ def mock_step(**params: type) -> MagicMock:
 
 
 async def test_given_scalar_param_and_list_in_context_when_run_then_iterates():
+
     class P(NamedTuple):
         items: list[int] = [1, 2, 3]
 
     s1 = mock_step(items=int)
-
     my_pipeline = pipeline(name="test", params=P, steps=[step("s1", fn=s1)])
-    await async_run(my_pipeline, params=P())
-
+    await async_run(build_dag(my_pipeline), params=P())
     assert s1.call_count == 3
     s1.assert_has_calls([call(items=1), call(items=2), call(items=3)])
 
 
 async def test_given_iterable_param_and_list_in_context_when_run_then_passes_whole_list():
+
     class P(NamedTuple):
         items: list[int] = [1, 2, 3]
 
     s1 = mock_step(items=list)
-
     my_pipeline = pipeline(name="test", params=P, steps=[step("s1", fn=s1)])
-    await async_run(my_pipeline, params=P())
-
+    await async_run(build_dag(my_pipeline), params=P())
     s1.assert_called_once_with(items=[1, 2, 3])

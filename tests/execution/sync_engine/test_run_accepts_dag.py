@@ -6,21 +6,9 @@ from unittest import mock
 
 import pytest
 
-from synaflow import pipeline, run, step
+from synaflow import run
 from synaflow.core.dag import Dag, DagNode
-from synaflow.core.dag_builder import build_dag
 from synaflow.core.dag_steps import validate_sync_async_consistency
-from synaflow.core.definition import PipelineDef
-
-
-def _simple_sync_pipeline(name: str = "p") -> PipelineDef:
-    class P2(NamedTuple):
-        x: int = 0
-
-    def fn(x: int) -> int:
-        return x
-
-    return pipeline(name=name, params=P2, steps=[step("s", fn=fn)])
 
 
 class P(NamedTuple):
@@ -34,30 +22,47 @@ def _async_dag() -> Dag:
         yield 1  # pragma: no cover
 
     node = DagNode(fn=async_fn, output=AsyncIterator[int], deps={})
-    dag = Dag(name="async_only", params={}, resource_factories={}, steps={"s1": node})
+    dag = Dag(
+        name="async_only",
+        params={},
+        resource_factories={},
+        steps={"s1": node},
+    )
     validate_sync_async_consistency(dag, "async_only")
     assert dag.requires_async_runner is True
     return dag
 
 
-def test_given_dag_argument_then_runs_without_recompiling():
-    p = _simple_sync_pipeline("a")
-    dag = build_dag(p)
+def test_given_dag_argument_then_runs():
+    """``run()`` consumes a prebuilt Dag; no compile step is reached.
+
+    With the signature narrowed to ``Dag`` only, runtime has no
+    ``PipelineDef`` to compile. As a regression guard, we mock
+    ``build_dag`` (the one path that *could* re-introduce
+    runtime compilation) to assert it is never called when a Dag
+    is passed. If a future change wires compile back into
+    ``run()``, this test fails before the real Dag is even
+    consumed.
+    """
+
+    def fn(x: int) -> int:
+        return x
+
+    node = DagNode(fn=fn, output=int, deps={})
+    dag = Dag(
+        name="regression",
+        params={},
+        resource_factories={},
+        steps={"s": node},
+        requires_sync_runner=True,
+    )
+
     with mock.patch(
         "synaflow.execution.sync_engine.executor.build_dag",
-        side_effect=AssertionError(
-            "build_dag should not be called when a Dag is passed"
-        ),
+        create=True,
+        side_effect=AssertionError("run() must never compile at runtime; pass a Dag"),
     ):
-        # If run() called build_dag internally, this would raise
-        # AssertionError. Passing proves the Dag argument path is taken.
         run(dag, P(x=7))
-
-
-def test_given_pipeline_def_argument_then_compiles_and_runs():
-    p = _simple_sync_pipeline("a")
-    # No mock -- build_dag is called by run() to compile the pipeline.
-    run(p, P(x=7))
 
 
 def test_given_async_dag_passed_to_sync_run_then_raises_engine_mismatch():

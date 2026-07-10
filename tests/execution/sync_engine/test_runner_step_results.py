@@ -10,7 +10,6 @@ from tests.execution.sync_engine.corpus.error_handling import (
     errors_list,
 )
 
-
 SYNC_PACK_NAMES = (
     "sync_explicit_modes",
     "sync_linear",
@@ -70,7 +69,6 @@ def test_step_results(pack_name):
 
 
 def test_error_handling_corpus_registers_error():
-
     errors_list.clear()
-    run(error_pipeline, ErrorHandlingParams())
+    run(build_dag(error_pipeline), ErrorHandlingParams())
     assert errors_list == ["gen failed"]

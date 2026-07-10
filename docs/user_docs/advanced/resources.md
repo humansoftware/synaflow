@@ -12,7 +12,7 @@ Typical examples:
 
 They are different from `params`:
 
-- `params` are user input data passed to `run(p, params)`
+- `params` are user input data passed to `run(catalog.get_dag("users"), params)`
 - `resources` are providers declared on the pipeline itself
 
 ## Production factories
@@ -21,7 +21,8 @@ Declare a production provider in `pipeline(resources=...)`:
 
 ```python
 from typing import NamedTuple
-from synaflow import pipeline, step
+from synaflow import pipeline, step, PipelineRegistry
+
 
 class DB:
     ...
@@ -41,6 +42,9 @@ p = pipeline(
     resources={"db": get_db},
     steps=[step("load_user", fn=load_user)],
 )
+catalog = PipelineRegistry()
+catalog["users"] = p
+
 ```
 
 The return annotation is required. SynaFlow compiles the resource contract from
@@ -152,7 +156,7 @@ from synaflow import ExecutionOverrides, run
 overrides = ExecutionOverrides.empty(p)
 overrides.resources["db"] = FakeDB()
 
-run(p, Params(user_id=42), overrides=overrides)
+run(catalog.get_dag("users"), Params(user_id=42), overrides=overrides)
 ```
 
 Override providers can also be callables:

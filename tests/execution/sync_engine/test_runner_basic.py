@@ -1,11 +1,10 @@
+from synaflow.core.dag_builder import build_dag
 import inspect
 from typing import NamedTuple
 from dataclasses import dataclass
 from unittest.mock import MagicMock
-
 from synaflow.core.dag import Dag, DagNode, OutputContract, PublishPlan
 from synaflow.core.types import OnError, StepMode
-
 from synaflow import pipeline, step
 import pytest
 from synaflow.execution.sync_engine.executor import run
@@ -30,17 +29,18 @@ def mock_step(**params: type) -> MagicMock:
 
 
 def test_given_single_step_when_run_then_step_called_with_params(run_pipeline):
+
     class P(NamedTuple):
         x: int = 5
 
     s1 = mock_step(x=int)
-
     my_pipeline = pipeline(name="test", params=P, steps=[step("s1", fn=s1)])
     run_pipeline(my_pipeline, params=P(x=7))
     s1.assert_called_once_with(x=7)
 
 
 def test_given_namedtuple_param_field_when_run_then_injected_as_object(run_pipeline):
+
     class MyNamedTuple(NamedTuple):
         a: int
         b: int
@@ -49,13 +49,13 @@ def test_given_namedtuple_param_field_when_run_then_injected_as_object(run_pipel
         obj: MyNamedTuple
 
     s1 = mock_step(obj=MyNamedTuple)
-
     my_pipeline = pipeline(name="test", params=P, steps=[step("s1", fn=s1)])
     run_pipeline(my_pipeline, params=P(obj=MyNamedTuple(a=1, b=2)))
     s1.assert_called_once_with(obj=MyNamedTuple(a=1, b=2))
 
 
 def test_given_dataclass_param_field_when_run_then_injected_as_object(run_pipeline):
+
     @dataclass
     class MyDataclass:
         a: int
@@ -66,7 +66,6 @@ def test_given_dataclass_param_field_when_run_then_injected_as_object(run_pipeli
         obj: MyDataclass
 
     s1 = mock_step(obj=MyDataclass)
-
     my_pipeline = pipeline(name="test", params=P, steps=[step("s1", fn=s1)])
     run_pipeline(my_pipeline, params=P(obj=MyDataclass(a=1, b=2)))
     s1.assert_called_once_with(obj=MyDataclass(a=1, b=2))
@@ -75,6 +74,7 @@ def test_given_dataclass_param_field_when_run_then_injected_as_object(run_pipeli
 def test_given_frozen_dataclass_param_field_when_run_then_injected_as_object(
     run_pipeline,
 ):
+
     @dataclass(frozen=True)
     class MyFrozenDataclass:
         a: int
@@ -85,26 +85,22 @@ def test_given_frozen_dataclass_param_field_when_run_then_injected_as_object(
         obj: MyFrozenDataclass
 
     s1 = mock_step(obj=MyFrozenDataclass)
-
     my_pipeline = pipeline(name="test", params=P, steps=[step("s1", fn=s1)])
     run_pipeline(my_pipeline, params=P(obj=MyFrozenDataclass(a=1, b=2)))
     s1.assert_called_once_with(obj=MyFrozenDataclass(a=1, b=2))
 
 
 def test_given_multiple_steps_when_run_then_second_receives_first_output(run_pipeline):
+
     class P(NamedTuple):
         count: int = 3
 
     s1 = mock_step(count=int)
     s1.return_value = [0, 1, 2]
     s2 = mock_step(numbers=list)
-
     my_pipeline = pipeline(
-        name="test",
-        params=P,
-        steps=[step("numbers", fn=s1), step("total", fn=s2)],
+        name="test", params=P, steps=[step("numbers", fn=s1), step("total", fn=s2)]
     )
-
     run_pipeline(my_pipeline, params=P())
     s1.assert_called_once_with(count=3)
     s2.assert_called_once_with(numbers=[0, 1, 2])
@@ -113,33 +109,28 @@ def test_given_multiple_steps_when_run_then_second_receives_first_output(run_pip
 def test_given_multiple_steps_when_run_then_intermediate_step_receives_params(
     run_pipeline,
 ):
+
     class P(NamedTuple):
         count: int = 3
         multiplier: int = 10
 
     s1 = mock_step(count=int)
     s1.return_value = 5
-
-    # s2 depends on s1 and also requests a parameter directly
     s2 = mock_step(s1=int, multiplier=int)
-
     my_pipeline = pipeline(
-        name="test",
-        params=P,
-        steps=[step("s1", fn=s1), step("s2", fn=s2)],
+        name="test", params=P, steps=[step("s1", fn=s1), step("s2", fn=s2)]
     )
     run_pipeline(my_pipeline, params=P(count=2, multiplier=4))
-
     s1.assert_called_once_with(count=2)
     s2.assert_called_once_with(s1=5, multiplier=4)
 
 
 def test_given_params_with_defaults_when_run_then_uses_defaults(run_pipeline):
+
     class P(NamedTuple):
         count: int = 5
 
     s1 = mock_step(count=int)
-
     my_pipeline = pipeline(name="test", params=P, steps=[step("s1", fn=s1)])
     run_pipeline(my_pipeline, params=P())
     s1.assert_called_once_with(count=5)
@@ -154,9 +145,8 @@ def test_given_incompatible_pipeline_when_run_then_raises():
         return 1
 
     my_pipeline = pipeline(name="t", params=P, steps=[step("s1", fn=s1)])
-
     with pytest.raises(RuntimeError, match="must be executed with async_run"):
-        run(my_pipeline, params=P())
+        run(build_dag(my_pipeline), params=P())
 
 
 def test_given_runtime_dag_with_all_mode_when_types_look_like_each_then_executor_obeys_dag_mode():
@@ -186,22 +176,19 @@ def test_given_runtime_dag_with_all_mode_when_types_look_like_each_then_executor
                     drain_policy="terminal",
                 ),
                 publish_plan=PublishPlan(
-                    strategy="publish_value",
-                    handoff="none",
-                    max_in_flight=1,
+                    strategy="publish_value", handoff="none", max_in_flight=1
                 ),
-            ),
+            )
         },
     )
-
     PipelineExecutor(dag).execute(P())
-
     assert calls == [1, 2, 3]
 
 
 def test_given_magicmock_value_output_when_run_then_it_is_forwarded_as_value(
     run_pipeline,
 ):
+
     class P(NamedTuple):
         pass
 
@@ -217,12 +204,7 @@ def test_given_magicmock_value_output_when_run_then_it_is_forwarded_as_value(
     my_pipeline = pipeline(
         name="magicmock_value_output_contract",
         params=P,
-        steps=[
-            step("existing_ids", fn=existing_ids),
-            step("consume", fn=consume),
-        ],
+        steps=[step("existing_ids", fn=existing_ids), step("consume", fn=consume)],
     )
-
     run_pipeline(my_pipeline, params=P())
-
     assert seen == [mock_value]

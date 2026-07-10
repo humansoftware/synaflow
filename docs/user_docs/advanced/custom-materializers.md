@@ -32,6 +32,7 @@ step("consumer", fn=consumer, materializer=count_materializer)
 For context-aware materialization (e.g., file paths based on pipeline/step names), use a **factory**:
 
 ```python
+from synaflow import PipelineRegistry
 from synaflow.types import MaterializeContext
 
 def disk_factory(ctx: MaterializeContext) -> callable:
@@ -49,6 +50,9 @@ p = pipeline(
     steps=[...],
     memory_materializer_factory=disk_factory,
 )
+catalog = PipelineRegistry()
+catalog["my_pipeline"] = p
+
 ```
 
 The `MaterializeContext` provides:

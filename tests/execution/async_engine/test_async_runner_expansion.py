@@ -49,7 +49,6 @@ async def test_runner_executes_flattened_pipeline_each_mode():
             step("consolidar", fn=consolidar),
         ],
     )
-
     executor = AsyncPipelineExecutor(build_dag(pipe_a))
     await executor.execute(params=AParams(textos_brutos=["oi", "mundo", "synaflow"]))
     assert executor.outputs["consolidar"] == 15
@@ -90,7 +89,7 @@ async def test_given_sub_pipeline_resource_inherited_when_run_then_resource_is_i
     p = pipeline(
         name="parent", params=Params, steps=[include("incl", pipeline=sub, fn=adapt)]
     )
-    await async_run(p, Params())
+    await async_run(build_dag(p), Params())
     assert len(seen) == 1
     db_instance, value = seen[0]
     assert isinstance(db_instance, DB)
@@ -149,7 +148,7 @@ async def test_given_two_subs_same_resource_instance_when_run_then_resource_is_i
             include("incl_b", pipeline=sub_b, fn=adapt_b),
         ],
     )
-    await async_run(p, Params())
+    await async_run(build_dag(p), Params())
     assert len(seen) == 2
     for db_instance, value in seen:
         assert db_instance is shared

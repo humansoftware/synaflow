@@ -124,7 +124,7 @@ def test_given_wrapped_callable_error_materializer_when_step_fails_then_runs_on_
             )
         ],
     )
-    run(my_pipeline, P())
+    run(build_dag(my_pipeline), P())
     assert errors == ["failed"]
 
 
@@ -157,7 +157,7 @@ def test_given_error_materializer_factory_when_step_fails_then_runs_on_failure()
             )
         ],
     )
-    run(my_pipeline, P())
+    run(build_dag(my_pipeline), P())
     assert errors == [("fail", "factory failed")]
 
 
@@ -188,7 +188,7 @@ def test_given_each_mode_step_with_error_materializer_when_item_fails_then_runs_
             )
         ],
     )
-    run(my_pipeline, P())
+    run(build_dag(my_pipeline), P())
     assert errors == ["boom 2"]
 
 
@@ -222,7 +222,7 @@ def test_given_generator_step_with_error_materializer_when_downstream_fails_then
             step("consumer_step", fn=consumer_step),
         ],
     )
-    run(my_pipeline, P())
+    run(build_dag(my_pipeline), P())
     assert errors == ["generator failed"]
 
 
@@ -253,7 +253,7 @@ async def test_given_async_error_materializer_when_async_step_fails_then_invoked
             )
         ],
     )
-    await async_run(my_pipeline, P())
+    await async_run(build_dag(my_pipeline), P())
     assert errors == ["async failed"]
 
 
@@ -306,7 +306,7 @@ def test_given_disk_materializer_when_no_filename_then_infers_from_dataset(tmp_p
             step("my_dataset", fn=step_fn, materializer=my_mat, force_materialize=True)
         ],
     )
-    run(my_pipeline, P())
+    run(build_dag(my_pipeline), P())
     expected_file = tmp_path / "my_dataset.json"
     assert expected_file.exists()
     assert json.loads(expected_file.read_text()) == [1, 2, 3]
@@ -330,7 +330,7 @@ def test_given_disk_materializer_with_filename_when_run_then_respects_override(
         params=P,
         steps=[step("ds", fn=step_fn, materializer=my_mat, force_materialize=True)],
     )
-    run(my_pipeline, P())
+    run(build_dag(my_pipeline), P())
     assert (tmp_path / "custom.json").exists()
     assert not (tmp_path / "ds.json").exists()
 
@@ -356,7 +356,7 @@ def test_given_disk_error_materializer_when_run_then_appends_error_records(tmp_p
             )
         ],
     )
-    run(my_pipeline, P())
+    run(build_dag(my_pipeline), P())
     expected_file = tmp_path / "s1.jsonl"
     assert expected_file.exists()
     lines = expected_file.read_text().strip().split("\n")
@@ -402,7 +402,7 @@ def test_given_composite_materializer_when_run_then_calls_all_underlying_materia
         params=P,
         steps=[step("s", fn=step_fn, materializer=comp, force_materialize=True)],
     )
-    run(my_pipeline, P())
+    run(build_dag(my_pipeline), P())
     assert (tmp_path / "out1.json").exists()
     assert (tmp_path / "out2.json").exists()
 
@@ -432,7 +432,7 @@ def test_given_composite_error_materializer_when_fails_then_calls_all_underlying
             step("s", fn=step_fn, error_materializer=comp, on_error=OnError.CONTINUE)
         ],
     )
-    run(my_pipeline, P())
+    run(build_dag(my_pipeline), P())
     assert calls == ["one", "two"]
 
 
@@ -467,7 +467,7 @@ async def test_given_async_stream_and_lazy_consumer_with_force_materialize_then_
             step("consumer", fn=consumer),
         ],
     )
-    await async_run(my_pipeline, P())
+    await async_run(build_dag(my_pipeline), P())
     assert calls == ["called"]
 
 
@@ -498,7 +498,7 @@ def test_given_include_when_no_explicit_materializer_then_sub_steps_remain_lazy(
             step("consumer", fn=consumer),
         ],
     )
-    run(root_pipe, P())
+    run(build_dag(root_pipe), P())
 
 
 @pytest.mark.asyncio
@@ -530,7 +530,7 @@ async def test_given_async_disk_error_materializer_when_run_then_appends_error_r
             )
         ],
     )
-    await async_run(my_pipeline, P())
+    await async_run(build_dag(my_pipeline), P())
     expected_file = tmp_path / "s1.jsonl"
     assert expected_file.exists()
     lines = expected_file.read_text().strip().split("\n")
@@ -573,7 +573,7 @@ async def test_given_async_composite_error_materializer_when_fails_then_calls_al
             step("s", fn=step_fn, error_materializer=comp, on_error=OnError.CONTINUE)
         ],
     )
-    await async_run(my_pipeline, P())
+    await async_run(build_dag(my_pipeline), P())
     assert calls == ["one", "two"]
 
 
@@ -754,7 +754,7 @@ async def test_given_async_composite_error_materializer_with_async_handlers_when
             step("s", fn=step_fn, error_materializer=comp, on_error=OnError.CONTINUE)
         ],
     )
-    await async_run(my_pipeline, P())
+    await async_run(build_dag(my_pipeline), P())
     assert calls == ["one", "two"]
 
 
@@ -794,7 +794,7 @@ async def test_given_async_composite_materializer_with_async_sub_materializers_w
         params=P,
         steps=[step("s", fn=step_fn, materializer=comp, force_materialize=True)],
     )
-    await async_run(my_pipeline, P())
+    await async_run(build_dag(my_pipeline), P())
     assert calls == ["one", "two"]
 
 
@@ -828,7 +828,7 @@ def test_given_sync_stream_and_lazy_consumer_with_step_materializer_then_materia
             step("consumer", fn=consumer),
         ],
     )
-    run(my_pipeline, P())
+    run(build_dag(my_pipeline), P())
     assert calls == []
 
 
@@ -863,5 +863,5 @@ async def test_given_async_stream_and_lazy_consumer_with_step_materializer_then_
             step("consumer", fn=consumer),
         ],
     )
-    await async_run(my_pipeline, P())
+    await async_run(build_dag(my_pipeline), P())
     assert calls == []

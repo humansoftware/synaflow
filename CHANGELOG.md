@@ -45,10 +45,13 @@ without writing a driver script per run.
   `info` / `dag` / `validate` / `run` without typing
   `python -m synaflow` by hand.
 * **run / async_run accept a `Dag`** — both engine entry points
-  now accept either a `PipelineDef` (compiles internally; old
-  behavior) or a pre-built `Dag` (skips the cache lookup and
-  recompile). Useful for hot-loop replays and for tests that
-  want to assert the Dag was not rebuilt.
+  consume a prebuilt `Dag`. Dag construction is a **design-time**
+  concern (e.g. `PipelineRegistry.get_dag(name)` or a one-off
+  `build_dag(p)` at module load); `run` / `async_run` themselves
+  never compile. The two engines are also the only supported
+  runtime entry points — they reject Dag whose declared engine
+  (`requires_sync_runner` / `requires_async_runner`) does not
+  match.
 
 Layering preserved: `PipelineRegistry.from_module` is core / agnostic
 and raises standard Python exceptions; `synaflow.cli._load_catalog`
@@ -57,6 +60,44 @@ into the CLI's friendly error vocabulary. `synaflow.cli.main`
 only catches `CLIUsageError` at the boundary.
 
 ### BREAKING CHANGE
+
+* refactor: `run()` / `async_run()` now accept a `Dag` only (#108)
+
+The runtime API no longer accepts a `PipelineDef`. `run()` and
+`async_run()` consume a **prebuilt `Dag`** exclusively — they never
+call `build_dag` themselves. This is a deliberate separation of
+concerns:
+
+* **Design time.** Dag construction is the responsibility of
+  `synaflow.PipelineRegistry.get_dag(name)` (cached) or a one-off
+  `build_dag(pipeline_def)` call at module load. This is where
+  the heavy lifting (sub-pipeline expansion, scope stamping,
+  sync/async flagging) happens.
+* **Runtime.** `run(dag, params)` and `async_run(dag, params)`
+  execute the prebuilt Dag without touching compilation. The
+  executor no longer imports `build_dag` or `PipelineDef` at all.
+
+**Migration.** Any code calling `run(p, params)` /
+`async_run(p, params)` with a `PipelineDef` must move the
+`build_dag(p)` call up to design time. Idiomatic pattern:
+
+```python
+catalog = PipelineRegistry()
+catalog["hello"] = pipeline(...)
+# later, in any runtime:
+run(catalog.get_dag("hello"), Params())
+```
+
+A one-off script can compile once at startup:
+
+```python
+dag = build_dag(p)
+run(dag, Params())
+```
+
+The two engines are still strict about the declared engine
+(`dag.requires_sync_runner` / `dag.requires_async_runner`); a
+mismatch raises `RuntimeError` as before.
 
 * refactor: remove internal `PipelineRegistry` base from `synaflow.execution` (#108)
 
