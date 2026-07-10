@@ -47,11 +47,6 @@ SYNATEST_CATALOG_BODY = textwrap.dedent(
                 f.write(str(x))
         return x
 
-
-    async def async_fn(x: int) -> int:
-        return x
-
-
     def date_fn(initial_date: str) -> str:
         out_path = os.environ.get("SYNAFLOW_TEST_OUTPUT")
         if out_path:
@@ -67,19 +62,6 @@ SYNATEST_CATALOG_BODY = textwrap.dedent(
         exports="status/loaded.json",
     )
 
-    # 'bad' is declared in the catalog but FAILS build_dag validation:
-    # it mixes sync and async step functions, which trips the
-    # handler-callable validators in dag_builder (TypeError) when
-    # the pipeline is compiled. Used by the validate-invalid tests.
-    _synatest_bad_pipeline = pipeline(
-        name="bad",
-        params=P,
-        steps=[
-            step("sync_step", fn=fn),
-            step("async_step", fn=async_fn),
-        ],
-    )
-
     _synatest_dated_pipeline = pipeline(
         name="dated",
         params=DateParams,
@@ -87,9 +69,8 @@ SYNATEST_CATALOG_BODY = textwrap.dedent(
     )
 
     catalog = PipelineRegistry()
-    catalog["hello"] = _synatest_pipeline
-    catalog["bad"] = _synatest_bad_pipeline
-    catalog["dated"] = _synatest_dated_pipeline
+    catalog.add(_synatest_pipeline)
+    catalog.add(_synatest_dated_pipeline)
     """
 )
 

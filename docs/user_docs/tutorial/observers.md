@@ -37,7 +37,7 @@ frequencies, producing a dictionary.
         ],
     )
     catalog = PipelineRegistry()
-    catalog["tutorial"] = p
+    catalog.add(p)
 
     run(catalog.get_dag("tutorial"), Params(message="SynaFlow"))
     # Output: {'s': 1, 'y': 1, 'n': 1, 'a': 1, 'f': 1, 'l': 1, 'o': 1, 'w': 1}
@@ -77,7 +77,7 @@ frequencies, producing a dictionary.
         ],
     )
     catalog = PipelineRegistry()
-    catalog["tutorial"] = p
+    catalog.add(p)
 
     async_run(catalog.get_dag("tutorial"), Params(message="SynaFlow"))
     # Output: {'s': 1, 'y': 1, 'n': 1, 'a': 1, 'f': 1, 'l': 1, 'o': 1, 'w': 1}

@@ -28,7 +28,7 @@ message into its individual characters and prints them.
         ],
     )
     catalog = PipelineRegistry()
-    catalog["tutorial"] = p
+    catalog.add(p)
 
     run(catalog.get_dag("tutorial"), Params(message="SynaFlow"))
     # Output: ['S', 'y', 'n', 'a', 'F', 'l', 'o', 'w']
@@ -59,7 +59,7 @@ message into its individual characters and prints them.
         ],
     )
     catalog = PipelineRegistry()
-    catalog["tutorial"] = p
+    catalog.add(p)
 
     async_run(catalog.get_dag("tutorial"), Params(message="SynaFlow"))
     # Output: ['S', 'y', 'n', 'a', 'F', 'l', 'o', 'w']

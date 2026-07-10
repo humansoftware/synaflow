@@ -51,7 +51,7 @@ p = pipeline(
     memory_materializer_factory=disk_factory,
 )
 catalog = PipelineRegistry()
-catalog["my_pipeline"] = p
+catalog.add(p)
 
 ```
 

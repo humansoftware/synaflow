@@ -93,9 +93,6 @@ def _build_parser(
     )
     p_dag.add_argument("name")
 
-    p_validate = sub.add_parser("validate", help="Compile the Dag and report errors.")
-    p_validate.add_argument("name")
-
     p_run = sub.add_parser("run", help="Run the pipeline.")
     p_run.add_argument("name")
     p_run.add_argument(
@@ -138,8 +135,6 @@ def _dispatch(
         return _cmd_info(catalog, args)
     if sub == "dag":
         return _cmd_dag(catalog, args)
-    if sub == "validate":
-        return _cmd_validate(catalog, args)
     if sub == "run":
         return _cmd_run(catalog, args)
     raise CLIUsageError(f"unknown subcommand: {sub!r}")  # pragma: no cover
@@ -229,14 +224,6 @@ def _cmd_dag(catalog: PipelineRegistry, args: argparse.Namespace) -> int:
     return 0
 
 
-def _cmd_validate(catalog: PipelineRegistry, args: argparse.Namespace) -> int:
-    # Compiles the Dag as a side effect; _resolve_dag surfaces
-    # ValueError OR TypeError from build_dag as CLIUsageError, so
-    # users see a friendly message instead of a Python traceback.
-    _resolve_dag(catalog, args.name)
-    return 0
-
-
 def _cmd_run(catalog: PipelineRegistry, args: argparse.Namespace) -> int:
     p = _resolve_pipeline(catalog, args.name)
     dag = _resolve_dag(catalog, args.name)
@@ -253,7 +240,7 @@ def _cmd_run(catalog: PipelineRegistry, args: argparse.Namespace) -> int:
 
 
 # ---------------------------------------------------------------------------
-# Catalog / Dag resolution (shared by info, dag, validate, run)
+# Catalog / Dag resolution (shared by info, dag, run)
 # ---------------------------------------------------------------------------
 
 
@@ -299,13 +286,6 @@ def _resolve_dag(catalog: PipelineRegistry, name: str) -> Dag:
         raise CLIUsageError(
             f"pipeline {name!r} not registered. Available: {available}"
         ) from exc
-    except (ValueError, TypeError) as exc:
-        # ValueError OR TypeError from build_dag: design-time validation
-        # failed (TypeError is raised by the handler-callable
-        # validators; ValueError by structural validators). Convert
-        # both to CLIUsageError so users see a friendly message
-        # instead of a Python traceback.
-        raise CLIUsageError(f"pipeline {name!r} failed validation: {exc}") from exc
 
 
 # ---------------------------------------------------------------------------

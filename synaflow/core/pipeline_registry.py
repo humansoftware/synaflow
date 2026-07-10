@@ -1,49 +1,27 @@
 from __future__ import annotations
 
 import importlib
-from collections.abc import Iterator, MutableMapping
+from collections.abc import Iterator, Mapping
 
 from synaflow.core.dag import Dag
 from synaflow.core.dag_builder import build_dag
-from synaflow.core.definition import PipelineDef
+from synaflow.core.definition import IncludeStep, PipelineDef
 
 
-class PipelineRegistry(MutableMapping[str, PipelineDef]):
-    """Single source of truth for named PipelineDefs and their compiled Dags.
+class PipelineRegistry(Mapping[str, PipelineDef]):
+    """Validated, name-addressable pipelines and their compiled Dags.
 
-    ``registry[name]`` returns the PipelineDef. ``registry.get_dag(name)``
-    returns the compiled Dag, building it on first access and caching it
-    for subsequent calls.
+    ``add(pipeline)`` is the only registration operation. It recursively
+    collects included pipelines, compiles every candidate, and commits the
+    resulting ``(PipelineDef, Dag)`` pairs atomically. A registry therefore
+    never exposes a registered definition without its validated Dag.
 
-    Re-registering a key invalidates the cached Dag (next ``get_dag`` call
-    rebuilds). ``invalidate(name)`` drops the cached Dag explicitly.
-    ``clear()`` drops everything.
+    Registered definitions must not be mutated. Re-adding the same instance
+    is a no-op; adding a different instance with an existing name is a
+    configuration error.
 
-    **Layering**: ``PipelineRegistry`` is core / public. It does NOT
-    depend on the CLI layer and does NOT translate exceptions into
-    CLI-shaped errors. ``from_module`` raises the standard Python
-    exceptions you'd get from ``importlib.import_module`` and
-    ``getattr``:
-
-    - ``ModuleNotFoundError`` if the module cannot be imported
-      (also raised when a top-level dependency of the module is
-      missing -- Python surfaces these as the module itself being
-      unfindable).
-    - ``AttributeError`` if the module exists but has no such attr.
-    - ``TypeError`` if the attribute is not a PipelineRegistry. The
-      exception message embeds the actual value type name
-      (``type(value).__name__``) so callers can format the message
-      verbatim without inspecting the exception instance.
-
-    Callers that want CLI-friendly messaging must adapt these
-    exceptions themselves (see ``synaflow.cli._load_catalog``).
-
-    **Mutability contract**: ``PipelineDef`` instances are mutable. If
-    you mutate a PipelineDef (e.g. add/remove a step) after registering
-    it, you must call ``registry.invalidate(name)`` before
-    ``get_dag(name)`` to ensure the cache reflects the change. The
-    registry only invalidates automatically on re-registration via
-    ``__setitem__``.
+    ``registry[name]`` returns the definition and ``get_dag(name)`` returns
+    its already-compiled Dag.
     """
 
     def __init__(self) -> None:
@@ -53,62 +31,40 @@ class PipelineRegistry(MutableMapping[str, PipelineDef]):
     def __getitem__(self, name: str) -> PipelineDef:
         return self._pipelines[name]
 
-    def __setitem__(self, name: str, pipeline: PipelineDef) -> None:
-        if not isinstance(pipeline, PipelineDef):
-            # Raised before touching .name, so the caller gets a
-            # clear message even if `name` is the wrong type too.
-            raise TypeError(f"expected PipelineDef, got {type(pipeline).__name__}")
-        if name != pipeline.name:
-            raise ValueError(
-                f"registry key {name!r} must match pipeline.name {pipeline.name!r}"
-            )
-        self._pipelines[name] = pipeline
-        # Re-registering invalidates the cached Dag so the next
-        # get_dag(name) call rebuilds.
-        self._dags.pop(name, None)
-
-    def __delitem__(self, name: str) -> None:
-        del self._pipelines[name]
-        # Drop the cached Dag for this name as well.
-        self._dags.pop(name, None)
-
     def __iter__(self) -> Iterator[str]:
         return iter(self._pipelines)
 
     def __len__(self) -> int:
         return len(self._pipelines)
 
+    def add(self, pipeline: PipelineDef) -> None:
+        """Compile and atomically register ``pipeline`` and its includes."""
+        if not isinstance(pipeline, PipelineDef):
+            raise TypeError(f"expected PipelineDef, got {type(pipeline).__name__}")
+
+        candidates = _collect_pipeline_tree(pipeline)
+        _validate_registration_collisions(self._pipelines, candidates)
+
+        new_candidates = {
+            name: candidate
+            for name, candidate in candidates.items()
+            if name not in self._pipelines
+        }
+        compiled = {
+            name: build_dag(candidate) for name, candidate in new_candidates.items()
+        }
+
+        self._pipelines.update(new_candidates)
+        self._dags.update(compiled)
+
     def get_dag(self, name: str) -> Dag:
-        if name not in self._pipelines:
-            raise KeyError(name)
-        cached = self._dags.get(name)
-        if cached is not None:
-            return cached
-        dag = build_dag(self._pipelines[name])
-        self._dags[name] = dag
-        return dag
-
-    def invalidate(self, name: str) -> None:
-        if name not in self._pipelines:
-            raise KeyError(name)
-        self._dags.pop(name, None)
-
-    def clear(self) -> None:
-        self._pipelines.clear()
-        self._dags.clear()
+        return self._dags[name]
 
     @classmethod
     def from_module(
         cls, module_name: str, *, attr: str = "catalog"
     ) -> "PipelineRegistry":
-        """Import ``module_name`` and return ``getattr(module, attr)``.
-
-        The attribute must be a PipelineRegistry instance. Raises the
-        standard Python exceptions from ``importlib.import_module`` and
-        ``getattr`` (see class docstring). The core does NOT depend on
-        the CLI layer; callers that want CLI-friendly messaging must
-        adapt these exceptions themselves.
-        """
+        """Import ``module_name`` and return its PipelineRegistry ``attr``."""
         module = importlib.import_module(module_name)
         value = getattr(module, attr)
         if not isinstance(value, PipelineRegistry):
@@ -117,3 +73,46 @@ class PipelineRegistry(MutableMapping[str, PipelineDef]):
                 f"got {type(value).__name__}"
             )
         return value
+
+
+def _collect_pipeline_tree(root: PipelineDef) -> dict[str, PipelineDef]:
+    """Return every distinct named definition reachable through ``include``."""
+    pipelines: dict[str, PipelineDef] = {}
+    visiting: set[int] = set()
+
+    def visit(pipeline: PipelineDef) -> None:
+        pipeline_id = id(pipeline)
+        if pipeline_id in visiting:
+            raise ValueError(f"Pipeline include cycle detected at {pipeline.name!r}")
+
+        existing = pipelines.get(pipeline.name)
+        if existing is not None:
+            if existing is not pipeline:
+                raise ValueError(
+                    f"Pipeline name {pipeline.name!r} refers to multiple instances"
+                )
+            return
+
+        pipelines[pipeline.name] = pipeline
+        visiting.add(pipeline_id)
+        try:
+            for declared_step in pipeline.steps:
+                if isinstance(declared_step, IncludeStep):
+                    visit(declared_step.pipeline)
+        finally:
+            visiting.remove(pipeline_id)
+
+    visit(root)
+    return pipelines
+
+
+def _validate_registration_collisions(
+    registered: Mapping[str, PipelineDef],
+    candidates: Mapping[str, PipelineDef],
+) -> None:
+    for name, candidate in candidates.items():
+        existing = registered.get(name)
+        if existing is not None and existing is not candidate:
+            raise ValueError(
+                f"Pipeline {name!r} is already registered with a different instance"
+            )

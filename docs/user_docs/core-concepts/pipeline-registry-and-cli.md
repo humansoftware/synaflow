@@ -10,30 +10,47 @@ start to dominate the day:
 
 ## The PipelineRegistry class
 
-`PipelineRegistry` is a thin, name-keyed mapping of `(name → PipelineDef)`
-that **caches the compiled `Dag`** so you don't pay `build_dag`'s cost twice.
+`PipelineRegistry` is a validated, name-keyed mapping of
+`(name → PipelineDef, Dag)`. Adding a pipeline compiles its Dag immediately,
+so an imported catalog never contains an invalid pipeline. Adding a root also
+registers every pipeline reachable through `include()`.
 
 ```python
+from typing import NamedTuple
+
 from synaflow import PipelineRegistry, pipeline, step
 
-catalog = PipelineRegistry()
-catalog["hello"] = pipeline(
+
+class HelloParams(NamedTuple):
+    x: int = 0
+
+
+def hello(x: int) -> int:
+    return x
+
+
+hello_pipeline = pipeline(
     name="hello",
-    params=None,
-    steps=[step("s", fn=lambda: 1)],
+    params=HelloParams,
+    steps=[step("hello", fn=hello)],
 )
+catalog = PipelineRegistry()
+catalog.add(hello_pipeline)
 ```
 
 After that:
 
 ```python
-dag = catalog.get_dag("hello")   # build_dag runs once, then caches
-dag2 = catalog.get_dag("hello")  # cached: no rebuild
+dag = catalog.get_dag("hello")   # already compiled during catalog.add(...)
+dag2 = catalog.get_dag("hello")  # same compiled Dag
 ```
 
 !!! note
     `catalog[name]` gives you the **`PipelineDef`**.
-    `catalog.get_dag(name)` gives you the **compiled `Dag`** (lazy + cached).
+    `catalog.get_dag(name)` gives you the **compiled `Dag`**.
+    A registered definition must not be mutated. `catalog.add(...)` is
+    idempotent for the same instance and rejects a different instance with
+    the same name.
 
 ### Loading a catalog module
 
@@ -41,8 +58,8 @@ dag2 = catalog.get_dag("hello")  # cached: no rebuild
 and returns its `catalog` attribute. The module must expose
 `catalog = PipelineRegistry()` at the top level.
 
-This is the convention the CLI uses. Put your pipelines in a single
-module so they can be discovered without registering anything explicit:
+This is the convention the CLI uses. Put your pipelines and their explicit
+`catalog.add(...)` calls in a single module:
 
 ```python title="myproject/pipelines.py"
 from typing import NamedTuple
@@ -65,7 +82,7 @@ _greet = pipeline(
 )
 
 catalog = PipelineRegistry()
-catalog["greet"] = _greet
+catalog.add(_greet)
 ```
 
 ## The `synaflow` CLI
@@ -80,7 +97,6 @@ In both cases you point at a catalog module with `--catalog`:
 synaflow --catalog myproject.pipelines list
 synaflow --catalog myproject.pipelines info greet
 synaflow --catalog myproject.pipelines dag greet
-synaflow --catalog myproject.pipelines validate greet
 synaflow --catalog myproject.pipelines run greet
 ```
 
@@ -142,19 +158,6 @@ This **does** compile the `Dag` and prints whatever shape
 `Dag.to_dict()` produces. Use it for debugging or for piping the compiled
 structure into another tool.
 
-### `validate` — compile-time error check
-
-```bash
-$ synaflow --catalog myproject.pipelines validate greet
-$ echo $?
-0
-```
-
-If `build_dag` raises (e.g. a step references a missing output, a sync
-handler is wired into an async pipeline), `validate` exits 1 with a
-friendly `pipeline 'greet' failed validation: ...` message — no
-Python traceback.
-
 ### `run` — execute a pipeline
 
 ```bash
@@ -211,7 +214,7 @@ _ingest = pipeline(
 
 
 catalog = PipelineRegistry()
-catalog["daily_ingest"] = _ingest
+catalog.add(_ingest)
 ```
 
 ```bash
@@ -223,10 +226,6 @@ name: daily_ingest
 params: DailyParams
 exports: status/loaded.json
 steps (2): ingest, transform
-
-$ synaflow --catalog myproject.pipelines validate daily_ingest
-$ echo $?
-0
 
 $ synaflow --catalog myproject.pipelines run daily_ingest \
     --x 7 --label '"first run"'

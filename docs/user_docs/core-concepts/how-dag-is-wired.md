@@ -36,7 +36,7 @@ There is no manual wiring. This page explains exactly how the mapping works.
         ],
     )
     catalog = PipelineRegistry()
-    catalog["basic_example"] = p
+    catalog.add(p)
 
 ```
 
@@ -72,7 +72,7 @@ There is no manual wiring. This page explains exactly how the mapping works.
         ],
     )
     catalog = PipelineRegistry()
-    catalog["basic_example"] = p
+    catalog.add(p)
 
 ```
 
@@ -205,7 +205,7 @@ p = pipeline(
     steps=[step("load_user", fn=load_user)],
 )
 catalog = PipelineRegistry()
-catalog["users"] = p
+catalog.add(p)
 
 ```
 

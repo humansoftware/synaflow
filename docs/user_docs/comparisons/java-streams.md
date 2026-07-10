@@ -62,7 +62,7 @@ critical difference: persistence backends.
         ],
     )
     catalog = PipelineRegistry()
-    catalog["streams"] = p
+    catalog.add(p)
     run(catalog.get_dag("streams"), p.params_type()(count=10))
     # Output: [6, 8, 10, 12, 14, 16, 18]
 ```
@@ -99,7 +99,7 @@ critical difference: persistence backends.
         ],
     )
     catalog = PipelineRegistry()
-    catalog["streams"] = p
+    catalog.add(p)
     async_run(catalog.get_dag("streams"), p.params_type()(count=10))
 ```
 
@@ -176,7 +176,7 @@ p = pipeline(
     memory_materializer_factory=disk_materializer("/mnt/ssd"),
 )
 catalog = PipelineRegistry()
-catalog["big_data"] = p
+catalog.add(p)
 
 ```
 

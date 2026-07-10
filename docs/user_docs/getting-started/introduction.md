@@ -93,7 +93,7 @@ p = pipeline(
     ],
 )
 catalog = PipelineRegistry()
-catalog["quickstart"] = p
+catalog.add(p)
 
 run(catalog.get_dag("quickstart"), Params(count=5))
 ```

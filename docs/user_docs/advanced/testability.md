@@ -154,7 +154,7 @@ p = pipeline(
     steps=[step("load_user", fn=load_user)],
 )
 catalog = PipelineRegistry()
-catalog["users"] = p
+catalog.add(p)
 
 ```
 

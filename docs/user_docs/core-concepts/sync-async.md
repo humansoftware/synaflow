@@ -25,7 +25,7 @@ SynaFlow provides identical semantics for synchronous and asynchronous pipelines
         ],
     )
     catalog = PipelineRegistry()
-    catalog["sync_example"] = p
+    catalog.add(p)
     run(catalog.get_dag("sync_example"), p.params_type())
 ```
 
@@ -53,7 +53,7 @@ SynaFlow provides identical semantics for synchronous and asynchronous pipelines
         ],
     )
     catalog = PipelineRegistry()
-    catalog["async_example"] = p
+    catalog.add(p)
     async_run(catalog.get_dag("async_example"), p.params_type())
 ```
 

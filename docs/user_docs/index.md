@@ -53,7 +53,7 @@ flowchart LR
         ],
     )
     catalog = PipelineRegistry()
-    catalog["example"] = p
+    catalog.add(p)
 
     run(catalog.get_dag("example"), Params(count=5))
 ```
@@ -93,7 +93,7 @@ flowchart LR
         ],
     )
     catalog = PipelineRegistry()
-    catalog["example"] = p
+    catalog.add(p)
 
     async_run(catalog.get_dag("example"), Params(count=5))
 ```
@@ -153,7 +153,7 @@ All in under 30 lines of user code.
         ],
     )
     catalog = PipelineRegistry()
-    catalog["realistic"] = p
+    catalog.add(p)
 
     run(catalog.get_dag("realistic"), Params(limit=100_000))
 ```
@@ -200,7 +200,7 @@ All in under 30 lines of user code.
         ],
     )
     catalog = PipelineRegistry()
-    catalog["realistic"] = p
+    catalog.add(p)
 
     async_run(catalog.get_dag("realistic"), Params(limit=100_000))
 ```

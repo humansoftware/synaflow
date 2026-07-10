@@ -32,7 +32,7 @@ Now we insert a step that converts each character to lowercase. This introduces
         ],
     )
     catalog = PipelineRegistry()
-    catalog["tutorial"] = p
+    catalog.add(p)
 
     run(catalog.get_dag("tutorial"), Params(message="SynaFlow"))
     # Output: ['s', 'y', 'n', 'a', 'f', 'l', 'o', 'w']
@@ -67,7 +67,7 @@ Now we insert a step that converts each character to lowercase. This introduces
         ],
     )
     catalog = PipelineRegistry()
-    catalog["tutorial"] = p
+    catalog.add(p)
 
     async_run(catalog.get_dag("tutorial"), Params(message="SynaFlow"))
     # Output: ['s', 'y', 'n', 'a', 'f', 'l', 'o', 'w']

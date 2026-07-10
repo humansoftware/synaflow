@@ -27,7 +27,7 @@ p = pipeline(
     ],
 )
 catalog = PipelineRegistry()
-catalog["example"] = p
+catalog.add(p)
 
 ```
 
