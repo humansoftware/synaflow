@@ -158,19 +158,25 @@ Python traceback.
 ### `run` — execute a pipeline
 
 ```bash
-# All default params (works when params=None or every field has a default).
+# All default params (works when every field has a default).
 synaflow --catalog myproject.pipelines run greet
 
 # From a JSON file (object with one key per params field).
 synaflow --catalog myproject.pipelines run greet --params-file params.json
 
-# Inline, repeatable. Overrides values from --params-file.
-synaflow --catalog myproject.pipelines run greet --param x=99
-synaflow --catalog myproject.pipelines run greet --params-file p.json --param x=99
+# Direct flags are generated from the pipeline's Params fields.
+# --x overrides values from --params-file.
+synaflow --catalog myproject.pipelines run greet --x 99
+synaflow --catalog myproject.pipelines run greet --params-file p.json --x 99
 ```
 
-`--param` values are parsed as JSON when possible, otherwise kept as
-strings (`x=42` → int, `name="alice"` → str, `raw=hello` → str).
+Each params field becomes a kebab-case flag: `initial_date` becomes
+`--initial-date`. Values are parsed as JSON when possible, otherwise kept as
+strings (`--x 42` → int, `--name '"alice"'` → str, `--raw hello` → str).
+
+`--param key=value` remains available for compatibility with v0.28.0, but new
+scripts should prefer direct flags. If both forms provide the same field, the
+direct flag wins.
 
 Unknown fields and missing required fields are reported as `synaflow:
 Unknown params field(s) for DailyParams: [...]` etc. — not as a stack trace.
@@ -223,7 +229,7 @@ $ echo $?
 0
 
 $ synaflow --catalog myproject.pipelines run daily_ingest \
-    --param x=7 --param label='"first run"'
+    --x 7 --label '"first run"'
 ingest: x = 7
 $ echo $?
 0
