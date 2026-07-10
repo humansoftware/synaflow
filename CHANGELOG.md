@@ -2,6 +2,15 @@
 
 
 
+## v0.29.0 (2026-07-10)
+
+### Feature
+
+* feat(cli): accept direct pipeline parameter flags (#111)
+
+Co-authored-by: Marcelo Elias Del Valle &lt;marcelo@mvalle.br&gt; ([`ec686d6`](https://github.com/humansoftware/synaflow/commit/ec686d698de052d9901fb18a75f422edda89fa97))
+
+
 ## v0.28.0 (2026-07-10)
 
 ### Feature
