@@ -1760,18 +1760,23 @@ handler is wired into an async pipeline), <code>validate</code> exits 1 with a
 friendly <code>pipeline 'greet' failed validation: ...</code> message — no
 Python traceback.</p>
 <h3 id="run-execute-a-pipeline"><code>run</code> — execute a pipeline<a class="headerlink" href="#run-execute-a-pipeline" title="Permanent link">&para;</a></h3>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="c1"># All default params (works when params=None or every field has a default).</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="c1"># All default params (works when every field has a default).</span>
 <a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a>synaflow<span class="w"> </span>--catalog<span class="w"> </span>myproject.pipelines<span class="w"> </span>run<span class="w"> </span>greet
 <a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a>
 <a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a><span class="c1"># From a JSON file (object with one key per params field).</span>
 <a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a>synaflow<span class="w"> </span>--catalog<span class="w"> </span>myproject.pipelines<span class="w"> </span>run<span class="w"> </span>greet<span class="w"> </span>--params-file<span class="w"> </span>params.json
 <a id="__codelineno-9-6" name="__codelineno-9-6" href="#__codelineno-9-6"></a>
-<a id="__codelineno-9-7" name="__codelineno-9-7" href="#__codelineno-9-7"></a><span class="c1"># Inline, repeatable. Overrides values from --params-file.</span>
-<a id="__codelineno-9-8" name="__codelineno-9-8" href="#__codelineno-9-8"></a>synaflow<span class="w"> </span>--catalog<span class="w"> </span>myproject.pipelines<span class="w"> </span>run<span class="w"> </span>greet<span class="w"> </span>--param<span class="w"> </span><span class="nv">x</span><span class="o">=</span><span class="m">99</span>
-<a id="__codelineno-9-9" name="__codelineno-9-9" href="#__codelineno-9-9"></a>synaflow<span class="w"> </span>--catalog<span class="w"> </span>myproject.pipelines<span class="w"> </span>run<span class="w"> </span>greet<span class="w"> </span>--params-file<span class="w"> </span>p.json<span class="w"> </span>--param<span class="w"> </span><span class="nv">x</span><span class="o">=</span><span class="m">99</span>
+<a id="__codelineno-9-7" name="__codelineno-9-7" href="#__codelineno-9-7"></a><span class="c1"># Direct flags are generated from the pipeline&#39;s Params fields.</span>
+<a id="__codelineno-9-8" name="__codelineno-9-8" href="#__codelineno-9-8"></a><span class="c1"># --x overrides values from --params-file.</span>
+<a id="__codelineno-9-9" name="__codelineno-9-9" href="#__codelineno-9-9"></a>synaflow<span class="w"> </span>--catalog<span class="w"> </span>myproject.pipelines<span class="w"> </span>run<span class="w"> </span>greet<span class="w"> </span>--x<span class="w"> </span><span class="m">99</span>
+<a id="__codelineno-9-10" name="__codelineno-9-10" href="#__codelineno-9-10"></a>synaflow<span class="w"> </span>--catalog<span class="w"> </span>myproject.pipelines<span class="w"> </span>run<span class="w"> </span>greet<span class="w"> </span>--params-file<span class="w"> </span>p.json<span class="w"> </span>--x<span class="w"> </span><span class="m">99</span>
 </code></pre></div>
-<p><code>--param</code> values are parsed as JSON when possible, otherwise kept as
-strings (<code>x=42</code> → int, <code>name="alice"</code> → str, <code>raw=hello</code> → str).</p>
+<p>Each params field becomes a kebab-case flag: <code>initial_date</code> becomes
+<code>--initial-date</code>. Values are parsed as JSON when possible, otherwise kept as
+strings (<code>--x 42</code> → int, <code>--name '"alice"'</code> → str, <code>--raw hello</code> → str).</p>
+<p><code>--param key=value</code> remains available for compatibility with v0.28.0, but new
+scripts should prefer direct flags. If both forms provide the same field, the
+direct flag wins.</p>
 <p>Unknown fields and missing required fields are reported as <code>synaflow:
 Unknown params field(s) for DailyParams: [...]</code> etc. — not as a stack trace.</p>
 <h2 id="end-to-end-a-real-catalog-in-30-seconds">End-to-end: a real catalog in 30 seconds<a class="headerlink" href="#end-to-end-a-real-catalog-in-30-seconds" title="Permanent link">&para;</a></h2>
@@ -1818,7 +1823,7 @@ Unknown params field(s) for DailyParams: [...]</code> etc. — not as a stack tr
 <a id="__codelineno-11-12" name="__codelineno-11-12" href="#__codelineno-11-12"></a><span class="m">0</span>
 <a id="__codelineno-11-13" name="__codelineno-11-13" href="#__codelineno-11-13"></a>
 <a id="__codelineno-11-14" name="__codelineno-11-14" href="#__codelineno-11-14"></a>$<span class="w"> </span>synaflow<span class="w"> </span>--catalog<span class="w"> </span>myproject.pipelines<span class="w"> </span>run<span class="w"> </span>daily_ingest<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-11-15" name="__codelineno-11-15" href="#__codelineno-11-15"></a><span class="w">    </span>--param<span class="w"> </span><span class="nv">x</span><span class="o">=</span><span class="m">7</span><span class="w"> </span>--param<span class="w"> </span><span class="nv">label</span><span class="o">=</span><span class="s1">&#39;&quot;first run&quot;&#39;</span>
+<a id="__codelineno-11-15" name="__codelineno-11-15" href="#__codelineno-11-15"></a><span class="w">    </span>--x<span class="w"> </span><span class="m">7</span><span class="w"> </span>--label<span class="w"> </span><span class="s1">&#39;&quot;first run&quot;&#39;</span>
 <a id="__codelineno-11-16" name="__codelineno-11-16" href="#__codelineno-11-16"></a>ingest:<span class="w"> </span><span class="nv">x</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="m">7</span>
 <a id="__codelineno-11-17" name="__codelineno-11-17" href="#__codelineno-11-17"></a>$<span class="w"> </span><span class="nb">echo</span><span class="w"> </span><span class="nv">$?</span>
 <a id="__codelineno-11-18" name="__codelineno-11-18" href="#__codelineno-11-18"></a><span class="m">0</span>
