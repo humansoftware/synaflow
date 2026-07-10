@@ -11,7 +11,7 @@ from synaflow.core.naming import Scope
 from synaflow.core.observers import Observer, ResolvedObserver
 
 
-class PipelineRegistry(MutableMapping[str, Any]):
+class _OverrideRegistry(MutableMapping[str, Any]):
     def __init__(
         self,
         *,
@@ -75,7 +75,7 @@ class PipelineRegistry(MutableMapping[str, Any]):
         return value
 
 
-class MaterializerRegistry(PipelineRegistry):
+class MaterializerRegistry(_OverrideRegistry):
     @classmethod
     def empty(cls, pipeline: PipelineDef) -> "MaterializerRegistry":
         return cls(
@@ -92,7 +92,7 @@ class MaterializerRegistry(PipelineRegistry):
             raise TypeError(f"Materializer override for step '{key}' must be callable.")
 
 
-class ObserverRegistry(PipelineRegistry):
+class ObserverRegistry(_OverrideRegistry):
     @classmethod
     def empty(cls, pipeline: PipelineDef) -> "ObserverRegistry":
         contract_keys = _observer_contract_keys(pipeline)
@@ -130,7 +130,7 @@ class ObserverRegistry(PipelineRegistry):
         return normalized
 
 
-class ResourceRegistry(PipelineRegistry):
+class ResourceRegistry(_OverrideRegistry):
     @classmethod
     def empty(cls, pipeline: PipelineDef) -> "ResourceRegistry":
         return cls(contract_keys=_resource_contract_keys(pipeline))
