@@ -85,7 +85,6 @@ def _build_parser() -> argparse.ArgumentParser:
         "dag", help="Show the compiled Dag as JSON (compiles on demand)."
     )
     p_dag.add_argument("name")
-    p_dag.add_argument("--json", action="store_true", help="Output as JSON (default).")
 
     p_validate = sub.add_parser("validate", help="Compile the Dag and report errors.")
     p_validate.add_argument("name")
@@ -195,9 +194,11 @@ def _cmd_info(catalog: PipelineRegistry, args: argparse.Namespace) -> int:
     p = _resolve_pipeline(catalog, args.name)
     params_repr = _format_params_type(p.params)
     step_names = [s.name for s in p.steps]
+    exports_str = p.exports if p.exports else "<none>"
     info: dict[str, Any] = {
         "name": p.name,
         "params": params_repr,
+        "exports": p.exports,
         "steps": step_names,
     }
     if args.json:
@@ -205,6 +206,7 @@ def _cmd_info(catalog: PipelineRegistry, args: argparse.Namespace) -> int:
     else:
         print(f"name: {p.name}")
         print(f"params: {params_repr}")
+        print(f"exports: {exports_str}")
         print(f"steps ({len(step_names)}): {', '.join(step_names)}")
     return 0
 
@@ -259,10 +261,12 @@ def _resolve_dag(catalog: PipelineRegistry, name: str) -> Dag:
         raise CLIUsageError(
             f"pipeline {name!r} not registered. Available: {available}"
         ) from exc
-    except ValueError as exc:
-        # ValueError from build_dag means design-time validation failed.
-        # We don't show the full Python error to keep the message short;
-        # the traceback would just clutter the user's terminal.
+    except (ValueError, TypeError) as exc:
+        # ValueError OR TypeError from build_dag: design-time validation
+        # failed (TypeError is raised by the handler-callable
+        # validators; ValueError by structural validators). Convert
+        # both to CLIUsageError so users see a friendly message
+        # instead of a Python traceback.
         raise CLIUsageError(f"pipeline {name!r} failed validation: {exc}") from exc
 
 

@@ -37,26 +37,21 @@ from tests.cli.conftest import SYNATEST_CATALOG_NAME
 # ---------------------------------------------------------------------------
 
 
-def _run_subprocess(*args: str, tmp_path: Path) -> subprocess.CompletedProcess:
-    env = os.environ.copy()
-    env["PYTHONPATH"] = str(tmp_path) + os.pathsep + env.get("PYTHONPATH", "")
+def _run_subprocess(
+    *args: str,
+    tmp_path: Path,
+    env: dict | None = None,
+) -> subprocess.CompletedProcess:
+    full_env = os.environ.copy()
+    full_env["PYTHONPATH"] = str(tmp_path) + os.pathsep + full_env.get("PYTHONPATH", "")
+    if env:
+        full_env.update(env)
     return subprocess.run(
         [sys.executable, "-m", "synaflow", "--catalog", "my_catalog", *args],
         capture_output=True,
         text=True,
-        env=env,
+        env=full_env,
         cwd=tmp_path,
-    )
-
-
-def _run_subprocess_inprocess_catalog(
-    *args: str,
-) -> subprocess.CompletedProcess:
-    """Run CLI using the synthetic in-process catalog module."""
-    return subprocess.run(
-        [sys.executable, "-m", "synaflow", "--catalog", SYNATEST_CATALOG_NAME, *args],
-        capture_output=True,
-        text=True,
     )
 
 
@@ -108,22 +103,38 @@ def test_given_validate_on_valid_then_exits_zero(tmp_catalog_dir):
 
 
 def test_given_validate_on_invalid_then_exits_one(tmp_catalog_dir):
-    # Unknown pipeline name -> CLI exits 1 with a friendly message.
-    result = _run_subprocess("validate", "nope", tmp_path=tmp_catalog_dir)
+    # The 'bad' pipeline is declared in the catalog but FAILS design-time
+    # validation (mixes sync and async step functions). Validate should
+    # exit 1 with a friendly "failed validation" message -- NOT a Python
+    # traceback, NOT a "not registered" message.
+    result = _run_subprocess("validate", "bad", tmp_path=tmp_catalog_dir)
     assert result.returncode == 1
-    assert "nope" in result.stderr
+    assert "failed validation" in result.stderr
+    assert "bad" in result.stderr
 
 
 def test_given_run_with_params_file_then_executes(tmp_catalog_dir):
+    observed = tmp_catalog_dir / "observed.txt"
     params_path = _write_params_file(tmp_catalog_dir, {"x": 7})
     result = _run_subprocess(
-        "run", "hello", "--params-file", str(params_path), tmp_path=tmp_catalog_dir
+        "run",
+        "hello",
+        "--params-file",
+        str(params_path),
+        tmp_path=tmp_catalog_dir,
+        env={"SYNAFLOW_TEST_OUTPUT": str(observed)},
     )
     assert result.returncode == 0, result.stderr
+    assert observed.read_text() == "7"
 
 
-def test_given_run_with_param_flag_overrides_file_then_executes(tmp_catalog_dir):
-    # file says x=1, --param x=99 overrides to 99.
+def test_given_run_with_param_flag_overrides_file_then_effective_value_wins(
+    tmp_catalog_dir,
+):
+    # params.json says x=1, --param x=99 MUST override to 99. The
+    # observable side-effect (write to SYNAFLOW_TEST_OUTPUT) proves
+    # the effective value, not just the exit code.
+    observed = tmp_catalog_dir / "observed.txt"
     params_path = _write_params_file(tmp_catalog_dir, {"x": 1})
     result = _run_subprocess(
         "run",
@@ -133,8 +144,10 @@ def test_given_run_with_param_flag_overrides_file_then_executes(tmp_catalog_dir)
         "--param",
         "x=99",
         tmp_path=tmp_catalog_dir,
+        env={"SYNAFLOW_TEST_OUTPUT": str(observed)},
     )
     assert result.returncode == 0, result.stderr
+    assert observed.read_text() == "99"
 
 
 # ---------------------------------------------------------------------------
@@ -235,6 +248,17 @@ def test_cli_module_exposes_main_callable():
     assert issubclass(CLIUsageError, Exception)
 
 
+def test_given_help_flag_then_systemexit_zero():
+    """``synaflow --help`` (no subcommand required) prints help and exits 0.
+
+    This is the standard argparse contract; main() must NOT swallow
+    SystemExit from --help.
+    """
+    with pytest.raises(SystemExit) as exc_info:
+        main(["--help"])
+    assert exc_info.value.code == 0
+
+
 # ---------------------------------------------------------------------------
 # Coverage tests (in-process)
 #
@@ -274,6 +298,7 @@ def test_given_info_handler_text_then_prints_declared_steps(capsys):
     assert rc == 0
     assert "hello" in captured.out
     assert "s" in captured.out
+    assert "status/loaded.json" in captured.out  # exports line
 
 
 def test_given_info_handler_json_then_outputs_json(capsys):
@@ -286,6 +311,7 @@ def test_given_info_handler_json_then_outputs_json(capsys):
     info = json.loads(captured.out)
     assert info["name"] == "hello"
     assert "s" in info["steps"]
+    assert info["exports"] == "status/loaded.json"
 
 
 def test_given_dag_handler_then_prints_dag_json(capsys):
@@ -307,13 +333,15 @@ def test_given_validate_handler_then_exits_zero(capsys):
     assert rc == 0
 
 
-def test_given_run_handler_sync_then_executes(capsys, tmp_path):
-    """In-process: cli._cmd_run sync path."""
+def test_given_run_handler_sync_then_executes(tmp_path, monkeypatch):
+    """In-process: cli._cmd_run sync path with effective-value assertion."""
 
-    params_path = _write_params_file(tmp_path, {"x": 7})
+    params_path = _write_params_file(tmp_path, {"x": 42})
+    monkeypatch.setenv("SYNAFLOW_TEST_OUTPUT", str(tmp_path / "out.txt"))
     args = argparse.Namespace(name="hello", params_file=str(params_path), param=[])
     rc = cli._cmd_run(_fake_catalog(), args)
     assert rc == 0
+    assert (tmp_path / "out.txt").read_text() == "42"
 
 
 def test_given_load_catalog_type_error_then_raises_cli_usage_error():
@@ -414,14 +442,35 @@ def test_given_resolve_dag_validation_failure_then_raises_cli_usage_error():
         return 1
 
     bad = pipeline(name="bad", params=None, steps=[step("s", fn=fn)])
-    # Mutate to an invalid state: pass None instead of a real DagNode.
-    # Easiest: use a Dag with two steps sharing an output key that
-    # collides. Simpler: directly assert the ValueError path.
 
     class FakeRegistry(PipelineRegistry):
         def get_dag(self, name):  # type: ignore[override]
             # Simulate build_dag raising ValueError.
             raise ValueError("simulated design-time validation failure")
+
+    reg = FakeRegistry()
+    reg["bad"] = bad
+    with pytest.raises(CLIUsageError, match="failed validation"):
+        cli._resolve_dag(reg, "bad")
+
+
+def test_given_resolve_dag_typeerror_then_raises_cli_usage_error():
+    """TypeError from build_dag (handler-callable validators) ->
+    CLIUsageError. Distinct from ValueError because catching either
+    type guards against a regression where TypeError leaks through.
+    """
+
+    def fn() -> int:
+        return 1
+
+    bad = pipeline(name="bad", params=None, steps=[step("s", fn=fn)])
+
+    class FakeRegistry(PipelineRegistry):
+        def get_dag(self, name):  # type: ignore[override]
+            raise TypeError(
+                "Pipeline 'bad': observer handler 'h' is async but the "
+                "pipeline runs synchronously."
+            )
 
     reg = FakeRegistry()
     reg["bad"] = bad
