@@ -71,7 +71,8 @@ section maps SynaFlow concepts to Java Streams and LINQ.
 ```python
 from collections.abc import Generator, Iterator
 from typing import NamedTuple
-from synaflow import pipeline, step, run
+from synaflow import pipeline, step, run, PipelineRegistry
+
 
 class Params(NamedTuple):
     count: int
@@ -91,8 +92,10 @@ p = pipeline(
         step("consumer", fn=consumer),
     ],
 )
+catalog = PipelineRegistry()
+catalog["quickstart"] = p
 
-run(p, Params(count=5))
+run(catalog.get_dag("quickstart"), Params(count=5))
 ```
 
 ## Next

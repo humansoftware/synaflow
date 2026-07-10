@@ -6,7 +6,8 @@ SynaFlow provides identical semantics for synchronous and asynchronous pipelines
 
     ```python
     from collections.abc import Generator, Iterator
-    from synaflow import pipeline, step, run
+    from synaflow import pipeline, step, run, PipelineRegistry
+
 
     def producer() -> Generator[int, None, None]:
         yield from range(3)
@@ -23,14 +24,17 @@ SynaFlow provides identical semantics for synchronous and asynchronous pipelines
             step("consumer", fn=consumer),
         ],
     )
-    run(p, p.params_type())
-    ```
+    catalog = PipelineRegistry()
+    catalog["sync_example"] = p
+    run(catalog.get_dag("sync_example"), p.params_type())
+```
 
 === "Async"
 
     ```python
     from collections.abc import AsyncGenerator, AsyncIterator
-    from synaflow import pipeline, step, async_run
+    from synaflow import pipeline, step, async_run, PipelineRegistry
+
 
     async def producer() -> AsyncGenerator[int, None]:
         for i in range(3):
@@ -48,8 +52,10 @@ SynaFlow provides identical semantics for synchronous and asynchronous pipelines
             step("consumer", fn=consumer),
         ],
     )
-    async_run(p, p.params_type())
-    ```
+    catalog = PipelineRegistry()
+    catalog["async_example"] = p
+    async_run(catalog.get_dag("async_example"), p.params_type())
+```
 
 ## Key Rules
 

@@ -12,6 +12,7 @@ from .core.observers import (
     PipelineEvent,
     StepEvent,
 )
+from .core.pipeline_registry import PipelineRegistry
 from .core.types import ErrorContext, OnError, StepMode, StepParams, StepResult
 from .execution import ExecutionOverrides, ResourceRegistry
 from .execution.async_engine.executor import async_run
@@ -25,6 +26,7 @@ from .serializers import (
 )
 
 __all__ = [
+    "PipelineRegistry",
     "pipeline",
     "step",
     "include",

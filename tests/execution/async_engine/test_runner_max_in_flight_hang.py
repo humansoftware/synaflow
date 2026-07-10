@@ -1,4 +1,15 @@
-"Regression tests for Issue #103 (async engine parity).\n\nMirrors of tests in ``tests/execution/sync_engine/test_runner_max_in_flight_hang.py``.\nEach test exercises the same hang mechanism against the async engine so that\nthe parity check in ``tests/core/test_parity.py`` stays green and any future\nregression in either engine is caught by the same-name counterpart.\n\nThe tests use ``asyncio.wait_for`` as the bound on the async pipeline.  When\nthe framework no longer hangs, ``wait_for`` completes normally with the\nresult (or the exception captured by ``run_with_timeout``); when the bug is\npresent, the timeout fires and we report a hang.\n"
+"""Regression tests for Issue #103 (async engine parity).
+
+Mirrors of tests in ``tests/execution/sync_engine/test_runner_max_in_flight_hang.py``.
+Each test exercises the same hang mechanism against the async engine so that
+the parity check in ``tests/core/test_parity.py`` stays green and any future
+regression in either engine is caught by the same-name counterpart.
+
+The tests use ``asyncio.wait_for`` as the bound on the async pipeline.  When
+the framework no longer hangs, ``wait_for`` completes normally with the
+result (or the exception captured by ``run_with_timeout``); when the bug is
+present, the timeout fires and we report a hang.
+"""
 
 from synaflow.core.dag_builder import build_dag
 import asyncio
@@ -104,7 +115,7 @@ async def test_given_fanout_pump_blocked_when_consumer_raises_then_cleanup_hangs
     )
     try:
         exc = await _run_with_timeout(
-            async_run(pipeline_def, EmptyParams()), timeout=5.0
+            async_run(build_dag(pipeline_def), EmptyParams()), timeout=5.0
         )
     except _HangDetected as hd:
         pytest.fail(
@@ -142,7 +153,7 @@ async def test_given_blocking_step_when_another_step_raises_then_run_graph_hangs
     )
     try:
         exc = await _run_with_timeout(
-            async_run(pipeline_def, EmptyParams()), timeout=5.0
+            async_run(build_dag(pipeline_def), EmptyParams()), timeout=5.0
         )
     except _HangDetected as hd:
         pytest.fail(
@@ -283,7 +294,7 @@ async def test_given_consumer_raises_with_on_error_continue_then_pump_drains():
     )
     try:
         exc = await _run_with_timeout(
-            async_run(pipeline_def, EmptyParams()), timeout=5.0
+            async_run(build_dag(pipeline_def), EmptyParams()), timeout=5.0
         )
     except _HangDetected as hd:
         pytest.fail(
@@ -328,7 +339,7 @@ async def test_given_consumer_raises_with_on_error_stop_and_fanout_then_pump_dra
     exc: BaseException | None
     try:
         exc = await _run_with_timeout(
-            async_run(pipeline_def, EmptyParams()), timeout=5.0
+            async_run(build_dag(pipeline_def), EmptyParams()), timeout=5.0
         )
     except _HangDetected as hd:
         pytest.fail(

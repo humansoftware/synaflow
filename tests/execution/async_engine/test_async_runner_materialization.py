@@ -64,7 +64,7 @@ async def test_given_generator_and_scalar_and_iterator_consumers_when_run_then_n
         materializer=spy_materialize,
         steps=[step("items", fn=gen), step("a", fn=a), step("b", fn=b)],
     )
-    await async_run(my_pipeline, params=P())
+    await async_run(build_dag(my_pipeline), params=P())
     assert len(materialized) == 0
     assert [val for key, val in call_order if key == "a"] == [0, 1, 2]
     assert [val for key, val in call_order if key == "b"] == [0, 1, 2]
@@ -103,7 +103,7 @@ async def test_given_generator_and_list_consumer_when_run_then_materialized_once
         materializer=spy_materialize,
         steps=[step("items", fn=gen), step("a", fn=a), step("b", fn=b)],
     )
-    await async_run(my_pipeline, params=P())
+    await async_run(build_dag(my_pipeline), params=P())
     assert len(materialized) == 1
     assert [val for key, val in call_order if key == "a"] == [0, 1, 2]
     assert [val for key, val in call_order if key == "b"] == [[0, 1, 2]]
@@ -144,7 +144,7 @@ async def test_given_generator_and_each_transformer_and_iterator_consumer_when_r
         materializer=spy_materialize,
         steps=[step("items", fn=gen), step("a", fn=a), step("b", fn=b)],
     )
-    await async_run(my_pipeline, params=P())
+    await async_run(build_dag(my_pipeline), params=P())
     assert len(materialized) == 0
     assert [val for key, val in call_order if key == "a"] == [
         "item_0",
@@ -181,7 +181,7 @@ async def test_given_generator_and_eager_each_and_eager_iterator_consumers_when_
         params=P,
         steps=[step("items", fn=gen), step("a", fn=a), step("b", fn=b)],
     )
-    await async_run(my_pipeline, params=P())
+    await async_run(build_dag(my_pipeline), params=P())
     assert [val for key, val in call_order if key == "a"] == [0, 1, 2]
     assert [val for key, val in call_order if key == "b"] == [0, 1, 2]
 
@@ -223,7 +223,7 @@ async def test_given_two_generators_when_consumed_by_single_step_then_automatic_
         materializer=spy_materialize,
         steps=[step("gen1", fn=gen1), step("gen2", fn=gen2), step("c", fn=c)],
     )
-    await async_run(my_pipeline, params=P())
+    await async_run(build_dag(my_pipeline), params=P())
     assert len(materialized) == 0
     assert [val for key, val in call_order if key == "c1"] == [0, 1, 2]
     assert [val for key, val in call_order if key == "c2"] == [10, 11, 12]
@@ -270,7 +270,7 @@ async def test_given_chain_and_bypass_dependencies_when_run_then_no_materializat
         materializer=spy_materialize,
         steps=[step("items", fn=gen), step("a", fn=a), step("b", fn=b)],
     )
-    await async_run(my_pipeline, params=P())
+    await async_run(build_dag(my_pipeline), params=P())
     assert len(materialized) == 0
     assert [val for key, val in call_order if key == "a"] == [0, 1, 2]
     assert [val for key, val in call_order if key == "b_a"] == [0, 2, 4]
@@ -312,7 +312,7 @@ async def test_given_collection_producer_and_scalar_transformer_and_iterator_con
         materializer=spy_materialize,
         steps=[step("items", fn=gen), step("s2", fn=s2), step("s3", fn=s3)],
     )
-    await async_run(my_pipeline, params=P())
+    await async_run(build_dag(my_pipeline), params=P())
     assert len(materialized) == 0
     assert [val for key, val in call_order if key == "s2"] == [0, 1, 2]
     assert [val for key, val in call_order if key == "s3"] == [10, 11, 12]
@@ -359,7 +359,7 @@ async def test_given_step_materializer_when_run_then_overrides_pipeline_factory(
             step("consumer", fn=consumer),
         ],
     )
-    await async_run(my_pipeline, params=P())
+    await async_run(build_dag(my_pipeline), params=P())
     assert len(step_materialized) == 1
     assert len(pipeline_materialized) == 0
 
@@ -392,7 +392,7 @@ async def test_given_factory_with_context_when_run_then_context_is_injected():
         materializer=factory_with_ctx,
         steps=[step("items", fn=gen), step("consumer", fn=consumer)],
     )
-    await async_run(my_pipeline, params=P())
+    await async_run(build_dag(my_pipeline), params=P())
     assert len(captured_context) >= 1
     assert captured_context[-1].pipeline_name == "test_context"
     assert any((c.dataset_name == "items" for c in captured_context))
@@ -430,7 +430,7 @@ async def test_given_mixed_fanout_when_materializer_factory_receives_context_the
         materializer=factory_with_ctx,
         steps=[step("items", fn=gen), step("lazy", fn=lazy), step("eager", fn=eager)],
     )
-    await async_run(my_pipeline, params=P())
+    await async_run(build_dag(my_pipeline), params=P())
     runtime_contexts = [c for c in captured_context if c.dataset_name == "items"]
     assert runtime_contexts
     assert all((c.consumer_type == list[int] for c in runtime_contexts))
@@ -466,7 +466,7 @@ async def test_given_two_unrolled_streams_with_different_lengths_when_run_then_m
             step("sink", fn=sink),
         ],
     )
-    await async_run(my_pipeline, params=P())
+    await async_run(build_dag(my_pipeline), params=P())
     assert seen == [(1, 10), (2, None)]
 
 
@@ -501,7 +501,7 @@ async def test_given_two_unrolled_streams_with_one_empty_when_run_then_non_empty
             step("sink", fn=sink),
         ],
     )
-    await async_run(my_pipeline, params=P())
+    await async_run(build_dag(my_pipeline), params=P())
     assert seen == [(None, 10), (None, 20)]
 
 
@@ -542,7 +542,7 @@ async def test_given_generator_and_iterator_and_list_consumers_when_run_then_ite
         materializer=spy_materialize,
         steps=[step("items", fn=gen), step("lazy", fn=lazy), step("eager", fn=eager)],
     )
-    await async_run(my_pipeline, params=P())
+    await async_run(build_dag(my_pipeline), params=P())
     assert materialized == ["called"]
     assert observations["lazy_is_list"] is False
     assert observations["lazy_values"] == [0, 1, 2]
@@ -581,7 +581,7 @@ async def test_given_scalar_output_with_on_error_stop_when_run_then_scalar_mater
             step("consume", fn=consume),
         ],
     )
-    await async_run(my_pipeline, params=P())
+    await async_run(build_dag(my_pipeline), params=P())
     assert materialized == [6]
 
 
@@ -610,7 +610,7 @@ async def test_given_step_non_builtin_type_and_iterator_consumer_when_run_then_e
         params=P,
         steps=[step("producer", fn=producer), step("consumer", fn=consumer)],
     )
-    await async_run(my_pipeline, params=P())
+    await async_run(build_dag(my_pipeline), params=P())
     assert seen == [Row(id=1, name="alice"), Row(id=2, name="bob")]
 
 
@@ -638,7 +638,7 @@ async def test_given_no_custom_materializer_and_non_builtin_type_when_not_materi
         params=P,
         steps=[step("producer", fn=producer), step("consumer", fn=consumer)],
     )
-    await async_run(my_pipeline, params=P())
+    await async_run(build_dag(my_pipeline), params=P())
     assert seen == [Row(id=1, name="alice"), Row(id=2, name="bob")]
 
 
@@ -692,7 +692,7 @@ async def test_given_diamond_topology_with_multiple_lazy_streams_when_run_then_n
     assert build_dag(my_pipeline).steps["b"]._materialized_deps == []
     assert build_dag(my_pipeline).steps["audit"]._materialized_deps == []
     assert build_dag(my_pipeline).steps["finalize"]._materialized_deps == []
-    await async_run(my_pipeline, params=P())
+    await async_run(build_dag(my_pipeline), params=P())
     assert len(call_order) == 20
     assert len(audit_seen) == 10
 
@@ -738,7 +738,7 @@ async def test_given_multilevel_each_fanout_when_run_then_completes_without_mate
         ],
     )
     assert build_dag(my_pipeline).steps["l1a"].materialize_output is False
-    await async_run(my_pipeline, params=P())
+    await async_run(build_dag(my_pipeline), params=P())
     assert seen_x == list(range(20))
     assert seen_y == list(range(20))
 
@@ -814,7 +814,7 @@ async def test_given_custom_iterable_materializer_when_consumed_by_multiple_each
             step("c2", fn=consumer_2),
         ],
     )
-    await async_run(my_pipeline, params=P())
+    await async_run(build_dag(my_pipeline), params=P())
     assert set(seen_c1) == {1, 2}
     assert set(seen_c2) == {1, 2}
     assert len(captured_mock) == 1

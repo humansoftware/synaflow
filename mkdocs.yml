@@ -66,6 +66,7 @@ nav:
       - Semantic Naming: core-concepts/semantic-naming.md
       - DAG Construction: core-concepts/dag-construction.md
       - Sync & Async Parity: core-concepts/sync-async.md
+      - Pipeline Registry & CLI: core-concepts/pipeline-registry-and-cli.md
       - Examples: core-concepts/examples.md
   - Advanced:
       - Asymmetric Lockstep Deadlocks: advanced/asymmetric-lockstep-deadlocks.md

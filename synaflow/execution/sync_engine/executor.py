@@ -8,8 +8,6 @@ from concurrent.futures import ThreadPoolExecutor
 from typing import Any
 
 from synaflow.core.dag import Dag, DagNode
-from synaflow.core.dag_builder import build_dag
-from synaflow.core.definition import PipelineDef
 from synaflow.core.exceptions import (
     PipelineStopException,
     ThresholdExceededException,
@@ -524,14 +522,13 @@ class PipelineExecutor:
 
 
 def run(
-    pipeline: PipelineDef,
+    dag: Dag,
     params: Any,
     overrides: ExecutionOverrides | None = None,
     *,
     worker_shutdown_poll_seconds: float = 0.5,
     worker_shutdown_log_every_seconds: float = 60.0,
 ) -> None:
-    dag = build_dag(pipeline)
     if dag.requires_async_runner:
         raise RuntimeError(
             "This pipeline contains async features (async def or AsyncIterator)"

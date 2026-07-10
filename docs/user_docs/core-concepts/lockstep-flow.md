@@ -16,7 +16,8 @@ examples for I/O-bound pipelines.
     ```python
     from collections.abc import Generator, Iterator
     from typing import NamedTuple
-    from synaflow import pipeline, step, run
+    from synaflow import pipeline, step, run, PipelineRegistry
+
 
     class Params(NamedTuple):
         count: int = 3
@@ -40,16 +41,19 @@ examples for I/O-bound pipelines.
             step("printer", fn=printer),
         ],
     )
+    catalog = PipelineRegistry()
+    catalog["lockstep_demo"] = p
 
-    run(p, Params(count=5))
-    ```
+    run(catalog.get_dag("lockstep_demo"), Params(count=5))
+```
 
 === "Async"
 
     ```python
     from collections.abc import AsyncGenerator, AsyncIterator
     from typing import NamedTuple
-    from synaflow import pipeline, step, async_run
+    from synaflow import pipeline, step, async_run, PipelineRegistry
+
 
     class Params(NamedTuple):
         count: int = 3
@@ -74,9 +78,11 @@ examples for I/O-bound pipelines.
             step("printer", fn=printer),
         ],
     )
+    catalog = PipelineRegistry()
+    catalog["lockstep_demo"] = p
 
-    async_run(p, Params(count=5))
-    ```
+    async_run(catalog.get_dag("lockstep_demo"), Params(count=5))
+```
 
 ## The DAG
 
@@ -257,7 +263,7 @@ flowchart TD
 
     def eager_consumer(gen: list[int]) -> int:
         return sum(gen)
-    ```
+```
 
 === "Async"
 
@@ -268,7 +274,7 @@ flowchart TD
 
     async def eager_consumer(gen: list[int]) -> int:
         return sum(gen)
-    ```
+```
 
 - **`lazy_consumer`** receives a lazy fork — streams without holding data.
 - **`eager_consumer`** asks for `list[int]` — SynaFlow materializes *only that fork*.

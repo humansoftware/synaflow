@@ -2,6 +2,139 @@
 
 
 
+## v0.28.0 (unreleased)
+
+### Feature
+
+* feat: PipelineRegistry, synaflow CLI, and `synaflow` console script (#108)
+
+New public surface for working with multiple pipelines at once,
+without writing a driver script per run.
+
+* **synaflow.PipelineRegistry** — a name-keyed mapping of
+  `(name → PipelineDef)` that **caches the compiled `Dag`** so
+  repeated lookups don't pay `build_dag`'s cost twice. The
+  registry supports the `MutableMapping` protocol
+  (`__getitem__/__setitem__/__delitem__/__iter__/__len__/...`).
+  `__setitem__` validates that the value is a `PipelineDef` and
+  that its `.name` matches the registry key (raising `TypeError`
+  before `.name` access, `ValueError` after). `__delitem__` and
+  `clear()` invalidate the cached `Dag`. `PipelineRegistry.from_module(name)`
+  is the catalog-discovery entry point: it imports `name` and
+  returns its `catalog` attribute, raising the standard Python
+  exceptions (`ModuleNotFoundError`, `AttributeError`, `TypeError`).
+* **synaflow.cli** — argparse-based CLI with 5 subcommands:
+  `list`, `info`, `dag`, `validate`, `run`. Catalog discovery
+  via `--catalog MODULE` (no plugin system, no entry-point
+  sprawl). Sync vs async dispatch is automatic
+  (`dag.requires_async_runner`). Param resolution supports
+  both `--params-file PATH` (JSON object) and repeatable
+  `--param key=value` flags (with `--param` overriding file
+  values); values are parsed as JSON when possible, otherwise
+  kept as strings. Internal exceptions are NOT caught at the
+  boundary — only `CLIUsageError` (the CLI's user-input error
+  vocabulary) is, so genuine programmer errors still surface
+  as tracebacks.
+* **synaflow.__main__** — enables `python -m synaflow` as an
+  equivalent of the `synaflow` console script.
+* **`synaflow` console script** — pyproject.toml gains
+  `[project.scripts] synaflow = "synaflow.cli:main"`, so a
+  `pip install synaflow` (or `uv sync`) drops a `synaflow`
+  entry point on `PATH`. End users get
+  `synaflow --catalog mypackage.pipelines list` /
+  `info` / `dag` / `validate` / `run` without typing
+  `python -m synaflow` by hand.
+* **run / async_run accept a `Dag`** — both engine entry points
+  consume a prebuilt `Dag`. Dag construction is a **design-time**
+  concern (e.g. `PipelineRegistry.get_dag(name)` or a one-off
+  `build_dag(p)` at module load); `run` / `async_run` themselves
+  never compile. The two engines are also the only supported
+  runtime entry points — they reject Dag whose declared engine
+  (`requires_sync_runner` / `requires_async_runner`) does not
+  match.
+
+Layering preserved: `PipelineRegistry.from_module` is core / agnostic
+and raises standard Python exceptions; `synaflow.cli._load_catalog`
+is the thin CLI-side adapter that translates those exceptions
+into the CLI's friendly error vocabulary. `synaflow.cli.main`
+only catches `CLIUsageError` at the boundary.
+
+### BREAKING CHANGE
+
+* refactor: `run()` / `async_run()` now accept a `Dag` only (#108)
+
+The runtime API no longer accepts a `PipelineDef`. `run()` and
+`async_run()` consume a **prebuilt `Dag`** exclusively — they never
+call `build_dag` themselves. This is a deliberate separation of
+concerns:
+
+* **Design time.** Dag construction is the responsibility of
+  `synaflow.PipelineRegistry.get_dag(name)` (cached) or a one-off
+  `build_dag(pipeline_def)` call at module load. This is where
+  the heavy lifting (sub-pipeline expansion, scope stamping,
+  sync/async flagging) happens.
+* **Runtime.** `run(dag, params)` and `async_run(dag, params)`
+  execute the prebuilt Dag without touching compilation. The
+  executor no longer imports `build_dag` or `PipelineDef` at all.
+
+**Migration.** Any code calling `run(p, params)` /
+`async_run(p, params)` with a `PipelineDef` must move the
+`build_dag(p)` call up to design time. Idiomatic pattern:
+
+```python
+catalog = PipelineRegistry()
+catalog["hello"] = pipeline(...)
+# later, in any runtime:
+run(catalog.get_dag("hello"), Params())
+```
+
+A one-off script can compile once at startup:
+
+```python
+dag = build_dag(p)
+run(dag, Params())
+```
+
+The two engines are still strict about the declared engine
+(`dag.requires_sync_runner` / `dag.requires_async_runner`); a
+mismatch raises `RuntimeError` as before.
+
+* refactor: remove internal `PipelineRegistry` base from `synaflow.execution` (#108)
+
+`synaflow.execution` no longer re-exports the internal base
+class that was historically named `PipelineRegistry`. That
+name is now taken by the new public catalog class
+`synaflow.PipelineRegistry`, and the internal override base
+has been renamed to **`_OverrideRegistry`** (leading
+underscore → private-by-convention). It still lives at
+`synaflow/execution/overrides.py` but is **not** re-exported
+from `synaflow.execution` and there is no public name for
+it.
+
+**What this means in practice.** Code that used the public
+override registries — `MaterializerRegistry`,
+`ObserverRegistry`, `ResourceRegistry` — needs no changes;
+they are still re-exported from `synaflow.execution`. Code
+that imported the old `PipelineRegistry` symbol from
+`synaflow.execution` (the base class) was reaching into an
+internal implementation detail; that symbol is gone. There
+is **no drop-in replacement**, because the new
+`synaflow.PipelineRegistry` is a different API — a catalog of
+`PipelineDef`s with cached `Dag` builds, not a subclassable
+override base. To plug into the override system, work through
+`MaterializerRegistry`, `ObserverRegistry`, or
+`ResourceRegistry`, which remain the supported surface.
+
+### Refactor
+
+* refactor: enforce top-level imports follow-up; CLI helper module-private (#108)
+
+  * PLC0415 enforced everywhere: imports are now at module
+    top-level in `synaflow/cli.py`, `tests/cli/test_cli.py`,
+    and the tests that share the `cli.X` module-access
+    convention for private helpers.
+
+
 ## v0.27.0 (2026-07-09)
 
 ### Feature

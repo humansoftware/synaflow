@@ -10,7 +10,8 @@ There is no manual wiring. This page explains exactly how the mapping works.
     ```python
     from collections.abc import Generator, Iterator
     from typing import NamedTuple
-    from synaflow import pipeline, step, run
+    from synaflow import pipeline, step, run, PipelineRegistry
+
 
     class Params(NamedTuple):
         count: int = 3
@@ -34,14 +35,18 @@ There is no manual wiring. This page explains exactly how the mapping works.
             step("printer", fn=printer),
         ],
     )
-    ```
+    catalog = PipelineRegistry()
+    catalog["basic_example"] = p
+
+```
 
 === "Async"
 
     ```python
     from collections.abc import AsyncGenerator, AsyncIterator
     from typing import NamedTuple
-    from synaflow import pipeline, step, async_run
+    from synaflow import pipeline, step, async_run, PipelineRegistry
+
 
     class Params(NamedTuple):
         count: int = 3
@@ -66,7 +71,10 @@ There is no manual wiring. This page explains exactly how the mapping works.
             step("printer", fn=printer),
         ],
     )
-    ```
+    catalog = PipelineRegistry()
+    catalog["basic_example"] = p
+
+```
 
 This pipeline generates the following DAG:
 
@@ -189,12 +197,16 @@ def numbers(count: int) -> ...:
 dependencies and do **not** become dataflow nodes:
 
 ```python
+from synaflow import PipelineRegistry
 p = pipeline(
     name="users",
     params=Params,
     resources={"db": get_db},
     steps=[step("load_user", fn=load_user)],
 )
+catalog = PipelineRegistry()
+catalog["users"] = p
+
 ```
 
 Here `get_db` is a production resource factory with a return type annotation

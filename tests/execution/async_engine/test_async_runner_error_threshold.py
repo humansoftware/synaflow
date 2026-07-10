@@ -4,11 +4,10 @@ Covers the spec's 15+ scenarios for the async engine.
 """
 
 from collections.abc import AsyncIterator
+from synaflow.core.dag_builder import build_dag
 from typing import NamedTuple
-
 import pytest
 from synaflow.core.adapters import async_adapter
-
 from synaflow import (
     InvalidThresholdRaiseInEACHStep,
     PipelineEvent,
@@ -22,17 +21,8 @@ from synaflow import (
 from synaflow import Observer
 
 
-# ---------------------------------------------------------------------------
-# Helpers
-# ---------------------------------------------------------------------------
-
-
 def _build_each_pipeline(
-    fn,
-    *,
-    error_threshold_absolute=None,
-    error_threshold_pct=None,
-    on_error=None,
+    fn, *, error_threshold_absolute=None, error_threshold_pct=None, on_error=None
 ):
     """Build a 2-step pipeline: numbers -> proc (terminal)."""
 
@@ -53,31 +43,28 @@ def _build_each_pipeline(
                 fn=fn,
                 error_threshold_absolute=error_threshold_absolute,
                 error_threshold_pct=error_threshold_pct,
-                on_error=on_error if on_error is not None else "continue",  # type: ignore[arg-type]
+                on_error=on_error if on_error is not None else "continue",
             ),
         ],
     )
-    return p, P
-
-
-# ---------------------------------------------------------------------------
-# Absolute threshold
-# ---------------------------------------------------------------------------
+    return (p, P)
 
 
 @pytest.mark.asyncio
 async def test_absolute_threshold_not_exceeded_completes_normally():
+
     async def proc(items: int) -> int:
         if items == 2:
             raise ValueError("boom")
         return items
 
     p, P = _build_each_pipeline(proc, error_threshold_absolute=5)
-    await async_run(p, P())
+    await async_run(build_dag(p), P())
 
 
 @pytest.mark.asyncio
 async def test_absolute_threshold_exceeded_raises():
+
     async def proc(items: int) -> int:
         if items in (1, 2, 3):
             raise ValueError("boom")
@@ -85,30 +72,27 @@ async def test_absolute_threshold_exceeded_raises():
 
     p, P = _build_each_pipeline(proc, error_threshold_absolute=2)
     with pytest.raises(ThresholdExceededException) as exc_info:
-        await async_run(p, P())
+        await async_run(build_dag(p), P())
     assert exc_info.value.error_count == 3
     assert exc_info.value.success_count == 2
     assert exc_info.value.threshold_absolute == 2
 
 
-# ---------------------------------------------------------------------------
-# Pct threshold
-# ---------------------------------------------------------------------------
-
-
 @pytest.mark.asyncio
 async def test_pct_threshold_not_exceeded_completes_normally():
+
     async def proc(items: int) -> int:
         if items == 2:
             raise ValueError("boom")
         return items
 
     p, P = _build_each_pipeline(proc, error_threshold_pct=0.5)
-    await async_run(p, P())
+    await async_run(build_dag(p), P())
 
 
 @pytest.mark.asyncio
 async def test_pct_threshold_exceeded_raises():
+
     async def proc(items: int) -> int:
         if items in (1, 2, 3):
             raise ValueError("boom")
@@ -116,7 +100,7 @@ async def test_pct_threshold_exceeded_raises():
 
     p, P = _build_each_pipeline(proc, error_threshold_pct=0.5)
     with pytest.raises(ThresholdExceededException) as exc_info:
-        await async_run(p, P())
+        await async_run(build_dag(p), P())
     assert exc_info.value.error_count == 3
     assert exc_info.value.success_count == 2
     assert exc_info.value.threshold_pct == 0.5
@@ -124,6 +108,7 @@ async def test_pct_threshold_exceeded_raises():
 
 @pytest.mark.asyncio
 async def test_pct_threshold_with_multiple_each_deps_uses_step_invocations():
+
     async def producer_a(n: int) -> AsyncIterator[int]:
         for i in range(n):
             yield i
@@ -155,18 +140,14 @@ async def test_pct_threshold_with_multiple_each_deps_uses_step_invocations():
         ],
     )
     with pytest.raises(ThresholdExceededException) as exc_info:
-        await async_run(p, P())
+        await async_run(build_dag(p), P())
     assert exc_info.value.error_count == 1
     assert exc_info.value.success_count == 4
 
 
-# ---------------------------------------------------------------------------
-# Both thresholds
-# ---------------------------------------------------------------------------
-
-
 @pytest.mark.asyncio
 async def test_both_thresholds_either_triggers():
+
     async def proc(items: int) -> int:
         if items == 0:
             raise ValueError("boom")
@@ -175,12 +156,7 @@ async def test_both_thresholds_either_triggers():
     p, P = _build_each_pipeline(
         proc, error_threshold_absolute=2, error_threshold_pct=0.5
     )
-    await async_run(p, P())
-
-
-# ---------------------------------------------------------------------------
-# Timing: fires after all consumed
-# ---------------------------------------------------------------------------
+    await async_run(build_dag(p), P())
 
 
 @pytest.mark.asyncio
@@ -195,17 +171,13 @@ async def test_threshold_fires_after_all_consumed_not_mid_stream():
 
     p, P = _build_each_pipeline(proc, error_threshold_pct=0.2)
     with pytest.raises(ThresholdExceededException):
-        await async_run(p, P())
+        await async_run(build_dag(p), P())
     assert invocations == [0, 1, 2, 3, 4]
-
-
-# ---------------------------------------------------------------------------
-# Boundary
-# ---------------------------------------------------------------------------
 
 
 @pytest.mark.asyncio
 async def test_pct_threshold_boundary_exact_match_triggers():
+
     async def proc(items: int) -> int:
         if items in (0, 1):
             raise ValueError("boom")
@@ -213,40 +185,43 @@ async def test_pct_threshold_boundary_exact_match_triggers():
 
     p, P = _build_each_pipeline(proc, error_threshold_pct=0.4)
     with pytest.raises(ThresholdExceededException):
-        await async_run(p, P())
+        await async_run(build_dag(p), P())
 
 
 @pytest.mark.asyncio
 async def test_pct_threshold_boundary_just_below_no_trigger():
+
     async def proc(items: int) -> int:
         if items == 0:
             raise ValueError("boom")
         return items
 
     p, P = _build_each_pipeline(proc, error_threshold_pct=0.4)
-    await async_run(p, P())
+    await async_run(build_dag(p), P())
 
 
 @pytest.mark.asyncio
 async def test_pct_threshold_100_pct_only_fires_on_full_failure():
+
     async def proc(items: int) -> int:
         if items in (0, 1, 2, 3):
             raise ValueError("boom")
         return items
 
     p, P = _build_each_pipeline(proc, error_threshold_pct=1.0)
-    await async_run(p, P())
+    await async_run(build_dag(p), P())
 
     async def proc_all_fail(items: int) -> int:
         raise ValueError("boom")
 
     p2, P2 = _build_each_pipeline(proc_all_fail, error_threshold_pct=1.0)
     with pytest.raises(ThresholdExceededException):
-        await async_run(p2, P2())
+        await async_run(build_dag(p2), P2())
 
 
 @pytest.mark.asyncio
 async def test_threshold_on_empty_stream_does_not_fire():
+
     async def proc(items: int) -> int:
         raise ValueError("should not be called")
 
@@ -266,25 +241,16 @@ async def test_threshold_on_empty_stream_does_not_fire():
         params=P,
         steps=[
             step("numbers", fn=numbers),
-            step(
-                "proc",
-                fn=proc,
-                error_threshold_absolute=1,
-                error_threshold_pct=0.1,
-            ),
+            step("proc", fn=proc, error_threshold_absolute=1, error_threshold_pct=0.1),
             step("sink", fn=sink),
         ],
     )
-    await async_run(p, P())
-
-
-# ---------------------------------------------------------------------------
-# Counters reset per step
-# ---------------------------------------------------------------------------
+    await async_run(build_dag(p), P())
 
 
 @pytest.mark.asyncio
 async def test_threshold_counters_reset_per_step():
+
     async def proc1(items: int) -> int:
         if items == 0:
             raise ValueError("boom")
@@ -316,12 +282,7 @@ async def test_threshold_counters_reset_per_step():
             step("sink", fn=sink),
         ],
     )
-    await async_run(p, P())
-
-
-# ---------------------------------------------------------------------------
-# Observer events
-# ---------------------------------------------------------------------------
+    await async_run(build_dag(p), P())
 
 
 @pytest.mark.asyncio
@@ -353,8 +314,7 @@ async def test_observers_receive_failed_events_on_threshold():
         observers=[Observer(async_adapter(on_event))],
     )
     with pytest.raises(ThresholdExceededException):
-        await async_run(p, P())
-
+        await async_run(build_dag(p), P())
     failed_events = [e for e in events if "FAILED" in e[0].name]
     step_failed = [e for e in failed_events if e[0] == StepEvent.FAILED]
     pipeline_failed = [e for e in failed_events if e[0] == PipelineEvent.FAILED]
@@ -364,13 +324,9 @@ async def test_observers_receive_failed_events_on_threshold():
     assert pipeline_failed[0][1] == "proc"
 
 
-# ---------------------------------------------------------------------------
-# Threshold + force_materialize
-# ---------------------------------------------------------------------------
-
-
 @pytest.mark.asyncio
 async def test_threshold_with_force_materialize_respected():
+
     async def proc(items: int) -> int:
         if items in (0, 1):
             raise ValueError("boom")
@@ -388,22 +344,12 @@ async def test_threshold_with_force_materialize_respected():
         params=P,
         steps=[
             step("numbers", fn=numbers),
-            step(
-                "proc",
-                fn=proc,
-                error_threshold_absolute=2,
-                force_materialize=True,
-            ),
+            step("proc", fn=proc, error_threshold_absolute=2, force_materialize=True),
         ],
     )
     with pytest.raises(ThresholdExceededException) as exc_info:
-        await async_run(p, P())
+        await async_run(build_dag(p), P())
     assert exc_info.value.error_count == 2
-
-
-# ---------------------------------------------------------------------------
-# Manual raise in ALL step (escape hatch)
-# ---------------------------------------------------------------------------
 
 
 @pytest.mark.asyncio
@@ -411,6 +357,7 @@ async def test_manual_threshold_exception_in_all_step_escape_hatch():
     handled = []
 
     def error_factory(ctx):
+
         async def handle(error_ctx):
             handled.append(error_ctx.exception)
 
@@ -429,16 +376,11 @@ async def test_manual_threshold_exception_in_all_step_escape_hatch():
         steps=[step("all_proc", fn=all_proc)],
     )
     with pytest.raises(ThresholdExceededException) as exc_info:
-        await async_run(p, P())
+        await async_run(build_dag(p), P())
     assert len(handled) == 1
     assert isinstance(handled[0], ThresholdExceededException)
     assert exc_info.value.error_count == 3
     assert exc_info.value.success_count == 7
-
-
-# ---------------------------------------------------------------------------
-# Manual raise in EACH step (misuse -> wrapped)
-# ---------------------------------------------------------------------------
 
 
 @pytest.mark.asyncio
@@ -446,6 +388,7 @@ async def test_manual_threshold_exception_in_each_step_wraps_in_validator():
     handled = []
 
     def error_factory(ctx):
+
         async def handle(error_ctx):
             handled.append(error_ctx.exception)
 
@@ -477,15 +420,10 @@ async def test_manual_threshold_exception_in_each_step_wraps_in_validator():
             step("sink", fn=sink),
         ],
     )
-    await async_run(p, P())
+    await async_run(build_dag(p), P())
     assert len(handled) == 1
     assert isinstance(handled[0], InvalidThresholdRaiseInEACHStep)
     assert isinstance(handled[0].original_exception, ThresholdExceededException)
-
-
-# ---------------------------------------------------------------------------
-# Regression: on_error=CONTINUE without threshold unchanged
-# ---------------------------------------------------------------------------
 
 
 @pytest.mark.asyncio
@@ -518,13 +456,8 @@ async def test_on_error_continue_without_threshold_unchanged():
             step("sink", fn=sink),
         ],
     )
-    await async_run(p, P())
+    await async_run(build_dag(p), P())
     assert invocations == [0, 1, 2, 3, 4]
-
-
-# ---------------------------------------------------------------------------
-# Breaking change coverage: on_error=STOP
-# ---------------------------------------------------------------------------
 
 
 @pytest.mark.asyncio
@@ -549,13 +482,10 @@ async def test_on_error_stop_no_longer_forces_materialization():
     p = pipeline(
         name="nomat",
         params=P,
-        steps=[
-            step("source", fn=source_fn, on_error="stop"),  # type: ignore[arg-type]
-            step("sink", fn=sink),
-        ],
+        steps=[step("source", fn=source_fn, on_error="stop"), step("sink", fn=sink)],
     )
     try:
-        await async_run(p, P())
+        await async_run(build_dag(p), P())
     except PipelineStopException:
         pass
     assert captured_type, f"captured_type was empty: {captured_type}"

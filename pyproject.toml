@@ -23,6 +23,9 @@ dependencies = ["inflect>=7.0"]
 Homepage = "https://github.com/humansoftware/synaflow"
 Repository = "https://github.com/humansoftware/synaflow.git"
 
+[project.scripts]
+synaflow = "synaflow.cli:main"
+
 
 
 

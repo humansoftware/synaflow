@@ -12,7 +12,8 @@ what any consumer asks for**.
 
     ```python
     from collections.abc import Generator, Iterator
-    from synaflow import pipeline, step, run
+    from synaflow import pipeline, step, run, PipelineRegistry
+
 
     def producer() -> Generator[int, None, None]:
         yield from range(1_000_000)
@@ -34,13 +35,17 @@ what any consumer asks for**.
             step("lazy", fn=lazy),
         ],
     )
-    ```
+    catalog = PipelineRegistry()
+    catalog["materialize_example"] = p
+
+```
 
 === "Async"
 
     ```python
     from collections.abc import AsyncGenerator, AsyncIterator
-    from synaflow import pipeline, step, async_run
+    from synaflow import pipeline, step, async_run, PipelineRegistry
+
 
     async def producer() -> AsyncGenerator[int, None]:
         for i in range(1_000_000):
@@ -63,7 +68,10 @@ what any consumer asks for**.
             step("lazy", fn=lazy),
         ],
     )
-    ```
+    catalog = PipelineRegistry()
+    catalog["materialize_example"] = p
+
+```
 
 **When to use it:**
 
@@ -110,7 +118,8 @@ The failing item is discarded and the pipeline continues with the next item.
 
     ```python
     from collections.abc import Generator, Iterator
-    from synaflow import pipeline, step, run, OnError
+    from synaflow import pipeline, step, run, OnError, PipelineRegistry
+
 
     def producer() -> Generator[int, None, None]:
         for i in range(5):
@@ -134,15 +143,18 @@ The failing item is discarded and the pipeline continues with the next item.
             step("consumer", fn=consumer),
         ],
     )
-    run(p, p.params_type())
+    catalog = PipelineRegistry()
+    catalog["continue_example"] = p
+    run(catalog.get_dag("continue_example"), p.params_type())
     # Output: 0, 10, 30, 40  (item 2 skipped)
-    ```
+```
 
 === "Async"
 
     ```python
     from collections.abc import AsyncGenerator, AsyncIterator
-    from synaflow import pipeline, step, async_run, OnError
+    from synaflow import pipeline, step, async_run, OnError, PipelineRegistry
+
 
     async def producer() -> AsyncGenerator[int, None]:
         for i in range(5):
@@ -166,9 +178,11 @@ The failing item is discarded and the pipeline continues with the next item.
             step("consumer", fn=consumer),
         ],
     )
-    async_run(p, p.params_type())
+    catalog = PipelineRegistry()
+    catalog["continue_example"] = p
+    async_run(catalog.get_dag("continue_example"), p.params_type())
     # Output: 0, 10, 30, 40  (item 2 skipped)
-    ```
+```
 
 ### `OnError.STOP`
 
@@ -202,7 +216,8 @@ When a step fails, an **error materializer** captures the exception and
 partial output. Configure per-step or per-pipeline:
 
 ```python
-from synaflow import disk_error_materializer, log_error_materializer
+from synaflow import disk_error_materializer, log_error_materializer, PipelineRegistry
+
 
 # Per-pipeline default
 p = pipeline(
@@ -211,6 +226,8 @@ p = pipeline(
     steps=[...],
     error_materializer_factory=disk_error_materializer("/tmp/errors"),
 )
+catalog = PipelineRegistry()
+catalog["robust"] = p
 
 # Per-step override
 step("critical", fn=do_work,

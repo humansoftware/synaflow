@@ -37,7 +37,7 @@ These concepts live in different parts of the contract:
 
 | Concept | Declared at build time | Supplied at run time | Addressed by overrides |
 |---|---|---|---|
-| `params` | `pipeline(params=...)` | `run(p, params)` | No |
+| `params` | `pipeline(params=...)` | `run(catalog.get_dag("users"), params)` | No |
 | `resources` | `pipeline(resources=...)` | `overrides.resources[...] = ...` | Yes |
 | step outputs | producer return types | produced by execution | No |
 | materializers | compiled per step key | default compiled callable or override | Yes |
@@ -132,7 +132,8 @@ Declare the production resource factory in the pipeline contract:
 
 ```python
 from typing import NamedTuple
-from synaflow import pipeline, step
+from synaflow import pipeline, step, PipelineRegistry
+
 
 class DB:
     ...
@@ -152,12 +153,15 @@ p = pipeline(
     resources={"db": get_db},
     steps=[step("load_user", fn=load_user)],
 )
+catalog = PipelineRegistry()
+catalog["users"] = p
+
 ```
 
 With that declaration, production can run without overrides:
 
 ```python
-run(p, Params(user_id=42))
+run(catalog.get_dag("users"), Params(user_id=42))
 ```
 
 Provide a different runtime object in the test only when you want to replace
@@ -170,7 +174,7 @@ fake_db = FakeDB()
 overrides = ExecutionOverrides.empty(p)
 overrides.resources["db"] = fake_db
 
-run(p, Params(user_id=42), overrides=overrides)
+run(catalog.get_dag("users"), Params(user_id=42), overrides=overrides)
 ```
 
 The inverse is also validated: setting `overrides.resources["missing"] = ...`
@@ -283,7 +287,7 @@ Good when only one nested compiled step needs different runtime behavior.
 
 ```python
 overrides = ExecutionOverrides.empty(p)
-run(p, Params(user_id=42), overrides=overrides)  # raises: missing resource "db"
+run(catalog.get_dag("users"), Params(user_id=42), overrides=overrides)  # raises: missing resource "db"
 ```
 
 Good for validating production wiring or test harness setup itself.

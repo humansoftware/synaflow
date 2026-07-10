@@ -36,7 +36,6 @@ class EmptyParams(NamedTuple):
 
 
 def on_event(event_type, handler):
-
     async_handler = async_adapter(handler)
 
     async def wrapper(ctx):
@@ -590,7 +589,7 @@ async def test_given_async_def_handler_when_dispatched_then_awaited():
             )
         ],
     )
-    await async_run(p, Params(values=[42]))
+    await async_run(build_dag(p), Params(values=[42]))
     assert len(rec.events) == 1
     assert rec.events[0][0] == "StepCompletedContext"
 
@@ -618,7 +617,7 @@ async def test_given_partial_async_handler_when_dispatched_then_awaited():
             )
         ],
     )
-    await async_run(p, Params(values=[42]))
+    await async_run(build_dag(p), Params(values=[42]))
     assert len(rec.events) == 1
 
 
@@ -644,7 +643,7 @@ async def test_given_callable_object_with_async_call_when_dispatched_then_awaite
             )
         ],
     )
-    await async_run(p, Params(values=[42]))
+    await async_run(build_dag(p), Params(values=[42]))
     assert len(rec.events) == 1
 
 
@@ -665,7 +664,7 @@ async def test_given_step_returning_list_when_observed_then_success_count_reflec
         steps=[step("prod", fn=producer), step("cons", fn=consumer)],
         observers=[Observer(async_adapter(rec.record))],
     )
-    await async_run(p, params=Params(values=[1, 2, 3]))
+    await async_run(build_dag(p), params=Params(values=[1, 2, 3]))
     cons_event = next(
         (
             ctx
@@ -704,7 +703,7 @@ async def test_given_lazy_generator_step_when_observed_then_step_started_event_f
         steps=[step("prod", fn=producer), step("cons", fn=consumer)],
         observers=[Observer(async_adapter(observer))],
     )
-    await async_run(p, params=Params(values=[]))
+    await async_run(build_dag(p), params=Params(values=[]))
     assert state["step_started_event_fired"] is True
 
 
@@ -737,25 +736,19 @@ async def test_given_pipeline_started_context_exposes_scope_step_totals():
         ],
         observers=[Observer(rec.async_record)],
     )
-    await async_run(p, params=_Scope(values=[1, 2, 3]))
+    await async_run(build_dag(p), params=_Scope(values=[1, 2, 3]))
     started = next(
         (ctx for _, ctx in rec.events if isinstance(ctx, PipelineStartedContext))
     )
-    assert started.scope_step_totals == {
-        "pl_started": 2,
-        "pl_started__first": 1,
-    }
+    assert started.scope_step_totals == {"pl_started": 2, "pl_started__first": 1}
 
 
 @pytest.mark.asyncio
 async def test_given_pipeline_started_context_default_scope_step_totals_is_empty_dict():
     """Constructing PipelineStartedContext without the kwarg
     yields an empty dict — async parity."""
-
     ctx = PipelineStartedContext(
-        pipeline_name="p",
-        run_id="r",
-        event=PipelineEvent.STARTED,
+        pipeline_name="p", run_id="r", event=PipelineEvent.STARTED
     )
     assert ctx.scope_step_totals == {}
 
@@ -776,12 +769,8 @@ async def test_given_repeated_includes_when_step_completed_then_observer_sees_di
         return _Scope(values=values)
 
     sub = pipeline(
-        name="Sub",
-        params=_Scope,
-        exports="only",
-        steps=[step("only", fn=fn_only)],
+        name="Sub", params=_Scope, exports="only", steps=[step("only", fn=fn_only)]
     )
-
     p = pipeline(
         name="R",
         params=_Scope,
@@ -791,7 +780,7 @@ async def test_given_repeated_includes_when_step_completed_then_observer_sees_di
         ],
         observers=[Observer(rec.async_record)],
     )
-    await async_run(p, params=_Scope(values=[1, 2]))
+    await async_run(build_dag(p), params=_Scope(values=[1, 2]))
     completed = {
         ctx.step_name: ctx
         for _, ctx in rec.events
@@ -834,7 +823,6 @@ async def test_given_repeated_includes_then_aggregator_completes_each_scope_inde
             self.is_complete_log: dict[str, list[bool]] = {}
 
         async def __call__(self, ctx) -> None:
-
             if isinstance(ctx, PipelineStartedContext):
                 self.totals = dict(ctx.scope_step_totals)
                 self.done = {scope: 0 for scope in self.totals}
@@ -856,8 +844,7 @@ async def test_given_repeated_includes_then_aggregator_completes_each_scope_inde
         ],
         observers=[Observer(agg)],
     )
-    await async_run(p, params=_SubParams(x=1))
-
+    await async_run(build_dag(p), params=_SubParams(x=1))
     assert set(agg.totals) == {"R", "R__first", "R__second"}
     assert agg.totals["R__first"] == 3
     assert agg.totals["R__second"] == 3
@@ -911,7 +898,6 @@ async def test_given_nested_includes_then_inner_scope_completes_before_outer_sco
             self.completion_order: list[str] = []
 
         async def __call__(self, ctx) -> None:
-
             if isinstance(ctx, PipelineStartedContext):
                 self.totals = dict(ctx.scope_step_totals)
                 self.done = {scope: 0 for scope in self.totals}
@@ -934,8 +920,7 @@ async def test_given_nested_includes_then_inner_scope_completes_before_outer_sco
         ],
         observers=[Observer(agg)],
     )
-    await async_run(p, params=_SubParams(x=1))
-
+    await async_run(build_dag(p), params=_SubParams(x=1))
     assert agg.totals["R"] == 2
     assert agg.totals["R__outer"] == 2
     assert agg.totals["R__outer__inner"] == 2
@@ -965,7 +950,7 @@ async def test_given_step_started_context_carries_dag_node_scope_metadata():
         steps=[step("first", fn=fn1), step("second", fn=fn2)],
         observers=[Observer(rec.async_record)],
     )
-    await async_run(p, params=_Scope(x=1))
+    await async_run(build_dag(p), params=_Scope(x=1))
     started_by_step = {
         ctx.step_name: ctx
         for _, ctx in rec.events
@@ -1000,8 +985,8 @@ async def test_given_step_failed_context_carries_dag_node_scope_metadata():
         steps=[step("first", fn=fn_first), step("boom", fn=fn_boom)],
         observers=[Observer(rec.async_record)],
     )
-    await async_run(p, params=_Scope(x=1))
-    failed = next(ctx for _, ctx in rec.events if isinstance(ctx, StepFailedContext))
+    await async_run(build_dag(p), params=_Scope(x=1))
+    failed = next((ctx for _, ctx in rec.events if isinstance(ctx, StepFailedContext)))
     assert failed.pipeline_scope == "scope_failed"
     assert failed.step_index_in_scope == 1
     assert failed.step_total_in_scope == 2

@@ -7,7 +7,8 @@ Now we insert a step that converts each character to lowercase. This introduces
 
     ```python
     from typing import NamedTuple
-    from synaflow import pipeline, step, run
+    from synaflow import pipeline, step, run, PipelineRegistry
+
 
     class Params(NamedTuple):
         message: str
@@ -30,16 +31,19 @@ Now we insert a step that converts each character to lowercase. This introduces
             step("printer", fn=printer),
         ],
     )
+    catalog = PipelineRegistry()
+    catalog["tutorial"] = p
 
-    run(p, Params(message="SynaFlow"))
+    run(catalog.get_dag("tutorial"), Params(message="SynaFlow"))
     # Output: ['s', 'y', 'n', 'a', 'f', 'l', 'o', 'w']
-    ```
+```
 
 === "Async"
 
     ```python
     from typing import NamedTuple
-    from synaflow import pipeline, step, async_run
+    from synaflow import pipeline, step, async_run, PipelineRegistry
+
 
     class Params(NamedTuple):
         message: str
@@ -62,10 +66,12 @@ Now we insert a step that converts each character to lowercase. This introduces
             step("printer", fn=printer),
         ],
     )
+    catalog = PipelineRegistry()
+    catalog["tutorial"] = p
 
-    async_run(p, Params(message="SynaFlow"))
+    async_run(catalog.get_dag("tutorial"), Params(message="SynaFlow"))
     # Output: ['s', 'y', 'n', 'a', 'f', 'l', 'o', 'w']
-    ```
+```
 
 **What happened?**
 

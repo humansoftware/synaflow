@@ -8,7 +8,8 @@ frequencies, producing a dictionary.
     ```python
     from collections import Counter
     from typing import NamedTuple
-    from synaflow import pipeline, step, run
+    from synaflow import pipeline, step, run, PipelineRegistry
+
 
     class Params(NamedTuple):
         message: str
@@ -35,17 +36,20 @@ frequencies, producing a dictionary.
             step("printer", fn=printer),
         ],
     )
+    catalog = PipelineRegistry()
+    catalog["tutorial"] = p
 
-    run(p, Params(message="SynaFlow"))
+    run(catalog.get_dag("tutorial"), Params(message="SynaFlow"))
     # Output: {'s': 1, 'y': 1, 'n': 1, 'a': 1, 'f': 1, 'l': 1, 'o': 1, 'w': 1}
-    ```
+```
 
 === "Async"
 
     ```python
     from collections import Counter
     from typing import NamedTuple
-    from synaflow import pipeline, step, async_run
+    from synaflow import pipeline, step, async_run, PipelineRegistry
+
 
     class Params(NamedTuple):
         message: str
@@ -72,10 +76,12 @@ frequencies, producing a dictionary.
             step("printer", fn=printer),
         ],
     )
+    catalog = PipelineRegistry()
+    catalog["tutorial"] = p
 
-    async_run(p, Params(message="SynaFlow"))
+    async_run(catalog.get_dag("tutorial"), Params(message="SynaFlow"))
     # Output: {'s': 1, 'y': 1, 'n': 1, 'a': 1, 'f': 1, 'l': 1, 'o': 1, 'w': 1}
-    ```
+```
 
 **What changed?**
 

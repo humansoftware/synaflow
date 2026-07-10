@@ -1,4 +1,20 @@
-'Regression tests for Issue #103: PipelineExecutor hangs on step failure.\n\nCovers the SyncFanout cleanup hang (Test A) and the production scenario\nwhere build_arguments() leaks a SyncQueueIterator branch (Test C and\nbaselines D, E, F).\n\nThe framework\'s contract for stuck workers is now: the worker is allowed\nto remain alive, ``run()`` blocks inside ``wait_for_workers_after_shutdown``\nwith a per-minute warning log so the user can identify which step is\nblocked; the user owns step progress.  Tests that depended on the old\n"abandon and daemonise" path (B and G) were removed — that contract is\nno longer supported.\n\nEach test runs the pipeline in a daemon watchdog thread with a 5 s\ntimeout.  The assertions expect the pipeline to EXIT within the timeout —\nthe framework bug is fixed.\n'
+"""Regression tests for Issue #103: PipelineExecutor hangs on step failure.
+
+Covers the SyncFanout cleanup hang (Test A) and the production scenario
+where build_arguments() leaks a SyncQueueIterator branch (Test C and
+baselines D, E, F).
+
+The framework's contract for stuck workers is now: the worker is allowed
+to remain alive, ``run()`` blocks inside ``wait_for_workers_after_shutdown``
+with a per-minute warning log so the user can identify which step is
+blocked; the user owns step progress.  Tests that depended on the old
+"abandon and daemonise" path (B and G) were removed — that contract is
+no longer supported.
+
+Each test runs the pipeline in a daemon watchdog thread with a 5 s
+timeout.  The assertions expect the pipeline to EXIT within the timeout —
+the framework bug is fixed.
+"""
 
 from synaflow.core.dag_builder import build_dag
 import threading
@@ -58,7 +74,7 @@ def test_given_fanout_pump_blocked_when_consumer_raises_then_cleanup_hangs():
 
     def target() -> None:
         try:
-            run(pipeline_def, EmptyParams())
+            run(build_dag(pipeline_def), EmptyParams())
         except Exception:
             pass
         completed.set()
@@ -218,7 +234,7 @@ def test_given_consumer_raises_with_on_error_continue_then_pump_drains():
 
     def target() -> None:
         try:
-            run(pipeline_def, EmptyParams())
+            run(build_dag(pipeline_def), EmptyParams())
         except Exception:
             pass
         completed.set()
@@ -267,7 +283,7 @@ def test_given_consumer_raises_with_on_error_stop_and_fanout_then_pump_drains():
 
     def target() -> None:
         try:
-            run(pipeline_def, EmptyParams())
+            run(build_dag(pipeline_def), EmptyParams())
         except BaseException as exc:
             raised.append(exc)
         completed.set()

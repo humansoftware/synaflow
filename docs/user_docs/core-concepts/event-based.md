@@ -13,7 +13,8 @@ or **batched in a time window** (materialized) without changing your business lo
 
     ```python
     from collections.abc import Generator, Iterator
-    from synaflow import pipeline, step, run
+    from synaflow import pipeline, step, run, PipelineRegistry
+
 
     class Window(NamedTuple):
         events: list[dict] = [{"id": 1, "amount": 10}, {"id": 2, "amount": 20}]
@@ -39,15 +40,18 @@ or **batched in a time window** (materialized) without changing your business lo
             step("aggregate", fn=aggregate),     # ALL: materializes the window
         ],
     )
+    catalog = PipelineRegistry()
+    catalog["event_processor"] = p
 
-    run(p, Window(events=[{"id": 1, "amount": 10}, {"id": 2, "amount": 20}]))
-    ```
+    run(catalog.get_dag("event_processor"), Window(events=[{"id": 1, "amount": 10}, {"id": 2, "amount": 20}]))
+```
 
 === "Async"
 
     ```python
     from collections.abc import AsyncGenerator, AsyncIterator
-    from synaflow import pipeline, step, async_run
+    from synaflow import pipeline, step, async_run, PipelineRegistry
+
 
     class Window(NamedTuple):
         events: list[dict] = [{"id": 1, "amount": 10}, {"id": 2, "amount": 20}]
@@ -71,9 +75,11 @@ or **batched in a time window** (materialized) without changing your business lo
             step("aggregate", fn=aggregate),
         ],
     )
+    catalog = PipelineRegistry()
+    catalog["event_processor"] = p
 
-    async_run(p, Window(events=[{"id": 1, "amount": 10}, {"id": 2, "amount": 20}]))
-    ```
+    async_run(catalog.get_dag("event_processor"), Window(events=[{"id": 1, "amount": 10}, {"id": 2, "amount": 20}]))
+```
 
 The same `normalize` step serves both consumers — `log_each` streams individual
 events, `aggregate` materializes the full window. No code duplication.
@@ -95,7 +101,8 @@ natural:
 === "Sync"
 
     ```python
-    from synaflow import pipeline, step, run, OnError
+    from synaflow import pipeline, step, run, OnError, PipelineRegistry
+
 
     def process(event: dict) -> dict:
         if event.get("corrupt"):
@@ -114,12 +121,16 @@ natural:
             step("sink", fn=sink),
         ],
     )
-    ```
+    catalog = PipelineRegistry()
+    catalog["idempotent"] = p
+
+```
 
 === "Async"
 
     ```python
-    from synaflow import pipeline, step, async_run, OnError
+    from synaflow import pipeline, step, async_run, OnError, PipelineRegistry
+
 
     async def process(event: dict) -> dict:
         if event.get("corrupt"):
@@ -138,7 +149,10 @@ natural:
             step("sink", fn=sink),
         ],
     )
-    ```
+    catalog = PipelineRegistry()
+    catalog["idempotent"] = p
+
+```
 
 Re-run with the same events and you get the same results. The corrupt one is
 silently discarded both times.
@@ -157,12 +171,12 @@ can:
 ```python
 # Re-process a week of events individually
 for event in fetch_events(start="2026-06-01", end="2026-06-07"):
-    run(p, Params(events=[event]))
+    run(catalog.get_dag("event_processor"), Params(events=[event]))
 
 # Same week, but aggregate the daily windows
 for day in range(1, 8):
     batch = fetch_events(start=f"2026-06-{day:02d}")
-    run(p, Params(events=batch))
+    run(catalog.get_dag("event_processor"), Params(events=batch))
 ```
 
 The pipeline definition doesn't change — only the input.

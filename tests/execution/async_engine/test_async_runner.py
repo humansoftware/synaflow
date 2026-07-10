@@ -1,11 +1,11 @@
+from synaflow.core.dag_builder import build_dag
 from typing import AsyncGenerator, AsyncIterator, NamedTuple
-
-
 from synaflow import pipeline, step
 from synaflow.execution.async_engine.executor import async_run
 
 
 async def test_given_async_generator_and_each_consumer_when_run_then_processed_concurrently():
+
     class P(NamedTuple):
         count: int = 3
 
@@ -19,19 +19,14 @@ async def test_given_async_generator_and_each_consumer_when_run_then_processed_c
         call_order.append(("a", items))
 
     my_pipeline = pipeline(
-        name="test",
-        params=P,
-        steps=[
-            step("items", fn=gen),
-            step("a", fn=a),
-        ],
+        name="test", params=P, steps=[step("items", fn=gen), step("a", fn=a)]
     )
-
-    await async_run(my_pipeline, params=P())
+    await async_run(build_dag(my_pipeline), params=P())
     assert sorted(call_order) == [("a", 0), ("a", 1), ("a", 2)]
 
 
 async def test_given_async_generator_and_two_async_iterator_consumers_when_run_then_both_receive_items():
+
     class P(NamedTuple):
         count: int = 3
 
@@ -52,20 +47,15 @@ async def test_given_async_generator_and_two_async_iterator_consumers_when_run_t
     my_pipeline = pipeline(
         name="test",
         params=P,
-        steps=[
-            step("items", fn=gen),
-            step("a", fn=a),
-            step("b", fn=b),
-        ],
+        steps=[step("items", fn=gen), step("a", fn=a), step("b", fn=b)],
     )
-
-    await async_run(my_pipeline, params=P())
-
+    await async_run(build_dag(my_pipeline), params=P())
     assert [v for k, v in call_order if k == "a"] == [0, 1, 2]
     assert [v for k, v in call_order if k == "b"] == [0, 1, 2]
 
 
 async def test_given_async_generator_and_list_consumer_when_run_then_materialized():
+
     class P(NamedTuple):
         count: int = 3
 
@@ -79,13 +69,7 @@ async def test_given_async_generator_and_list_consumer_when_run_then_materialize
         call_order.append(("a", items))
 
     my_pipeline = pipeline(
-        name="test",
-        params=P,
-        steps=[
-            step("items", fn=gen),
-            step("a", fn=a),
-        ],
+        name="test", params=P, steps=[step("items", fn=gen), step("a", fn=a)]
     )
-
-    await async_run(my_pipeline, params=P())
+    await async_run(build_dag(my_pipeline), params=P())
     assert call_order == [("a", [0, 1, 2])]

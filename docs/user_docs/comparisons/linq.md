@@ -34,7 +34,8 @@ SynaFlow, it chains transformations over data — `Select`, `Where`, `GroupBy`,
 
     ```python
     from collections.abc import Generator, Iterator
-    from synaflow import pipeline, step, run
+    from synaflow import pipeline, step, run, PipelineRegistry
+
 
     def producer(count: int) -> Generator[int, None, None]:
         yield from range(count)
@@ -59,9 +60,11 @@ SynaFlow, it chains transformations over data — `Select`, `Where`, `GroupBy`,
             step("collector", fn=collector),
         ],
     )
-    run(p, p.params_type()(count=10))
+    catalog = PipelineRegistry()
+    catalog["linq_demo"] = p
+    run(catalog.get_dag("linq_demo"), p.params_type()(count=10))
     # Output: [6, 8, 10, 12, 14, 16, 18]
-    ```
+```
 
 ## Key differences
 
@@ -92,7 +95,7 @@ var result = query.ToList();
 # SynaFlow: pipeline is defined, not executed
 p = pipeline(...)
 # Executes now
-run(p, params)
+run(catalog.get_dag("linq_demo"), params)
 ```
 
 ## Grouping & aggregation
@@ -113,7 +116,7 @@ run(p, params)
         for item in items:
             result[item.category] = result.get(item.category, 0) + item.value
         return result
-    ```
+```
 
 In SynaFlow, `GroupBy` is just a step that accumulates in a local dict and
 returns it. No special grouping operator needed — plain Python is the query

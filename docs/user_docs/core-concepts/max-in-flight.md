@@ -56,7 +56,8 @@ That means:
     from concurrent.futures import Future, ThreadPoolExecutor
     from typing import NamedTuple
 
-    from synaflow import pipeline, run, step
+    from synaflow import pipeline, run, step, PipelineRegistry
+
 
     pool = ThreadPoolExecutor(max_workers=30)
 
@@ -91,10 +92,12 @@ That means:
             step("await_response", fn=await_response),
         ],
     )
+    catalog = PipelineRegistry()
+    catalog["bounded_requests"] = p
 
-    run(p, Params(urls=["a", "b", "c"]))
+    run(catalog.get_dag("bounded_requests"), Params(urls=["a", "b", "c"]))
     pool.shutdown(wait=True)
-    ```
+```
 
 === "Async"
 
@@ -102,7 +105,8 @@ That means:
     from collections.abc import AsyncGenerator, AsyncIterator
     from typing import NamedTuple
 
-    from synaflow import async_run, pipeline, step
+    from synaflow import async_run, pipeline, step, PipelineRegistry
+
 
 
     class Params(NamedTuple):
@@ -136,9 +140,11 @@ That means:
             step("await_response", fn=await_response),
         ],
     )
+    catalog = PipelineRegistry()
+    catalog["bounded_requests_async"] = p
 
-    await async_run(p, Params(urls=["a", "b", "c"]))
-    ```
+    await async_run(catalog.get_dag("bounded_requests_async"), Params(urls=["a", "b", "c"]))
+```
 
 The application still owns the real concurrency. SynaFlow only bounds the handoff between `start_request` and `await_response`.
 
@@ -331,7 +337,8 @@ If you use an HTTP client (like `requests` for sync or `httpx` for async), the c
 
     import requests
 
-    from synaflow import pipeline, run, step
+    from synaflow import pipeline, run, step, PipelineRegistry
+
 
     pool = ThreadPoolExecutor(max_workers=30)
 
@@ -372,6 +379,8 @@ If you use an HTTP client (like `requests` for sync or `httpx` for async), the c
             step("await_response", fn=await_response),
         ],
     )
+    catalog = PipelineRegistry()
+    catalog["bounded_http_sync"] = p
 
     run(
         p,
@@ -384,7 +393,7 @@ If you use an HTTP client (like `requests` for sync or `httpx` for async), the c
         ),
     )
     pool.shutdown(wait=True)
-    ```
+```
 
 === "Async"
 
@@ -395,7 +404,8 @@ If you use an HTTP client (like `requests` for sync or `httpx` for async), the c
 
     import httpx
 
-    from synaflow import async_run, pipeline, step
+    from synaflow import async_run, pipeline, step, PipelineRegistry
+
 
 
     class Params(NamedTuple):
@@ -435,6 +445,8 @@ If you use an HTTP client (like `requests` for sync or `httpx` for async), the c
                     step("await_response", fn=await_response),
                 ],
             )
+            catalog = PipelineRegistry()
+            catalog["bounded_http_async"] = p
 
             await async_run(
                 p,
@@ -449,7 +461,7 @@ If you use an HTTP client (like `requests` for sync or `httpx` for async), the c
 
 
     asyncio.run(main())
-    ```
+```
 
 Why this is good:
 * **Bounded Advancement:** Without `max_in_flight`, the pipeline stays in strict lockstep (1 item at a time). With `max_in_flight=5` (or 30), the producing step may get ahead without running away.

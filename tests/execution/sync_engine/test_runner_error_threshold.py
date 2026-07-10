@@ -1,4 +1,7 @@
-"Runtime tests for error_threshold_absolute and error_threshold_pct.\n\nCovers the spec's 15+ scenarios for the sync engine.\n"
+"""Runtime tests for error_threshold_absolute and error_threshold_pct.
+
+Covers the spec's 15+ scenarios for the sync engine.
+"""
 
 from synaflow.core.dag_builder import build_dag
 from collections.abc import Iterator
@@ -63,7 +66,7 @@ def test_absolute_threshold_not_exceeded_completes_normally():
         return items
 
     p, P = _build_each_pipeline(proc, error_threshold_absolute=5)
-    run(p, P())
+    run(build_dag(p), P())
 
 
 def test_absolute_threshold_exceeded_raises():
@@ -75,7 +78,7 @@ def test_absolute_threshold_exceeded_raises():
 
     p, P = _build_each_pipeline(proc, error_threshold_absolute=2)
     with pytest.raises(ThresholdExceededException) as exc_info:
-        run(p, P())
+        run(build_dag(p), P())
     assert exc_info.value.error_count == 3
     assert exc_info.value.success_count == 2
     assert exc_info.value.threshold_absolute == 2
@@ -89,7 +92,7 @@ def test_pct_threshold_not_exceeded_completes_normally():
         return items
 
     p, P = _build_each_pipeline(proc, error_threshold_pct=0.5)
-    run(p, P())
+    run(build_dag(p), P())
 
 
 def test_pct_threshold_exceeded_raises():
@@ -101,7 +104,7 @@ def test_pct_threshold_exceeded_raises():
 
     p, P = _build_each_pipeline(proc, error_threshold_pct=0.5)
     with pytest.raises(ThresholdExceededException) as exc_info:
-        run(p, P())
+        run(build_dag(p), P())
     assert exc_info.value.error_count == 3
     assert exc_info.value.success_count == 2
     assert exc_info.value.threshold_pct == 0.5
@@ -148,7 +151,7 @@ def test_pct_threshold_with_multiple_each_deps_uses_step_invocations():
         ],
     )
     with pytest.raises(ThresholdExceededException) as exc_info:
-        run(p, P())
+        run(build_dag(p), P())
     assert exc_info.value.error_count == 1
     assert exc_info.value.success_count == 4
 
@@ -163,7 +166,7 @@ def test_both_thresholds_either_triggers():
     p, P = _build_each_pipeline(
         proc, error_threshold_absolute=2, error_threshold_pct=0.5
     )
-    run(p, P())
+    run(build_dag(p), P())
 
 
 def test_threshold_fires_after_all_consumed_not_mid_stream():
@@ -180,7 +183,7 @@ def test_threshold_fires_after_all_consumed_not_mid_stream():
 
     p, P = _build_each_pipeline(proc, error_threshold_pct=0.2)
     with pytest.raises(ThresholdExceededException):
-        run(p, P())
+        run(build_dag(p), P())
     assert invocations == [0, 1, 2, 3, 4]
 
 
@@ -193,7 +196,7 @@ def test_pct_threshold_boundary_exact_match_triggers():
 
     p, P = _build_each_pipeline(proc, error_threshold_pct=0.4)
     with pytest.raises(ThresholdExceededException):
-        run(p, P())
+        run(build_dag(p), P())
 
 
 def test_pct_threshold_boundary_just_below_no_trigger():
@@ -204,7 +207,7 @@ def test_pct_threshold_boundary_just_below_no_trigger():
         return items
 
     p, P = _build_each_pipeline(proc, error_threshold_pct=0.4)
-    run(p, P())
+    run(build_dag(p), P())
 
 
 def test_pct_threshold_100_pct_only_fires_on_full_failure():
@@ -215,14 +218,14 @@ def test_pct_threshold_100_pct_only_fires_on_full_failure():
         return items
 
     p, P = _build_each_pipeline(proc, error_threshold_pct=1.0)
-    run(p, P())
+    run(build_dag(p), P())
 
     def proc_all_fail(items: int) -> int:
         raise ValueError("boom")
 
     p2, P2 = _build_each_pipeline(proc_all_fail, error_threshold_pct=1.0)
     with pytest.raises(ThresholdExceededException):
-        run(p2, P2())
+        run(build_dag(p2), P2())
 
 
 def test_threshold_on_empty_stream_does_not_fire():
@@ -252,7 +255,7 @@ def test_threshold_on_empty_stream_does_not_fire():
             step("sink", fn=sink),
         ],
     )
-    run(p, P())
+    run(build_dag(p), P())
 
 
 def test_threshold_counters_reset_per_step():
@@ -289,7 +292,7 @@ def test_threshold_counters_reset_per_step():
             step("sink", fn=sink),
         ],
     )
-    run(p, P())
+    run(build_dag(p), P())
 
 
 def test_observers_receive_failed_events_on_threshold():
@@ -321,7 +324,7 @@ def test_observers_receive_failed_events_on_threshold():
         observers=[Observer(on_event)],
     )
     with pytest.raises(ThresholdExceededException):
-        run(p, P())
+        run(build_dag(p), P())
     failed_events = [e for e in events if "FAILED" in e[0].name]
     step_failed = [e for e in failed_events if e[0] == StepEvent.FAILED]
     pipeline_failed = [e for e in failed_events if e[0] == PipelineEvent.FAILED]
@@ -355,7 +358,7 @@ def test_threshold_with_force_materialize_respected():
         ],
     )
     with pytest.raises(ThresholdExceededException) as exc_info:
-        run(p, P())
+        run(build_dag(p), P())
     assert exc_info.value.error_count == 2
 
 
@@ -391,7 +394,7 @@ def test_manual_threshold_exception_in_all_step_escape_hatch():
         f"DEBUG: node.error_materializer = {build_dag(p).steps['all_proc'].error_materializer}"
     )
     with pytest.raises(ThresholdExceededException) as exc_info:
-        run(p, P())
+        run(build_dag(p), P())
     assert len(handled) == 1
     assert isinstance(handled[0], ThresholdExceededException)
     assert exc_info.value.error_count == 3
@@ -437,7 +440,7 @@ def test_manual_threshold_exception_in_each_step_wraps_in_validator():
             step("sink", fn=sink),
         ],
     )
-    run(p, P())
+    run(build_dag(p), P())
     assert len(handled) == 1
     assert isinstance(handled[0], InvalidThresholdRaiseInEACHStep)
     assert isinstance(handled[0].original_exception, ThresholdExceededException)
@@ -474,7 +477,7 @@ def test_on_error_continue_without_threshold_unchanged():
             step("sink", fn=sink),
         ],
     )
-    run(p, P())
+    run(build_dag(p), P())
     assert invocations == [0, 1, 2, 3, 4]
 
 
@@ -506,7 +509,7 @@ def test_on_error_stop_no_longer_forces_materialization():
         steps=[step("source", fn=source_fn, on_error="stop"), step("sink", fn=sink)],
     )
     try:
-        run(p, P())
+        run(build_dag(p), P())
     except PipelineStopException:
         pass
     assert captured_type, f"captured_type was empty: {captured_type}"

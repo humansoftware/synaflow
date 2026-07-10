@@ -101,6 +101,11 @@ def test_sync_async_test_parity():
             "test_poll_seconds_passed_through_to_sleep",
             "Unit test for the sync-only ``wait_for_workers_after_shutdown`` helper.",
         ),
+        (
+            "test_given_async_dag_passed_to_sync_run_then_raises_engine_mismatch",
+            "Engine-mismatch test is per-engine by nature: sync engine rejects "
+            "an async Dag. The async equivalent is its own test in the async dir.",
+        ),
     ]
 
     expected_async_only = [
@@ -132,6 +137,11 @@ def test_sync_async_test_parity():
         (
             "test_given_terminal_stream_with_no_observers_bypass_validation",
             "Tests async-only validation bypass for unobserved terminal async streams. Sync engine doesn't have an equivalent bypass because all sync generator outputs are consumed or validated under sync rules.",
+        ),
+        (
+            "test_given_sync_dag_passed_to_async_run_then_raises_engine_mismatch",
+            "Engine-mismatch test is per-engine by nature: async engine rejects "
+            "a sync Dag. The sync equivalent is its own test in the sync dir.",
         ),
         (
             "test_given_blocking_step_when_another_step_raises_then_run_graph_hangs",
