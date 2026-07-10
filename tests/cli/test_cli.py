@@ -150,6 +150,52 @@ def test_given_run_with_param_flag_overrides_file_then_effective_value_wins(
     assert observed.read_text() == "99"
 
 
+def test_given_run_with_direct_param_flag_then_effective_value_is_used(tmp_catalog_dir):
+    observed = tmp_catalog_dir / "observed.txt"
+    result = _run_subprocess(
+        "run",
+        "dated",
+        "--initial-date",
+        "2024-01-15",
+        tmp_path=tmp_catalog_dir,
+        env={"SYNAFLOW_TEST_OUTPUT": str(observed)},
+    )
+    assert result.returncode == 0, result.stderr
+    assert observed.read_text() == "2024-01-15"
+
+
+def test_given_direct_param_flag_then_it_overrides_file_and_legacy_param(
+    tmp_catalog_dir,
+):
+    observed = tmp_catalog_dir / "observed.txt"
+    params_path = _write_params_file(tmp_catalog_dir, {"x": 1})
+    result = _run_subprocess(
+        "run",
+        "hello",
+        "--params-file",
+        str(params_path),
+        "--param",
+        "x=2",
+        "--x",
+        "3",
+        tmp_path=tmp_catalog_dir,
+        env={"SYNAFLOW_TEST_OUTPUT": str(observed)},
+    )
+    assert result.returncode == 0, result.stderr
+    assert observed.read_text() == "3"
+
+
+def test_given_run_pipeline_help_then_it_lists_direct_param_flags(tmp_catalog_dir):
+    result = _run_subprocess(
+        "run",
+        "dated",
+        "--help",
+        tmp_path=tmp_catalog_dir,
+    )
+    assert result.returncode == 0, result.stderr
+    assert "--initial-date" in result.stdout
+
+
 # ---------------------------------------------------------------------------
 # Error-translation tests (in-process)
 # ---------------------------------------------------------------------------

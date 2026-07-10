@@ -44,8 +44,11 @@ def main(argv: Sequence[str] | None = None) -> int:
     naturally -- that's standard argparse behavior.
     """
     try:
-        args = _build_parser().parse_args(argv)
-        return _dispatch(args)
+        tokens = list(argv) if argv is not None else sys.argv[1:]
+        run_context = _resolve_run_context(tokens)
+        params_type = run_context[1].params if run_context else None
+        args = _build_parser(params_type=params_type).parse_args(tokens)
+        return _dispatch(args, catalog=run_context[0] if run_context else None)
     except CLIUsageError as exc:
         print(f"synaflow: {exc}", file=sys.stderr)
         return 1
@@ -56,7 +59,10 @@ def main(argv: Sequence[str] | None = None) -> int:
 # ---------------------------------------------------------------------------
 
 
-def _build_parser() -> argparse.ArgumentParser:
+def _build_parser(
+    *,
+    params_type: Any | None = None,
+) -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="synaflow",
         description="Inspect and run synaflow pipelines.",
@@ -82,7 +88,8 @@ def _build_parser() -> argparse.ArgumentParser:
     p_info.add_argument("--json", action="store_true", help="Output as JSON.")
 
     p_dag = sub.add_parser(
-        "dag", help="Show the compiled Dag as JSON (compiles on demand)."
+        "dag",
+        help="Show the compiled Dag as JSON (compiles on demand).",
     )
     p_dag.add_argument("name")
 
@@ -97,6 +104,8 @@ def _build_parser() -> argparse.ArgumentParser:
         default=None,
         help="Path to a JSON object with params field values.",
     )
+    if params_type is not None:
+        _add_direct_param_flags(p_run, params_type)
     p_run.add_argument(
         "--param",
         action="append",
@@ -117,8 +126,11 @@ def _build_parser() -> argparse.ArgumentParser:
 # ---------------------------------------------------------------------------
 
 
-def _dispatch(args: argparse.Namespace) -> int:
-    catalog = _load_catalog(args.catalog)
+def _dispatch(
+    args: argparse.Namespace,
+    catalog: PipelineRegistry | None = None,
+) -> int:
+    catalog = catalog or _load_catalog(args.catalog)
     sub = args.subcommand
     if sub == "list":
         return _cmd_list(catalog, args)
@@ -229,7 +241,9 @@ def _cmd_run(catalog: PipelineRegistry, args: argparse.Namespace) -> int:
     p = _resolve_pipeline(catalog, args.name)
     dag = _resolve_dag(catalog, args.name)
     file_values = _load_params_file(args.params_file) if args.params_file else {}
-    flag_values = _parse_param_flags(args.param)
+    legacy_flag_values = _parse_param_flags(args.param)
+    direct_flag_values = _direct_param_values(p.params, args)
+    flag_values = {**legacy_flag_values, **direct_flag_values}
     params = _build_params(p.params, file_values, flag_values)
     if dag.requires_async_runner:
         asyncio.run(async_run(dag, params))
@@ -241,6 +255,30 @@ def _cmd_run(catalog: PipelineRegistry, args: argparse.Namespace) -> int:
 # ---------------------------------------------------------------------------
 # Catalog / Dag resolution (shared by info, dag, validate, run)
 # ---------------------------------------------------------------------------
+
+
+def _resolve_run_context(
+    tokens: list[str],
+) -> tuple[PipelineRegistry, PipelineDef] | None:
+    """Load the selected run pipeline before building its direct flags.
+
+    The bootstrap parser intentionally knows only the command shape. That
+    lets ``run NAME --help`` discover ``NAME`` and render the final parser
+    with the pipeline's own parameter flags.
+    """
+    bootstrap = argparse.ArgumentParser(add_help=False)
+    bootstrap.add_argument("--catalog")
+    bootstrap.add_argument("subcommand", nargs="?")
+    bootstrap.add_argument("name", nargs="?")
+    provisional, _ = bootstrap.parse_known_args(tokens)
+    if (
+        provisional.catalog is None
+        or provisional.subcommand != "run"
+        or provisional.name is None
+    ):
+        return None
+    catalog = _load_catalog(provisional.catalog)
+    return catalog, _resolve_pipeline(catalog, provisional.name)
 
 
 def _resolve_pipeline(catalog: PipelineRegistry, name: str) -> PipelineDef:
@@ -273,6 +311,39 @@ def _resolve_dag(catalog: PipelineRegistry, name: str) -> Dag:
 # ---------------------------------------------------------------------------
 # Params parsing
 # ---------------------------------------------------------------------------
+
+
+_RUN_RESERVED_PARAM_FIELDS = {"param", "params_file"}
+
+
+def _add_direct_param_flags(
+    parser: argparse.ArgumentParser,
+    params_type: Any,
+) -> None:
+    """Add ``--field-name VALUE`` flags for a pipeline's params fields."""
+    valid, _ = _params_field_names(params_type)
+    reserved = sorted(valid & _RUN_RESERVED_PARAM_FIELDS)
+    if reserved:
+        raise CLIUsageError(
+            f"Pipeline params cannot use reserved CLI field(s): {reserved}"
+        )
+    for field_name in sorted(valid):
+        parser.add_argument(
+            f"--{field_name.replace('_', '-')}",
+            dest=field_name,
+            default=argparse.SUPPRESS,
+            metavar="VALUE",
+            type=_parse_param_value,
+        )
+
+
+def _direct_param_values(params_type: Any, args: argparse.Namespace) -> dict:
+    """Extract explicitly supplied direct flags from an argparse namespace."""
+    if params_type is None:
+        return {}
+    valid, _ = _params_field_names(params_type)
+    values = vars(args)
+    return {field_name: values[field_name] for field_name in valid & values.keys()}
 
 
 def _load_params_file(path: str) -> dict:
@@ -309,12 +380,16 @@ def _parse_param_flags(items: list[str]) -> dict:
         key, value_str = item.split("=", 1)
         if not key:
             raise CLIUsageError(f"--param {item!r} has empty key")
-        try:
-            value = json.loads(value_str)
-        except json.JSONDecodeError:
-            value = value_str
-        result[key] = value
+        result[key] = _parse_param_value(value_str)
     return result
+
+
+def _parse_param_value(value: str) -> Any:
+    """Parse a CLI value as JSON when possible; otherwise retain text."""
+    try:
+        return json.loads(value)
+    except json.JSONDecodeError:
+        return value
 
 
 def _params_field_names(params_type: Any) -> tuple[set[str], set[str]]:

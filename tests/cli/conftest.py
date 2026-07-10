@@ -33,6 +33,10 @@ SYNATEST_CATALOG_BODY = textwrap.dedent(
         x: int = 0
 
 
+    class DateParams(NamedTuple):
+        initial_date: str
+
+
     def fn(x: int) -> int:
         # Optional observable side-effect: write x to a file whose path
         # is provided via the SYNAFLOW_TEST_OUTPUT env var. Used by
@@ -46,6 +50,14 @@ SYNATEST_CATALOG_BODY = textwrap.dedent(
 
     async def async_fn(x: int) -> int:
         return x
+
+
+    def date_fn(initial_date: str) -> str:
+        out_path = os.environ.get("SYNAFLOW_TEST_OUTPUT")
+        if out_path:
+            with open(out_path, "w") as f:
+                f.write(initial_date)
+        return initial_date
 
 
     _synatest_pipeline = pipeline(
@@ -68,9 +80,16 @@ SYNATEST_CATALOG_BODY = textwrap.dedent(
         ],
     )
 
+    _synatest_dated_pipeline = pipeline(
+        name="dated",
+        params=DateParams,
+        steps=[step("date", fn=date_fn)],
+    )
+
     catalog = PipelineRegistry()
     catalog["hello"] = _synatest_pipeline
     catalog["bad"] = _synatest_bad_pipeline
+    catalog["dated"] = _synatest_dated_pipeline
     """
 )
 
