@@ -895,6 +895,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../../core-concepts/pipeline-registry-and-cli/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Pipeline Registry & CLI
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../core-concepts/examples/" class="md-nav__link">
         
   
@@ -1322,50 +1350,6 @@
   
 </li>
       
-        <li class="md-nav__item">
-  <a href="#no-nested-streams-by-design" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        No nested streams — by design
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#the-key-difference-where-data-lives" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        The key difference: where data lives
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#materializer-collector-but-not-only-at-the-end" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Materializer = Collector (but not only at the end)
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#when-to-prefer-synaflow-over-java-streams" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        When to prefer SynaFlow over Java Streams
-      
-    </span>
-  </a>
-  
-</li>
-      
     </ul>
   
 </nav>
@@ -1458,50 +1442,6 @@
   
 </li>
       
-        <li class="md-nav__item">
-  <a href="#no-nested-streams-by-design" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        No nested streams — by design
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#the-key-difference-where-data-lives" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        The key difference: where data lives
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#materializer-collector-but-not-only-at-the-end" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Materializer = Collector (but not only at the end)
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#when-to-prefer-synaflow-over-java-streams" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        When to prefer SynaFlow over Java Streams
-      
-    </span>
-  </a>
-  
-</li>
-      
     </ul>
   
 </nav>
@@ -1574,7 +1514,7 @@ critical difference: persistence backends.</p>
 </tbody>
 </table>
 <h2 id="side-by-side-example">Side-by-side example<a class="headerlink" href="#side-by-side-example" title="Permanent link">&para;</a></h2>
-<div class="tabbed-set tabbed-alternate" data-tabs="1:3"><input checked="checked" id="__tabbed_1_1" name="__tabbed_1" type="radio" /><input id="__tabbed_1_2" name="__tabbed_1" type="radio" /><input id="__tabbed_1_3" name="__tabbed_1" type="radio" /><div class="tabbed-labels"><label for="__tabbed_1_1">Java</label><label for="__tabbed_1_2">SynaFlow (Sync)</label><label for="__tabbed_1_3">SynaFlow (Async)</label></div>
+<div class="tabbed-set tabbed-alternate" data-tabs="1:2"><input checked="checked" id="__tabbed_1_1" name="__tabbed_1" type="radio" /><input id="__tabbed_1_2" name="__tabbed_1" type="radio" /><div class="tabbed-labels"><label for="__tabbed_1_1">Java</label><label for="__tabbed_1_2">SynaFlow (Sync)</label></div>
 <div class="tabbed-content">
 <div class="tabbed-block">
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kd">var</span><span class="w"> </span><span class="n">result</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">IntStream</span><span class="p">.</span><span class="na">range</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="mi">10</span><span class="p">)</span>
@@ -1586,69 +1526,69 @@ critical difference: persistence backends.</p>
 </code></pre></div>
 </div>
 <div class="tabbed-block">
-<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">collections.abc</span><span class="w"> </span><span class="kn">import</span> <span class="n">Generator</span><span class="p">,</span> <span class="n">Iterator</span>
-<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">synaflow</span><span class="w"> </span><span class="kn">import</span> <span class="n">pipeline</span><span class="p">,</span> <span class="n">step</span><span class="p">,</span> <span class="n">run</span>
-<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>
-<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="k">def</span><span class="w"> </span><span class="nf">producer</span><span class="p">(</span><span class="n">count</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Generator</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">]:</span>
-<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>    <span class="k">yield from</span> <span class="nb">range</span><span class="p">(</span><span class="n">count</span><span class="p">)</span>
-<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>
-<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="k">def</span><span class="w"> </span><span class="nf">doubler</span><span class="p">(</span><span class="n">producer</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>       <span class="c1"># EACH: map</span>
-<a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a>    <span class="k">return</span> <span class="n">producer</span> <span class="o">*</span> <span class="mi">2</span>
-<a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a>
-<a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a><span class="k">def</span><span class="w"> </span><span class="nf">big_enough</span><span class="p">(</span><span class="n">doubler</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>     <span class="c1"># EACH: filter</span>
-<a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a>    <span class="k">if</span> <span class="n">doubler</span> <span class="o">&gt;</span> <span class="mi">5</span><span class="p">:</span>
-<a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a>        <span class="k">yield</span> <span class="n">doubler</span>
-<a id="__codelineno-1-13" name="__codelineno-1-13" href="#__codelineno-1-13"></a>
-<a id="__codelineno-1-14" name="__codelineno-1-14" href="#__codelineno-1-14"></a><span class="k">def</span><span class="w"> </span><span class="nf">collector</span><span class="p">(</span><span class="n">big_enough</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">int</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>  <span class="c1"># collect(toList)</span>
-<a id="__codelineno-1-15" name="__codelineno-1-15" href="#__codelineno-1-15"></a>    <span class="nb">print</span><span class="p">(</span><span class="n">big_enough</span><span class="p">)</span>
-<a id="__codelineno-1-16" name="__codelineno-1-16" href="#__codelineno-1-16"></a>
-<a id="__codelineno-1-17" name="__codelineno-1-17" href="#__codelineno-1-17"></a><span class="n">p</span> <span class="o">=</span> <span class="n">pipeline</span><span class="p">(</span>
-<a id="__codelineno-1-18" name="__codelineno-1-18" href="#__codelineno-1-18"></a>    <span class="n">name</span><span class="o">=</span><span class="s2">&quot;streams&quot;</span><span class="p">,</span>
-<a id="__codelineno-1-19" name="__codelineno-1-19" href="#__codelineno-1-19"></a>    <span class="n">params</span><span class="o">=</span><span class="nb">type</span><span class="p">(</span><span class="s2">&quot;P&quot;</span><span class="p">,</span> <span class="p">(</span><span class="n">NamedTuple</span><span class="p">,),</span> <span class="p">{</span><span class="s2">&quot;count&quot;</span><span class="p">:</span> <span class="mi">10</span><span class="p">}),</span>
-<a id="__codelineno-1-20" name="__codelineno-1-20" href="#__codelineno-1-20"></a>    <span class="n">steps</span><span class="o">=</span><span class="p">[</span>
-<a id="__codelineno-1-21" name="__codelineno-1-21" href="#__codelineno-1-21"></a>        <span class="n">step</span><span class="p">(</span><span class="s2">&quot;producer&quot;</span><span class="p">,</span> <span class="n">fn</span><span class="o">=</span><span class="n">producer</span><span class="p">),</span>
-<a id="__codelineno-1-22" name="__codelineno-1-22" href="#__codelineno-1-22"></a>        <span class="n">step</span><span class="p">(</span><span class="s2">&quot;doubler&quot;</span><span class="p">,</span> <span class="n">fn</span><span class="o">=</span><span class="n">doubler</span><span class="p">),</span>
-<a id="__codelineno-1-23" name="__codelineno-1-23" href="#__codelineno-1-23"></a>        <span class="n">step</span><span class="p">(</span><span class="s2">&quot;big_enough&quot;</span><span class="p">,</span> <span class="n">fn</span><span class="o">=</span><span class="n">big_enough</span><span class="p">),</span>
-<a id="__codelineno-1-24" name="__codelineno-1-24" href="#__codelineno-1-24"></a>        <span class="n">step</span><span class="p">(</span><span class="s2">&quot;collector&quot;</span><span class="p">,</span> <span class="n">fn</span><span class="o">=</span><span class="n">collector</span><span class="p">),</span>
-<a id="__codelineno-1-25" name="__codelineno-1-25" href="#__codelineno-1-25"></a>    <span class="p">],</span>
-<a id="__codelineno-1-26" name="__codelineno-1-26" href="#__codelineno-1-26"></a><span class="p">)</span>
-<a id="__codelineno-1-27" name="__codelineno-1-27" href="#__codelineno-1-27"></a><span class="n">run</span><span class="p">(</span><span class="n">p</span><span class="p">,</span> <span class="n">p</span><span class="o">.</span><span class="n">params_type</span><span class="p">()(</span><span class="n">count</span><span class="o">=</span><span class="mi">10</span><span class="p">))</span>
-<a id="__codelineno-1-28" name="__codelineno-1-28" href="#__codelineno-1-28"></a><span class="c1"># Output: [6, 8, 10, 12, 14, 16, 18]</span>
-</code></pre></div>
+<p>```python
+from collections.abc import Generator, Iterator
+from synaflow import pipeline, step, run, PipelineRegistry</p>
+<p>def producer(count: int) -&gt; Generator[int, None, None]:
+    yield from range(count)</p>
+<p>def doubler(producer: int) -&gt; int:       # EACH: map
+    return producer * 2</p>
+<p>def big_enough(doubler: int) -&gt; int:     # EACH: filter
+    if doubler &gt; 5:
+        yield doubler</p>
+<p>def collector(big_enough: list[int]) -&gt; None:  # collect(toList)
+    print(big_enough)</p>
+<p>p = pipeline(
+    name="streams",
+    params=type("P", (NamedTuple,), {"count": 10}),
+    steps=[
+        step("producer", fn=producer),
+        step("doubler", fn=doubler),
+        step("big_enough", fn=big_enough),
+        step("collector", fn=collector),
+    ],
+)
+catalog = PipelineRegistry()
+catalog["streams"] = p
+run(catalog.get_dag("streams"), p.params_type()(count=10))</p>
+<h1 id="output-6-8-10-12-14-16-18">Output: [6, 8, 10, 12, 14, 16, 18]<a class="headerlink" href="#output-6-8-10-12-14-16-18" title="Permanent link">&para;</a></h1>
 </div>
+</div>
+</div>
+<p>```</p>
+<div class="tabbed-set tabbed-alternate" data-tabs="2:1"><input checked="checked" id="__tabbed_2_1" name="__tabbed_2" type="radio" /><div class="tabbed-labels"><label for="__tabbed_2_1">SynaFlow (Async)</label></div>
+<div class="tabbed-content">
 <div class="tabbed-block">
-<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">collections.abc</span><span class="w"> </span><span class="kn">import</span> <span class="n">AsyncGenerator</span><span class="p">,</span> <span class="n">AsyncIterator</span>
-<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">synaflow</span><span class="w"> </span><span class="kn">import</span> <span class="n">pipeline</span><span class="p">,</span> <span class="n">step</span><span class="p">,</span> <span class="n">async_run</span>
-<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>
-<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">producer</span><span class="p">(</span><span class="n">count</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">AsyncGenerator</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="kc">None</span><span class="p">]:</span>
-<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">count</span><span class="p">):</span>
-<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>        <span class="k">yield</span> <span class="n">i</span>
-<a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a>
-<a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">doubler</span><span class="p">(</span><span class="n">producer</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
-<a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a>    <span class="k">return</span> <span class="n">producer</span> <span class="o">*</span> <span class="mi">2</span>
-<a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a>
-<a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">big_enough</span><span class="p">(</span><span class="n">doubler</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
-<a id="__codelineno-2-12" name="__codelineno-2-12" href="#__codelineno-2-12"></a>    <span class="k">if</span> <span class="n">doubler</span> <span class="o">&gt;</span> <span class="mi">5</span><span class="p">:</span>
-<a id="__codelineno-2-13" name="__codelineno-2-13" href="#__codelineno-2-13"></a>        <span class="k">yield</span> <span class="n">doubler</span>
-<a id="__codelineno-2-14" name="__codelineno-2-14" href="#__codelineno-2-14"></a>
-<a id="__codelineno-2-15" name="__codelineno-2-15" href="#__codelineno-2-15"></a><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">collector</span><span class="p">(</span><span class="n">big_enough</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">int</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<a id="__codelineno-2-16" name="__codelineno-2-16" href="#__codelineno-2-16"></a>    <span class="nb">print</span><span class="p">(</span><span class="n">big_enough</span><span class="p">)</span>
-<a id="__codelineno-2-17" name="__codelineno-2-17" href="#__codelineno-2-17"></a>
-<a id="__codelineno-2-18" name="__codelineno-2-18" href="#__codelineno-2-18"></a><span class="n">p</span> <span class="o">=</span> <span class="n">pipeline</span><span class="p">(</span>
-<a id="__codelineno-2-19" name="__codelineno-2-19" href="#__codelineno-2-19"></a>    <span class="n">name</span><span class="o">=</span><span class="s2">&quot;streams&quot;</span><span class="p">,</span>
-<a id="__codelineno-2-20" name="__codelineno-2-20" href="#__codelineno-2-20"></a>    <span class="n">params</span><span class="o">=</span><span class="nb">type</span><span class="p">(</span><span class="s2">&quot;P&quot;</span><span class="p">,</span> <span class="p">(</span><span class="n">NamedTuple</span><span class="p">,),</span> <span class="p">{</span><span class="s2">&quot;count&quot;</span><span class="p">:</span> <span class="mi">10</span><span class="p">}),</span>
-<a id="__codelineno-2-21" name="__codelineno-2-21" href="#__codelineno-2-21"></a>    <span class="n">steps</span><span class="o">=</span><span class="p">[</span>
-<a id="__codelineno-2-22" name="__codelineno-2-22" href="#__codelineno-2-22"></a>        <span class="n">step</span><span class="p">(</span><span class="s2">&quot;producer&quot;</span><span class="p">,</span> <span class="n">fn</span><span class="o">=</span><span class="n">producer</span><span class="p">),</span>
-<a id="__codelineno-2-23" name="__codelineno-2-23" href="#__codelineno-2-23"></a>        <span class="n">step</span><span class="p">(</span><span class="s2">&quot;doubler&quot;</span><span class="p">,</span> <span class="n">fn</span><span class="o">=</span><span class="n">doubler</span><span class="p">),</span>
-<a id="__codelineno-2-24" name="__codelineno-2-24" href="#__codelineno-2-24"></a>        <span class="n">step</span><span class="p">(</span><span class="s2">&quot;big_enough&quot;</span><span class="p">,</span> <span class="n">fn</span><span class="o">=</span><span class="n">big_enough</span><span class="p">),</span>
-<a id="__codelineno-2-25" name="__codelineno-2-25" href="#__codelineno-2-25"></a>        <span class="n">step</span><span class="p">(</span><span class="s2">&quot;collector&quot;</span><span class="p">,</span> <span class="n">fn</span><span class="o">=</span><span class="n">collector</span><span class="p">),</span>
-<a id="__codelineno-2-26" name="__codelineno-2-26" href="#__codelineno-2-26"></a>    <span class="p">],</span>
-<a id="__codelineno-2-27" name="__codelineno-2-27" href="#__codelineno-2-27"></a><span class="p">)</span>
-<a id="__codelineno-2-28" name="__codelineno-2-28" href="#__codelineno-2-28"></a><span class="n">async_run</span><span class="p">(</span><span class="n">p</span><span class="p">,</span> <span class="n">p</span><span class="o">.</span><span class="n">params_type</span><span class="p">()(</span><span class="n">count</span><span class="o">=</span><span class="mi">10</span><span class="p">))</span>
-</code></pre></div>
+<p>```python
+from collections.abc import AsyncGenerator, AsyncIterator
+from synaflow import pipeline, step, async_run, PipelineRegistry</p>
+<p>async def producer(count: int) -&gt; AsyncGenerator[int, None]:
+    for i in range(count):
+        yield i</p>
+<p>async def doubler(producer: int) -&gt; int:
+    return producer * 2</p>
+<p>async def big_enough(doubler: int) -&gt; int:
+    if doubler &gt; 5:
+        yield doubler</p>
+<p>async def collector(big_enough: list[int]) -&gt; None:
+    print(big_enough)</p>
+<p>p = pipeline(
+    name="streams",
+    params=type("P", (NamedTuple,), {"count": 10}),
+    steps=[
+        step("producer", fn=producer),
+        step("doubler", fn=doubler),
+        step("big_enough", fn=big_enough),
+        step("collector", fn=collector),
+    ],
+)
+catalog = PipelineRegistry()
+catalog["streams"] = p
+async_run(catalog.get_dag("streams"), p.params_type()(count=10))</p>
 </div>
 </div>
 </div>
+<p>```</p>
 <h2 id="no-nested-streams-by-design">No nested streams — by design<a class="headerlink" href="#no-nested-streams-by-design" title="Permanent link">&para;</a></h2>
 <p>In Java, <code>stream.flatMap(...)</code> returns a stream, but you can't accidentally nest
 streams. SynaFlow takes the same position: <strong><code>Iterator[Iterator[T]]</code> does not
@@ -1656,36 +1596,37 @@ exist in user-facing code.</strong></p>
 <p>When an EACH-mode step produces an iterable, SynaFlow implicitly flattens it.
 When it produces a scalar, outputs are auto-collected into <code>ListType</code>. Two
 consecutive <code>T → Iterator[T]</code> steps still produce a flat <code>Iterator[T]</code>:</p>
-<div class="tabbed-set tabbed-alternate" data-tabs="2:2"><input checked="checked" id="__tabbed_2_1" name="__tabbed_2" type="radio" /><input id="__tabbed_2_2" name="__tabbed_2" type="radio" /><div class="tabbed-labels"><label for="__tabbed_2_1">Sync</label><label for="__tabbed_2_2">Async</label></div>
+<div class="tabbed-set tabbed-alternate" data-tabs="3:1"><input checked="checked" id="__tabbed_3_1" name="__tabbed_3" type="radio" /><div class="tabbed-labels"><label for="__tabbed_3_1">Sync</label></div>
 <div class="tabbed-content">
 <div class="tabbed-block">
-<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">collections.abc</span><span class="w"> </span><span class="kn">import</span> <span class="n">Generator</span><span class="p">,</span> <span class="n">Iterator</span>
-<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>
-<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="k">def</span><span class="w"> </span><span class="nf">step1</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="n">Generator</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">]:</span>
-<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>    <span class="k">yield from</span> <span class="nb">range</span><span class="p">(</span><span class="mi">3</span><span class="p">)</span>       <span class="c1"># produces Iterator[int]</span>
-<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>
-<a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a><span class="k">def</span><span class="w"> </span><span class="nf">step2</span><span class="p">(</span><span class="n">step1</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Generator</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">]:</span>
-<a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a>    <span class="k">yield</span> <span class="nb">str</span><span class="p">(</span><span class="n">step1</span><span class="p">)</span>          <span class="c1"># EACH mode, produces Generator[str]</span>
-<a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a>    <span class="k">yield</span> <span class="nb">str</span><span class="p">(</span><span class="n">step1</span> <span class="o">*</span> <span class="mi">10</span><span class="p">)</span>     <span class="c1">#</span>
-<a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a>
-<a id="__codelineno-3-10" name="__codelineno-3-10" href="#__codelineno-3-10"></a><span class="c1"># step2&#39;s output is ListType(str) → flat list of strings</span>
-<a id="__codelineno-3-11" name="__codelineno-3-11" href="#__codelineno-3-11"></a><span class="c1"># NOT Iterator[Iterator[str]]</span>
-</code></pre></div>
+<p>```python
+from collections.abc import Generator, Iterator</p>
+<p>def step1() -&gt; Generator[int, None, None]:
+    yield from range(3)       # produces Iterator[int]</p>
+<p>def step2(step1: int) -&gt; Generator[str, None, None]:
+    yield str(step1)          # EACH mode, produces Generator[str]
+    yield str(step1 * 10)     #</p>
+<h1 id="step2s-output-is-listtypestr-flat-list-of-strings">step2's output is ListType(str) → flat list of strings<a class="headerlink" href="#step2s-output-is-listtypestr-flat-list-of-strings" title="Permanent link">&para;</a></h1>
+<h1 id="not-iteratoriteratorstr">NOT Iterator[Iterator[str]]<a class="headerlink" href="#not-iteratoriteratorstr" title="Permanent link">&para;</a></h1>
 </div>
+</div>
+</div>
+<p>```</p>
+<div class="tabbed-set tabbed-alternate" data-tabs="4:1"><input checked="checked" id="__tabbed_4_1" name="__tabbed_4" type="radio" /><div class="tabbed-labels"><label for="__tabbed_4_1">Async</label></div>
+<div class="tabbed-content">
 <div class="tabbed-block">
-<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">collections.abc</span><span class="w"> </span><span class="kn">import</span> <span class="n">AsyncGenerator</span><span class="p">,</span> <span class="n">AsyncIterator</span>
-<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>
-<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">step1</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="n">AsyncGenerator</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="kc">None</span><span class="p">]:</span>
-<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a>    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">3</span><span class="p">):</span>
-<a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a>        <span class="k">yield</span> <span class="n">i</span>
-<a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a>
-<a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">step2</span><span class="p">(</span><span class="n">step1</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">AsyncGenerator</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="kc">None</span><span class="p">]:</span>
-<a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a>    <span class="k">yield</span> <span class="nb">str</span><span class="p">(</span><span class="n">step1</span><span class="p">)</span>
-<a id="__codelineno-4-9" name="__codelineno-4-9" href="#__codelineno-4-9"></a>    <span class="k">yield</span> <span class="nb">str</span><span class="p">(</span><span class="n">step1</span> <span class="o">*</span> <span class="mi">10</span><span class="p">)</span>
-</code></pre></div>
+<p>```python
+from collections.abc import AsyncGenerator, AsyncIterator</p>
+<p>async def step1() -&gt; AsyncGenerator[int, None]:
+    for i in range(3):
+        yield i</p>
+<p>async def step2(step1: int) -&gt; AsyncGenerator[str, None]:
+    yield str(step1)
+    yield str(step1 * 10)</p>
 </div>
 </div>
 </div>
+<p>```</p>
 <p>This is deliberate. Every SynaFlow pipeline operates on <strong>flat, typed streams</strong>.
 There is no use case that requires nested iterators — if you need grouping, use
 a <code>dict</code> materializer. If you need lateral expansion, yield multiple items from
@@ -1722,15 +1663,18 @@ decides the concrete storage:</p>
 </tr>
 </tbody>
 </table>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">synaflow</span><span class="w"> </span><span class="kn">import</span> <span class="n">pipeline</span><span class="p">,</span> <span class="n">step</span><span class="p">,</span> <span class="n">run</span><span class="p">,</span> <span class="n">disk_materializer</span>
-<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>
-<a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="c1"># Consumer asks for list[T] — transparently stored on disk</span>
-<a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="n">p</span> <span class="o">=</span> <span class="n">pipeline</span><span class="p">(</span>
-<a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a>    <span class="n">name</span><span class="o">=</span><span class="s2">&quot;big_data&quot;</span><span class="p">,</span>
-<a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a>    <span class="n">params</span><span class="o">=</span><span class="n">Params</span><span class="p">,</span>
-<a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a>    <span class="n">steps</span><span class="o">=</span><span class="p">[</span><span class="o">...</span><span class="p">],</span>
-<a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a>    <span class="n">memory_materializer_factory</span><span class="o">=</span><span class="n">disk_materializer</span><span class="p">(</span><span class="s2">&quot;/mnt/ssd&quot;</span><span class="p">),</span>
-<a id="__codelineno-5-9" name="__codelineno-5-9" href="#__codelineno-5-9"></a><span class="p">)</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">synaflow</span><span class="w"> </span><span class="kn">import</span> <span class="n">pipeline</span><span class="p">,</span> <span class="n">step</span><span class="p">,</span> <span class="n">run</span><span class="p">,</span> <span class="n">disk_materializer</span><span class="p">,</span> <span class="n">PipelineRegistry</span>
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="c1"># Consumer asks for list[T] — transparently stored on disk</span>
+<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="n">p</span> <span class="o">=</span> <span class="n">pipeline</span><span class="p">(</span>
+<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>    <span class="n">name</span><span class="o">=</span><span class="s2">&quot;big_data&quot;</span><span class="p">,</span>
+<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a>    <span class="n">params</span><span class="o">=</span><span class="n">Params</span><span class="p">,</span>
+<a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a>    <span class="n">steps</span><span class="o">=</span><span class="p">[</span><span class="o">...</span><span class="p">],</span>
+<a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a>    <span class="n">memory_materializer_factory</span><span class="o">=</span><span class="n">disk_materializer</span><span class="p">(</span><span class="s2">&quot;/mnt/ssd&quot;</span><span class="p">),</span>
+<a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a><span class="p">)</span>
+<a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a><span class="n">catalog</span> <span class="o">=</span> <span class="n">PipelineRegistry</span><span class="p">()</span>
+<a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a><span class="n">catalog</span><span class="p">[</span><span class="s2">&quot;big_data&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">p</span>
 </code></pre></div>
 <p>The consumer code doesn't change — it still says <code>def fn(data: list[int])</code>.
 Whether that list lives in RAM, on SSD, in S3, or in a database is entirely
@@ -1773,10 +1717,10 @@ the factory decides the <strong>backend</strong>.</p>
 at the end. SynaFlow materializers can appear <strong>anywhere in the pipeline</strong>, not
 just at the end. A step in the middle can materialize to disk, and downstream
 steps read from that persisted data:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="n">step</span><span class="p">(</span><span class="s2">&quot;cache&quot;</span><span class="p">,</span> <span class="n">fn</span><span class="o">=</span><span class="n">expensive_computation</span><span class="p">,</span>
-<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>     <span class="n">materializer</span><span class="o">=</span><span class="n">disk_materializer</span><span class="p">(</span><span class="s2">&quot;/mnt/ssd&quot;</span><span class="p">),</span>
-<a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a>     <span class="n">force_materialize</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-<a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="n">step</span><span class="p">(</span><span class="s2">&quot;downstream&quot;</span><span class="p">,</span> <span class="n">fn</span><span class="o">=</span><span class="n">downstream</span><span class="p">)</span>  <span class="c1"># reads from cached data</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="n">step</span><span class="p">(</span><span class="s2">&quot;cache&quot;</span><span class="p">,</span> <span class="n">fn</span><span class="o">=</span><span class="n">expensive_computation</span><span class="p">,</span>
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>     <span class="n">materializer</span><span class="o">=</span><span class="n">disk_materializer</span><span class="p">(</span><span class="s2">&quot;/mnt/ssd&quot;</span><span class="p">),</span>
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>     <span class="n">force_materialize</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="n">step</span><span class="p">(</span><span class="s2">&quot;downstream&quot;</span><span class="p">,</span> <span class="n">fn</span><span class="o">=</span><span class="n">downstream</span><span class="p">)</span>  <span class="c1"># reads from cached data</span>
 </code></pre></div>
 <p>This enables patterns like checkpointing, intermediate persistence, and
 incremental processing that have no equivalent in the Java Streams API.</p>

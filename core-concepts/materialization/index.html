@@ -887,80 +887,8 @@
   
 </li>
         
-          <li class="md-nav__item">
-  <a href="#onerrorstop" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        OnError.STOP
-      
-    </span>
-  </a>
-  
-</li>
-        
       </ul>
     </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#error-materializers" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Error Materializers
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#error-thresholds-v0210" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Error Thresholds (v0.21.0)
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Error Thresholds (v0.21.0)">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#constraints" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Constraints
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#escape-hatch-manual-raise-in-all-mode-steps" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Escape hatch — manual raise in ALL-mode steps
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#summary" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Summary
-      
-    </span>
-  </a>
   
 </li>
       
@@ -1044,6 +972,34 @@
     
   
     Sync & Async Parity
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../pipeline-registry-and-cli/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Pipeline Registry & CLI
   
 
     
@@ -1537,80 +1493,8 @@
   
 </li>
         
-          <li class="md-nav__item">
-  <a href="#onerrorstop" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        OnError.STOP
-      
-    </span>
-  </a>
-  
-</li>
-        
       </ul>
     </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#error-materializers" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Error Materializers
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#error-thresholds-v0210" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Error Thresholds (v0.21.0)
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Error Thresholds (v0.21.0)">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#constraints" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Constraints
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#escape-hatch-manual-raise-in-all-mode-steps" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Escape hatch — manual raise in ALL-mode steps
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#summary" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Summary
-      
-    </span>
-  </a>
   
 </li>
       
@@ -1640,63 +1524,65 @@ is materialized and how errors are handled.</p>
 <h2 id="forcing-materialization">Forcing Materialization<a class="headerlink" href="#forcing-materialization" title="Permanent link">&para;</a></h2>
 <p>Use <code>force_materialize=True</code> on a step to materialize its output <strong>regardless of
 what any consumer asks for</strong>.</p>
-<div class="tabbed-set tabbed-alternate" data-tabs="1:2"><input checked="checked" id="__tabbed_1_1" name="__tabbed_1" type="radio" /><input id="__tabbed_1_2" name="__tabbed_1" type="radio" /><div class="tabbed-labels"><label for="__tabbed_1_1">Sync</label><label for="__tabbed_1_2">Async</label></div>
+<div class="tabbed-set tabbed-alternate" data-tabs="1:1"><input checked="checked" id="__tabbed_1_1" name="__tabbed_1" type="radio" /><div class="tabbed-labels"><label for="__tabbed_1_1">Sync</label></div>
 <div class="tabbed-content">
 <div class="tabbed-block">
-<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">collections.abc</span><span class="w"> </span><span class="kn">import</span> <span class="n">Generator</span><span class="p">,</span> <span class="n">Iterator</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">synaflow</span><span class="w"> </span><span class="kn">import</span> <span class="n">pipeline</span><span class="p">,</span> <span class="n">step</span><span class="p">,</span> <span class="n">run</span>
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>
-<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="k">def</span><span class="w"> </span><span class="nf">producer</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="n">Generator</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">]:</span>
-<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>    <span class="k">yield from</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1_000_000</span><span class="p">)</span>
-<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>
-<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="k">def</span><span class="w"> </span><span class="nf">lazy</span><span class="p">(</span><span class="n">producer</span><span class="p">:</span> <span class="n">Iterator</span><span class="p">[</span><span class="nb">int</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>      <span class="c1"># streams — no materialization</span>
-<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>    <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">producer</span><span class="p">:</span>
-<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>        <span class="k">pass</span>
-<a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>
-<a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a><span class="k">def</span><span class="w"> </span><span class="nf">cache</span><span class="p">(</span><span class="n">producer</span><span class="p">:</span> <span class="n">Iterator</span><span class="p">[</span><span class="nb">int</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">Iterator</span><span class="p">[</span><span class="nb">int</span><span class="p">]:</span>
-<a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a>    <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">producer</span><span class="p">:</span>
-<a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a>        <span class="k">yield</span> <span class="n">x</span>
-<a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a>
-<a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a><span class="n">p</span> <span class="o">=</span> <span class="n">pipeline</span><span class="p">(</span>
-<a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a>    <span class="n">name</span><span class="o">=</span><span class="s2">&quot;materialize_example&quot;</span><span class="p">,</span>
-<a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a>    <span class="n">params</span><span class="o">=</span><span class="nb">type</span><span class="p">(</span><span class="s2">&quot;P&quot;</span><span class="p">,</span> <span class="p">(</span><span class="n">NamedTuple</span><span class="p">,),</span> <span class="p">{}),</span>
-<a id="__codelineno-0-18" name="__codelineno-0-18" href="#__codelineno-0-18"></a>    <span class="n">steps</span><span class="o">=</span><span class="p">[</span>
-<a id="__codelineno-0-19" name="__codelineno-0-19" href="#__codelineno-0-19"></a>        <span class="n">step</span><span class="p">(</span><span class="s2">&quot;producer&quot;</span><span class="p">,</span> <span class="n">fn</span><span class="o">=</span><span class="n">producer</span><span class="p">),</span>
-<a id="__codelineno-0-20" name="__codelineno-0-20" href="#__codelineno-0-20"></a>        <span class="n">step</span><span class="p">(</span><span class="s2">&quot;cache&quot;</span><span class="p">,</span> <span class="n">fn</span><span class="o">=</span><span class="n">cache</span><span class="p">,</span> <span class="n">force_materialize</span><span class="o">=</span><span class="kc">True</span><span class="p">),</span>   <span class="c1"># ← forces materialization</span>
-<a id="__codelineno-0-21" name="__codelineno-0-21" href="#__codelineno-0-21"></a>        <span class="n">step</span><span class="p">(</span><span class="s2">&quot;lazy&quot;</span><span class="p">,</span> <span class="n">fn</span><span class="o">=</span><span class="n">lazy</span><span class="p">),</span>
-<a id="__codelineno-0-22" name="__codelineno-0-22" href="#__codelineno-0-22"></a>    <span class="p">],</span>
-<a id="__codelineno-0-23" name="__codelineno-0-23" href="#__codelineno-0-23"></a><span class="p">)</span>
-</code></pre></div>
+<p>```python
+from collections.abc import Generator, Iterator
+from synaflow import pipeline, step, run, PipelineRegistry</p>
+<p>def producer() -&gt; Generator[int, None, None]:
+    yield from range(1_000_000)</p>
+<p>def lazy(producer: Iterator[int]) -&gt; None:      # streams — no materialization
+    for x in producer:
+        pass</p>
+<p>def cache(producer: Iterator[int]) -&gt; Iterator[int]:
+    for x in producer:
+        yield x</p>
+<p>p = pipeline(
+    name="materialize_example",
+    params=type("P", (NamedTuple,), {}),
+    steps=[
+        step("producer", fn=producer),
+        step("cache", fn=cache, force_materialize=True),   # ← forces materialization
+        step("lazy", fn=lazy),
+    ],
+)
+catalog = PipelineRegistry()
+catalog["materialize_example"] = p</p>
 </div>
+</div>
+</div>
+<p>```</p>
+<div class="tabbed-set tabbed-alternate" data-tabs="2:1"><input checked="checked" id="__tabbed_2_1" name="__tabbed_2" type="radio" /><div class="tabbed-labels"><label for="__tabbed_2_1">Async</label></div>
+<div class="tabbed-content">
 <div class="tabbed-block">
-<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">collections.abc</span><span class="w"> </span><span class="kn">import</span> <span class="n">AsyncGenerator</span><span class="p">,</span> <span class="n">AsyncIterator</span>
-<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">synaflow</span><span class="w"> </span><span class="kn">import</span> <span class="n">pipeline</span><span class="p">,</span> <span class="n">step</span><span class="p">,</span> <span class="n">async_run</span>
-<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>
-<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">producer</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="n">AsyncGenerator</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="kc">None</span><span class="p">]:</span>
-<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1_000_000</span><span class="p">):</span>
-<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>        <span class="k">yield</span> <span class="n">i</span>
-<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a>
-<a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">lazy</span><span class="p">(</span><span class="n">producer</span><span class="p">:</span> <span class="n">AsyncIterator</span><span class="p">[</span><span class="nb">int</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a>    <span class="k">async</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">producer</span><span class="p">:</span>
-<a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a>        <span class="k">pass</span>
-<a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a>
-<a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">cache</span><span class="p">(</span><span class="n">producer</span><span class="p">:</span> <span class="n">AsyncIterator</span><span class="p">[</span><span class="nb">int</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">AsyncIterator</span><span class="p">[</span><span class="nb">int</span><span class="p">]:</span>
-<a id="__codelineno-1-13" name="__codelineno-1-13" href="#__codelineno-1-13"></a>    <span class="k">async</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">producer</span><span class="p">:</span>
-<a id="__codelineno-1-14" name="__codelineno-1-14" href="#__codelineno-1-14"></a>        <span class="k">yield</span> <span class="n">x</span>
-<a id="__codelineno-1-15" name="__codelineno-1-15" href="#__codelineno-1-15"></a>
-<a id="__codelineno-1-16" name="__codelineno-1-16" href="#__codelineno-1-16"></a><span class="n">p</span> <span class="o">=</span> <span class="n">pipeline</span><span class="p">(</span>
-<a id="__codelineno-1-17" name="__codelineno-1-17" href="#__codelineno-1-17"></a>    <span class="n">name</span><span class="o">=</span><span class="s2">&quot;materialize_example&quot;</span><span class="p">,</span>
-<a id="__codelineno-1-18" name="__codelineno-1-18" href="#__codelineno-1-18"></a>    <span class="n">params</span><span class="o">=</span><span class="nb">type</span><span class="p">(</span><span class="s2">&quot;P&quot;</span><span class="p">,</span> <span class="p">(</span><span class="n">NamedTuple</span><span class="p">,),</span> <span class="p">{}),</span>
-<a id="__codelineno-1-19" name="__codelineno-1-19" href="#__codelineno-1-19"></a>    <span class="n">steps</span><span class="o">=</span><span class="p">[</span>
-<a id="__codelineno-1-20" name="__codelineno-1-20" href="#__codelineno-1-20"></a>        <span class="n">step</span><span class="p">(</span><span class="s2">&quot;producer&quot;</span><span class="p">,</span> <span class="n">fn</span><span class="o">=</span><span class="n">producer</span><span class="p">),</span>
-<a id="__codelineno-1-21" name="__codelineno-1-21" href="#__codelineno-1-21"></a>        <span class="n">step</span><span class="p">(</span><span class="s2">&quot;cache&quot;</span><span class="p">,</span> <span class="n">fn</span><span class="o">=</span><span class="n">cache</span><span class="p">,</span> <span class="n">force_materialize</span><span class="o">=</span><span class="kc">True</span><span class="p">),</span>
-<a id="__codelineno-1-22" name="__codelineno-1-22" href="#__codelineno-1-22"></a>        <span class="n">step</span><span class="p">(</span><span class="s2">&quot;lazy&quot;</span><span class="p">,</span> <span class="n">fn</span><span class="o">=</span><span class="n">lazy</span><span class="p">),</span>
-<a id="__codelineno-1-23" name="__codelineno-1-23" href="#__codelineno-1-23"></a>    <span class="p">],</span>
-<a id="__codelineno-1-24" name="__codelineno-1-24" href="#__codelineno-1-24"></a><span class="p">)</span>
-</code></pre></div>
+<p>```python
+from collections.abc import AsyncGenerator, AsyncIterator
+from synaflow import pipeline, step, async_run, PipelineRegistry</p>
+<p>async def producer() -&gt; AsyncGenerator[int, None]:
+    for i in range(1_000_000):
+        yield i</p>
+<p>async def lazy(producer: AsyncIterator[int]) -&gt; None:
+    async for x in producer:
+        pass</p>
+<p>async def cache(producer: AsyncIterator[int]) -&gt; AsyncIterator[int]:
+    async for x in producer:
+        yield x</p>
+<p>p = pipeline(
+    name="materialize_example",
+    params=type("P", (NamedTuple,), {}),
+    steps=[
+        step("producer", fn=producer),
+        step("cache", fn=cache, force_materialize=True),
+        step("lazy", fn=lazy),
+    ],
+)
+catalog = PipelineRegistry()
+catalog["materialize_example"] = p</p>
 </div>
 </div>
 </div>
+<p>```</p>
 <p><strong>When to use it:</strong></p>
 <ul>
 <li><strong>Debugging</strong> — inspect intermediate data without changing consumer types.</li>
@@ -1745,76 +1631,78 @@ partial data visibility, set <code>force_materialize=True</code> explicitly.</p>
 function raises an exception.</p>
 <h3 id="onerrorcontinue-default"><code>OnError.CONTINUE</code> (default)<a class="headerlink" href="#onerrorcontinue-default" title="Permanent link">&para;</a></h3>
 <p>The failing item is discarded and the pipeline continues with the next item.</p>
-<div class="tabbed-set tabbed-alternate" data-tabs="2:2"><input checked="checked" id="__tabbed_2_1" name="__tabbed_2" type="radio" /><input id="__tabbed_2_2" name="__tabbed_2" type="radio" /><div class="tabbed-labels"><label for="__tabbed_2_1">Sync</label><label for="__tabbed_2_2">Async</label></div>
+<div class="tabbed-set tabbed-alternate" data-tabs="3:1"><input checked="checked" id="__tabbed_3_1" name="__tabbed_3" type="radio" /><div class="tabbed-labels"><label for="__tabbed_3_1">Sync</label></div>
 <div class="tabbed-content">
 <div class="tabbed-block">
-<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">collections.abc</span><span class="w"> </span><span class="kn">import</span> <span class="n">Generator</span><span class="p">,</span> <span class="n">Iterator</span>
-<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">synaflow</span><span class="w"> </span><span class="kn">import</span> <span class="n">pipeline</span><span class="p">,</span> <span class="n">step</span><span class="p">,</span> <span class="n">run</span><span class="p">,</span> <span class="n">OnError</span>
-<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>
-<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="k">def</span><span class="w"> </span><span class="nf">producer</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="n">Generator</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">]:</span>
-<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">5</span><span class="p">):</span>
-<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>        <span class="k">yield</span> <span class="n">i</span>
-<a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a>
-<a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a><span class="k">def</span><span class="w"> </span><span class="nf">fragile</span><span class="p">(</span><span class="n">producer</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
-<a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a>    <span class="k">if</span> <span class="n">producer</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
-<a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a>        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;item 2 is poison&quot;</span><span class="p">)</span>
-<a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a>    <span class="k">return</span> <span class="n">producer</span> <span class="o">*</span> <span class="mi">10</span>
-<a id="__codelineno-2-12" name="__codelineno-2-12" href="#__codelineno-2-12"></a>
-<a id="__codelineno-2-13" name="__codelineno-2-13" href="#__codelineno-2-13"></a><span class="k">def</span><span class="w"> </span><span class="nf">consumer</span><span class="p">(</span><span class="n">fragile</span><span class="p">:</span> <span class="n">Iterator</span><span class="p">[</span><span class="nb">int</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<a id="__codelineno-2-14" name="__codelineno-2-14" href="#__codelineno-2-14"></a>    <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">fragile</span><span class="p">:</span>
-<a id="__codelineno-2-15" name="__codelineno-2-15" href="#__codelineno-2-15"></a>        <span class="nb">print</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
-<a id="__codelineno-2-16" name="__codelineno-2-16" href="#__codelineno-2-16"></a>
-<a id="__codelineno-2-17" name="__codelineno-2-17" href="#__codelineno-2-17"></a><span class="n">p</span> <span class="o">=</span> <span class="n">pipeline</span><span class="p">(</span>
-<a id="__codelineno-2-18" name="__codelineno-2-18" href="#__codelineno-2-18"></a>    <span class="n">name</span><span class="o">=</span><span class="s2">&quot;continue_example&quot;</span><span class="p">,</span>
-<a id="__codelineno-2-19" name="__codelineno-2-19" href="#__codelineno-2-19"></a>    <span class="n">params</span><span class="o">=</span><span class="nb">type</span><span class="p">(</span><span class="s2">&quot;P&quot;</span><span class="p">,</span> <span class="p">(</span><span class="n">NamedTuple</span><span class="p">,),</span> <span class="p">{}),</span>
-<a id="__codelineno-2-20" name="__codelineno-2-20" href="#__codelineno-2-20"></a>    <span class="n">steps</span><span class="o">=</span><span class="p">[</span>
-<a id="__codelineno-2-21" name="__codelineno-2-21" href="#__codelineno-2-21"></a>        <span class="n">step</span><span class="p">(</span><span class="s2">&quot;producer&quot;</span><span class="p">,</span> <span class="n">fn</span><span class="o">=</span><span class="n">producer</span><span class="p">),</span>
-<a id="__codelineno-2-22" name="__codelineno-2-22" href="#__codelineno-2-22"></a>        <span class="n">step</span><span class="p">(</span><span class="s2">&quot;fragile&quot;</span><span class="p">,</span> <span class="n">fn</span><span class="o">=</span><span class="n">fragile</span><span class="p">,</span> <span class="n">on_error</span><span class="o">=</span><span class="n">OnError</span><span class="o">.</span><span class="n">CONTINUE</span><span class="p">),</span>
-<a id="__codelineno-2-23" name="__codelineno-2-23" href="#__codelineno-2-23"></a>        <span class="n">step</span><span class="p">(</span><span class="s2">&quot;consumer&quot;</span><span class="p">,</span> <span class="n">fn</span><span class="o">=</span><span class="n">consumer</span><span class="p">),</span>
-<a id="__codelineno-2-24" name="__codelineno-2-24" href="#__codelineno-2-24"></a>    <span class="p">],</span>
-<a id="__codelineno-2-25" name="__codelineno-2-25" href="#__codelineno-2-25"></a><span class="p">)</span>
-<a id="__codelineno-2-26" name="__codelineno-2-26" href="#__codelineno-2-26"></a><span class="n">run</span><span class="p">(</span><span class="n">p</span><span class="p">,</span> <span class="n">p</span><span class="o">.</span><span class="n">params_type</span><span class="p">())</span>
-<a id="__codelineno-2-27" name="__codelineno-2-27" href="#__codelineno-2-27"></a><span class="c1"># Output: 0, 10, 30, 40  (item 2 skipped)</span>
-</code></pre></div>
+<p>```python
+from collections.abc import Generator, Iterator
+from synaflow import pipeline, step, run, OnError, PipelineRegistry</p>
+<p>def producer() -&gt; Generator[int, None, None]:
+    for i in range(5):
+        yield i</p>
+<p>def fragile(producer: int) -&gt; int:
+    if producer == 2:
+        raise ValueError("item 2 is poison")
+    return producer * 10</p>
+<p>def consumer(fragile: Iterator[int]) -&gt; None:
+    for x in fragile:
+        print(x)</p>
+<p>p = pipeline(
+    name="continue_example",
+    params=type("P", (NamedTuple,), {}),
+    steps=[
+        step("producer", fn=producer),
+        step("fragile", fn=fragile, on_error=OnError.CONTINUE),
+        step("consumer", fn=consumer),
+    ],
+)
+catalog = PipelineRegistry()
+catalog["continue_example"] = p
+run(catalog.get_dag("continue_example"), p.params_type())</p>
+<h1 id="output-0-10-30-40-item-2-skipped">Output: 0, 10, 30, 40  (item 2 skipped)<a class="headerlink" href="#output-0-10-30-40-item-2-skipped" title="Permanent link">&para;</a></h1>
 </div>
+</div>
+</div>
+<p>```</p>
+<div class="tabbed-set tabbed-alternate" data-tabs="4:1"><input checked="checked" id="__tabbed_4_1" name="__tabbed_4" type="radio" /><div class="tabbed-labels"><label for="__tabbed_4_1">Async</label></div>
+<div class="tabbed-content">
 <div class="tabbed-block">
-<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">collections.abc</span><span class="w"> </span><span class="kn">import</span> <span class="n">AsyncGenerator</span><span class="p">,</span> <span class="n">AsyncIterator</span>
-<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">synaflow</span><span class="w"> </span><span class="kn">import</span> <span class="n">pipeline</span><span class="p">,</span> <span class="n">step</span><span class="p">,</span> <span class="n">async_run</span><span class="p">,</span> <span class="n">OnError</span>
-<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>
-<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">producer</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="n">AsyncGenerator</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="kc">None</span><span class="p">]:</span>
-<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">5</span><span class="p">):</span>
-<a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a>        <span class="k">yield</span> <span class="n">i</span>
-<a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a>
-<a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">fragile</span><span class="p">(</span><span class="n">producer</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
-<a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a>    <span class="k">if</span> <span class="n">producer</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
-<a id="__codelineno-3-10" name="__codelineno-3-10" href="#__codelineno-3-10"></a>        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;item 2 is poison&quot;</span><span class="p">)</span>
-<a id="__codelineno-3-11" name="__codelineno-3-11" href="#__codelineno-3-11"></a>    <span class="k">return</span> <span class="n">producer</span> <span class="o">*</span> <span class="mi">10</span>
-<a id="__codelineno-3-12" name="__codelineno-3-12" href="#__codelineno-3-12"></a>
-<a id="__codelineno-3-13" name="__codelineno-3-13" href="#__codelineno-3-13"></a><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">consumer</span><span class="p">(</span><span class="n">fragile</span><span class="p">:</span> <span class="n">AsyncIterator</span><span class="p">[</span><span class="nb">int</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<a id="__codelineno-3-14" name="__codelineno-3-14" href="#__codelineno-3-14"></a>    <span class="k">async</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">fragile</span><span class="p">:</span>
-<a id="__codelineno-3-15" name="__codelineno-3-15" href="#__codelineno-3-15"></a>        <span class="nb">print</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
-<a id="__codelineno-3-16" name="__codelineno-3-16" href="#__codelineno-3-16"></a>
-<a id="__codelineno-3-17" name="__codelineno-3-17" href="#__codelineno-3-17"></a><span class="n">p</span> <span class="o">=</span> <span class="n">pipeline</span><span class="p">(</span>
-<a id="__codelineno-3-18" name="__codelineno-3-18" href="#__codelineno-3-18"></a>    <span class="n">name</span><span class="o">=</span><span class="s2">&quot;continue_example&quot;</span><span class="p">,</span>
-<a id="__codelineno-3-19" name="__codelineno-3-19" href="#__codelineno-3-19"></a>    <span class="n">params</span><span class="o">=</span><span class="nb">type</span><span class="p">(</span><span class="s2">&quot;P&quot;</span><span class="p">,</span> <span class="p">(</span><span class="n">NamedTuple</span><span class="p">,),</span> <span class="p">{}),</span>
-<a id="__codelineno-3-20" name="__codelineno-3-20" href="#__codelineno-3-20"></a>    <span class="n">steps</span><span class="o">=</span><span class="p">[</span>
-<a id="__codelineno-3-21" name="__codelineno-3-21" href="#__codelineno-3-21"></a>        <span class="n">step</span><span class="p">(</span><span class="s2">&quot;producer&quot;</span><span class="p">,</span> <span class="n">fn</span><span class="o">=</span><span class="n">producer</span><span class="p">),</span>
-<a id="__codelineno-3-22" name="__codelineno-3-22" href="#__codelineno-3-22"></a>        <span class="n">step</span><span class="p">(</span><span class="s2">&quot;fragile&quot;</span><span class="p">,</span> <span class="n">fn</span><span class="o">=</span><span class="n">fragile</span><span class="p">,</span> <span class="n">on_error</span><span class="o">=</span><span class="n">OnError</span><span class="o">.</span><span class="n">CONTINUE</span><span class="p">),</span>
-<a id="__codelineno-3-23" name="__codelineno-3-23" href="#__codelineno-3-23"></a>        <span class="n">step</span><span class="p">(</span><span class="s2">&quot;consumer&quot;</span><span class="p">,</span> <span class="n">fn</span><span class="o">=</span><span class="n">consumer</span><span class="p">),</span>
-<a id="__codelineno-3-24" name="__codelineno-3-24" href="#__codelineno-3-24"></a>    <span class="p">],</span>
-<a id="__codelineno-3-25" name="__codelineno-3-25" href="#__codelineno-3-25"></a><span class="p">)</span>
-<a id="__codelineno-3-26" name="__codelineno-3-26" href="#__codelineno-3-26"></a><span class="n">async_run</span><span class="p">(</span><span class="n">p</span><span class="p">,</span> <span class="n">p</span><span class="o">.</span><span class="n">params_type</span><span class="p">())</span>
-<a id="__codelineno-3-27" name="__codelineno-3-27" href="#__codelineno-3-27"></a><span class="c1"># Output: 0, 10, 30, 40  (item 2 skipped)</span>
-</code></pre></div>
+<p>```python
+from collections.abc import AsyncGenerator, AsyncIterator
+from synaflow import pipeline, step, async_run, OnError, PipelineRegistry</p>
+<p>async def producer() -&gt; AsyncGenerator[int, None]:
+    for i in range(5):
+        yield i</p>
+<p>async def fragile(producer: int) -&gt; int:
+    if producer == 2:
+        raise ValueError("item 2 is poison")
+    return producer * 10</p>
+<p>async def consumer(fragile: AsyncIterator[int]) -&gt; None:
+    async for x in fragile:
+        print(x)</p>
+<p>p = pipeline(
+    name="continue_example",
+    params=type("P", (NamedTuple,), {}),
+    steps=[
+        step("producer", fn=producer),
+        step("fragile", fn=fragile, on_error=OnError.CONTINUE),
+        step("consumer", fn=consumer),
+    ],
+)
+catalog = PipelineRegistry()
+catalog["continue_example"] = p
+async_run(catalog.get_dag("continue_example"), p.params_type())</p>
+<h1 id="output-0-10-30-40-item-2-skipped_1">Output: 0, 10, 30, 40  (item 2 skipped)<a class="headerlink" href="#output-0-10-30-40-item-2-skipped_1" title="Permanent link">&para;</a></h1>
 </div>
 </div>
 </div>
+<p>```</p>
 <h3 id="onerrorstop"><code>OnError.STOP</code><a class="headerlink" href="#onerrorstop" title="Permanent link">&para;</a></h3>
 <p>The pipeline halts immediately on the first error and raises a
 <code>PipelineStopException</code> with <code>step_name</code> and <code>cause</code>. Lazy consumers simply
 stop receiving items (the upstream stream ends); consumers that have already
 received items keep what they have.</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="n">step</span><span class="p">(</span><span class="s2">&quot;fragile&quot;</span><span class="p">,</span> <span class="n">fn</span><span class="o">=</span><span class="n">fragile</span><span class="p">,</span> <span class="n">on_error</span><span class="o">=</span><span class="n">OnError</span><span class="o">.</span><span class="n">STOP</span><span class="p">)</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="n">step</span><span class="p">(</span><span class="s2">&quot;fragile&quot;</span><span class="p">,</span> <span class="n">fn</span><span class="o">=</span><span class="n">fragile</span><span class="p">,</span> <span class="n">on_error</span><span class="o">=</span><span class="n">OnError</span><span class="o">.</span><span class="n">STOP</span><span class="p">)</span>
 </code></pre></div>
 <div class="admonition warning">
 <p class="admonition-title">Breaking change (v0.21.0)</p>
@@ -1833,19 +1721,22 @@ simply ends. To restore the old "inspect partial data" behavior, add
 <h2 id="error-materializers">Error Materializers<a class="headerlink" href="#error-materializers" title="Permanent link">&para;</a></h2>
 <p>When a step fails, an <strong>error materializer</strong> captures the exception and
 partial output. Configure per-step or per-pipeline:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">synaflow</span><span class="w"> </span><span class="kn">import</span> <span class="n">disk_error_materializer</span><span class="p">,</span> <span class="n">log_error_materializer</span>
-<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>
-<a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="c1"># Per-pipeline default</span>
-<a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="n">p</span> <span class="o">=</span> <span class="n">pipeline</span><span class="p">(</span>
-<a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a>    <span class="n">name</span><span class="o">=</span><span class="s2">&quot;robust&quot;</span><span class="p">,</span>
-<a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a>    <span class="n">params</span><span class="o">=</span><span class="n">Params</span><span class="p">,</span>
-<a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a>    <span class="n">steps</span><span class="o">=</span><span class="p">[</span><span class="o">...</span><span class="p">],</span>
-<a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a>    <span class="n">error_materializer_factory</span><span class="o">=</span><span class="n">disk_error_materializer</span><span class="p">(</span><span class="s2">&quot;/tmp/errors&quot;</span><span class="p">),</span>
-<a id="__codelineno-5-9" name="__codelineno-5-9" href="#__codelineno-5-9"></a><span class="p">)</span>
-<a id="__codelineno-5-10" name="__codelineno-5-10" href="#__codelineno-5-10"></a>
-<a id="__codelineno-5-11" name="__codelineno-5-11" href="#__codelineno-5-11"></a><span class="c1"># Per-step override</span>
-<a id="__codelineno-5-12" name="__codelineno-5-12" href="#__codelineno-5-12"></a><span class="n">step</span><span class="p">(</span><span class="s2">&quot;critical&quot;</span><span class="p">,</span> <span class="n">fn</span><span class="o">=</span><span class="n">do_work</span><span class="p">,</span>
-<a id="__codelineno-5-13" name="__codelineno-5-13" href="#__codelineno-5-13"></a>     <span class="n">error_materializer</span><span class="o">=</span><span class="n">log_error_materializer</span><span class="p">)</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">synaflow</span><span class="w"> </span><span class="kn">import</span> <span class="n">disk_error_materializer</span><span class="p">,</span> <span class="n">log_error_materializer</span><span class="p">,</span> <span class="n">PipelineRegistry</span>
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="c1"># Per-pipeline default</span>
+<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="n">p</span> <span class="o">=</span> <span class="n">pipeline</span><span class="p">(</span>
+<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>    <span class="n">name</span><span class="o">=</span><span class="s2">&quot;robust&quot;</span><span class="p">,</span>
+<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a>    <span class="n">params</span><span class="o">=</span><span class="n">Params</span><span class="p">,</span>
+<a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a>    <span class="n">steps</span><span class="o">=</span><span class="p">[</span><span class="o">...</span><span class="p">],</span>
+<a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a>    <span class="n">error_materializer_factory</span><span class="o">=</span><span class="n">disk_error_materializer</span><span class="p">(</span><span class="s2">&quot;/tmp/errors&quot;</span><span class="p">),</span>
+<a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a><span class="p">)</span>
+<a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a><span class="n">catalog</span> <span class="o">=</span> <span class="n">PipelineRegistry</span><span class="p">()</span>
+<a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a><span class="n">catalog</span><span class="p">[</span><span class="s2">&quot;robust&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">p</span>
+<a id="__codelineno-1-13" name="__codelineno-1-13" href="#__codelineno-1-13"></a>
+<a id="__codelineno-1-14" name="__codelineno-1-14" href="#__codelineno-1-14"></a><span class="c1"># Per-step override</span>
+<a id="__codelineno-1-15" name="__codelineno-1-15" href="#__codelineno-1-15"></a><span class="n">step</span><span class="p">(</span><span class="s2">&quot;critical&quot;</span><span class="p">,</span> <span class="n">fn</span><span class="o">=</span><span class="n">do_work</span><span class="p">,</span>
+<a id="__codelineno-1-16" name="__codelineno-1-16" href="#__codelineno-1-16"></a>     <span class="n">error_materializer</span><span class="o">=</span><span class="n">log_error_materializer</span><span class="p">)</span>
 </code></pre></div>
 <p>Error handlers receive a single error context object with execution metadata
 such as <code>run_id</code>, <code>step_name</code>, <code>mode</code>, <code>on_error</code>, current success/error
@@ -1876,12 +1767,12 @@ Two knobs are available:</p>
 a <code>ThresholdExceededException</code> is raised. It propagates out of <code>run()</code> /
 <code>async_run()</code> and emits <code>StepEvent.FAILED</code> + <code>PipelineEvent.FAILED</code> to
 configured observers.</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">synaflow</span><span class="w"> </span><span class="kn">import</span> <span class="n">pipeline</span><span class="p">,</span> <span class="n">step</span>
-<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>
-<a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="n">step</span><span class="p">(</span><span class="s2">&quot;fragile&quot;</span><span class="p">,</span> <span class="n">fn</span><span class="o">=</span><span class="n">process</span><span class="p">,</span>
-<a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a>     <span class="n">error_threshold_absolute</span><span class="o">=</span><span class="mi">5</span><span class="p">)</span>          <span class="c1"># halt on 5th failure</span>
-<a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a><span class="n">step</span><span class="p">(</span><span class="s2">&quot;brittle&quot;</span><span class="p">,</span> <span class="n">fn</span><span class="o">=</span><span class="n">validate</span><span class="p">,</span>
-<a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a>     <span class="n">error_threshold_pct</span><span class="o">=</span><span class="mf">0.3</span><span class="p">)</span>             <span class="c1"># halt when 30%+ failed</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">synaflow</span><span class="w"> </span><span class="kn">import</span> <span class="n">pipeline</span><span class="p">,</span> <span class="n">step</span>
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="n">step</span><span class="p">(</span><span class="s2">&quot;fragile&quot;</span><span class="p">,</span> <span class="n">fn</span><span class="o">=</span><span class="n">process</span><span class="p">,</span>
+<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>     <span class="n">error_threshold_absolute</span><span class="o">=</span><span class="mi">5</span><span class="p">)</span>          <span class="c1"># halt on 5th failure</span>
+<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="n">step</span><span class="p">(</span><span class="s2">&quot;brittle&quot;</span><span class="p">,</span> <span class="n">fn</span><span class="o">=</span><span class="n">validate</span><span class="p">,</span>
+<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>     <span class="n">error_threshold_pct</span><span class="o">=</span><span class="mf">0.3</span><span class="p">)</span>             <span class="c1"># halt when 30%+ failed</span>
 </code></pre></div>
 <h3 id="constraints">Constraints<a class="headerlink" href="#constraints" title="Permanent link">&para;</a></h3>
 <ul>
