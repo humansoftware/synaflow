@@ -4,6 +4,7 @@ from concurrent.futures import Future
 from typing import Any, NamedTuple
 import pytest
 from synaflow.core.type_compatibility import is_type_compatible
+from synaflow.core.type_compatibility import ListType
 
 
 @dataclass
@@ -77,6 +78,5 @@ def test_given_bare_containers_when_checking_compatibility_then_returns_expected
 
 
 def test_given_list_type_with_none_when_checking_compatibility_then_returns_false():
-    from synaflow.core.type_compatibility import ListType
 
     assert is_type_compatible(ListType(None), list) is False

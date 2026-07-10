@@ -52,18 +52,6 @@ class PipelineDef:
     observers: list[Observer] = field(default_factory=list)
     description: str = ""
 
-    def to_dict(self) -> dict:
-        """Compiled DAG serialized as a JSON-serializable dict."""
-        from synaflow.core.dag_builder import build_dag
-
-        return build_dag(self).to_dict()
-
-    def get_execution_levels(self) -> list[list[str]]:
-        """Steps grouped into topological levels (no in-level dependencies)."""
-        from synaflow.core.dag_builder import build_dag
-
-        return build_dag(self).get_execution_levels()
-
 
 pipeline = PipelineDef
 step = Step

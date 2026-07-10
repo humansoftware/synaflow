@@ -11,6 +11,7 @@ from typing import NamedTuple
 
 from synaflow import include, pipeline, step
 from synaflow.core.dag_builder import build_dag
+from synaflow.core.dag import Dag
 
 
 class Params(NamedTuple):
@@ -221,7 +222,6 @@ def test_scope_step_totals_aggregate_by_scope():
 def test_empty_dag_serializes_empty_scope_step_totals():
     """Even an empty dag emits the ``scope_step_totals`` key with an
     empty dict — stable JSON contract is preferable to key absence."""
-    from synaflow.core.dag import Dag
 
     empty_dag = Dag(steps={})
     assert empty_dag.to_dict()["scope_step_totals"] == {}

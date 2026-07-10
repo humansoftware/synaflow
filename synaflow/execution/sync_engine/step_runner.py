@@ -20,6 +20,7 @@ from synaflow.execution.runtime_contract_validation import (
     satisfies_sync_iterator_contract,
 )
 from synaflow.execution.sync_engine.lifecycle_stream import LifecycleStream
+from synaflow.execution.sync_handoff import SyncQueueIterator
 
 
 def _wrap_started_stream(
@@ -300,8 +301,6 @@ class StepRunner:
         return generate()
 
     def _close_managed_streams(self, arguments: dict[str, Any]) -> None:
-        from synaflow.execution.sync_handoff import SyncQueueIterator
-
         for value in arguments.values():
             if isinstance(value, SyncQueueIterator):
                 try:

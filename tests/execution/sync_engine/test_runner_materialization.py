@@ -4,6 +4,8 @@ from typing import Generator, Iterator, NamedTuple
 from unittest.mock import MagicMock
 from synaflow import pipeline, step
 from synaflow.core.types import OnError
+from synaflow.core.types import MaterializeContext
+from dataclasses import dataclass
 
 
 def mock_step(**params: type) -> MagicMock:
@@ -432,7 +434,6 @@ def test_given_scalar_output_with_on_error_stop_when_run_then_scalar_materialize
 
 
 def test_given_factory_with_context_when_run_then_context_is_injected(run_pipeline):
-    from synaflow.core.types import MaterializeContext
 
     class P(NamedTuple):
         count: int = 3
@@ -469,7 +470,6 @@ def test_given_factory_with_context_when_run_then_context_is_injected(run_pipeli
 def test_given_mixed_fanout_when_materializer_factory_receives_context_then_consumer_type_is_materialized_consumer_type(
     run_pipeline,
 ):
-    from synaflow.core.types import MaterializeContext
 
     class P(NamedTuple):
         count: int = 3
@@ -577,7 +577,6 @@ def test_given_two_unrolled_streams_with_one_empty_when_run_then_non_empty_side_
 def test_given_step_non_builtin_type_and_iterator_consumer_when_run_then_executes_successfully(
     run_pipeline,
 ):
-    from dataclasses import dataclass
 
     @dataclass
     class Row:
@@ -608,7 +607,6 @@ def test_given_step_non_builtin_type_and_iterator_consumer_when_run_then_execute
 def test_given_no_custom_materializer_and_non_builtin_type_when_not_materialized_then_executes_successfully(
     run_pipeline,
 ):
-    from dataclasses import dataclass
 
     @dataclass
     class Row:

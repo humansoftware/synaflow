@@ -6,6 +6,8 @@ from collections.abc import AsyncGenerator, AsyncIterator
 from typing import NamedTuple
 import pytest
 from synaflow import OnError, async_run, pipeline, step
+from synaflow.execution.async_engine.executor import AsyncPipelineExecutor
+from synaflow.core.exceptions import PipelineStopException
 
 
 class EmptyParams(NamedTuple):
@@ -161,7 +163,6 @@ async def test_given_build_arguments_raises_when_max_in_flight_active_then_pump_
     directly simulates the include()-not-propagating-resource production
     scenario.
     """
-    from synaflow.execution.async_engine.executor import AsyncPipelineExecutor
 
     class Downloader:
         pass
@@ -214,7 +215,6 @@ async def test_given_build_arguments_raises_without_bounded_handoff_then_no_hang
     Baseline confirming the hang is specifically about the AsyncQueueBranch
     leaking into the pump.
     """
-    from synaflow.execution.async_engine.executor import AsyncPipelineExecutor
 
     class Downloader:
         pass
@@ -300,7 +300,6 @@ async def test_given_consumer_raises_with_on_error_stop_and_fanout_then_pump_dra
     abort() cancels the pump tasks, which exit via CancelledError.  The
     pipeline should propagate the exception without hanging.
     """
-    from synaflow.core.exceptions import PipelineStopException
 
     async def producer() -> AsyncGenerator[int, None]:
         for i in range(100):

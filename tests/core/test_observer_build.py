@@ -5,6 +5,7 @@ from synaflow import Observer, include, pipeline, step
 from synaflow.core.definition import PipelineDef, Step
 from synaflow.core.dag import _serialize_observers, _serialize_pipeline_observers
 from synaflow.core.observers import ResolvedObserver
+import functools
 
 
 class Params(NamedTuple):
@@ -121,7 +122,7 @@ def test_given_observers_when_dag_to_dict_then_steps_include_metadata():
         steps=[step("a", fn=lambda x: x + 1)],
         observers=[Observer(h)],
     )
-    d = p.to_dict()
+    d = build_dag(p).to_dict()
     step_obs = d["steps"]["a"]["observers"]
     assert step_obs == [{"handler_name": "on_step", "source": "pipeline"}]
 
@@ -134,7 +135,7 @@ def test_given_observers_when_dag_to_dict_then_no_callables_serialized():
         steps=[step("a", fn=lambda x: x + 1)],
         observers=[Observer(h)],
     )
-    d = p.to_dict()
+    d = build_dag(p).to_dict()
     for obs in d["steps"]["a"].get("observers", []):
         assert "handler" not in obs
         assert "callable" not in str(obs)
@@ -148,7 +149,7 @@ def test_given_pipeline_observers_when_dag_to_dict_then_both_levels_reflected():
         steps=[step("a", fn=lambda x: x + 1)],
         observers=[Observer(h)],
     )
-    d = p.to_dict()
+    d = build_dag(p).to_dict()
     assert d["pipeline_observers"] == [
         {"handler_name": "on_pipe", "source": "pipeline"}
     ]
@@ -158,7 +159,7 @@ def test_given_pipeline_observers_when_dag_to_dict_then_both_levels_reflected():
 
 def test_given_no_observers_when_dag_to_dict_then_no_observers_field():
     p = pipeline(name="p", params=Params, steps=[step("a", fn=lambda x: x + 1)])
-    d = p.to_dict()
+    d = build_dag(p).to_dict()
     assert "observers" not in d["steps"]["a"]
     assert "pipeline_observers" not in d
 
@@ -177,7 +178,7 @@ def test_given_step_observers_when_dag_to_dict_then_source_is_step():
         params=Params,
         steps=[step("a", fn=lambda x: x + 1, observers=[Observer(h)])],
     )
-    d = p.to_dict()
+    d = build_dag(p).to_dict()
     step_obs = d["steps"]["a"]["observers"]
     assert step_obs == [{"handler_name": "step_handler", "source": "step"}]
 
@@ -191,7 +192,7 @@ def test_given_pipeline_and_step_observers_when_dag_to_dict_then_sources_preserv
         steps=[step("a", fn=lambda x: x + 1, observers=[Observer(h_step)])],
         observers=[Observer(h_pipe)],
     )
-    d = p.to_dict()
+    d = build_dag(p).to_dict()
     step_obs = d["steps"]["a"]["observers"]
     assert step_obs == [
         {"handler_name": "pipe_handler", "source": "pipeline"},
@@ -219,7 +220,6 @@ def test_given_async_handler_in_sync_pipeline_when_build_then_validation_error()
 
 
 def test_given_async_partial_handler_in_sync_pipeline_when_build_then_validation_error():
-    import functools
 
     async def async_h(ctx):
         pass
@@ -343,7 +343,7 @@ def test_given_include_when_dag_to_dict_then_no_internal_names_in_metadata():
     main = pipeline(
         name="main", params=Params, steps=[include("incl", pipeline=sub, fn=adapter)]
     )
-    d = main.to_dict()
+    d = build_dag(main).to_dict()
     assert "incl" in d["steps"]
     assert "sub__adapter" not in d["steps"]
     obs = d["steps"]["incl"]["observers"]

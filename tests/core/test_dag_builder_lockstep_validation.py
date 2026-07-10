@@ -3,6 +3,7 @@ import pytest
 from typing import NamedTuple, Iterator
 from synaflow import pipeline, step
 from synaflow.core.types import StepMode
+from typing import Generator
 
 
 class P(NamedTuple):
@@ -247,7 +248,6 @@ def test_ultra_complex_diamond_staggered_joins_throws_design_time_error():
 
 
 def test_given_cross_level_stream_bypass_throws_design_time_error():
-    from typing import Generator
 
     def producer() -> Generator[int, None, None]:
         for i in range(10):

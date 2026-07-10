@@ -236,7 +236,6 @@ async def test_given_max_in_flight_1_when_fanout_slow_branch_then_bound_is_exact
 
 @pytest.mark.asyncio
 async def test_given_max_in_flight_3_when_fanout_two_consumers_then_both_get_all_items():
-    from collections.abc import AsyncGenerator, AsyncIterator
 
     async def producer(count: int) -> AsyncGenerator[int, None]:
         for i in range(count):

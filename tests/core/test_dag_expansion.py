@@ -340,7 +340,7 @@ def test_adapter_step_serializes_default_max_in_flight():
         params=ParentParams,
         steps=[include("child", pipeline=child, fn=adapt)],
     )
-    d = parent.to_dict()
+    d = build_dag(parent).to_dict()
     assert d["steps"]["child__adapter"]["max_in_flight"] == 1
 
 

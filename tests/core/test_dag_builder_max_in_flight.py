@@ -2,6 +2,8 @@ from synaflow.core.dag_builder import build_dag
 from typing import NamedTuple
 import pytest
 from synaflow import pipeline, step
+from collections.abc import Iterator
+from synaflow import include
 
 
 class Empty(NamedTuple):
@@ -24,13 +26,13 @@ def test_given_max_in_flight_serialized_when_to_dict_then_present():
     p = pipeline(
         name="test", params=Empty, steps=[step("s", fn=lambda: None, max_in_flight=30)]
     )
-    d = p.to_dict()
+    d = build_dag(p).to_dict()
     assert d["steps"]["s"]["max_in_flight"] == 30
 
 
 def test_given_max_in_flight_default_when_to_dict_then_present():
     p = pipeline(name="test", params=Empty, steps=[step("s", fn=lambda: None)])
-    d = p.to_dict()
+    d = build_dag(p).to_dict()
     assert d["steps"]["s"]["max_in_flight"] == 1
 
 
@@ -79,8 +81,6 @@ def test_given_max_in_flight_bool_when_built_then_raises():
 
 
 def test_adapter_steps_serialize_max_in_flight_1():
-    from collections.abc import Iterator
-    from synaflow import include
 
     class SubParams(NamedTuple):
         val: int
@@ -107,5 +107,5 @@ def test_adapter_steps_serialize_max_in_flight_1():
         params=MainParams,
         steps=[include("sub_instance", pipeline=sub_pipe, fn=adapter)],
     )
-    d = p.to_dict()
+    d = build_dag(p).to_dict()
     assert d["steps"]["sub_instance__adapter"]["max_in_flight"] == 1

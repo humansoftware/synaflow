@@ -36,7 +36,6 @@ class EmptyParams(NamedTuple):
 
 
 def on_event(event_type, handler):
-    from synaflow.core.adapters import async_adapter
 
     async_handler = async_adapter(handler)
 
@@ -752,7 +751,6 @@ async def test_given_pipeline_started_context_exposes_scope_step_totals():
 async def test_given_pipeline_started_context_default_scope_step_totals_is_empty_dict():
     """Constructing PipelineStartedContext without the kwarg
     yields an empty dict — async parity."""
-    from synaflow.core.observers import PipelineStartedContext
 
     ctx = PipelineStartedContext(
         pipeline_name="p",
@@ -836,10 +834,6 @@ async def test_given_repeated_includes_then_aggregator_completes_each_scope_inde
             self.is_complete_log: dict[str, list[bool]] = {}
 
         async def __call__(self, ctx) -> None:
-            from synaflow.core.observers import (
-                PipelineStartedContext,
-                StepCompletedContext,
-            )
 
             if isinstance(ctx, PipelineStartedContext):
                 self.totals = dict(ctx.scope_step_totals)
@@ -917,10 +911,6 @@ async def test_given_nested_includes_then_inner_scope_completes_before_outer_sco
             self.completion_order: list[str] = []
 
         async def __call__(self, ctx) -> None:
-            from synaflow.core.observers import (
-                PipelineStartedContext,
-                StepCompletedContext,
-            )
 
             if isinstance(ctx, PipelineStartedContext):
                 self.totals = dict(ctx.scope_step_totals)

@@ -4,6 +4,8 @@ import pytest
 from synaflow import StepMode, pipeline, step
 from synaflow.core.definition import include
 from synaflow.core.dag_builder import build_dag
+from collections.abc import Iterator
+from synaflow.core.dag import Dag
 
 
 def test_given_scalar_params_when_constructed_then_passes():
@@ -111,7 +113,7 @@ def test_given_dependency_on_declared_resource_when_constructed_then_passes():
     )
     assert build_dag(p).get("db").output is DB
     assert build_dag(p).steps["s1"].deps == {"db": DB, "limit": int}
-    assert p.to_dict()["resources"] == {"db": "DB"}
+    assert build_dag(p).to_dict()["resources"] == {"db": "DB"}
 
 
 def test_given_resource_name_colliding_with_params_field_when_built_then_raises():
@@ -476,7 +478,6 @@ def test_given_sub_pipeline_resource_used_internally_when_constructed_then_no_un
 
 
 def test_given_mixed_sync_and_async_functions_when_built_then_raises():
-    from collections.abc import Iterator
 
     class P(NamedTuple):
         items: list[int] = [1, 2, 3]
@@ -748,7 +749,7 @@ def test_given_sub_pipeline_resource_when_constructed_then_merged_factories_are_
         name="parent", params=Params, steps=[include("incl", pipeline=sub, fn=adapt)]
     )
     assert build_dag(p).resource_factories == {"db": get_db}
-    assert p.to_dict()["resources"] == {"db": "DB"}
+    assert build_dag(p).to_dict()["resources"] == {"db": "DB"}
 
 
 def test_given_two_subs_different_resource_instances_with_same_name_when_built_then_raises_design_time():
@@ -805,7 +806,6 @@ def test_given_pipeline_def_when_build_dag_called_then_returns_dag():
     """``build_dag`` accepts a ``PipelineDef`` directly (single-arg
     signature; refactor for issue #107). Building the dag IS the
     validation — no compile side effect in ``__post_init__``."""
-    from synaflow.core.dag import Dag
 
     class P(NamedTuple):
         x: int = 1

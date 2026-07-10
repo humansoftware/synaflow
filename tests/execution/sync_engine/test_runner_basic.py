@@ -7,6 +7,9 @@ from synaflow.core.dag import Dag, DagNode, OutputContract, PublishPlan
 from synaflow.core.types import OnError, StepMode
 
 from synaflow import pipeline, step
+import pytest
+from synaflow.execution.sync_engine.executor import run
+from synaflow.execution.sync_engine.executor import PipelineExecutor
 
 
 def mock_step(**params: type) -> MagicMock:
@@ -143,12 +146,6 @@ def test_given_params_with_defaults_when_run_then_uses_defaults(run_pipeline):
 
 
 def test_given_incompatible_pipeline_when_run_then_raises():
-    from typing import NamedTuple
-
-    import pytest
-
-    from synaflow import pipeline, step
-    from synaflow.execution.sync_engine.executor import run
 
     class P(NamedTuple):
         items: list[int] = [1, 2, 3]
@@ -163,8 +160,6 @@ def test_given_incompatible_pipeline_when_run_then_raises():
 
 
 def test_given_runtime_dag_with_all_mode_when_types_look_like_each_then_executor_obeys_dag_mode():
-
-    from synaflow.execution.sync_engine.executor import PipelineExecutor
 
     class P(NamedTuple):
         items: list[int] = [1, 2, 3]

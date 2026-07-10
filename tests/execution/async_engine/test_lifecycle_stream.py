@@ -2,6 +2,14 @@ from collections.abc import AsyncGenerator, Generator
 from typing import Any
 import pytest
 from synaflow.execution.async_engine.lifecycle_stream import AsyncLifecycleStream
+from synaflow.execution.stats import StepRunStats
+from contextlib import AsyncExitStack
+from unittest.mock import AsyncMock, MagicMock
+from synaflow.core.dag import DagNode
+from synaflow.execution.async_engine.step_runner import (
+    AsyncStepRunner,
+)
+from synaflow.core.types import OnError, StepMode
 
 
 @pytest.mark.asyncio
@@ -202,7 +210,6 @@ async def test_lifecycle_stream_immediate_error() -> None:
 
 
 def test_step_run_stats() -> None:
-    from synaflow.execution.stats import StepRunStats
 
     stats = StepRunStats()
     assert stats.success_count == 0
@@ -218,14 +225,6 @@ def test_step_run_stats() -> None:
 
 @pytest.mark.asyncio
 async def test_step_runner_simple() -> None:
-    from contextlib import AsyncExitStack
-    from unittest.mock import AsyncMock, MagicMock
-    from synaflow.core.dag import DagNode
-    from synaflow.execution.async_engine.step_runner import (
-        AsyncStepRunner,
-    )
-    from synaflow.execution.stats import StepRunStats
-    from synaflow.core.types import OnError, StepMode
 
     stats = StepRunStats()
     ran = []

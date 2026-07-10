@@ -4,6 +4,12 @@ import pytest
 from synaflow import run
 from synaflow.execution.sync_engine.executor import PipelineExecutor
 from tests.execution.sync_engine.corpus import PACKS as SYNC_PACKS
+from tests.execution.sync_engine.corpus.error_handling import (
+    error_pipeline,
+    ErrorHandlingParams,
+    errors_list,
+)
+
 
 SYNC_PACK_NAMES = (
     "sync_explicit_modes",
@@ -64,11 +70,6 @@ def test_step_results(pack_name):
 
 
 def test_error_handling_corpus_registers_error():
-    from tests.execution.sync_engine.corpus.error_handling import (
-        error_pipeline,
-        ErrorHandlingParams,
-        errors_list,
-    )
 
     errors_list.clear()
     run(error_pipeline, ErrorHandlingParams())

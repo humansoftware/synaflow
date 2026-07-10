@@ -2,6 +2,7 @@ from synaflow.core.dag_builder import build_dag
 import pytest
 from ._dag_builder_data import COMPATIBILITY_TABLE
 from .conftest import build_minimal_dag
+from synaflow.core.type_compatibility import is_iterable_type
 
 
 @pytest.mark.parametrize("case", COMPATIBILITY_TABLE, ids=lambda c: c["label"])
@@ -27,7 +28,6 @@ def test_given_producer_and_consumer_pair_when_dag_built_then_materializer_is_se
     producer_node = build_dag(p).steps["producer"]
     if producer_node.fn is None:
         return
-    from synaflow.core.type_compatibility import is_iterable_type
 
     if is_iterable_type(producer_node.output):
         assert producer_node.materializer is not None

@@ -19,6 +19,7 @@ from synaflow import (
     pipeline,
     step,
 )
+from synaflow import Observer
 
 
 # ---------------------------------------------------------------------------
@@ -341,8 +342,6 @@ async def test_observers_receive_failed_events_on_threshold():
     async def numbers(items: list[int]):
         for x in items:
             yield x
-
-    from synaflow import Observer
 
     p = pipeline(
         name="obs",

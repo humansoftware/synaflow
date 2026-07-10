@@ -2,6 +2,12 @@ from collections.abc import Generator
 from typing import Any
 import pytest
 from synaflow.execution.sync_engine.lifecycle_stream import LifecycleStream
+from synaflow.execution.stats import StepRunStats
+from contextlib import ExitStack
+from unittest.mock import MagicMock
+from synaflow.core.dag import DagNode
+from synaflow.execution.sync_engine.step_runner import StepRunner
+from synaflow.core.types import OnError, StepMode
 
 
 def test_lifecycle_stream() -> None:
@@ -166,7 +172,6 @@ def test_lifecycle_stream_immediate_error() -> None:
 
 
 def test_step_run_stats() -> None:
-    from synaflow.execution.stats import StepRunStats
 
     stats = StepRunStats()
     assert stats.success_count == 0
@@ -181,12 +186,6 @@ def test_step_run_stats() -> None:
 
 
 def test_step_runner_simple() -> None:
-    from contextlib import ExitStack
-    from unittest.mock import MagicMock
-    from synaflow.core.dag import DagNode
-    from synaflow.execution.sync_engine.step_runner import StepRunner
-    from synaflow.execution.stats import StepRunStats
-    from synaflow.core.types import OnError, StepMode
 
     stats = StepRunStats()
     ran = []
