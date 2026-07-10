@@ -218,9 +218,9 @@ def _cmd_dag(catalog: PipelineRegistry, args: argparse.Namespace) -> int:
 
 
 def _cmd_validate(catalog: PipelineRegistry, args: argparse.Namespace) -> int:
-    # Compiles the Dag as a side effect; surfaces ValueError as
-    # CLIUsageError so users see a friendly message instead of a
-    # Python traceback.
+    # Compiles the Dag as a side effect; _resolve_dag surfaces
+    # ValueError OR TypeError from build_dag as CLIUsageError, so
+    # users see a friendly message instead of a Python traceback.
     _resolve_dag(catalog, args.name)
     return 0
 
