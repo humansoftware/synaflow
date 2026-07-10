@@ -2,6 +2,21 @@
 
 
 
+## Unreleased
+
+### Breaking change
+
+* `PipelineRegistry` is now a design-time registry. Register definitions with
+  `catalog.add(pipeline)` instead of `catalog["name"] = pipeline`.
+  `add()` recursively compiles and validates the root plus all included
+  pipelines before atomically registering them. `PipelineRegistry` is now a
+  read-only `Mapping`: item assignment, deletion, `clear()`, and `invalidate()`
+  are removed. Registered definitions must not be mutated.
+* The `synaflow validate NAME` command is removed. A pipeline is validated
+  when its catalog module calls `catalog.add(...)`; `dag`, `list`, `info`, and
+  `run` operate on that precompiled registry.
+
+
 ## v0.29.0 (2026-07-10)
 
 ### Feature

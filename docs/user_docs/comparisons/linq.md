@@ -61,7 +61,7 @@ SynaFlow, it chains transformations over data — `Select`, `Where`, `GroupBy`,
         ],
     )
     catalog = PipelineRegistry()
-    catalog["linq_demo"] = p
+    catalog.add(p)
     run(catalog.get_dag("linq_demo"), p.params_type()(count=10))
     # Output: [6, 8, 10, 12, 14, 16, 18]
 ```

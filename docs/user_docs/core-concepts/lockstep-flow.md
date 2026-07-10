@@ -42,7 +42,7 @@ examples for I/O-bound pipelines.
         ],
     )
     catalog = PipelineRegistry()
-    catalog["lockstep_demo"] = p
+    catalog.add(p)
 
     run(catalog.get_dag("lockstep_demo"), Params(count=5))
 ```
@@ -79,7 +79,7 @@ examples for I/O-bound pipelines.
         ],
     )
     catalog = PipelineRegistry()
-    catalog["lockstep_demo"] = p
+    catalog.add(p)
 
     async_run(catalog.get_dag("lockstep_demo"), Params(count=5))
 ```

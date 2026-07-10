@@ -93,7 +93,7 @@ That means:
         ],
     )
     catalog = PipelineRegistry()
-    catalog["bounded_requests"] = p
+    catalog.add(p)
 
     run(catalog.get_dag("bounded_requests"), Params(urls=["a", "b", "c"]))
     pool.shutdown(wait=True)
@@ -141,7 +141,7 @@ That means:
         ],
     )
     catalog = PipelineRegistry()
-    catalog["bounded_requests_async"] = p
+    catalog.add(p)
 
     await async_run(catalog.get_dag("bounded_requests_async"), Params(urls=["a", "b", "c"]))
 ```
@@ -380,7 +380,7 @@ If you use an HTTP client (like `requests` for sync or `httpx` for async), the c
         ],
     )
     catalog = PipelineRegistry()
-    catalog["bounded_http_sync"] = p
+    catalog.add(p)
 
     run(
         p,
@@ -446,7 +446,7 @@ If you use an HTTP client (like `requests` for sync or `httpx` for async), the c
                 ],
             )
             catalog = PipelineRegistry()
-            catalog["bounded_http_async"] = p
+            catalog.add(p)
 
             await async_run(
                 p,

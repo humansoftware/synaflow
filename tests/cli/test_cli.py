@@ -97,22 +97,6 @@ def test_given_dag_then_outputs_dag_json(tmp_catalog_dir):
     assert "s" in data["steps"]
 
 
-def test_given_validate_on_valid_then_exits_zero(tmp_catalog_dir):
-    result = _run_subprocess("validate", "hello", tmp_path=tmp_catalog_dir)
-    assert result.returncode == 0, result.stderr
-
-
-def test_given_validate_on_invalid_then_exits_one(tmp_catalog_dir):
-    # The 'bad' pipeline is declared in the catalog but FAILS design-time
-    # validation (mixes sync and async step functions). Validate should
-    # exit 1 with a friendly "failed validation" message -- NOT a Python
-    # traceback, NOT a "not registered" message.
-    result = _run_subprocess("validate", "bad", tmp_path=tmp_catalog_dir)
-    assert result.returncode == 1
-    assert "failed validation" in result.stderr
-    assert "bad" in result.stderr
-
-
 def test_given_run_with_params_file_then_executes(tmp_catalog_dir):
     observed = tmp_catalog_dir / "observed.txt"
     params_path = _write_params_file(tmp_catalog_dir, {"x": 7})
@@ -268,14 +252,17 @@ def test_given_internal_exception_then_propagates_with_traceback():
         def get_dag(self, name):  # type: ignore[override]
             raise RuntimeError("internal programmer error")
 
-    def fn() -> int:
-        return 1
+    class P(NamedTuple):
+        x: int = 0
 
-    boom_pipeline = pipeline(name="boom", params=None, steps=[step("s", fn=fn)])
+    def fn(x: int) -> int:
+        return x
+
+    boom_pipeline = pipeline(name="boom", params=P, steps=[step("s", fn=fn)])
 
     fake_module = types.ModuleType("fake_module_with_boom")
     fake_module.catalog = FakeRegistry()
-    fake_module.catalog["boom"] = boom_pipeline
+    fake_module.catalog.add(boom_pipeline)
     sys.modules["fake_module_with_boom"] = fake_module
     try:
         with pytest.raises(RuntimeError, match="internal programmer error"):
@@ -369,14 +356,6 @@ def test_given_dag_handler_then_prints_dag_json(capsys):
     assert rc == 0
     data = json.loads(captured.out)
     assert data["name"] == "hello"
-
-
-def test_given_validate_handler_then_exits_zero(capsys):
-    """In-process: cli._cmd_validate success path."""
-
-    args = argparse.Namespace(name="hello")
-    rc = cli._cmd_validate(_fake_catalog(), args)
-    assert rc == 0
 
 
 def test_given_run_handler_sync_then_executes(tmp_path, monkeypatch):
@@ -481,49 +460,6 @@ def test_given_build_params_non_namedtuple_or_dataclass_then_raises_cli_usage_er
         cli._build_params(NotParams, {}, {})
 
 
-def test_given_resolve_dag_validation_failure_then_raises_cli_usage_error():
-    """Dag with invalid structure -> ValueError from build_dag -> CLIUsageError."""
-
-    def fn() -> int:
-        return 1
-
-    bad = pipeline(name="bad", params=None, steps=[step("s", fn=fn)])
-
-    class FakeRegistry(PipelineRegistry):
-        def get_dag(self, name):  # type: ignore[override]
-            # Simulate build_dag raising ValueError.
-            raise ValueError("simulated design-time validation failure")
-
-    reg = FakeRegistry()
-    reg["bad"] = bad
-    with pytest.raises(CLIUsageError, match="failed validation"):
-        cli._resolve_dag(reg, "bad")
-
-
-def test_given_resolve_dag_typeerror_then_raises_cli_usage_error():
-    """TypeError from build_dag (handler-callable validators) ->
-    CLIUsageError. Distinct from ValueError because catching either
-    type guards against a regression where TypeError leaks through.
-    """
-
-    def fn() -> int:
-        return 1
-
-    bad = pipeline(name="bad", params=None, steps=[step("s", fn=fn)])
-
-    class FakeRegistry(PipelineRegistry):
-        def get_dag(self, name):  # type: ignore[override]
-            raise TypeError(
-                "Pipeline 'bad': observer handler 'h' is async but the "
-                "pipeline runs synchronously."
-            )
-
-    reg = FakeRegistry()
-    reg["bad"] = bad
-    with pytest.raises(CLIUsageError, match="failed validation"):
-        cli._resolve_dag(reg, "bad")
-
-
 def test_given_resolve_pipeline_unknown_then_raises_cli_usage_error():
 
     reg = PipelineRegistry()
@@ -565,5 +501,5 @@ def _fake_catalog() -> PipelineRegistry:
     """
     mod = sys.modules[SYNATEST_CATALOG_NAME]
     reg = PipelineRegistry()
-    reg["hello"] = mod._synatest_pipeline  # type: ignore[attr-defined]
+    reg.add(mod._synatest_pipeline)  # type: ignore[attr-defined]
     return reg

@@ -70,7 +70,7 @@ Instead of collecting into a list and then a dict, we can:
         ],
     )
     catalog = PipelineRegistry()
-    catalog["tutorial"] = p
+    catalog.add(p)
 
     run(catalog.get_dag("tutorial"), Params(message="SynaFlow"))
 ```
@@ -115,7 +115,7 @@ Instead of collecting into a list and then a dict, we can:
         ],
     )
     catalog = PipelineRegistry()
-    catalog["tutorial"] = p
+    catalog.add(p)
 
     async_run(catalog.get_dag("tutorial"), Params(message="SynaFlow"))
 ```

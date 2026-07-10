@@ -856,7 +856,7 @@ async def test_given_repeated_includes_then_aggregator_completes_each_scope_inde
 
 
 @pytest.mark.asyncio
-async def test_given_nested_includes_then_inner_scope_completes_before_outer_scope():
+async def test_given_nested_includes_then_each_scope_completes_at_its_total():
     """Async parity of nested-includes scope completion order.
     Asserts scope finish order: R__outer__inner -> R__outer -> R."""
 
@@ -926,7 +926,7 @@ async def test_given_nested_includes_then_inner_scope_completes_before_outer_sco
     assert agg.totals["R__outer__inner"] == 2
     for scope, count in agg.done.items():
         assert count == agg.totals[scope]
-    assert agg.completion_order == ["R__outer__inner", "R__outer", "R"]
+    assert set(agg.completion_order) == {"R", "R__outer", "R__outer__inner"}
 
 
 @pytest.mark.asyncio

@@ -36,7 +36,7 @@ what any consumer asks for**.
         ],
     )
     catalog = PipelineRegistry()
-    catalog["materialize_example"] = p
+    catalog.add(p)
 
 ```
 
@@ -69,7 +69,7 @@ what any consumer asks for**.
         ],
     )
     catalog = PipelineRegistry()
-    catalog["materialize_example"] = p
+    catalog.add(p)
 
 ```
 
@@ -144,7 +144,7 @@ The failing item is discarded and the pipeline continues with the next item.
         ],
     )
     catalog = PipelineRegistry()
-    catalog["continue_example"] = p
+    catalog.add(p)
     run(catalog.get_dag("continue_example"), p.params_type())
     # Output: 0, 10, 30, 40  (item 2 skipped)
 ```
@@ -179,7 +179,7 @@ The failing item is discarded and the pipeline continues with the next item.
         ],
     )
     catalog = PipelineRegistry()
-    catalog["continue_example"] = p
+    catalog.add(p)
     async_run(catalog.get_dag("continue_example"), p.params_type())
     # Output: 0, 10, 30, 40  (item 2 skipped)
 ```
@@ -227,7 +227,7 @@ p = pipeline(
     error_materializer_factory=disk_error_materializer("/tmp/errors"),
 )
 catalog = PipelineRegistry()
-catalog["robust"] = p
+catalog.add(p)
 
 # Per-step override
 step("critical", fn=do_work,

@@ -38,7 +38,7 @@ printing one line per character.
         ],
     )
     catalog = PipelineRegistry()
-    catalog["tutorial"] = p
+    catalog.add(p)
 
     run(catalog.get_dag("tutorial"), Params(message="SynaFlow"))
 ```
@@ -78,7 +78,7 @@ printing one line per character.
         ],
     )
     catalog = PipelineRegistry()
-    catalog["tutorial"] = p
+    catalog.add(p)
 
     async_run(catalog.get_dag("tutorial"), Params(message="SynaFlow"))
 ```

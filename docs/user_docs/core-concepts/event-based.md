@@ -41,7 +41,7 @@ or **batched in a time window** (materialized) without changing your business lo
         ],
     )
     catalog = PipelineRegistry()
-    catalog["event_processor"] = p
+    catalog.add(p)
 
     run(catalog.get_dag("event_processor"), Window(events=[{"id": 1, "amount": 10}, {"id": 2, "amount": 20}]))
 ```
@@ -76,7 +76,7 @@ or **batched in a time window** (materialized) without changing your business lo
         ],
     )
     catalog = PipelineRegistry()
-    catalog["event_processor"] = p
+    catalog.add(p)
 
     async_run(catalog.get_dag("event_processor"), Window(events=[{"id": 1, "amount": 10}, {"id": 2, "amount": 20}]))
 ```
@@ -122,7 +122,7 @@ natural:
         ],
     )
     catalog = PipelineRegistry()
-    catalog["idempotent"] = p
+    catalog.add(p)
 
 ```
 
@@ -150,7 +150,7 @@ natural:
         ],
     )
     catalog = PipelineRegistry()
-    catalog["idempotent"] = p
+    catalog.add(p)
 
 ```
 
