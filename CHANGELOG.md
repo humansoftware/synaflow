@@ -2,6 +2,100 @@
 
 
 
+## v0.28.0 (unreleased)
+
+### Feature
+
+* feat: PipelineRegistry, synaflow CLI, and `synaflow` console script (#108)
+
+New public surface for working with multiple pipelines at once,
+without writing a driver script per run.
+
+* **synaflow.PipelineRegistry** — a name-keyed mapping of
+  `(name → PipelineDef)` that **caches the compiled `Dag`** so
+  repeated lookups don't pay `build_dag`'s cost twice. The
+  registry supports the `MutableMapping` protocol
+  (`__getitem__/__setitem__/__delitem__/__iter__/__len__/...`).
+  `__setitem__` validates that the value is a `PipelineDef` and
+  that its `.name` matches the registry key (raising `TypeError`
+  before `.name` access, `ValueError` after). `__delitem__` and
+  `clear()` invalidate the cached `Dag`. `PipelineRegistry.from_module(name)`
+  is the catalog-discovery entry point: it imports `name` and
+  returns its `catalog` attribute, raising the standard Python
+  exceptions (`ModuleNotFoundError`, `AttributeError`, `TypeError`).
+* **synaflow.cli** — argparse-based CLI with 5 subcommands:
+  `list`, `info`, `dag`, `validate`, `run`. Catalog discovery
+  via `--catalog MODULE` (no plugin system, no entry-point
+  sprawl). Sync vs async dispatch is automatic
+  (`dag.requires_async_runner`). Param resolution supports
+  both `--params-file PATH` (JSON object) and repeatable
+  `--param key=value` flags (with `--param` overriding file
+  values); values are parsed as JSON when possible, otherwise
+  kept as strings. Internal exceptions are NOT caught at the
+  boundary — only `CLIUsageError` (the CLI's user-input error
+  vocabulary) is, so genuine programmer errors still surface
+  as tracebacks.
+* **synaflow.__main__** — enables `python -m synaflow` as an
+  equivalent of the `synaflow` console script.
+* **`synaflow` console script** — pyproject.toml gains
+  `[project.scripts] synaflow = "synaflow.cli:main"`, so a
+  `pip install synaflow` (or `uv sync`) drops a `synaflow`
+  entry point on `PATH`. End users get
+  `synaflow --catalog mypackage.pipelines list` /
+  `info` / `dag` / `validate` / `run` without typing
+  `python -m synaflow` by hand.
+* **run / async_run accept a `Dag`** — both engine entry points
+  now accept either a `PipelineDef` (compiles internally; old
+  behavior) or a pre-built `Dag` (skips the cache lookup and
+  recompile). Useful for hot-loop replays and for tests that
+  want to assert the Dag was not rebuilt.
+
+Layering preserved: `PipelineRegistry.from_module` is core / agnostic
+and raises standard Python exceptions; `synaflow.cli._load_catalog`
+is the thin CLI-side adapter that translates those exceptions
+into the CLI's friendly error vocabulary. `synaflow.cli.main`
+only catches `CLIUsageError` at the boundary.
+
+### BREAKING CHANGE
+
+* refactor: rename internal `PipelineRegistry` base → `_OverrideRegistry` (#108)
+
+The base class that lives at the top of `synaflow/execution/overrides.py`
+was named `PipelineRegistry`. That name is now taken by the new
+public catalog class in `synaflow.PipelineRegistry`, so we
+renamed the internal base to **`_OverrideRegistry`** (leading
+underscore + private-by-convention). Its three public
+subclasses — `MaterializerRegistry`, `ObserverRegistry`,
+`ResourceRegistry` — were already independent and are
+unchanged. The internal base is removed from
+`synaflow.execution.__all__`.
+
+If your code imported the **internal base class** explicitly
+(this was never part of the public API, but it was exported
+from `__all__`):
+
+```python
+# BEFORE  -- worked by accident
+from synaflow.execution import PipelineRegistry as _Base
+
+# AFTER   -- pick the right class for your use case
+from synaflow.execution import _OverrideRegistry   # internal base
+from synaflow import PipelineRegistry              # new public catalog
+```
+
+Code that imported the **subclasses** (`MaterializerRegistry`,
+`ObserverRegistry`, `ResourceRegistry`) is unaffected.
+
+### Refactor
+
+* refactor: enforce top-level imports follow-up; CLI helper module-private (#108)
+
+  * PLC0415 enforced everywhere: imports are now at module
+    top-level in `synaflow/cli.py`, `tests/cli/test_cli.py`,
+    and the tests that share the `cli.X` module-access
+    convention for private helpers.
+
+
 ## v0.27.0 (2026-07-09)
 
 ### Feature
