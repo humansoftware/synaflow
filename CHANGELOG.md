@@ -58,33 +58,31 @@ only catches `CLIUsageError` at the boundary.
 
 ### BREAKING CHANGE
 
-* refactor: rename internal `PipelineRegistry` base → `_OverrideRegistry` (#108)
+* refactor: remove internal `PipelineRegistry` base from `synaflow.execution` (#108)
 
-The base class that lives at the top of `synaflow/execution/overrides.py`
-was named `PipelineRegistry`. That name is now taken by the new
-public catalog class in `synaflow.PipelineRegistry`, so we
-renamed the internal base to **`_OverrideRegistry`** (leading
-underscore + private-by-convention). Its three public
-subclasses — `MaterializerRegistry`, `ObserverRegistry`,
-`ResourceRegistry` — were already independent and are
-unchanged. The internal base is removed from
-`synaflow.execution.__all__`.
+`synaflow.execution` no longer re-exports the internal base
+class that was historically named `PipelineRegistry`. That
+name is now taken by the new public catalog class
+`synaflow.PipelineRegistry`, and the internal override base
+has been renamed to **`_OverrideRegistry`** (leading
+underscore → private-by-convention). It still lives at
+`synaflow/execution/overrides.py` but is **not** re-exported
+from `synaflow.execution` and there is no public name for
+it.
 
-If your code imported the **internal base class** explicitly
-(this was never part of the public API, but it was exported
-from `__all__`):
-
-```python
-# BEFORE  -- worked by accident
-from synaflow.execution import PipelineRegistry as _Base
-
-# AFTER   -- pick the right class for your use case
-from synaflow.execution import _OverrideRegistry   # internal base
-from synaflow import PipelineRegistry              # new public catalog
-```
-
-Code that imported the **subclasses** (`MaterializerRegistry`,
-`ObserverRegistry`, `ResourceRegistry`) is unaffected.
+**What this means in practice.** Code that used the public
+override registries — `MaterializerRegistry`,
+`ObserverRegistry`, `ResourceRegistry` — needs no changes;
+they are still re-exported from `synaflow.execution`. Code
+that imported the old `PipelineRegistry` symbol from
+`synaflow.execution` (the base class) was reaching into an
+internal implementation detail; that symbol is gone. There
+is **no drop-in replacement**, because the new
+`synaflow.PipelineRegistry` is a different API — a catalog of
+`PipelineDef`s with cached `Dag` builds, not a subclassable
+override base. To plug into the override system, work through
+`MaterializerRegistry`, `ObserverRegistry`, or
+`ResourceRegistry`, which remain the supported surface.
 
 ### Refactor
 
