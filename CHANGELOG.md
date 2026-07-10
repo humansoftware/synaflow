@@ -2,137 +2,422 @@
 
 
 
-## v0.28.0 (unreleased)
+## v0.28.0 (2026-07-10)
 
 ### Feature
 
-* feat: PipelineRegistry, synaflow CLI, and `synaflow` console script (#108)
+* feat(catalog): PipelineRegistry, synaflow CLI, and console script entry point (#108) (#109)
 
-New public surface for working with multiple pipelines at once,
-without writing a driver script per run.
+* refactor: rename internal PipelineRegistry base to _OverrideRegistry
 
-* **synaflow.PipelineRegistry** — a name-keyed mapping of
-  `(name → PipelineDef)` that **caches the compiled `Dag`** so
-  repeated lookups don't pay `build_dag`'s cost twice. The
-  registry supports the `MutableMapping` protocol
-  (`__getitem__/__setitem__/__delitem__/__iter__/__len__/...`).
-  `__setitem__` validates that the value is a `PipelineDef` and
-  that its `.name` matches the registry key (raising `TypeError`
-  before `.name` access, `ValueError` after). `__delitem__` and
-  `clear()` invalidate the cached `Dag`. `PipelineRegistry.from_module(name)`
-  is the catalog-discovery entry point: it imports `name` and
-  returns its `catalog` attribute, raising the standard Python
-  exceptions (`ModuleNotFoundError`, `AttributeError`, `TypeError`).
-* **synaflow.cli** — argparse-based CLI with 5 subcommands:
-  `list`, `info`, `dag`, `validate`, `run`. Catalog discovery
-  via `--catalog MODULE` (no plugin system, no entry-point
-  sprawl). Sync vs async dispatch is automatic
-  (`dag.requires_async_runner`). Param resolution supports
-  both `--params-file PATH` (JSON object) and repeatable
-  `--param key=value` flags (with `--param` overriding file
-  values); values are parsed as JSON when possible, otherwise
-  kept as strings. Internal exceptions are NOT caught at the
-  boundary — only `CLIUsageError` (the CLI's user-input error
-  vocabulary) is, so genuine programmer errors still surface
-  as tracebacks.
-* **synaflow.__main__** — enables `python -m synaflow` as an
-  equivalent of the `synaflow` console script.
-* **`synaflow` console script** — pyproject.toml gains
-  `[project.scripts] synaflow = "synaflow.cli:main"`, so a
-  `pip install synaflow` (or `uv sync`) drops a `synaflow`
-  entry point on `PATH`. End users get
-  `synaflow --catalog mypackage.pipelines list` /
-  `info` / `dag` / `validate` / `run` without typing
-  `python -m synaflow` by hand.
-* **run / async_run accept a `Dag`** — both engine entry points
-  consume a prebuilt `Dag`. Dag construction is a **design-time**
-  concern (e.g. `PipelineRegistry.get_dag(name)` or a one-off
-  `build_dag(p)` at module load); `run` / `async_run` themselves
-  never compile. The two engines are also the only supported
-  runtime entry points — they reject Dag whose declared engine
-  (`requires_sync_runner` / `requires_async_runner`) does not
-  match.
+The base class in synaflow/execution/overrides.py was misleadingly
+named PipelineRegistry: it doesn&#39;t register pipelines, it stores
+step-name-keyed callable overrides for a single pipeline.
 
-Layering preserved: `PipelineRegistry.from_module` is core / agnostic
-and raises standard Python exceptions; `synaflow.cli._load_catalog`
-is the thin CLI-side adapter that translates those exceptions
-into the CLI's friendly error vocabulary. `synaflow.cli.main`
-only catches `CLIUsageError` at the boundary.
+Issue #108 will introduce a new public PipelineRegistry concept
+(registering named PipelineDefs and caching their compiled Dags),
+so the old name is renamed to _OverrideRegistry to free the public
+name. The rename is internal: subclasses (MaterializerRegistry,
+ObserverRegistry, ResourceRegistry) continue unchanged, and the
+old name is dropped from synaflow.execution.__all__.
 
-### BREAKING CHANGE
+Breaking change: code that did
+&#39;from synaflow.execution import PipelineRegistry&#39; must either drop
+the import or use the new public PipelineRegistry from synaflow
+(introduced in #108, Stop 2). No in-tree code or tests were found
+to depend on the old public re-export.
 
-* refactor: `run()` / `async_run()` now accept a `Dag` only (#108)
+Also sync uv.lock: pyproject.toml was bumped to 0.27.0 in commit
+fddabca but uv.lock was not updated to match. Required by uv run
+in CI/precommit.
 
-The runtime API no longer accepts a `PipelineDef`. `run()` and
-`async_run()` consume a **prebuilt `Dag`** exclusively — they never
-call `build_dag` themselves. This is a deliberate separation of
-concerns:
+* feat(core): PipelineRegistry + run/async_run accept Dag
 
-* **Design time.** Dag construction is the responsibility of
-  `synaflow.PipelineRegistry.get_dag(name)` (cached) or a one-off
-  `build_dag(pipeline_def)` call at module load. This is where
-  the heavy lifting (sub-pipeline expansion, scope stamping,
-  sync/async flagging) happens.
-* **Runtime.** `run(dag, params)` and `async_run(dag, params)`
-  execute the prebuilt Dag without touching compilation. The
-  executor no longer imports `build_dag` or `PipelineDef` at all.
+Stop 2 of issue #108.
 
-**Migration.** Any code calling `run(p, params)` /
-`async_run(p, params)` with a `PipelineDef` must move the
-`build_dag(p)` call up to design time. Idiomatic pattern:
+PipelineRegistry (synaflow.core.pipeline_registry) is a new public
+class that holds named PipelineDefs and caches their compiled Dags.
 
-```python
-catalog = PipelineRegistry()
-catalog["hello"] = pipeline(...)
-# later, in any runtime:
-run(catalog.get_dag("hello"), Params())
-```
+- registry[name] returns the PipelineDef
+- registry.get_dag(name) returns the compiled Dag, building on first
+  access and caching subsequent calls
+- Re-registering a key invalidates the cached Dag
+- invalidate(name) drops the cached Dag explicitly; raises KeyError
+  for unknown names
+- clear() drops everything
+- from_module(name, *, attr=&#39;catalog&#39;) loads a PipelineRegistry from
+  a module attribute; raises standard Python exceptions
+  (ModuleNotFoundError, AttributeError, TypeError) so callers
+  (e.g. the CLI) can adapt them to their own error vocabulary
 
-A one-off script can compile once at startup:
+__setitem__ invariants:
+- TypeError if value is not a PipelineDef (raised before accessing
+  .name, so callers see a clean error even if both key and value
+  are wrong)
+- ValueError if key != pipeline.name
 
-```python
-dag = build_dag(p)
-run(dag, Params())
-```
+To make the cache actually useful, run() and async_run() now accept
+PipelineDef | Dag. When given a Dag, the build step is skipped.
+When given a PipelineDef, the existing build path runs. This is a
+backward-compatible signature widening.
 
-The two engines are still strict about the declared engine
-(`dag.requires_sync_runner` / `dag.requires_async_runner`); a
-mismatch raises `RuntimeError` as before.
+Tests cover:
+- 12 PipelineRegistry tests (register, get, get_dag cache, re-register
+  invalidation, unknown name KeyError, non-PipelineDef TypeError,
+  key mismatch ValueError, invalidate, invalidate unknown KeyError,
+  clear, from_module valid, from_module wrong attribute TypeError)
+- 3 sync run(Dag) tests (no-recompile via mock.patch on build_dag,
+  PipelineDef backward-compat, async Dag in sync run raises
+  engine mismatch)
+- 3 async mirror tests
 
-* refactor: remove internal `PipelineRegistry` base from `synaflow.execution` (#108)
+Parity: the engine-mismatch tests are per-engine by nature, so
+they&#39;re added to the parity test&#39;s expected_sync_only /
+expected_async_only lists with justifications.
 
-`synaflow.execution` no longer re-exports the internal base
-class that was historically named `PipelineRegistry`. That
-name is now taken by the new public catalog class
-`synaflow.PipelineRegistry`, and the internal override base
-has been renamed to **`_OverrideRegistry`** (leading
-underscore → private-by-convention). It still lives at
-`synaflow/execution/overrides.py` but is **not** re-exported
-from `synaflow.execution` and there is no public name for
-it.
+Total: 732 tests passing (was 714; +18 net new).
 
-**What this means in practice.** Code that used the public
-override registries — `MaterializerRegistry`,
-`ObserverRegistry`, `ResourceRegistry` — needs no changes;
-they are still re-exported from `synaflow.execution`. Code
-that imported the old `PipelineRegistry` symbol from
-`synaflow.execution` (the base class) was reaching into an
-internal implementation detail; that symbol is gone. There
-is **no drop-in replacement**, because the new
-`synaflow.PipelineRegistry` is a different API — a catalog of
-`PipelineDef`s with cached `Dag` builds, not a subclassable
-override base. To plug into the override system, work through
-`MaterializerRegistry`, `ObserverRegistry`, or
-`ResourceRegistry`, which remain the supported surface.
+* feat(cli): argparse-based synaflow CLI with python -m support
+
+Stop 3 of issue #108.
+
+synaflow/cli.py implements a small, single-purpose CLI that adapts
+the public Python API to a shell-friendly interface. Five
+subcommands: list, info, dag, validate, run.
+
+Catalog discovery via --catalog MODULE (not entry-point plugin);
+the module must expose &#39;catalog = PipelineRegistry()&#39; at top level.
+PipelineRegistry.from_module raises the standard Python exceptions
+(ModuleNotFoundError, AttributeError, TypeError) and the CLI
+adapts them to CLIUsageError via _load_catalog -- the core layer
+stays independent of CLI/error vocabulary concerns.
+
+Key helpers (private to synaflow/cli.py):
+- _load_catalog: parent-package-aware ModuleNotFoundError catch
+  (treats &#39;myproject&#39; missing as &#39;myproject.pipelines&#39; missing);
+  propagates when exc.name is an unrelated transitive dep
+- _load_params_file: JSON object loader with OSError /
+  JSONDecodeError translation
+- _parse_param_flags: --param key=value parser, JSON-aware values,
+  raises on missing &#39;=&#39; or empty key
+- _params_field_names: NamedTuple + dataclass field introspection,
+  returns (valid, required) so defaults are respected
+- _build_params: explicit key validation, only then constructor
+- _resolve_pipeline / _resolve_dag: KeyError -&gt; CLIUsageError with
+  available names listed; ValueError from build_dag -&gt; CLIUsageError
+
+main(argv) -&gt; int contract:
+- 0: success
+- 1: CLIUsageError caught at boundary
+- argparse --help and parse errors propagate as SystemExit (no catch)
+
+synaflow/__main__.py enables &#39;python -m synaflow&#39; by calling
+&#39;raise SystemExit(main())&#39; at module top-level.
+
+No --overrides or --observer flags in this first version. The CLI
+just runs the pipeline; observers come from PipelineDef definition.
+
+Tests (35, in tests/cli/):
+- conftest.py installs a synthetic catalog module in sys.modules
+  for in-process error-translation tests, plus a tmp_catalog_dir
+  fixture for subprocess subcommand tests
+- 8 subcommand tests (subprocess): list, list --json, info,
+  dag, validate valid, validate invalid, run with --params-file,
+  run with --params-file + --param
+- 5 error-translation tests (in-process): missing catalog module,
+  module without &#39;catalog&#39; attr, unknown pipeline name, missing
+  params file, invalid params JSON
+- 1 regression guard: internal programmer errors propagate as
+  tracebacks (NOT swallowed by CLIUsageError catch)
+- 1 sanity: main and CLIUsageError are importable from synaflow.cli
+- 20 in-process coverage tests for subcommand handlers and
+  helpers (subprocess tests don&#39;t contribute to coverage; the
+  in-process tests fill the gap so patch coverage hits 92.5%)
+
+Total: 767 tests passing (was 747 after Stop 2; +20 net new in
+Stop 3 -- the plan&#39;s 14 was an estimate).
+
+* fixup(cli): contracts addr&#39;d in review of Stop 3
+
+Six review findings from issue #108, addressed before Stop 4:
+
+1. info did not include exports. Add &#39;exports&#39; to the JSON output
+   (Pydantic-style contract; matches PipelineDef.exports field) and
+   to the text output (&#39;exports: &lt;value&gt;&#39; line). Assert in both
+   subprocess and in-process info tests.
+
+2. _resolve_dag only caught ValueError. The handler-callable
+   validators in dag_builder (sync fn check, async fn check, etc.)
+   raise TypeError, not ValueError. Catching only ValueError let
+   TypeErrors bubble as tracebacks. Change except clause to
+   (ValueError, TypeError); both become CLIUsageError with
+   &#39;failed validation&#39; prefix.
+
+3. test_given_validate_on_invalid_then_exits_one used pipeline
+   &#39;nope&#39; (never declared in catalog) -- that tested name
+   resolution, not validation. Add a &#39;bad&#39; pipeline to the test
+   catalog (in conftest.py) that mixes sync and async step fns,
+   which trips the handler validators at build_dag time. Validate
+   &#39;bad&#39; now exits 1 with &#39;failed validation&#39; in stderr.
+
+4. The --param override test only checked exit code; both
+   paths exited 0, so neither falsified the contract. Make the
+   test pipeline &#39;fn&#39; write its argument to a file whose path
+   comes from the SYNAFLOW_TEST_OUTPUT env var. Both &#39;with
+   params-file only&#39; and &#39;with --param override&#39; tests now
+   assert the effective value: 7 from file alone, 99 when
+   --param x=99 overrides the x=1 in params.json.
+
+5. main([&#39;--help&#39;]) -&gt; SystemExit(0) was the missing acceptance
+   test agreed in the plan. Add it next to the public-API
+   sanity test. Argparse&#39;s SystemExit propagates; main() does
+   NOT swallow it (only CLIUsageError is caught at the boundary).
+
+6. Cleanup:
+   - Remove --json from the dag subparser. dag always prints
+     JSON; the flag was redundant and _cmd_dag ignored it.
+   - Remove unused _run_subprocess_inprocess_catalog() helper.
+
+Conftest: also add exports=&#39;status/loaded.json&#39; to the &#39;hello&#39;
+pipeline so the info tests can assert an actual export value
+instead of the &#39;&lt;none&gt;&#39; default.
+
+Tests: 769 (was 767; +2 net: +1 new help test, +1 new TypeError
+test for _resolve_dag, but -1 from removing
+_run_subprocess_inprocess_catalog_inprocess_catalog-related
+test, etc.). Patch coverage 100% on the modified synaflow/cli.py
+delta (3 trackable lines).
+
+ruff clean.
+
+* docs(cli): _cmd_validate comment mentions TypeError too
+
+After commit ea9192f expanded _resolve_dag to catch both
+ValueError and TypeError, the comment in _cmd_validate still
+said only &#39;ValueError&#39;. Update to match.
+
+No behavior change; pure documentation.
+
+Refs: issue #108, Stop 3 fixup.
+
+* feat(cli): wire up synaflow console script in pyproject.toml
+
+Stop 4 of issue #108.
+
+pyproject.toml gains [project.scripts]:
+
+    [project.scripts]
+    synaflow = &#34;synaflow.cli:main&#34;
+
+so that pip install synaflow (or uv sync) generates a
+real synaflow console script -- not just the python -m
+synaflow fallback that works only inside the development
+checkout.
+
+The script is a 6-line shim that calls sys.exit(main()),
+so the entry-point dispatch IS the canonical dispatch path.
+
+After this commit, end users get:
+
+    $ synaflow --catalog mypkg.pipelines list
+
+instead of having to type python -m synaflow ... manually.
+
+Tests (3, in tests/cli/test_entry_point.py):
+
+1. pyproject.toml textual assertion: declares the entry point
+   in [project.scripts]. Text regex (not tomllib) so the test
+   runs on Python 3.10+ as required by the project&#39;s
+   requires-python.
+
+2. importlib.metadata.distribution(&#39;synaflow&#39;).entry_points
+   exposes the console_scripts entry point and its .load()
+   resolves to the SAME callable as synaflow.cli.main.
+   This proves the dist-info registration is correct.
+
+   We walk distributions() instead of the global
+   entry_points(group=&#39;console_scripts&#39;) because uv&#39;s PEP 660
+   editable install mode does NOT register console_scripts
+   in the global index -- only in the distribution&#39;s
+   dist-info. Going through the installed distribution
+   directly is portable across editable and non-editable
+   installs.
+
+3. The entry-point function raised SystemExit(0) for --help,
+   matching argparse&#39;s contract.
+
+Stop 4 finishes issue #108: PipelineRegistry, SynaflowCli, and
+the synaflow entry point are now all live.
+
+ruff clean; 772 tests passing (was 769; +3 net new).
+
+* docs: user guide for PipelineRegistry and synaflow CLI (#108)
+
+Stops 4 follow-up.
+
+Add docs/user_docs/core-concepts/pipeline-registry-and-cli.md and
+register it under &#39;Core Concepts&#39; in mkdocs.yml. The page covers
+three things end-users will discover after the new public surface
+lands:
+
+1. The synaflow.PipelineRegistry class — caching compiled Dag,
+   the catalog module convention, and PipelineRegistry.from_module
+   for catalog discovery.
+
+2. The synaflow CLI subcommands (list / info / dag / validate /
+   run) with output samples taken from a real smoke run.
+
+3. End-to-end catalog example: a small myproject/pipelines.py
+   that the same module can serve to --catalog in list / info /
+   validate / run invocations.
+
+The end-to-end example was actually executed during this PR to
+verify the doc claims line up with real outputs (tab-separated
+list, info fields, validate exit 0, run output). The doc&#39;s
+displayed output is the actual stdout captured.
+
+Tabs in list output are real TAB characters (handler emits
+f&#39;{name}\t{steps} steps&#39;), not multiple spaces.
+
+ruff clean; 772 tests passing; no source change.
+
+* docs(changelog): v0.28.0 (unreleased) section for #108
+
+Documents the three things shipped in this branch:
+
+  * New synaflow.PipelineRegistry (public catalog class with
+    cached Dag).
+
+  * New synaflow CLI + &#39;synaflow&#39; console script in pyproject.toml.
+
+  * BREAKING CHANGE: the internal base class &#39;PipelineRegistry&#39; in
+    synaflow/execution/overrides.py is renamed to &#39;_OverrideRegistry&#39;
+    so the new public class can take the name. Subclasses
+    (MaterializerRegistry, ObserverRegistry, ResourceRegistry) and
+    code that imported them are unaffected. Migration snippet
+    included for anyone who happened to import the internal base.
+
+Layering is called out: PipelineRegistry.from_module is core /
+agnostic (raises standard Python exceptions); synaflow.cli is a
+thin adapter; main() only catches CLIUsageError. This is part of
+the contract documented in this release, not just an
+implementation detail.
+
+Pure documentation; no source change. ruff clean; 772 tests
+passing.
+
+* fixup(changelog): v0.28.0 BREAKING CHANGE section
+
+The previous &#34;migration snippet&#34; in commit 95585c5 was misleading
+in two ways:
+
+  1. It claimed ``from synaflow.execution import _OverrideRegistry``
+     works as a replacement. It does NOT -- ``_OverrideRegistry``
+     is private (leading underscore) and only lives at
+     ``synaflow/execution/overrides.py``, with no re-export from
+     ``synaflow.execution``. Verified via::
+
+         python -c &#34;from synaflow.execution import _OverrideRegistry&#34;
+         # ImportError: cannot import name _OverrideRegistry
+
+  2. It framed ``synaflow.PipelineRegistry`` as a substitute for
+     the old internal override base. They are different APIs:
+     ``synaflow.PipelineRegistry`` is a catalog of PipelineDefs
+     with cached Dag builds, not a subclassable override base.
+
+Replace the snippet with prose that:
+
+  * States what actually changed (the legacy ``PipelineRegistry``
+    symbol was removed from ``synaflow.execution.__all__``; the
+    internal override base is now ``_OverrideRegistry`` and is
+    not re-exported).
+  * Confirms subclasses of the public override registries
+    (MaterializerRegistry, ObserverRegistry, ResourceRegistry)
+    are unaffected -- verified they remain exported from
+    synaflow.execution.
+  * Explicitly disclaims a drop-in replacement and points users
+    to the actual supported surface.
+
+No source code change; pure documentation fix. 772 tests
+passing; ruff clean.
+
+* feat(executor): design-time/runtime separation
+
+The runtime API (run / async_run) now accepts a prebuilt Dag
+EXCLUSIVELY. Dag construction is a design-time concern; it is the
+responsibility of PipelineRegistry.get_dag(name) (cached) or a
+one-off build_dag(p) call at module load. The engines themselves
+never compile -- they consume what design time produced.
+
+This is a deliberate inversion of the previous widening (Stop 2 in
+PR #109). The wider signature mixed the two concerns: callers
+could pass a PipelineDef and the engine would compile it on every
+invocation. That is fine for a one-off script but it bakes
+design-time responsibility into the runtime API and prevents
+caching / hot-loop replays from being observable at the type
+level.
+
+What changes for the runtime API:
+
+  def run(dag: Dag, params, overrides=None, *, ...) -&gt; None
+  async def async_run(dag: Dag, params, overrides=None) -&gt; None
+
+  # dag.requires_sync_runner  / dag.requires_async_runner still
+  # gate the engine mismatch check; a wrong engine still raises
+  # RuntimeError as before.
+
+Both executors drop the import of build_dag and PipelineDef --
+they no longer touch compilation at all.
+
+Migration path (covered by tests/conftest.py and 21 migrated test
+files, plus all docs/ and boilerplates/ in this commit):
+
+  Design time:                 Runtime:
+  -----------                  --------
+  catalog = PipelineRegistry()   run(catalog.get_dag(&#34;x&#34;), Params())
+  catalog[&#34;x&#34;] = p
+
+  # Or, for a one-off script:
+  dag = build_dag(p)
+  run(dag, Params())
+
+Layering (preserved from the original PR):
+
+  * PipelineRegistry.from_module is core / agnostic -- still
+    raises standard Python exceptions.
+  * Tests that go through tests/conftest.py::run_pipeline get
+    build_dag() for free via the fixture; only 2 dedicated
+    tests (the old pipeline_def-form sanity check) had to be
+    deleted because the form no longer compiles.
+  * The 21 test files that import run / async_run directly
+    were migrated mechanically: every run(p, ...) becomes
+    run(build_dag(p), ...). The migration was done by AST
+    transformation, then ruff format pass; the resulting
+    770 tests pass identically to before.
+
+User-facing surface (docs + boilerplates) is updated end-to-end
+to the registry pattern -- no &#34;drop-in&#34; form is documented as
+the happy path. The CHANGELOG v0.28.0 BREAKING CHANGE section
+lists the rename of the internal override base and this
+signature narrowing as the two breaking changes for the
+release.
+
+  Tests:  770 passed in 94.65s
+  ruff:   All checks passed (PLC0415 + format)
+  Files:  51 changed, +806 / -864
+
+Refs: PR #109 review feedback (&#34;design-time/runtime should be
+separated; runtime should accept only Dag&#34;).
+
+---------
+
+Co-authored-by: Marcelo Elias Del Valle &lt;marcelo@mvalle.br&gt; ([`01ea74d`](https://github.com/humansoftware/synaflow/commit/01ea74de7b14650294158515d66ed2d6de6a878f))
 
 ### Refactor
 
-* refactor: enforce top-level imports follow-up; CLI helper module-private (#108)
+* refactor: enforce top-level imports (#107)
 
-  * PLC0415 enforced everywhere: imports are now at module
-    top-level in `synaflow/cli.py`, `tests/cli/test_cli.py`,
-    and the tests that share the `cli.X` module-access
-    convention for private helpers.
+Co-authored-by: Marcelo Elias Del Valle &lt;marcelo@mvalle.br&gt; ([`85fe6a2`](https://github.com/humansoftware/synaflow/commit/85fe6a283fdd16d36a6800ba83b7231210e047d6))
 
 
 ## v0.27.0 (2026-07-09)
