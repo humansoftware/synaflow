@@ -381,24 +381,52 @@ def _cmd_run(
 # ---------------------------------------------------------------------------
 
 
+# Flags accepted before the positional ``run NAME`` that consume the next
+# token as their value. The bootstrap parser below must skip flag + value
+# pairs so the positional extraction is not confused by a value-looking
+# argument.
+_PRE_NAME_VALUE_FLAGS = frozenset({"--catalog", "--params-file"})
+
+
 def _resolve_run_pipeline(
     tokens: list[str],
     catalog: PipelineRegistry,
 ) -> PipelineDef | None:
     """Load the selected run pipeline before building its direct flags.
 
-    The bootstrap parser intentionally knows only the command shape. That
-    lets ``run NAME --help`` discover ``NAME`` and render the final parser
-    with the pipeline's own parameter flags.
+    The bootstrap is a manual scan, not an ``argparse`` parser, because
+    of a quirk in ``argparse``: when two consecutive positionals are
+    declared with ``nargs="?"`` (``subcommand`` then ``name``) and an
+    unknown flag appears between them, argparse silently stops consuming
+    the second positional and shoves everything after the unknown flag
+    into the leftover list. Concretely:
+
+        ["run", "--no-observers", "P", "--x", "1"]
+        #  -> subcommand="run" name=None leftover=[...]   (BUG)
+
+    The manual scan tolerates any flags in any position, including
+    ones the bootstrap parser cannot know about (the typed param flags
+    are per-pipeline and only registered later, on the main parser).
     """
-    bootstrap = argparse.ArgumentParser(add_help=False)
-    bootstrap.add_argument("--catalog")
-    bootstrap.add_argument("subcommand", nargs="?")
-    bootstrap.add_argument("name", nargs="?")
-    provisional, _ = bootstrap.parse_known_args(tokens)
-    if provisional.subcommand != "run" or provisional.name is None:
+    sub = name = None
+    i = 0
+    while i < len(tokens):
+        tok = tokens[i]
+        if tok in _PRE_NAME_VALUE_FLAGS and i + 1 < len(tokens):
+            i += 2
+            continue
+        if tok.startswith("-"):
+            i += 1
+            continue
+        if sub is None:
+            sub = tok
+        elif name is None:
+            name = tok
+            break
+        i += 1
+    if sub != "run" or name is None:
         return None
-    return _resolve_pipeline(catalog, provisional.name)
+    return _resolve_pipeline(catalog, name)
 
 
 def _resolve_pipeline(catalog: PipelineRegistry, name: str) -> PipelineDef:
