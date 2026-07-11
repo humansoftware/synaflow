@@ -166,6 +166,15 @@ class ExecutionOverrides:
             resources=ResourceRegistry.from_production(pipeline),
         )
 
+    @classmethod
+    def without_observers(cls, pipeline: PipelineDef) -> "ExecutionOverrides":
+        """Use production materializers/resources while disabling observers."""
+        return cls(
+            materializers=MaterializerRegistry.from_production(pipeline),
+            observers=ObserverRegistry.empty(pipeline),
+            resources=ResourceRegistry.from_production(pipeline),
+        )
+
 
 def _materializer_contract_keys(pipeline: PipelineDef) -> set[str]:
     dag = build_dag(pipeline)

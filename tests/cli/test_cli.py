@@ -27,7 +27,7 @@ from unittest import mock
 
 import pytest
 
-from synaflow import PipelineRegistry, cli, pipeline, step
+from synaflow import Observer, PipelineRegistry, SynaflowCli, cli, pipeline, step
 from synaflow.cli import CLIUsageError, main
 from tests.cli.conftest import SYNATEST_CATALOG_NAME
 
@@ -64,6 +64,41 @@ def _write_params_file(tmp_path: Path, body: dict) -> Path:
 # ---------------------------------------------------------------------------
 # Subcommand tests (subprocess)
 # ---------------------------------------------------------------------------
+
+
+def test_given_project_cli_with_fixed_catalog_then_list_needs_no_catalog_flag(capsys):
+    result = SynaflowCli(catalog=_fake_catalog()).main(["list"])
+
+    captured = capsys.readouterr()
+    assert result == 0
+    assert "hello" in captured.out
+
+
+def test_given_no_observers_then_project_cli_disables_pipeline_observers():
+    class Params(NamedTuple):
+        value: int = 1
+
+    events = []
+
+    def record(_ctx):
+        events.append("called")
+
+    def emit(value: int) -> int:
+        return value
+
+    p = pipeline(
+        name="quiet",
+        params=Params,
+        steps=[step("emit", fn=emit)],
+        observers=[Observer(record)],
+    )
+    catalog = PipelineRegistry()
+    catalog.add(p)
+
+    result = SynaflowCli(catalog=catalog).main(["run", "quiet", "--no-observers"])
+
+    assert result == 0
+    assert events == []
 
 
 def test_given_list_then_prints_pipeline_names(tmp_catalog_dir):
@@ -112,28 +147,6 @@ def test_given_run_with_params_file_then_executes(tmp_catalog_dir):
     assert observed.read_text() == "7"
 
 
-def test_given_run_with_param_flag_overrides_file_then_effective_value_wins(
-    tmp_catalog_dir,
-):
-    # params.json says x=1, --param x=99 MUST override to 99. The
-    # observable side-effect (write to SYNAFLOW_TEST_OUTPUT) proves
-    # the effective value, not just the exit code.
-    observed = tmp_catalog_dir / "observed.txt"
-    params_path = _write_params_file(tmp_catalog_dir, {"x": 1})
-    result = _run_subprocess(
-        "run",
-        "hello",
-        "--params-file",
-        str(params_path),
-        "--param",
-        "x=99",
-        tmp_path=tmp_catalog_dir,
-        env={"SYNAFLOW_TEST_OUTPUT": str(observed)},
-    )
-    assert result.returncode == 0, result.stderr
-    assert observed.read_text() == "99"
-
-
 def test_given_run_with_direct_param_flag_then_effective_value_is_used(tmp_catalog_dir):
     observed = tmp_catalog_dir / "observed.txt"
     result = _run_subprocess(
@@ -148,7 +161,7 @@ def test_given_run_with_direct_param_flag_then_effective_value_is_used(tmp_catal
     assert observed.read_text() == "2024-01-15"
 
 
-def test_given_direct_param_flag_then_it_overrides_file_and_legacy_param(
+def test_given_direct_param_flag_then_it_overrides_params_file(
     tmp_catalog_dir,
 ):
     observed = tmp_catalog_dir / "observed.txt"
@@ -158,8 +171,6 @@ def test_given_direct_param_flag_then_it_overrides_file_and_legacy_param(
         "hello",
         "--params-file",
         str(params_path),
-        "--param",
-        "x=2",
         "--x",
         "3",
         tmp_path=tmp_catalog_dir,
@@ -167,6 +178,19 @@ def test_given_direct_param_flag_then_it_overrides_file_and_legacy_param(
     )
     assert result.returncode == 0, result.stderr
     assert observed.read_text() == "3"
+
+
+def test_given_legacy_param_flag_then_argparse_rejects_it(tmp_catalog_dir):
+    result = _run_subprocess(
+        "run",
+        "hello",
+        "--param",
+        "x=99",
+        tmp_path=tmp_catalog_dir,
+    )
+
+    assert result.returncode == 2
+    assert "unrecognized arguments: --param" in result.stderr
 
 
 def test_given_run_pipeline_help_then_it_lists_direct_param_flags(tmp_catalog_dir):
@@ -388,24 +412,6 @@ def test_given_load_params_file_non_dict_then_raises_cli_usage_error(tmp_path):
     bad.write_text("[1, 2, 3]")
     with pytest.raises(CLIUsageError, match="JSON object"):
         cli._load_params_file(str(bad))
-
-
-def test_given_parse_param_flags_missing_equals_then_raises_cli_usage_error():
-
-    with pytest.raises(CLIUsageError, match="key=value"):
-        cli._parse_param_flags(["nokv"])
-
-
-def test_given_parse_param_flags_empty_key_then_raises_cli_usage_error():
-
-    with pytest.raises(CLIUsageError, match="empty key"):
-        cli._parse_param_flags(["=value"])
-
-
-def test_given_parse_param_flags_json_value_then_parses_value():
-
-    result = cli._parse_param_flags(["count=42", 'name="x"', "raw=hello"])
-    assert result == {"count": 42, "name": "x", "raw": "hello"}
 
 
 def test_given_build_params_dataclass_then_respects_defaults():

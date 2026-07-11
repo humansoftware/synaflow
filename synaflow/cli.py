@@ -17,9 +17,12 @@ import sys
 from collections.abc import Sequence
 from typing import Any
 
-from synaflow import PipelineRegistry, async_run, run
 from synaflow.core.dag import Dag
 from synaflow.core.definition import PipelineDef
+from synaflow.core.pipeline_registry import PipelineRegistry
+from synaflow.execution.async_engine.executor import async_run
+from synaflow.execution.overrides import ExecutionOverrides
+from synaflow.execution.sync_engine.executor import run
 
 
 class CLIUsageError(Exception):
@@ -36,8 +39,29 @@ class CLIUsageError(Exception):
 # ---------------------------------------------------------------------------
 
 
+class SynaflowCli:
+    """Run a fixed :class:`PipelineRegistry` through the standard CLI.
+
+    Projects use this class when their catalog is known in application code.
+    The module-level ``main`` function remains the adapter for the packaged
+    command, where ``--catalog`` selects that registry dynamically.
+    """
+
+    def __init__(self, *, catalog: PipelineRegistry) -> None:
+        if not isinstance(catalog, PipelineRegistry):
+            raise TypeError(
+                f"catalog must be a PipelineRegistry, got {type(catalog).__name__}"
+            )
+        self._catalog = catalog
+
+    def main(self, argv: Sequence[str] | None = None) -> int:
+        """Parse ``argv`` and run a command against the fixed catalog."""
+        tokens = list(argv) if argv is not None else sys.argv[1:]
+        return _main_with_catalog(tokens, self._catalog, catalog_required=False)
+
+
 def main(argv: Sequence[str] | None = None) -> int:
-    """Parse argv, dispatch to a subcommand handler, return exit code.
+    """Run the packaged CLI, which requires ``--catalog MODULE``.
 
     Returns 0 for success, 1 for ``CLIUsageError``. Argparse's own
     ``--help`` (SystemExit 0) and parse errors (SystemExit 2) propagate
@@ -45,10 +69,36 @@ def main(argv: Sequence[str] | None = None) -> int:
     """
     try:
         tokens = list(argv) if argv is not None else sys.argv[1:]
-        run_context = _resolve_run_context(tokens)
-        params_type = run_context[1].params if run_context else None
-        args = _build_parser(params_type=params_type).parse_args(tokens)
-        return _dispatch(args, catalog=run_context[0] if run_context else None)
+        bootstrap = argparse.ArgumentParser(add_help=False)
+        bootstrap.add_argument("--catalog")
+        provisional, _ = bootstrap.parse_known_args(tokens)
+        if provisional.catalog is None:
+            _build_parser(params_type=None, catalog_required=True).parse_args(tokens)
+            raise AssertionError("argparse should have rejected missing --catalog")
+        return _main_with_catalog(
+            tokens,
+            _load_catalog(provisional.catalog),
+            catalog_required=True,
+        )
+    except CLIUsageError as exc:
+        print(f"synaflow: {exc}", file=sys.stderr)
+        return 1
+
+
+def _main_with_catalog(
+    tokens: list[str],
+    catalog: PipelineRegistry,
+    *,
+    catalog_required: bool,
+) -> int:
+    try:
+        run_pipeline = _resolve_run_pipeline(tokens, catalog)
+        params_type = run_pipeline.params if run_pipeline else None
+        args = _build_parser(
+            params_type=params_type,
+            catalog_required=catalog_required,
+        ).parse_args(tokens)
+        return _dispatch(args, catalog=catalog)
     except CLIUsageError as exc:
         print(f"synaflow: {exc}", file=sys.stderr)
         return 1
@@ -62,38 +112,46 @@ def main(argv: Sequence[str] | None = None) -> int:
 def _build_parser(
     *,
     params_type: Any | None = None,
+    catalog_required: bool = True,
 ) -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="synaflow",
         description="Inspect and run synaflow pipelines.",
+        allow_abbrev=False,
     )
-    parser.add_argument(
-        "--catalog",
-        required=True,
-        metavar="MODULE",
-        help=(
-            "Python module exposing `catalog = PipelineRegistry()` at top "
-            "level. The module must be importable from the current "
-            "PYTHONPATH."
-        ),
-    )
+    if catalog_required:
+        parser.add_argument(
+            "--catalog",
+            required=True,
+            metavar="MODULE",
+            help=(
+                "Python module exposing `catalog = PipelineRegistry()` at top "
+                "level. The module must be importable from the current "
+                "PYTHONPATH."
+            ),
+        )
 
     sub = parser.add_subparsers(dest="subcommand", required=True)
 
-    p_list = sub.add_parser("list", help="List registered pipelines.")
+    p_list = sub.add_parser(
+        "list", help="List registered pipelines.", allow_abbrev=False
+    )
     p_list.add_argument("--json", action="store_true", help="Output as JSON.")
 
-    p_info = sub.add_parser("info", help="Show declared pipeline details.")
+    p_info = sub.add_parser(
+        "info", help="Show declared pipeline details.", allow_abbrev=False
+    )
     p_info.add_argument("name")
     p_info.add_argument("--json", action="store_true", help="Output as JSON.")
 
     p_dag = sub.add_parser(
         "dag",
         help="Show the compiled Dag as JSON (compiles on demand).",
+        allow_abbrev=False,
     )
     p_dag.add_argument("name")
 
-    p_run = sub.add_parser("run", help="Run the pipeline.")
+    p_run = sub.add_parser("run", help="Run the pipeline.", allow_abbrev=False)
     p_run.add_argument("name")
     p_run.add_argument(
         "--params-file",
@@ -101,20 +159,13 @@ def _build_parser(
         default=None,
         help="Path to a JSON object with params field values.",
     )
+    p_run.add_argument(
+        "--no-observers",
+        action="store_true",
+        help="Disable all pipeline and step observers for this run.",
+    )
     if params_type is not None:
         _add_direct_param_flags(p_run, params_type)
-    p_run.add_argument(
-        "--param",
-        action="append",
-        default=[],
-        metavar="key=value",
-        help=(
-            "Inline param override. Repeatable. Values are parsed as "
-            "JSON when possible, otherwise kept as strings. Overrides "
-            "values from --params-file."
-        ),
-    )
-
     return parser
 
 
@@ -125,9 +176,8 @@ def _build_parser(
 
 def _dispatch(
     args: argparse.Namespace,
-    catalog: PipelineRegistry | None = None,
+    catalog: PipelineRegistry,
 ) -> int:
-    catalog = catalog or _load_catalog(args.catalog)
     sub = args.subcommand
     if sub == "list":
         return _cmd_list(catalog, args)
@@ -228,14 +278,17 @@ def _cmd_run(catalog: PipelineRegistry, args: argparse.Namespace) -> int:
     p = _resolve_pipeline(catalog, args.name)
     dag = _resolve_dag(catalog, args.name)
     file_values = _load_params_file(args.params_file) if args.params_file else {}
-    legacy_flag_values = _parse_param_flags(args.param)
     direct_flag_values = _direct_param_values(p.params, args)
-    flag_values = {**legacy_flag_values, **direct_flag_values}
-    params = _build_params(p.params, file_values, flag_values)
+    params = _build_params(p.params, file_values, direct_flag_values)
+    overrides = (
+        ExecutionOverrides.without_observers(p)
+        if getattr(args, "no_observers", False)
+        else None
+    )
     if dag.requires_async_runner:
-        asyncio.run(async_run(dag, params))
+        asyncio.run(async_run(dag, params, overrides=overrides))
     else:
-        run(dag, params)
+        run(dag, params, overrides=overrides)
     return 0
 
 
@@ -244,9 +297,10 @@ def _cmd_run(catalog: PipelineRegistry, args: argparse.Namespace) -> int:
 # ---------------------------------------------------------------------------
 
 
-def _resolve_run_context(
+def _resolve_run_pipeline(
     tokens: list[str],
-) -> tuple[PipelineRegistry, PipelineDef] | None:
+    catalog: PipelineRegistry,
+) -> PipelineDef | None:
     """Load the selected run pipeline before building its direct flags.
 
     The bootstrap parser intentionally knows only the command shape. That
@@ -258,14 +312,9 @@ def _resolve_run_context(
     bootstrap.add_argument("subcommand", nargs="?")
     bootstrap.add_argument("name", nargs="?")
     provisional, _ = bootstrap.parse_known_args(tokens)
-    if (
-        provisional.catalog is None
-        or provisional.subcommand != "run"
-        or provisional.name is None
-    ):
+    if provisional.subcommand != "run" or provisional.name is None:
         return None
-    catalog = _load_catalog(provisional.catalog)
-    return catalog, _resolve_pipeline(catalog, provisional.name)
+    return _resolve_pipeline(catalog, provisional.name)
 
 
 def _resolve_pipeline(catalog: PipelineRegistry, name: str) -> PipelineDef:
@@ -293,7 +342,7 @@ def _resolve_dag(catalog: PipelineRegistry, name: str) -> Dag:
 # ---------------------------------------------------------------------------
 
 
-_RUN_RESERVED_PARAM_FIELDS = {"param", "params_file"}
+_RUN_RESERVED_PARAM_FIELDS = {"no_observers", "params_file"}
 
 
 def _add_direct_param_flags(
@@ -344,24 +393,6 @@ def _load_params_file(path: str) -> dict:
             f"{type(data).__name__}"
         )
     return data
-
-
-def _parse_param_flags(items: list[str]) -> dict:
-    """Parse ``--param key=value`` entries.
-
-    - Split on the FIRST ``=`` only (value may contain ``=``).
-    - Empty key raises CLIUsageError.
-    - Value: try ``json.loads``; on failure, keep as string.
-    """
-    result: dict[str, Any] = {}
-    for item in items:
-        if "=" not in item:
-            raise CLIUsageError(f"--param {item!r} must be in key=value form")
-        key, value_str = item.split("=", 1)
-        if not key:
-            raise CLIUsageError(f"--param {item!r} has empty key")
-        result[key] = _parse_param_value(value_str)
-    return result
 
 
 def _parse_param_value(value: str) -> Any:
