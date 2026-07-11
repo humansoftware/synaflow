@@ -2,6 +2,131 @@
 
 
 
+## v0.31.1 (2026-07-11)
+
+### Documentation
+
+* docs: move AGENTS.md to root, absorb opencode.json conventions, add worktree convention (#117)
+
+## Changes
+
+- **Move** `docs/AGENTS.md` → `./AGENTS.md` and expand it from a 10-line
+  reading index into a 87-line entry point for AI agents.
+  Now includes: tool-agnostic conventions, standard verification
+  commands, four agent roles (build / plan / architect / reviewer),
+  PR description template.
+
+- **Delete** `opencode.json`. Its tool-specific schema and
+  permission rules were tied to the opencode CLI which we no longer
+  use; its agent prompts and commands are absorbed into AGENTS.md
+  in tool-agnostic form.
+
+- **Add** section &#34;Parallel-Agent Worktrees&#34; to `HACKING.md`,
+  importing the convention from the analisedefiis repo:
+  - one worktree per parallel agent, under `../synaflow-worktrees/`
+  - branch + dir named `codex/&lt;agent&gt;-&lt;task&gt;`
+  - cleanup uses `git worktree remove` (never `--force` without
+    explicit user approval)
+  - includes note on squash-merged branches (`git branch -d`
+    fails after squash, fall back to `-D` only after verifying
+    the merge commit is on main)
+  - renumbers existing §2-§5 to §3-§6
+
+## Why
+
+The previous `docs/AGENTS.md` was a thin reading list. With pi
+becoming the primary AI agent tooling, the project needed a single
+canonical entry point that:
+- lives where AI tooling looks (repo root)
+- encodes synaflow-specific AI conventions in tool-agnostic form
+- documents the workflow conventions that multiple agents need
+  to coordinate safely (worktree per agent, no `--force` cleanup,
+  squash-merge caveat)
+
+## Verified
+
+- 779/779 tests pass (`uv run pytest tests/`)
+- `uv run ruff format --check .` clean (164 files)
+- `uv run ruff check .` clean
+- `uv run mkdocs build --strict` clean
+
+## Diff
+
+```
+ AGENTS.md                        | 87 ++++++++
+ HACKING.md                       | 45 ++++-
+ docs/AGENTS.md                   | 10 --
+ opencode.json                    | 54 ----
+ 4 files changed, 128 insertions(+), 68 deletions(-)
+```
+
+Co-authored-by: Marcelo Elias Del Valle &lt;marcelo@mvalle.br&gt; ([`a9bf03e`](https://github.com/humansoftware/synaflow/commit/a9bf03efee2b84725459979363be2b86fec79cfd))
+
+* docs: repair tutorial tabs and stale dag examples (#116)
+
+Co-authored-by: Marcelo Elias Del Valle &lt;marcelo@mvalle.br&gt; ([`db6e7b3`](https://github.com/humansoftware/synaflow/commit/db6e7b3d3048b67966cc91be1c00ff9bcedfa117))
+
+* docs(cli): document lifecycle hooks for project-specific CLIs (#115)
+
+The hooks feature shipped in #114 (PreRunContext, PostRunContext,
+RunOutcome, SynaflowCli.pre_run / post_run) is implemented and tested
+but invisible to anyone reading the docs: the only documented CLI
+pattern was the catalog-mode `synaflow --catalog` console script,
+which does not expose hooks.
+
+Add a new subsection between the existing `run` documentation and the
+end-to-end wrap-up that explains:
+
+- The two-callables pattern on SynaflowCli (pre_run, post_run).
+- The shape of PreRunContext / PostRunContext / RunOutcome.
+- The error semantics: pre_run must return the right params type,
+  pipeline failure re-raised after post_run, post_run errors chained
+  via __cause__.
+- A short callout distinguishing hooks (boundary effects around the
+  whole run) from observers (per-step lifecycle inside the run).
+
+No code change. Pure docs addition (+47 lines, 253 -&gt; 300).
+
+Co-authored-by: Marcelo Elias Del Valle &lt;marcelo@mvalle.br&gt; ([`5752a16`](https://github.com/humansoftware/synaflow/commit/5752a1672d7f9e5ca1aa064cf27fc8c7437b9f90))
+
+### Fix
+
+* fix(cli): resolve pipeline name when global flags precede it (#118) (#119)
+
+The bootstrap parser in `_resolve_run_pipeline` relied on
+`argparse.parse_known_args` to find the `run` subcommand and the
+positional pipeline name. argparse has a quirk: when two consecutive
+positionals are declared with `nargs=&#34;?&#34;` and an unknown flag
+appears between them, argparse silently stops consuming the second
+positional and shoves everything after the unknown flag into the
+leftover list. Concretely:
+
+  tokens = [&#34;run&#34;, &#34;--no-observers&#34;, &#34;P&#34;, &#34;--x&#34;, &#34;1&#34;]
+  # before fix: subcommand=&#34;run&#34; name=None leftover=[...]
+  # after fix:  subcommand=&#34;run&#34; name=&#34;P&#34;   (scanner skips --no-observers)
+
+The bootstrap was unable to recognize `P` as the pipeline name, so
+`_resolve_pipeline` was never called and the main parser saw
+`--x 1` as unrecognized arguments:
+
+  SynaflowCli(catalog=...).main([&#34;run&#34;, &#34;--no-observers&#34;, &#34;P&#34;, &#34;--x&#34;, &#34;1&#34;])
+  # before fix: SystemExit(2) &#34;unrecognized arguments: --x 1&#34;
+  # after fix:  runs with params.x = 1, observers disabled
+
+The first form is what argparse users (and the PipelineRegistry.from_module
+docs) would naturally write. The second form `[&#34;run&#34;, &#34;P&#34;, &#34;--no-observers&#34;, &#34;--x&#34;, &#34;1&#34;]`
+worked only by accident.
+
+Fix: replace the argparse-based bootstrap with a manual token scan.
+The scan tolerates any flag in any position (boolean or value-taking),
+including typed param flags that are only registered on the main parser
+once the pipeline has been resolved.
+
+Fixes #118.
+
+Co-authored-by: Marcelo Elias Del Valle &lt;marcelo@mvalle.br&gt; ([`7370628`](https://github.com/humansoftware/synaflow/commit/737062827e480971c1ab4d2e71c5bd221c79245b))
+
+
 ## v0.31.0 (2026-07-11)
 
 ### Feature
