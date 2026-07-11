@@ -1,21 +1,24 @@
 # CHANGELOG
 
-## Unreleased
+
+
+## v0.31.0 (2026-07-11)
 
 ### Feature
 
-* `SynaflowCli` provides a small public seam for applications with a fixed
-  `PipelineRegistry`, including optional synchronous `pre_run` and `post_run`
-  lifecycle hooks.
-* `run --no-observers` disables all observers for one invocation.
-* Direct CLI parameter flags are type-aware; complex values can be supplied
-  through `--params-file` JSON.
+* feat(cli): typed params and lifecycle hooks (#114)
 
-### Breaking change
+* refactor(cli): add fixed-catalog CLI and remove legacy params
 
-* Removed legacy `--param key=value`. Use the generated typed field flag
-  (for example, `--limit 50`) or `--params-file` instead.
+* feat(cli): add synchronous run lifecycle hooks
 
+* feat(cli): parse typed pipeline parameters
+
+* docs(cli): document typed params and lifecycle hooks
+
+---------
+
+Co-authored-by: Marcelo Elias Del Valle &lt;marcelo@mvalle.br&gt; ([`df17d47`](https://github.com/humansoftware/synaflow/commit/df17d4735853c2502faefcd3c56e01c7f473f19c))
 
 
 ## v0.30.1 (2026-07-11)
