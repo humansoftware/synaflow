@@ -27,9 +27,17 @@ from unittest import mock
 
 import pytest
 
-from synaflow import PipelineRegistry, cli, pipeline, step
+from synaflow import Observer, PipelineRegistry, SynaflowCli, cli, pipeline, step
 from synaflow.cli import CLIUsageError, main
+from synaflow.core.exceptions import PipelineStopException
+from synaflow import OnError
 from tests.cli.conftest import SYNATEST_CATALOG_NAME
+
+
+@dataclasses.dataclass
+class _CliSettings:
+    name: str
+    retries: int
 
 
 # ---------------------------------------------------------------------------
@@ -64,6 +72,318 @@ def _write_params_file(tmp_path: Path, body: dict) -> Path:
 # ---------------------------------------------------------------------------
 # Subcommand tests (subprocess)
 # ---------------------------------------------------------------------------
+
+
+def test_given_project_cli_with_fixed_catalog_then_list_needs_no_catalog_flag(capsys):
+    result = SynaflowCli(catalog=_fake_catalog()).main(["list"])
+
+    captured = capsys.readouterr()
+    assert result == 0
+    assert "hello" in captured.out
+
+
+def test_given_simple_direct_flags_then_project_cli_builds_typed_params():
+    class Params(NamedTuple):
+        text: str
+        count: int
+        ratio: float
+        enabled: bool = False
+        payload: bytes = b""
+        ids: list[int] = []
+
+    seen = []
+
+    def capture(text, count, ratio, enabled, payload, ids) -> None:
+        seen.append((text, count, ratio, enabled, payload, ids))
+
+    p = pipeline(
+        name="typed_direct",
+        params=Params,
+        steps=[step("capture", fn=capture)],
+    )
+    catalog = PipelineRegistry()
+    catalog.add(p)
+
+    result = SynaflowCli(catalog=catalog).main(
+        [
+            "run",
+            "typed_direct",
+            "--text",
+            "hello",
+            "--count",
+            "3",
+            "--ratio",
+            "1.5",
+            "--enabled",
+            "--payload",
+            "aGk=",
+            "--ids",
+            "2",
+            "--ids",
+            "5",
+        ]
+    )
+
+    assert result == 0
+    assert seen == [("hello", 3, 1.5, True, b"hi", [2, 5])]
+
+
+def test_given_complex_params_file_then_project_cli_deserializes_nested_values(
+    tmp_path,
+):
+    class Params(NamedTuple):
+        settings: _CliSettings
+        tags: set[str]
+
+    seen = []
+
+    def capture(settings, tags) -> None:
+        seen.append((settings, tags))
+
+    p = pipeline(
+        name="complex_json",
+        params=Params,
+        steps=[step("capture", fn=capture)],
+    )
+    catalog = PipelineRegistry()
+    catalog.add(p)
+    params_file = _write_params_file(
+        tmp_path,
+        {"settings": {"name": "daily", "retries": 2}, "tags": ["a", "b"]},
+    )
+
+    result = SynaflowCli(catalog=catalog).main(
+        ["run", "complex_json", "--params-file", str(params_file)]
+    )
+
+    assert result == 0
+    assert seen == [(_CliSettings(name="daily", retries=2), {"a", "b"})]
+
+
+def test_given_collection_params_file_then_cli_deserializes_dict_and_tuple(tmp_path):
+    class Params(NamedTuple):
+        scores: dict[str, int]
+        pair: tuple[int, str]
+
+    seen = []
+
+    def capture(scores, pair) -> None:
+        seen.append((scores, pair))
+
+    p = pipeline(
+        name="collection_json",
+        params=Params,
+        steps=[step("capture", fn=capture)],
+    )
+    catalog = PipelineRegistry()
+    catalog.add(p)
+    params_file = _write_params_file(
+        tmp_path, {"scores": {"first": 3}, "pair": [7, "seven"]}
+    )
+
+    result = SynaflowCli(catalog=catalog).main(
+        ["run", "collection_json", "--params-file", str(params_file)]
+    )
+
+    assert result == 0
+    assert seen == [({"first": 3}, (7, "seven"))]
+
+
+def test_given_bytes_in_params_file_then_cli_decodes_base64(tmp_path):
+    class Params(NamedTuple):
+        payload: bytes
+
+    seen = []
+
+    def capture(payload) -> None:
+        seen.append(payload)
+
+    p = pipeline(
+        name="bytes_json",
+        params=Params,
+        steps=[step("capture", fn=capture)],
+    )
+    catalog = PipelineRegistry()
+    catalog.add(p)
+    params_file = _write_params_file(tmp_path, {"payload": "aGk="})
+
+    result = SynaflowCli(catalog=catalog).main(
+        ["run", "bytes_json", "--params-file", str(params_file)]
+    )
+
+    assert result == 0
+    assert seen == [b"hi"]
+
+
+def test_given_optional_param_without_default_then_cli_supplies_none():
+    class Params(NamedTuple):
+        required: int
+        optional: str | None
+
+    seen = []
+
+    def capture(required, optional) -> None:
+        seen.append((required, optional))
+
+    p = pipeline(
+        name="optional_none",
+        params=Params,
+        steps=[step("capture", fn=capture)],
+    )
+    catalog = PipelineRegistry()
+    catalog.add(p)
+
+    result = SynaflowCli(catalog=catalog).main(
+        ["run", "optional_none", "--required", "7"]
+    )
+
+    assert result == 0
+    assert seen == [(7, None)]
+
+
+def test_given_no_observers_then_project_cli_disables_pipeline_observers():
+    class Params(NamedTuple):
+        value: int = 1
+
+    events = []
+
+    def record(_ctx):
+        events.append("called")
+
+    def emit(value: int) -> int:
+        return value
+
+    p = pipeline(
+        name="quiet",
+        params=Params,
+        steps=[step("emit", fn=emit)],
+        observers=[Observer(record)],
+    )
+    catalog = PipelineRegistry()
+    catalog.add(p)
+
+    result = SynaflowCli(catalog=catalog).main(["run", "quiet", "--no-observers"])
+
+    assert result == 0
+    assert events == []
+
+
+def test_given_run_hooks_then_pre_run_changes_effective_params_and_post_run_sees_success():
+    class Params(NamedTuple):
+        value: int
+
+    executed = []
+    post_contexts = []
+
+    def capture(value: int) -> None:
+        executed.append(value)
+
+    p = pipeline(
+        name="hooked_success",
+        params=Params,
+        steps=[step("capture", fn=capture)],
+    )
+    catalog = PipelineRegistry()
+    catalog.add(p)
+
+    def pre_run(context):
+        assert context.pipeline is p
+        assert context.params == Params(3)
+        assert not hasattr(context, "namespace")
+        return Params(context.params.value + 1)
+
+    result = SynaflowCli(
+        catalog=catalog,
+        pre_run=pre_run,
+        post_run=post_contexts.append,
+    ).main(["run", "hooked_success", "--value", "3"])
+
+    assert result == 0
+    assert executed == [4]
+    assert post_contexts[0].params == Params(4)
+    assert post_contexts[0].outcome.status == "succeeded"
+    assert post_contexts[0].outcome.error is None
+
+
+def test_given_pipeline_stops_then_post_run_receives_failed_outcome():
+    class Params(NamedTuple):
+        value: int = 1
+
+    post_contexts = []
+
+    def fail(value: int) -> None:
+        raise RuntimeError(f"boom {value}")
+
+    p = pipeline(
+        name="hooked_failure",
+        params=Params,
+        steps=[step("fail", fn=fail, on_error=OnError.STOP)],
+    )
+    catalog = PipelineRegistry()
+    catalog.add(p)
+
+    with pytest.raises(PipelineStopException):
+        SynaflowCli(catalog=catalog, post_run=post_contexts.append).main(
+            ["run", "hooked_failure"]
+        )
+
+    assert post_contexts[0].outcome.status == "failed"
+    assert isinstance(post_contexts[0].outcome.error, PipelineStopException)
+
+
+def test_given_pipeline_and_post_run_fail_then_post_run_error_is_chained():
+    class Params(NamedTuple):
+        value: int = 1
+
+    def fail(value: int) -> None:
+        raise RuntimeError("pipeline failure")
+
+    def fail_after_run(_context) -> None:
+        raise ValueError("post failure")
+
+    p = pipeline(
+        name="hooked_double_failure",
+        params=Params,
+        steps=[step("fail", fn=fail, on_error=OnError.STOP)],
+    )
+    catalog = PipelineRegistry()
+    catalog.add(p)
+
+    with pytest.raises(ValueError, match="post failure") as exc_info:
+        SynaflowCli(catalog=catalog, post_run=fail_after_run).main(
+            ["run", "hooked_double_failure"]
+        )
+
+    assert isinstance(exc_info.value.__cause__, PipelineStopException)
+
+
+def test_given_pre_run_returns_wrong_type_then_execution_and_post_run_do_not_start():
+    class Params(NamedTuple):
+        value: int = 1
+
+    executed = []
+    post_contexts = []
+
+    def capture(value: int) -> None:
+        executed.append(value)
+
+    p = pipeline(
+        name="bad_pre_run",
+        params=Params,
+        steps=[step("capture", fn=capture)],
+    )
+    catalog = PipelineRegistry()
+    catalog.add(p)
+
+    with pytest.raises(TypeError, match="pre_run must return"):
+        SynaflowCli(
+            catalog=catalog,
+            pre_run=lambda _context: {"value": 2},
+            post_run=post_contexts.append,
+        ).main(["run", "bad_pre_run"])
+
+    assert executed == []
+    assert post_contexts == []
 
 
 def test_given_list_then_prints_pipeline_names(tmp_catalog_dir):
@@ -112,28 +432,6 @@ def test_given_run_with_params_file_then_executes(tmp_catalog_dir):
     assert observed.read_text() == "7"
 
 
-def test_given_run_with_param_flag_overrides_file_then_effective_value_wins(
-    tmp_catalog_dir,
-):
-    # params.json says x=1, --param x=99 MUST override to 99. The
-    # observable side-effect (write to SYNAFLOW_TEST_OUTPUT) proves
-    # the effective value, not just the exit code.
-    observed = tmp_catalog_dir / "observed.txt"
-    params_path = _write_params_file(tmp_catalog_dir, {"x": 1})
-    result = _run_subprocess(
-        "run",
-        "hello",
-        "--params-file",
-        str(params_path),
-        "--param",
-        "x=99",
-        tmp_path=tmp_catalog_dir,
-        env={"SYNAFLOW_TEST_OUTPUT": str(observed)},
-    )
-    assert result.returncode == 0, result.stderr
-    assert observed.read_text() == "99"
-
-
 def test_given_run_with_direct_param_flag_then_effective_value_is_used(tmp_catalog_dir):
     observed = tmp_catalog_dir / "observed.txt"
     result = _run_subprocess(
@@ -148,7 +446,7 @@ def test_given_run_with_direct_param_flag_then_effective_value_is_used(tmp_catal
     assert observed.read_text() == "2024-01-15"
 
 
-def test_given_direct_param_flag_then_it_overrides_file_and_legacy_param(
+def test_given_direct_param_flag_then_it_overrides_params_file(
     tmp_catalog_dir,
 ):
     observed = tmp_catalog_dir / "observed.txt"
@@ -158,8 +456,6 @@ def test_given_direct_param_flag_then_it_overrides_file_and_legacy_param(
         "hello",
         "--params-file",
         str(params_path),
-        "--param",
-        "x=2",
         "--x",
         "3",
         tmp_path=tmp_catalog_dir,
@@ -167,6 +463,19 @@ def test_given_direct_param_flag_then_it_overrides_file_and_legacy_param(
     )
     assert result.returncode == 0, result.stderr
     assert observed.read_text() == "3"
+
+
+def test_given_legacy_param_flag_then_argparse_rejects_it(tmp_catalog_dir):
+    result = _run_subprocess(
+        "run",
+        "hello",
+        "--param",
+        "x=99",
+        tmp_path=tmp_catalog_dir,
+    )
+
+    assert result.returncode == 2
+    assert "unrecognized arguments: --param" in result.stderr
 
 
 def test_given_run_pipeline_help_then_it_lists_direct_param_flags(tmp_catalog_dir):
@@ -388,24 +697,6 @@ def test_given_load_params_file_non_dict_then_raises_cli_usage_error(tmp_path):
     bad.write_text("[1, 2, 3]")
     with pytest.raises(CLIUsageError, match="JSON object"):
         cli._load_params_file(str(bad))
-
-
-def test_given_parse_param_flags_missing_equals_then_raises_cli_usage_error():
-
-    with pytest.raises(CLIUsageError, match="key=value"):
-        cli._parse_param_flags(["nokv"])
-
-
-def test_given_parse_param_flags_empty_key_then_raises_cli_usage_error():
-
-    with pytest.raises(CLIUsageError, match="empty key"):
-        cli._parse_param_flags(["=value"])
-
-
-def test_given_parse_param_flags_json_value_then_parses_value():
-
-    result = cli._parse_param_flags(["count=42", 'name="x"', "raw=hello"])
-    assert result == {"count": 42, "name": "x", "raw": "hello"}
 
 
 def test_given_build_params_dataclass_then_respects_defaults():

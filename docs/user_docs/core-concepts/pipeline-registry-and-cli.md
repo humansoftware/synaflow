@@ -103,6 +103,17 @@ synaflow --catalog myproject.pipelines run greet
 The CLI dispatches sync vs async automatically based on the
 compiled `Dag.requires_async_runner` flag — you don't pick the engine.
 
+Projects with a fixed catalog can expose the same commands without requiring
+users to repeat `--catalog`:
+
+```python
+from synaflow import SynaflowCli
+from myproject.pipelines import catalog
+
+if __name__ == "__main__":
+    raise SystemExit(SynaflowCli(catalog=catalog).main())
+```
+
 ### `list` — what's registered?
 
 ```bash
@@ -173,13 +184,17 @@ synaflow --catalog myproject.pipelines run greet --x 99
 synaflow --catalog myproject.pipelines run greet --params-file p.json --x 99
 ```
 
-Each params field becomes a kebab-case flag: `initial_date` becomes
-`--initial-date`. Values are parsed as JSON when possible, otherwise kept as
-strings (`--x 42` → int, `--name '"alice"'` → str, `--raw hello` → str).
+Simple params fields become kebab-case flags: `initial_date` becomes
+`--initial-date`. The supported direct types are `str`, `int`, `float`,
+`bool`, `bytes` (base64) and lists of those values. Booleans use paired flags,
+such as `--dry-run` and `--no-dry-run`; lists are repeatable.
 
-`--param key=value` remains available for compatibility with v0.28.0, but new
-scripts should prefer direct flags. If both forms provide the same field, the
-direct flag wins.
+Complex values — mappings, sets, tuples and nested params objects — belong in
+`--params-file` as JSON. Direct flags override values from that file.
+`--param key=value` was removed; use the corresponding typed flag instead.
+
+Add `--no-observers` to `run` to disable every pipeline and step observer for
+that invocation while keeping normal materializers and resources.
 
 Unknown fields and missing required fields are reported as `synaflow:
 Unknown params field(s) for DailyParams: [...]` etc. — not as a stack trace.

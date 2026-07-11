@@ -242,6 +242,32 @@ def test_given_execution_overrides_from_production_when_observers_not_overridden
     assert step_events == ["StepStartedContext", "StepCompletedContext"]
 
 
+def test_given_without_observers_then_pipeline_and_step_observers_are_disabled(
+    run_pipeline,
+):
+    class Params(NamedTuple):
+        value: int = 1
+
+    events = []
+
+    def record(ctx):
+        events.append(type(ctx).__name__)
+
+    def emit(value: int) -> int:
+        return value
+
+    p = pipeline(
+        name="without_observers",
+        params=Params,
+        steps=[step("emit", fn=emit, observers=[Observer(record)])],
+        observers=[Observer(record)],
+    )
+
+    run_pipeline(p, Params(), overrides=ExecutionOverrides.without_observers(p))
+
+    assert events == []
+
+
 def test_given_step_observer_override_when_sync_run_then_only_step_events_use_override(
     run_pipeline,
 ):
