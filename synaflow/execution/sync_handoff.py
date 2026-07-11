@@ -110,7 +110,8 @@ class SyncFanout:
         """
         if self._thread is None:
             return True
-        return self._thread.join(timeout=timeout)
+        self._thread.join(timeout=timeout)
+        return not self._thread.is_alive()
 
     def _pump(self) -> None:
         try:
