@@ -1038,6 +1038,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#lifecycle-hooks" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Lifecycle hooks
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -1582,6 +1593,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#lifecycle-hooks" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Lifecycle hooks
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -1775,50 +1797,92 @@ such as <code>--dry-run</code> and <code>--no-dry-run</code>; lists are repeatab
 that invocation while keeping normal materializers and resources.</p>
 <p>Unknown fields and missing required fields are reported as <code>synaflow:
 Unknown params field(s) for DailyParams: [...]</code> etc. — not as a stack trace.</p>
-<h2 id="end-to-end-a-real-catalog-in-30-seconds">End-to-end: a real catalog in 30 seconds<a class="headerlink" href="#end-to-end-a-real-catalog-in-30-seconds" title="Permanent link">&para;</a></h2>
-<div class="highlight"><span class="filename">myproject/pipelines.py</span><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">NamedTuple</span>
-<a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">synaflow</span><span class="w"> </span><span class="kn">import</span> <span class="n">PipelineRegistry</span><span class="p">,</span> <span class="n">pipeline</span><span class="p">,</span> <span class="n">step</span>
+<h3 id="lifecycle-hooks">Lifecycle hooks<a class="headerlink" href="#lifecycle-hooks" title="Permanent link">&para;</a></h3>
+<p>The catalog-mode <code>synaflow</code> console script doesn't expose hooks — it is
+the same CLI for everyone. Project-specific entry points built on
+<code>SynaflowCli</code> can plug two callables around each <code>run</code> invocation:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">synaflow</span><span class="w"> </span><span class="kn">import</span> <span class="n">SynaflowCli</span><span class="p">,</span> <span class="n">PreRunContext</span><span class="p">,</span> <span class="n">PostRunContext</span>
+<a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">myproject.pipelines</span><span class="w"> </span><span class="kn">import</span> <span class="n">catalog</span>
 <a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a>
-<a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a>
-<a id="__codelineno-10-5" name="__codelineno-10-5" href="#__codelineno-10-5"></a><span class="k">class</span><span class="w"> </span><span class="nc">DailyParams</span><span class="p">(</span><span class="n">NamedTuple</span><span class="p">):</span>
-<a id="__codelineno-10-6" name="__codelineno-10-6" href="#__codelineno-10-6"></a>    <span class="n">x</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span>
-<a id="__codelineno-10-7" name="__codelineno-10-7" href="#__codelineno-10-7"></a>    <span class="n">label</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;default&quot;</span>
-<a id="__codelineno-10-8" name="__codelineno-10-8" href="#__codelineno-10-8"></a>
-<a id="__codelineno-10-9" name="__codelineno-10-9" href="#__codelineno-10-9"></a>
-<a id="__codelineno-10-10" name="__codelineno-10-10" href="#__codelineno-10-10"></a><span class="k">def</span><span class="w"> </span><span class="nf">ingest</span><span class="p">(</span><span class="n">x</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
-<a id="__codelineno-10-11" name="__codelineno-10-11" href="#__codelineno-10-11"></a>    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;ingest: x = </span><span class="si">{</span><span class="n">x</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-<a id="__codelineno-10-12" name="__codelineno-10-12" href="#__codelineno-10-12"></a>    <span class="k">return</span> <span class="n">x</span>
-<a id="__codelineno-10-13" name="__codelineno-10-13" href="#__codelineno-10-13"></a>
-<a id="__codelineno-10-14" name="__codelineno-10-14" href="#__codelineno-10-14"></a>
-<a id="__codelineno-10-15" name="__codelineno-10-15" href="#__codelineno-10-15"></a><span class="k">def</span><span class="w"> </span><span class="nf">transform</span><span class="p">(</span><span class="n">x</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">label</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
-<a id="__codelineno-10-16" name="__codelineno-10-16" href="#__codelineno-10-16"></a>    <span class="k">return</span> <span class="p">{</span><span class="s2">&quot;label&quot;</span><span class="p">:</span> <span class="n">label</span><span class="p">,</span> <span class="s2">&quot;value&quot;</span><span class="p">:</span> <span class="n">x</span> <span class="o">*</span> <span class="mi">2</span><span class="p">}</span>
-<a id="__codelineno-10-17" name="__codelineno-10-17" href="#__codelineno-10-17"></a>
-<a id="__codelineno-10-18" name="__codelineno-10-18" href="#__codelineno-10-18"></a>
-<a id="__codelineno-10-19" name="__codelineno-10-19" href="#__codelineno-10-19"></a><span class="n">_ingest</span> <span class="o">=</span> <span class="n">pipeline</span><span class="p">(</span>
-<a id="__codelineno-10-20" name="__codelineno-10-20" href="#__codelineno-10-20"></a>    <span class="n">name</span><span class="o">=</span><span class="s2">&quot;daily_ingest&quot;</span><span class="p">,</span>
-<a id="__codelineno-10-21" name="__codelineno-10-21" href="#__codelineno-10-21"></a>    <span class="n">params</span><span class="o">=</span><span class="n">DailyParams</span><span class="p">,</span>
-<a id="__codelineno-10-22" name="__codelineno-10-22" href="#__codelineno-10-22"></a>    <span class="n">steps</span><span class="o">=</span><span class="p">[</span><span class="n">step</span><span class="p">(</span><span class="s2">&quot;ingest&quot;</span><span class="p">,</span> <span class="n">fn</span><span class="o">=</span><span class="n">ingest</span><span class="p">),</span> <span class="n">step</span><span class="p">(</span><span class="s2">&quot;transform&quot;</span><span class="p">,</span> <span class="n">fn</span><span class="o">=</span><span class="n">transform</span><span class="p">)],</span>
-<a id="__codelineno-10-23" name="__codelineno-10-23" href="#__codelineno-10-23"></a>    <span class="n">exports</span><span class="o">=</span><span class="s2">&quot;status/loaded.json&quot;</span><span class="p">,</span>
-<a id="__codelineno-10-24" name="__codelineno-10-24" href="#__codelineno-10-24"></a><span class="p">)</span>
-<a id="__codelineno-10-25" name="__codelineno-10-25" href="#__codelineno-10-25"></a>
-<a id="__codelineno-10-26" name="__codelineno-10-26" href="#__codelineno-10-26"></a>
-<a id="__codelineno-10-27" name="__codelineno-10-27" href="#__codelineno-10-27"></a><span class="n">catalog</span> <span class="o">=</span> <span class="n">PipelineRegistry</span><span class="p">()</span>
-<a id="__codelineno-10-28" name="__codelineno-10-28" href="#__codelineno-10-28"></a><span class="n">catalog</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">_ingest</span><span class="p">)</span>
+<a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a><span class="k">def</span><span class="w"> </span><span class="nf">audit</span><span class="p">(</span><span class="n">context</span><span class="p">:</span> <span class="n">PostRunContext</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<a id="__codelineno-10-5" name="__codelineno-10-5" href="#__codelineno-10-5"></a>    <span class="c1"># Always runs after `run` finishes — on success and on failure.</span>
+<a id="__codelineno-10-6" name="__codelineno-10-6" href="#__codelineno-10-6"></a>    <span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;pipeline </span><span class="si">%s</span><span class="s2"> </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">context</span><span class="o">.</span><span class="n">pipeline</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="n">context</span><span class="o">.</span><span class="n">outcome</span><span class="o">.</span><span class="n">status</span><span class="p">)</span>
+<a id="__codelineno-10-7" name="__codelineno-10-7" href="#__codelineno-10-7"></a>
+<a id="__codelineno-10-8" name="__codelineno-10-8" href="#__codelineno-10-8"></a><span class="k">def</span><span class="w"> </span><span class="nf">enrich_tenant</span><span class="p">(</span><span class="n">context</span><span class="p">:</span> <span class="n">PreRunContext</span><span class="p">):</span>
+<a id="__codelineno-10-9" name="__codelineno-10-9" href="#__codelineno-10-9"></a>    <span class="c1"># Runs after CLI parsing, before the pipeline starts.</span>
+<a id="__codelineno-10-10" name="__codelineno-10-10" href="#__codelineno-10-10"></a>    <span class="c1"># Return value replaces the params the executor sees.</span>
+<a id="__codelineno-10-11" name="__codelineno-10-11" href="#__codelineno-10-11"></a>    <span class="k">return</span> <span class="n">context</span><span class="o">.</span><span class="n">params</span><span class="o">.</span><span class="n">_replace</span><span class="p">(</span><span class="n">tenant</span><span class="o">=</span><span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="p">[</span><span class="s2">&quot;MYPROJECT_TENANT&quot;</span><span class="p">])</span>
+<a id="__codelineno-10-12" name="__codelineno-10-12" href="#__codelineno-10-12"></a>
+<a id="__codelineno-10-13" name="__codelineno-10-13" href="#__codelineno-10-13"></a><span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s2">&quot;__main__&quot;</span><span class="p">:</span>
+<a id="__codelineno-10-14" name="__codelineno-10-14" href="#__codelineno-10-14"></a>    <span class="k">raise</span> <span class="ne">SystemExit</span><span class="p">(</span>
+<a id="__codelineno-10-15" name="__codelineno-10-15" href="#__codelineno-10-15"></a>        <span class="n">SynaflowCli</span><span class="p">(</span>
+<a id="__codelineno-10-16" name="__codelineno-10-16" href="#__codelineno-10-16"></a>            <span class="n">catalog</span><span class="o">=</span><span class="n">catalog</span><span class="p">,</span>
+<a id="__codelineno-10-17" name="__codelineno-10-17" href="#__codelineno-10-17"></a>            <span class="n">pre_run</span><span class="o">=</span><span class="n">enrich_tenant</span><span class="p">,</span>
+<a id="__codelineno-10-18" name="__codelineno-10-18" href="#__codelineno-10-18"></a>            <span class="n">post_run</span><span class="o">=</span><span class="n">audit</span><span class="p">,</span>
+<a id="__codelineno-10-19" name="__codelineno-10-19" href="#__codelineno-10-19"></a>        <span class="p">)</span><span class="o">.</span><span class="n">main</span><span class="p">()</span>
+<a id="__codelineno-10-20" name="__codelineno-10-20" href="#__codelineno-10-20"></a>    <span class="p">)</span>
 </code></pre></div>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a>$<span class="w"> </span>synaflow<span class="w"> </span>--catalog<span class="w"> </span>myproject.pipelines<span class="w"> </span>list
-<a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a>daily_ingest<span class="w">    </span><span class="m">2</span><span class="w"> </span>steps
+<p><code>PreRunContext</code> carries the resolved <code>pipeline</code>, <code>dag</code>, <code>params</code>, and
+<code>observers_enabled</code>. <code>pre_run</code> must return a value of the same type as
+the pipeline's params — anything else raises <code>TypeError</code> and the
+pipeline never starts.</p>
+<p><code>PostRunContext</code> adds <code>outcome: RunOutcome</code>, where <code>outcome.status</code> is
+either <code>"succeeded"</code> or <code>"failed"</code> and <code>outcome.error</code> is the original
+exception on failure (or <code>None</code>). The pipeline exception is re-raised
+after <code>post_run</code> runs; if <code>post_run</code> itself raises, its exception is
+re-raised with the original chained as <code>__cause__</code>.</p>
+<div class="admonition tip">
+<p class="admonition-title">When to use hooks vs observers</p>
+<p>Hooks wrap the whole <code>run</code> (one shot, per CLI invocation). Observers
+fire inside the pipeline on per-step lifecycle events (one per step,
+per run). Reach for hooks for boundary effects — audit, metrics
+emission, Slack alerts — and observers for fine-grained progress
+signals.</p>
+</div>
+<h2 id="end-to-end-a-real-catalog-in-30-seconds">End-to-end: a real catalog in 30 seconds<a class="headerlink" href="#end-to-end-a-real-catalog-in-30-seconds" title="Permanent link">&para;</a></h2>
+<div class="highlight"><span class="filename">myproject/pipelines.py</span><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">NamedTuple</span>
+<a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">synaflow</span><span class="w"> </span><span class="kn">import</span> <span class="n">PipelineRegistry</span><span class="p">,</span> <span class="n">pipeline</span><span class="p">,</span> <span class="n">step</span>
 <a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a>
-<a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a>$<span class="w"> </span>synaflow<span class="w"> </span>--catalog<span class="w"> </span>myproject.pipelines<span class="w"> </span>info<span class="w"> </span>daily_ingest
-<a id="__codelineno-11-5" name="__codelineno-11-5" href="#__codelineno-11-5"></a>name:<span class="w"> </span>daily_ingest
-<a id="__codelineno-11-6" name="__codelineno-11-6" href="#__codelineno-11-6"></a>params:<span class="w"> </span>DailyParams
-<a id="__codelineno-11-7" name="__codelineno-11-7" href="#__codelineno-11-7"></a>exports:<span class="w"> </span>status/loaded.json
-<a id="__codelineno-11-8" name="__codelineno-11-8" href="#__codelineno-11-8"></a>steps<span class="w"> </span><span class="o">(</span><span class="m">2</span><span class="o">)</span>:<span class="w"> </span>ingest,<span class="w"> </span>transform
+<a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a>
+<a id="__codelineno-11-5" name="__codelineno-11-5" href="#__codelineno-11-5"></a><span class="k">class</span><span class="w"> </span><span class="nc">DailyParams</span><span class="p">(</span><span class="n">NamedTuple</span><span class="p">):</span>
+<a id="__codelineno-11-6" name="__codelineno-11-6" href="#__codelineno-11-6"></a>    <span class="n">x</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span>
+<a id="__codelineno-11-7" name="__codelineno-11-7" href="#__codelineno-11-7"></a>    <span class="n">label</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;default&quot;</span>
+<a id="__codelineno-11-8" name="__codelineno-11-8" href="#__codelineno-11-8"></a>
 <a id="__codelineno-11-9" name="__codelineno-11-9" href="#__codelineno-11-9"></a>
-<a id="__codelineno-11-10" name="__codelineno-11-10" href="#__codelineno-11-10"></a>$<span class="w"> </span>synaflow<span class="w"> </span>--catalog<span class="w"> </span>myproject.pipelines<span class="w"> </span>run<span class="w"> </span>daily_ingest<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-11-11" name="__codelineno-11-11" href="#__codelineno-11-11"></a><span class="w">    </span>--x<span class="w"> </span><span class="m">7</span><span class="w"> </span>--label<span class="w"> </span><span class="s1">&#39;&quot;first run&quot;&#39;</span>
-<a id="__codelineno-11-12" name="__codelineno-11-12" href="#__codelineno-11-12"></a>ingest:<span class="w"> </span><span class="nv">x</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="m">7</span>
-<a id="__codelineno-11-13" name="__codelineno-11-13" href="#__codelineno-11-13"></a>$<span class="w"> </span><span class="nb">echo</span><span class="w"> </span><span class="nv">$?</span>
-<a id="__codelineno-11-14" name="__codelineno-11-14" href="#__codelineno-11-14"></a><span class="m">0</span>
+<a id="__codelineno-11-10" name="__codelineno-11-10" href="#__codelineno-11-10"></a><span class="k">def</span><span class="w"> </span><span class="nf">ingest</span><span class="p">(</span><span class="n">x</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+<a id="__codelineno-11-11" name="__codelineno-11-11" href="#__codelineno-11-11"></a>    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;ingest: x = </span><span class="si">{</span><span class="n">x</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<a id="__codelineno-11-12" name="__codelineno-11-12" href="#__codelineno-11-12"></a>    <span class="k">return</span> <span class="n">x</span>
+<a id="__codelineno-11-13" name="__codelineno-11-13" href="#__codelineno-11-13"></a>
+<a id="__codelineno-11-14" name="__codelineno-11-14" href="#__codelineno-11-14"></a>
+<a id="__codelineno-11-15" name="__codelineno-11-15" href="#__codelineno-11-15"></a><span class="k">def</span><span class="w"> </span><span class="nf">transform</span><span class="p">(</span><span class="n">x</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">label</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
+<a id="__codelineno-11-16" name="__codelineno-11-16" href="#__codelineno-11-16"></a>    <span class="k">return</span> <span class="p">{</span><span class="s2">&quot;label&quot;</span><span class="p">:</span> <span class="n">label</span><span class="p">,</span> <span class="s2">&quot;value&quot;</span><span class="p">:</span> <span class="n">x</span> <span class="o">*</span> <span class="mi">2</span><span class="p">}</span>
+<a id="__codelineno-11-17" name="__codelineno-11-17" href="#__codelineno-11-17"></a>
+<a id="__codelineno-11-18" name="__codelineno-11-18" href="#__codelineno-11-18"></a>
+<a id="__codelineno-11-19" name="__codelineno-11-19" href="#__codelineno-11-19"></a><span class="n">_ingest</span> <span class="o">=</span> <span class="n">pipeline</span><span class="p">(</span>
+<a id="__codelineno-11-20" name="__codelineno-11-20" href="#__codelineno-11-20"></a>    <span class="n">name</span><span class="o">=</span><span class="s2">&quot;daily_ingest&quot;</span><span class="p">,</span>
+<a id="__codelineno-11-21" name="__codelineno-11-21" href="#__codelineno-11-21"></a>    <span class="n">params</span><span class="o">=</span><span class="n">DailyParams</span><span class="p">,</span>
+<a id="__codelineno-11-22" name="__codelineno-11-22" href="#__codelineno-11-22"></a>    <span class="n">steps</span><span class="o">=</span><span class="p">[</span><span class="n">step</span><span class="p">(</span><span class="s2">&quot;ingest&quot;</span><span class="p">,</span> <span class="n">fn</span><span class="o">=</span><span class="n">ingest</span><span class="p">),</span> <span class="n">step</span><span class="p">(</span><span class="s2">&quot;transform&quot;</span><span class="p">,</span> <span class="n">fn</span><span class="o">=</span><span class="n">transform</span><span class="p">)],</span>
+<a id="__codelineno-11-23" name="__codelineno-11-23" href="#__codelineno-11-23"></a>    <span class="n">exports</span><span class="o">=</span><span class="s2">&quot;status/loaded.json&quot;</span><span class="p">,</span>
+<a id="__codelineno-11-24" name="__codelineno-11-24" href="#__codelineno-11-24"></a><span class="p">)</span>
+<a id="__codelineno-11-25" name="__codelineno-11-25" href="#__codelineno-11-25"></a>
+<a id="__codelineno-11-26" name="__codelineno-11-26" href="#__codelineno-11-26"></a>
+<a id="__codelineno-11-27" name="__codelineno-11-27" href="#__codelineno-11-27"></a><span class="n">catalog</span> <span class="o">=</span> <span class="n">PipelineRegistry</span><span class="p">()</span>
+<a id="__codelineno-11-28" name="__codelineno-11-28" href="#__codelineno-11-28"></a><span class="n">catalog</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">_ingest</span><span class="p">)</span>
+</code></pre></div>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a>$<span class="w"> </span>synaflow<span class="w"> </span>--catalog<span class="w"> </span>myproject.pipelines<span class="w"> </span>list
+<a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a>daily_ingest<span class="w">    </span><span class="m">2</span><span class="w"> </span>steps
+<a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a>
+<a id="__codelineno-12-4" name="__codelineno-12-4" href="#__codelineno-12-4"></a>$<span class="w"> </span>synaflow<span class="w"> </span>--catalog<span class="w"> </span>myproject.pipelines<span class="w"> </span>info<span class="w"> </span>daily_ingest
+<a id="__codelineno-12-5" name="__codelineno-12-5" href="#__codelineno-12-5"></a>name:<span class="w"> </span>daily_ingest
+<a id="__codelineno-12-6" name="__codelineno-12-6" href="#__codelineno-12-6"></a>params:<span class="w"> </span>DailyParams
+<a id="__codelineno-12-7" name="__codelineno-12-7" href="#__codelineno-12-7"></a>exports:<span class="w"> </span>status/loaded.json
+<a id="__codelineno-12-8" name="__codelineno-12-8" href="#__codelineno-12-8"></a>steps<span class="w"> </span><span class="o">(</span><span class="m">2</span><span class="o">)</span>:<span class="w"> </span>ingest,<span class="w"> </span>transform
+<a id="__codelineno-12-9" name="__codelineno-12-9" href="#__codelineno-12-9"></a>
+<a id="__codelineno-12-10" name="__codelineno-12-10" href="#__codelineno-12-10"></a>$<span class="w"> </span>synaflow<span class="w"> </span>--catalog<span class="w"> </span>myproject.pipelines<span class="w"> </span>run<span class="w"> </span>daily_ingest<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-12-11" name="__codelineno-12-11" href="#__codelineno-12-11"></a><span class="w">    </span>--x<span class="w"> </span><span class="m">7</span><span class="w"> </span>--label<span class="w"> </span><span class="s1">&#39;&quot;first run&quot;&#39;</span>
+<a id="__codelineno-12-12" name="__codelineno-12-12" href="#__codelineno-12-12"></a>ingest:<span class="w"> </span><span class="nv">x</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="m">7</span>
+<a id="__codelineno-12-13" name="__codelineno-12-13" href="#__codelineno-12-13"></a>$<span class="w"> </span><span class="nb">echo</span><span class="w"> </span><span class="nv">$?</span>
+<a id="__codelineno-12-14" name="__codelineno-12-14" href="#__codelineno-12-14"></a><span class="m">0</span>
 </code></pre></div>
 <p>The catalog module is the single source of truth — Python code,
 the CLI, and any future automation read from the same <code>PipelineRegistry</code>.</p>
