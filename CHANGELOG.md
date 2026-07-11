@@ -2,6 +2,85 @@
 
 
 
+## v0.31.2 (2026-07-11)
+
+### Fix
+
+* fix(sync_handoff): Fix SyncFanout.join() returning None instead of bool (#120) (#121)
+
+* fix(sync_handoff): Fix SyncFanout.join() returning None instead of bool (#120)
+
+`threading.Thread.join(timeout)` returns `None` unconditionally in
+Python 3, regardless of whether the thread exited. The previous
+`SyncFanout.join()` used that return value directly, so it always
+returned `None` (falsy). `PipelineExecutor.cleanup()` checked
+`if not exited:` and always logged:
+
+    SyncFanout pump thread did not exit within 1.0s; ...
+
+The pump was exiting correctly, but `join()` was a false-positive.
+This misled the Issue #120 investigation into suspecting a lock
+deadlock when no deadlock existed.
+
+Fix: after the raw `self._thread.join(timeout)`, check
+`self._thread.is_alive()` to determine whether the pump exited.
+
+Verified with 200-iteration stress test (pump + abort racing under
+contention): 0/200 stuck (pump always exits). Confirmed the
+false-positive was entirely a Python stdlib quirk.
+
+Fixes #120.
+
+* fix(sync_handoff): fix three bugs found via Issue #120 tests
+
+Bug fixes + regression tests:
+
+1. **join() RuntimeError** — ensure_started could expose
+   _thread before start(). Other threads reading _thread and
+   calling .join() got RuntimeError. Fix: catch RuntimeError
+   in join(), return False (&#34;pump not yet exited&#34;).
+
+2. **_put_terminal infinite loop** — with EOF_MARKER + full
+   queue, the retry loop never checked _stop. If abort was
+   called while pump was stuck in the terminal push, pump
+   leaked a daemon thread. Fix: when _stop.is_set(), drop
+   unread items (same as ExceptionMarker path).
+
+3. **Async test hangs** — parity tests used bounded queues
+   (maxsize=2) with no consumer → q.put blocked forever.
+   Fix: use unbounded queues; contract tested is pump-task
+   completion, not bounded handoff.
+
+Tests added (3 shared sync+async + 1 sync-only):
+- normal_exhaustion / external_abort / blocked_source (both engines)
+- full_queue_terminal_abort (sync only, no async analogue)
+
+All 360 execution tests pass (0 regressions).
+
+* refactor(sync_handoff): use is_alive() guard instead of try/except RuntimeError
+
+Replace the defensive RuntimeError catch in join() with an
+is_alive() pre-check — cleaner, no exception-based flow
+control, and semantically precise (&#34;pump never started or
+already exited&#34; vs &#34;pump was assigned but start() didn&#39;t run yet&#34;).
+
+Also fix the root cause in ensure_started(): start the thread
+BEFORE assigning to _thread so there is never a window where
+another thread sees _thread as non-None but the thread has
+not been started.  This makes the join() guard a safety net,
+not a primary defence.
+
+Add async parity test for the terminal-push-with-abort
+scenario (full queue + cancelled pump task) — same Given
+condition exists in both engines, even though the mechanism
+differs (asyncio.Task.cancel vs _stop.is_set).
+
+---------
+
+Co-authored-by: Marcelo Elias Del Valle &lt;marcelo@mvalle.br&gt;
+Co-authored-by: mvallebr &lt;mvallebr@proton.me&gt; ([`34308ec`](https://github.com/humansoftware/synaflow/commit/34308ecb938ebb3b71fdc61a2c40240e87a0e75d))
+
+
 ## v0.31.1 (2026-07-11)
 
 ### Documentation
