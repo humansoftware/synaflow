@@ -106,13 +106,6 @@ def test_sync_async_test_parity():
             "Engine-mismatch test is per-engine by nature: sync engine rejects "
             "an async Dag. The async equivalent is its own test in the async dir.",
         ),
-        # Unit tests for SyncFanout internals that have no async
-        # equivalent (the async engine uses asyncio.Queue and
-        # does not have a ``_put_terminal`` loop with _stop checks).
-        (
-            "test_given_full_queue_when_pump_pushes_terminal_and_abort_called_then_pump_exits",
-            "SyncFanout _put_terminal _stop detection has no async analogue.",
-        ),
     ]
 
     expected_async_only = [

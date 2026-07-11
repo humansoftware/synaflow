@@ -132,3 +132,41 @@ async def test_given_fanout_with_blocked_source_when_source_never_yields_then_jo
     assert pump_task not in done, (
         "pump task must NOT complete when the source is blocked"
     )
+
+
+@pytest.mark.asyncio
+async def test_given_full_queue_when_pump_pushes_terminal_and_abort_called_then_pump_exits():
+    """Async handoff cleanup contract: when the pump task is trying to
+    push ``EOF_MARKER`` to a full queue (``finally`` block) and the
+    task is cancelled (simulating executor abort/cleanup), it must
+    terminate cleanly — ``CancelledError`` interrupts the blocked
+    ``q.put()`` so the task does not leak.
+
+    Parity with the sync engine's ``_put_terminal`` ``_stop`` detection
+    — see ``tests/execution/sync_engine/test_sync_handoff.py``
+    (Issue #120)."""
+    queues = {"a": asyncio.Queue(maxsize=1)}
+
+    async def source():
+        yield 1
+
+    pump_task = asyncio.create_task(
+        _pump_iterator("step", source(), queues, on_error=None)
+    )
+
+    # pump pushes item 1 → queue full.  Source exhausts.  Pump enters
+    # the ``finally`` block and blocks on ``await q.put(EOF_MARKER)``
+    # because the consumer never drains.
+    await asyncio.sleep(0.1)
+
+    # Cancel simulates executor abort/cleanup — must force the pump
+    # out of the blocked put() so the pipeline can tear down.
+    pump_task.cancel()
+
+    try:
+        await asyncio.wait_for(pump_task, timeout=5.0)
+    except asyncio.CancelledError:
+        # Expected — pump was cancelled mid-execution; the task
+        # raised CancelledError when it next yielded (inside the
+        # blocked ``q.put()``).
+        pass
