@@ -13,7 +13,44 @@ To prevent wasted effort, we follow an **Issue-First** contribution model:
 2. **Negotiate the Solution:** Maintainers and the community will discuss the architectural impact of your proposal. We will align on *how* the change should be made.
 3. **Open a PR:** Once the design is approved, you are welcome to fork the repository, write the code, and submit a Pull Request.
 
-## 2. Development Setup
+## 2. Parallel-Agent Worktrees
+
+Use one worktree and one branch per parallel agent. Keep the primary
+checkout for coordination; do not make task changes there while another
+agent owns its branch.
+
+Create agent worktrees only under the sibling directory
+`../synaflow-worktrees/`, naming both the directory and branch as
+`codex/<agent>-<task>`:
+
+```bash
+git fetch origin
+mkdir -p ../synaflow-worktrees
+git worktree add ../synaflow-worktrees/<agent>-<task>   -b codex/<agent>-<task> origin/main
+```
+
+After the PR is merged, and only after confirming the worktree has no
+intended uncommitted changes, clean it up:
+
+```bash
+git fetch origin --prune
+git worktree remove ../synaflow-worktrees/<agent>-<task>
+git branch -d codex/<agent>-<task>
+git worktree prune
+```
+
+Never use `--force` for cleanup unless the user has explicitly approved
+discarding the worktree's uncommitted files. Do not remove a worktree
+currently owned by another active agent.
+
+!!! note "Squash-merged branches"
+    When a PR is squash-merged, the branch's individual commits are not
+    reachable from `main`, so `git branch -d` will fail with "not
+    fully merged". Use `git branch -d` first (soft warning); fall back
+    to `git branch -D` only if you have verified the merge commit is on
+    `main` and you want to discard the branch.
+
+## 3. Development Setup
 
 We use `uv` for lightning-fast dependency management and virtual environments.
 
@@ -36,7 +73,7 @@ We enforce 100% test passing before any commit.
 uv run pytest tests/
 ```
 
-## 3. Core Architectural Philosophy
+## 4. Core Architectural Philosophy
 
 SynaFlow is built under strict adherence to several core principles. If a Pull Request violates these, it will be rejected regardless of how useful the feature is.
 
@@ -50,7 +87,7 @@ SynaFlow is built under strict adherence to several core principles. If a Pull R
 - Avoid magic strings at all costs (use Enums like `OnError` and distinct classes like `TeeWrapper`).
 - Methods should be short and do exactly one thing.
 
-## 4. Testing Patterns
+## 5. Testing Patterns
 
 We treat tests as our **Universal Contract**, not just implementation checks.
 
@@ -73,7 +110,7 @@ When contributing a new test, ask yourself: **"What exactly am I testing?"** and
 
 Adding everything to the corpus would make execution tests slow and confusing, while adding pure topological shapes to unit tests creates unnecessary boilerplate. Separate the "shape of the graph" from the "rules of the engine".
 
-## 5. Coding Style
+## 6. Coding Style
 
 We use `pre-commit` to enforce styling automatically, but keep the following in mind:
 - **Type Hinting:** 100% mandatory. SynaFlow relies on runtime type introspection (`inspect.Signature`) to route dependencies. If you don't type hint it, the DAG won't compile.
