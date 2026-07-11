@@ -1723,7 +1723,7 @@ provider when needed.</p>
 semantics, and how you can compile a pipeline into Airflow or Prefect DAGs.</p>
 <h3 id="3-deterministic-and-testable">3. Deterministic and testable<a class="headerlink" href="#3-deterministic-and-testable" title="Permanent link">&para;</a></h3>
 <p>Because the DAG is a pure data structure, you can assert on it directly:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="n">dag</span> <span class="o">=</span> <span class="n">pipeline</span><span class="p">(</span><span class="o">...</span><span class="p">)</span><span class="o">.</span><span class="n">dag</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="n">dag</span> <span class="o">=</span> <span class="n">catalog</span><span class="o">.</span><span class="n">get_dag</span><span class="p">(</span><span class="s2">&quot;my_pipeline&quot;</span><span class="p">)</span>
 <a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="k">assert</span> <span class="n">dag</span><span class="o">.</span><span class="n">steps</span><span class="p">[</span><span class="s2">&quot;transformer&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">mode</span> <span class="o">==</span> <span class="n">StepMode</span><span class="o">.</span><span class="n">EACH</span>
 <a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="k">assert</span> <span class="n">dag</span><span class="o">.</span><span class="n">get_execution_levels</span><span class="p">()</span> <span class="o">==</span> <span class="p">[[</span><span class="s2">&quot;producer&quot;</span><span class="p">],</span> <span class="p">[</span><span class="s2">&quot;transformer&quot;</span><span class="p">],</span> <span class="p">[</span><span class="s2">&quot;consumer&quot;</span><span class="p">]]</span>
 </code></pre></div>
@@ -1731,8 +1731,8 @@ semantics, and how you can compile a pipeline into Airflow or Prefect DAGs.</p>
 build-time correctness is verified without running the pipeline.</p>
 <h3 id="4-no-runtime-surprises">4. No runtime surprises<a class="headerlink" href="#4-no-runtime-surprises" title="Permanent link">&para;</a></h3>
 <p>Type errors, missing dependencies, circular graphs, mode conflicts — all caught
-at build time. If <code>pipeline(...)</code> succeeds, the DAG is valid. The runner never
-needs to check types or resolve ambiguities at runtime.</p>
+at build time. After <code>catalog.add(pipeline_def)</code> succeeds, its DAG is valid.
+The runner never needs to check types or resolve ambiguities at runtime.</p>
 <h2 id="architectural-parity">Architectural parity<a class="headerlink" href="#architectural-parity" title="Permanent link">&para;</a></h2>
 <p>Every domain concern has a symmetric representation in both phases:</p>
 <table>

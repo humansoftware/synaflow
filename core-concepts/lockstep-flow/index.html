@@ -1881,7 +1881,7 @@ only the eager fork does.</p>
 <h2 id="execution-levels">Execution Levels<a class="headerlink" href="#execution-levels" title="Permanent link">&para;</a></h2>
 <p>SynaFlow topologically sorts the DAG into levels. Steps on the same level can
 run in parallel (in an async runner):</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="n">dag</span> <span class="o">=</span> <span class="n">pipeline_def</span><span class="o">.</span><span class="n">dag</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="n">dag</span> <span class="o">=</span> <span class="n">catalog</span><span class="o">.</span><span class="n">get_dag</span><span class="p">(</span><span class="n">pipeline_def</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
 <a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="nb">print</span><span class="p">(</span><span class="n">dag</span><span class="o">.</span><span class="n">get_execution_levels</span><span class="p">())</span>
 <a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="c1"># [[&#39;numbers&#39;], [&#39;doubler&#39;], [&#39;printer&#39;]]</span>
 </code></pre></div>
