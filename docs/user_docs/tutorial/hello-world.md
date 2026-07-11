@@ -32,11 +32,12 @@ message into its individual characters and prints them.
 
     run(catalog.get_dag("tutorial"), Params(message="SynaFlow"))
     # Output: ['S', 'y', 'n', 'a', 'F', 'l', 'o', 'w']
-```
+    ```
 
 === "Async"
 
     ```python
+    import asyncio
     from typing import NamedTuple
     from synaflow import pipeline, step, async_run, PipelineRegistry
 
@@ -61,13 +62,13 @@ message into its individual characters and prints them.
     catalog = PipelineRegistry()
     catalog.add(p)
 
-    async_run(catalog.get_dag("tutorial"), Params(message="SynaFlow"))
+    asyncio.run(async_run(catalog.get_dag("tutorial"), Params(message="SynaFlow")))
     # Output: ['S', 'y', 'n', 'a', 'F', 'l', 'o', 'w']
-```
+    ```
 
 **What happened?**
 
-- `pipeline()` builds the DAG from the steps.
+- `pipeline()` declares the pipeline; `catalog.add(p)` validates and compiles its DAG.
 - `run()` / `async_run()` executes it in topological order.
 - The param `message: str` is injected into `hello`, which splits it into a list.
 - `printer` receives the list and prints it.

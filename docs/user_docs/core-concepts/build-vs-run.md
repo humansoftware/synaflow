@@ -125,7 +125,7 @@ semantics, and how you can compile a pipeline into Airflow or Prefect DAGs.
 Because the DAG is a pure data structure, you can assert on it directly:
 
 ```python
-dag = pipeline(...).dag
+dag = catalog.get_dag("my_pipeline")
 assert dag.steps["transformer"].mode == StepMode.EACH
 assert dag.get_execution_levels() == [["producer"], ["transformer"], ["consumer"]]
 ```
@@ -136,8 +136,8 @@ build-time correctness is verified without running the pipeline.
 ### 4. No runtime surprises
 
 Type errors, missing dependencies, circular graphs, mode conflicts — all caught
-at build time. If `pipeline(...)` succeeds, the DAG is valid. The runner never
-needs to check types or resolve ambiguities at runtime.
+at build time. After `catalog.add(pipeline_def)` succeeds, its DAG is valid.
+The runner never needs to check types or resolve ambiguities at runtime.
 
 ## Architectural parity
 
