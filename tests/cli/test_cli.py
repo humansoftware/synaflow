@@ -29,6 +29,8 @@ import pytest
 
 from synaflow import Observer, PipelineRegistry, SynaflowCli, cli, pipeline, step
 from synaflow.cli import CLIUsageError, main
+from synaflow.core.exceptions import PipelineStopException
+from synaflow import OnError
 from tests.cli.conftest import SYNATEST_CATALOG_NAME
 
 
@@ -99,6 +101,124 @@ def test_given_no_observers_then_project_cli_disables_pipeline_observers():
 
     assert result == 0
     assert events == []
+
+
+def test_given_run_hooks_then_pre_run_changes_effective_params_and_post_run_sees_success():
+    class Params(NamedTuple):
+        value: int
+
+    executed = []
+    post_contexts = []
+
+    def capture(value: int) -> None:
+        executed.append(value)
+
+    p = pipeline(
+        name="hooked_success",
+        params=Params,
+        steps=[step("capture", fn=capture)],
+    )
+    catalog = PipelineRegistry()
+    catalog.add(p)
+
+    def pre_run(context):
+        assert context.pipeline is p
+        assert context.params == Params(3)
+        assert not hasattr(context, "namespace")
+        return Params(context.params.value + 1)
+
+    result = SynaflowCli(
+        catalog=catalog,
+        pre_run=pre_run,
+        post_run=post_contexts.append,
+    ).main(["run", "hooked_success", "--value", "3"])
+
+    assert result == 0
+    assert executed == [4]
+    assert post_contexts[0].params == Params(4)
+    assert post_contexts[0].outcome.status == "succeeded"
+    assert post_contexts[0].outcome.error is None
+
+
+def test_given_pipeline_stops_then_post_run_receives_failed_outcome():
+    class Params(NamedTuple):
+        value: int = 1
+
+    post_contexts = []
+
+    def fail(value: int) -> None:
+        raise RuntimeError(f"boom {value}")
+
+    p = pipeline(
+        name="hooked_failure",
+        params=Params,
+        steps=[step("fail", fn=fail, on_error=OnError.STOP)],
+    )
+    catalog = PipelineRegistry()
+    catalog.add(p)
+
+    with pytest.raises(PipelineStopException):
+        SynaflowCli(catalog=catalog, post_run=post_contexts.append).main(
+            ["run", "hooked_failure"]
+        )
+
+    assert post_contexts[0].outcome.status == "failed"
+    assert isinstance(post_contexts[0].outcome.error, PipelineStopException)
+
+
+def test_given_pipeline_and_post_run_fail_then_post_run_error_is_chained():
+    class Params(NamedTuple):
+        value: int = 1
+
+    def fail(value: int) -> None:
+        raise RuntimeError("pipeline failure")
+
+    def fail_after_run(_context) -> None:
+        raise ValueError("post failure")
+
+    p = pipeline(
+        name="hooked_double_failure",
+        params=Params,
+        steps=[step("fail", fn=fail, on_error=OnError.STOP)],
+    )
+    catalog = PipelineRegistry()
+    catalog.add(p)
+
+    with pytest.raises(ValueError, match="post failure") as exc_info:
+        SynaflowCli(catalog=catalog, post_run=fail_after_run).main(
+            ["run", "hooked_double_failure"]
+        )
+
+    assert isinstance(exc_info.value.__cause__, PipelineStopException)
+
+
+def test_given_pre_run_returns_wrong_type_then_execution_and_post_run_do_not_start():
+    class Params(NamedTuple):
+        value: int = 1
+
+    executed = []
+    post_contexts = []
+
+    def capture(value: int) -> None:
+        executed.append(value)
+
+    p = pipeline(
+        name="bad_pre_run",
+        params=Params,
+        steps=[step("capture", fn=capture)],
+    )
+    catalog = PipelineRegistry()
+    catalog.add(p)
+
+    with pytest.raises(TypeError, match="pre_run must return"):
+        SynaflowCli(
+            catalog=catalog,
+            pre_run=lambda _context: {"value": 2},
+            post_run=post_contexts.append,
+        ).main(["run", "bad_pre_run"])
+
+    assert executed == []
+    assert post_contexts == []
 
 
 def test_given_list_then_prints_pipeline_names(tmp_catalog_dir):

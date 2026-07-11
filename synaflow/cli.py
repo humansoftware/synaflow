@@ -15,7 +15,7 @@ import dataclasses
 import json
 import sys
 from collections.abc import Sequence
-from typing import Any
+from typing import Any, Callable, Literal
 
 from synaflow.core.dag import Dag
 from synaflow.core.definition import PipelineDef
@@ -34,6 +34,29 @@ class CLIUsageError(Exception):
     """
 
 
+@dataclasses.dataclass(frozen=True)
+class PreRunContext:
+    pipeline: PipelineDef
+    dag: Dag
+    params: Any
+    observers_enabled: bool
+
+
+@dataclasses.dataclass(frozen=True)
+class RunOutcome:
+    status: Literal["succeeded", "failed"]
+    error: BaseException | None
+
+
+@dataclasses.dataclass(frozen=True)
+class PostRunContext:
+    pipeline: PipelineDef
+    dag: Dag
+    params: Any
+    observers_enabled: bool
+    outcome: RunOutcome
+
+
 # ---------------------------------------------------------------------------
 # Entry point
 # ---------------------------------------------------------------------------
@@ -47,17 +70,31 @@ class SynaflowCli:
     command, where ``--catalog`` selects that registry dynamically.
     """
 
-    def __init__(self, *, catalog: PipelineRegistry) -> None:
+    def __init__(
+        self,
+        *,
+        catalog: PipelineRegistry,
+        pre_run: Callable[[PreRunContext], Any] | None = None,
+        post_run: Callable[[PostRunContext], None] | None = None,
+    ) -> None:
         if not isinstance(catalog, PipelineRegistry):
             raise TypeError(
                 f"catalog must be a PipelineRegistry, got {type(catalog).__name__}"
             )
         self._catalog = catalog
+        self._pre_run = pre_run
+        self._post_run = post_run
 
     def main(self, argv: Sequence[str] | None = None) -> int:
         """Parse ``argv`` and run a command against the fixed catalog."""
         tokens = list(argv) if argv is not None else sys.argv[1:]
-        return _main_with_catalog(tokens, self._catalog, catalog_required=False)
+        return _main_with_catalog(
+            tokens,
+            self._catalog,
+            catalog_required=False,
+            pre_run=self._pre_run,
+            post_run=self._post_run,
+        )
 
 
 def main(argv: Sequence[str] | None = None) -> int:
@@ -79,6 +116,8 @@ def main(argv: Sequence[str] | None = None) -> int:
             tokens,
             _load_catalog(provisional.catalog),
             catalog_required=True,
+            pre_run=None,
+            post_run=None,
         )
     except CLIUsageError as exc:
         print(f"synaflow: {exc}", file=sys.stderr)
@@ -90,6 +129,8 @@ def _main_with_catalog(
     catalog: PipelineRegistry,
     *,
     catalog_required: bool,
+    pre_run: Callable[[PreRunContext], Any] | None,
+    post_run: Callable[[PostRunContext], None] | None,
 ) -> int:
     try:
         run_pipeline = _resolve_run_pipeline(tokens, catalog)
@@ -98,7 +139,7 @@ def _main_with_catalog(
             params_type=params_type,
             catalog_required=catalog_required,
         ).parse_args(tokens)
-        return _dispatch(args, catalog=catalog)
+        return _dispatch(args, catalog=catalog, pre_run=pre_run, post_run=post_run)
     except CLIUsageError as exc:
         print(f"synaflow: {exc}", file=sys.stderr)
         return 1
@@ -177,6 +218,9 @@ def _build_parser(
 def _dispatch(
     args: argparse.Namespace,
     catalog: PipelineRegistry,
+    *,
+    pre_run: Callable[[PreRunContext], Any] | None = None,
+    post_run: Callable[[PostRunContext], None] | None = None,
 ) -> int:
     sub = args.subcommand
     if sub == "list":
@@ -186,7 +230,7 @@ def _dispatch(
     if sub == "dag":
         return _cmd_dag(catalog, args)
     if sub == "run":
-        return _cmd_run(catalog, args)
+        return _cmd_run(catalog, args, pre_run=pre_run, post_run=post_run)
     raise CLIUsageError(f"unknown subcommand: {sub!r}")  # pragma: no cover
 
 
@@ -274,7 +318,13 @@ def _cmd_dag(catalog: PipelineRegistry, args: argparse.Namespace) -> int:
     return 0
 
 
-def _cmd_run(catalog: PipelineRegistry, args: argparse.Namespace) -> int:
+def _cmd_run(
+    catalog: PipelineRegistry,
+    args: argparse.Namespace,
+    *,
+    pre_run: Callable[[PreRunContext], Any] | None = None,
+    post_run: Callable[[PostRunContext], None] | None = None,
+) -> int:
     p = _resolve_pipeline(catalog, args.name)
     dag = _resolve_dag(catalog, args.name)
     file_values = _load_params_file(args.params_file) if args.params_file else {}
@@ -285,10 +335,43 @@ def _cmd_run(catalog: PipelineRegistry, args: argparse.Namespace) -> int:
         if getattr(args, "no_observers", False)
         else None
     )
-    if dag.requires_async_runner:
-        asyncio.run(async_run(dag, params, overrides=overrides))
-    else:
-        run(dag, params, overrides=overrides)
+    observers_enabled = overrides is None
+    if pre_run is not None:
+        params = pre_run(PreRunContext(p, dag, params, observers_enabled))
+        if not isinstance(params, p.params):
+            raise TypeError(
+                f"pre_run must return {p.params.__name__}, got {type(params).__name__}"
+            )
+    try:
+        if dag.requires_async_runner:
+            asyncio.run(async_run(dag, params, overrides=overrides))
+        else:
+            run(dag, params, overrides=overrides)
+    except BaseException as pipeline_error:
+        if post_run is not None:
+            try:
+                post_run(
+                    PostRunContext(
+                        p,
+                        dag,
+                        params,
+                        observers_enabled,
+                        RunOutcome("failed", pipeline_error),
+                    )
+                )
+            except BaseException as hook_error:
+                raise hook_error from pipeline_error
+        raise
+    if post_run is not None:
+        post_run(
+            PostRunContext(
+                p,
+                dag,
+                params,
+                observers_enabled,
+                RunOutcome("succeeded", None),
+            )
+        )
     return 0
 
 
