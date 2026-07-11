@@ -288,7 +288,7 @@ SynaFlow topologically sorts the DAG into levels. Steps on the same level can
 run in parallel (in an async runner):
 
 ```python
-dag = pipeline_def.dag
+dag = catalog.get_dag(pipeline_def.name)
 print(dag.get_execution_levels())
 # [['numbers'], ['doubler'], ['printer']]
 ```
