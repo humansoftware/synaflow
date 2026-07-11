@@ -21,31 +21,42 @@ def validate_lockstep_symmetry(dag: dict[str, DagNode], pipeline_name: str) -> N
         if len(children[f_name]) <= 1:
             continue  # not a fanout
 
-        # Find all paths from f_name
-        paths_to = collections.defaultdict(list)
+        # Track, per descendant, the set of barrier statuses observed among
+        # all paths from f_name. The downstream check only needs to know
+        # whether both True and False appear (asymmetry), so we never need
+        # the full paths themselves.
+        barriers_seen: dict[str, set[bool]] = collections.defaultdict(set)
 
-        def dfs(current: str, current_path: list[str], has_barrier: bool):
+        # Memoize the walk on (current, barrier_status): re-entering the
+        # same subtree with the same barrier produces the same set of
+        # descendant barriers, so we can skip it. barrier_status is bool
+        # → at most 2 entries per node per fanout, turning the original
+        # O(2^N)-in-diamond-depth path enumeration into O(N).
+        visited: set[tuple[str, bool]] = set()
+
+        def dfs(current: str, has_barrier: bool) -> None:
+            key = (current, has_barrier)
+            if key in visited:
+                return
+            visited.add(key)
             for child in children[current]:
-                new_path = current_path + [child]
                 new_has_barrier = has_barrier
                 if current != f_name:
                     if dag[current].materialize_output or not is_iterable_type(
                         dag[current].output
                     ):
                         new_has_barrier = True
+                barriers_seen[child].add(new_has_barrier)
+                dfs(child, new_has_barrier)
 
-                paths_to[child].append((new_has_barrier, new_path))
-                dfs(child, new_path, new_has_barrier)
-
-        dfs(f_name, [f_name], False)
+        dfs(f_name, False)
 
         # Check for asymmetry
-        for d_name, paths in paths_to.items():
-            if len(paths) <= 1:
+        for d_name, statuses in barriers_seen.items():
+            if len(statuses) <= 1:
                 continue
-
-            barriers = [b for b, p in paths]
-            if any(barriers) and not all(barriers):
+            # Both True and False present → some paths barrier, others not.
+            if True in statuses and False in statuses:
                 raise ValueError(
                     f"Pipeline '{pipeline_name}': Asymmetric lockstep materialization detected "
                     f"between fanout '{f_name}' and join '{d_name}'. "

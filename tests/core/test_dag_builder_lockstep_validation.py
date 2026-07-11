@@ -1,9 +1,12 @@
-from synaflow.core.dag_builder import build_dag
+import time
+from typing import Generator, Iterator, NamedTuple
+
 import pytest
-from typing import NamedTuple, Iterator
 from synaflow import pipeline, step
+from synaflow.core.dag import DagNode
+from synaflow.core.dag_builder import build_dag
+from synaflow.core.lockstep_validation import validate_lockstep_symmetry
 from synaflow.core.types import StepMode
-from typing import Generator
 
 
 class P(NamedTuple):
@@ -273,3 +276,42 @@ def test_given_cross_level_stream_bypass_throws_design_time_error():
     )
     with pytest.raises(ValueError, match="Asymmetric lockstep materialization"):
         build_dag(p)
+
+
+def test_validate_lockstep_symmetry_is_linear_in_diamond_depth():
+    """Regression test: the previous DFS enumerated every distinct path from
+    each fanout to each descendant, which is exponential in the depth of
+    nested diamonds. For a master pipeline (~296 steps, ~15 effective
+    nested diamonds), that scaled to minutes and was killing
+    ``pytest-timeout`` on CI. The fix memoizes on (node, barrier_status)
+    and stores only the set of barrier statuses seen per descendant, so
+    the work is O(N) per fanout.
+
+    This test builds a chain of 15 nested diamonds (synthesizing the
+    master topology's worst case) and asserts validation completes well
+    under pytest's default 30s timeout.
+    """
+
+    def _node(deps, *, output=int, materialize=False):
+        return DagNode(deps=deps, output=output, materialize_output=materialize)
+
+    dag: dict = {}
+    dag["src"] = _node({}, output=list[int])
+    prev = "src"
+    for i in range(15):
+        fan = f"d{i}_fan"
+        a, b, c = f"d{i}_a", f"d{i}_b", f"d{i}_c"
+        dag[fan] = _node({prev: dag[prev].output}, output=list[int])
+        dag[a] = _node({fan: list[int]})
+        dag[b] = _node({fan: list[int]})
+        dag[c] = _node({a: int, b: int}, output=list[int] if i < 14 else int)
+        prev = c
+
+    t0 = time.perf_counter()
+    validate_lockstep_symmetry(dag, pipeline_name="master")
+    elapsed = time.perf_counter() - t0
+
+    assert elapsed < 1.0, (
+        f"validate_lockstep_symmetry took {elapsed:.3f}s on a 15-diamond "
+        "chain — should be sub-second. Regression of the exponential DFS bug?"
+    )
