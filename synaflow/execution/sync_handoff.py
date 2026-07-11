@@ -73,8 +73,14 @@ class SyncFanout:
         with self._lock:
             if self._thread is not None or self._stop.is_set():
                 return
-            self._thread = threading.Thread(target=self._pump, daemon=True)
-            self._thread.start()
+            # Start the thread BEFORE assigning to ``_thread`` so there
+            # is never a window where another thread reads ``_thread``
+            # as non-None but the thread has not been started — avoids
+            # ``RuntimeError("cannot join thread before it is started")``
+            # (Issue #120).
+            thread = threading.Thread(target=self._pump, daemon=True)
+            thread.start()
+            self._thread = thread
 
     def start(self) -> None:
         self.ensure_started()
@@ -108,9 +114,14 @@ class SyncFanout:
             up rather than block the calling thread indefinitely — see
             Issue #103 and ``PipelineExecutor.cleanup()``.
         """
-        if self._thread is None:
+        thread = self._thread
+        if thread is None or not thread.is_alive():
+            # Pump never started or already exited — nothing to wait for.
+            # ``is_alive()`` is safe to call on an unstarted thread
+            # (returns False), unlike ``join()`` which raises RuntimeError.
             return True
-        return self._thread.join(timeout=timeout)
+        thread.join(timeout=timeout)
+        return not thread.is_alive()
 
     def _pump(self) -> None:
         try:
@@ -151,5 +162,15 @@ class SyncFanout:
                     try:
                         q.get_nowait()
                     except queue.Empty:
+                        pass
+                elif self._stop.is_set():
+                    # Abort was called (e.g. executor cleanup) while the
+                    # pump was waiting to push EOF_MARKER.  The consumer
+                    # is no longer draining — drop the unread item and
+                    # try again so the pump can exit instead of leaking
+                    # (regression found via Issue #120 tests).
+                    try:
+                        q.get_nowait()
+                    except queue.Empty:  # pragma: no cover -- defensive
                         pass
                 continue
