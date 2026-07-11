@@ -1,5 +1,21 @@
 # CHANGELOG
 
+## Unreleased
+
+### Feature
+
+* `SynaflowCli` provides a small public seam for applications with a fixed
+  `PipelineRegistry`, including optional synchronous `pre_run` and `post_run`
+  lifecycle hooks.
+* `run --no-observers` disables all observers for one invocation.
+* Direct CLI parameter flags are type-aware; complex values can be supplied
+  through `--params-file` JSON.
+
+### Breaking change
+
+* Removed legacy `--param key=value`. Use the generated typed field flag
+  (for example, `--limit 50`) or `--params-file` instead.
+
 
 
 ## v0.30.1 (2026-07-11)
