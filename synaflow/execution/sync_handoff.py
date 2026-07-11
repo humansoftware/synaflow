@@ -110,7 +110,14 @@ class SyncFanout:
         """
         if self._thread is None:
             return True
-        self._thread.join(timeout=timeout)
+        try:
+            self._thread.join(timeout=timeout)
+        except RuntimeError:  # pragma: no cover -- race guard
+            # Race: ``_thread`` was assigned but ``start()`` had not yet
+            # been called when ``join()`` ran.  The pump will start
+            # momentarily; treat as "started but not yet exited" so the
+            # caller waits or gives up rather than crashing (Issue #120).
+            return False
         return not self._thread.is_alive()
 
     def _pump(self) -> None:
@@ -152,5 +159,15 @@ class SyncFanout:
                     try:
                         q.get_nowait()
                     except queue.Empty:
+                        pass
+                elif self._stop.is_set():
+                    # Abort was called (e.g. executor cleanup) while the
+                    # pump was waiting to push EOF_MARKER.  The consumer
+                    # is no longer draining — drop the unread item and
+                    # try again so the pump can exit instead of leaking
+                    # (regression found via Issue #120 tests).
+                    try:
+                        q.get_nowait()
+                    except queue.Empty:  # pragma: no cover -- defensive
                         pass
                 continue

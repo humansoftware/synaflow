@@ -106,24 +106,12 @@ def test_sync_async_test_parity():
             "Engine-mismatch test is per-engine by nature: sync engine rejects "
             "an async Dag. The async equivalent is its own test in the async dir.",
         ),
-        # Unit tests for ``SyncFanout.join()`` — sync engine only.
-        # The async engine does not use ``Thread.join()``; its equivalent
-        # is ``asyncio.wait_for(..., timeout)``.
+        # Unit tests for SyncFanout internals that have no async
+        # equivalent (the async engine uses asyncio.Queue and
+        # does not have a ``_put_terminal`` loop with _stop checks).
         (
-            "test_join_returns_true_when_pump_exits",
-            "Unit test for the sync-only ``SyncFanout.join()`` method.",
-        ),
-        (
-            "test_join_returns_true_for_multiple_branches_under_abort_contention",
-            "Unit test for the sync-only ``SyncFanout.join()`` method.",
-        ),
-        (
-            "test_join_returns_true_when_pump_not_started",
-            "Unit test for the sync-only ``SyncFanout.join()`` method.",
-        ),
-        (
-            "test_join_returns_false_when_pump_is_stuck",
-            "Unit test for the sync-only ``SyncFanout.join()`` method.",
+            "test_given_full_queue_when_pump_pushes_terminal_and_abort_called_then_pump_exits",
+            "SyncFanout _put_terminal _stop detection has no async analogue.",
         ),
     ]
 
