@@ -2,6 +2,47 @@
 
 
 
+## v0.30.1 (2026-07-11)
+
+### Fix
+
+* fix(lockstep): memoize DFS to fix exponential walk (#113)
+
+* fix(lockstep): memoize DFS on (node, barrier) to fix exponential walk
+
+DFS enumeration was exponential in diamond depth (2^N paths per fanout).
+For master pipeline (296 steps, 15 effective nested diamonds), the work
+scaled to minutes locally and exceeded pytest-timeout in CI.
+
+Replace paths_to (full path list per visit, 2^N x N memory) with
+barriers_seen (set[bool] per descendant, O(N) memory) and memoize the
+walk on (node, barrier_status). barrier is bool, so each (node, barrier)
+pair is visited at most twice per fanout walk. Total: O(N x fanouts).
+
+Verified on 296-step DAG with 12 nested diamonds + 100 side branches:
+before: 8.5s, 409 MiB peak, &gt;30s timeout.
+after:  0.014s, 0.2 MiB peak, 0.017s at 20 diamonds.
+
+Regression test test_validate_lockstep_symmetry_is_linear_in_diamond_depth
+asserts &lt;1s on a 15-diamond chain (pre-fix: ~5 minutes).
+
+Fixes the hang reported in analisedefiis PR #149 where pytest-timeout
+fired at ~200s during cli.main([&#39;run&#39;, &#39;master&#39;, ...]).
+
+* style: add trailing newline to lockstep_validation.py
+
+ruff format --check was failing in CI on a missing trailing newline. The
+file was already correct semantically (8/8 tests pass) — just needed
+the EOF marker that ruff format enforces.
+
+Re-runs of the format-on-save didn&#39;t pick this up because the editor
+was saving without explicit newline-at-EOF.
+
+---------
+
+Co-authored-by: Marcelo Elias Del Valle &lt;marcelo@mvalle.br&gt; ([`1737938`](https://github.com/humansoftware/synaflow/commit/1737938e48d043c70aa4bcc3b9d95ca1750d8113))
+
+
 ## v0.30.0 (2026-07-10)
 
 ### Feature
