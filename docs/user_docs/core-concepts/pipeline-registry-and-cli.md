@@ -199,6 +199,53 @@ that invocation while keeping normal materializers and resources.
 Unknown fields and missing required fields are reported as `synaflow:
 Unknown params field(s) for DailyParams: [...]` etc. — not as a stack trace.
 
+### Lifecycle hooks
+
+The catalog-mode `synaflow` console script doesn't expose hooks — it is
+the same CLI for everyone. Project-specific entry points built on
+`SynaflowCli` can plug two callables around each `run` invocation:
+
+```python
+from synaflow import SynaflowCli, PreRunContext, PostRunContext
+from myproject.pipelines import catalog
+
+def audit(context: PostRunContext) -> None:
+    # Always runs after `run` finishes — on success and on failure.
+    log.info("pipeline %s %s", context.pipeline.name, context.outcome.status)
+
+def enrich_tenant(context: PreRunContext):
+    # Runs after CLI parsing, before the pipeline starts.
+    # Return value replaces the params the executor sees.
+    return context.params._replace(tenant=os.environ["MYPROJECT_TENANT"])
+
+if __name__ == "__main__":
+    raise SystemExit(
+        SynaflowCli(
+            catalog=catalog,
+            pre_run=enrich_tenant,
+            post_run=audit,
+        ).main()
+    )
+```
+
+`PreRunContext` carries the resolved `pipeline`, `dag`, `params`, and
+`observers_enabled`. `pre_run` must return a value of the same type as
+the pipeline's params — anything else raises `TypeError` and the
+pipeline never starts.
+
+`PostRunContext` adds `outcome: RunOutcome`, where `outcome.status` is
+either `"succeeded"` or `"failed"` and `outcome.error` is the original
+exception on failure (or `None`). The pipeline exception is re-raised
+after `post_run` runs; if `post_run` itself raises, its exception is
+re-raised with the original chained as `__cause__`.
+
+!!! tip "When to use hooks vs observers"
+    Hooks wrap the whole `run` (one shot, per CLI invocation). Observers
+    fire inside the pipeline on per-step lifecycle events (one per step,
+    per run). Reach for hooks for boundary effects — audit, metrics
+    emission, Slack alerts — and observers for fine-grained progress
+    signals.
+
 ## End-to-end: a real catalog in 30 seconds
 
 ```python title="myproject/pipelines.py"
