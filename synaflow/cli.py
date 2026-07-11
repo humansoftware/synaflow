@@ -11,11 +11,12 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import base64
 import dataclasses
 import json
 import sys
 from collections.abc import Sequence
-from typing import Any, Callable, Literal
+from typing import Any, Callable, Literal, get_args, get_origin, get_type_hints
 
 from synaflow.core.dag import Dag
 from synaflow.core.definition import PipelineDef
@@ -439,14 +440,35 @@ def _add_direct_param_flags(
         raise CLIUsageError(
             f"Pipeline params cannot use reserved CLI field(s): {reserved}"
         )
-    for field_name in sorted(valid):
-        parser.add_argument(
-            f"--{field_name.replace('_', '-')}",
-            dest=field_name,
-            default=argparse.SUPPRESS,
-            metavar="VALUE",
-            type=_parse_param_value,
-        )
+    for field_name, field_type in sorted(_params_field_types(params_type).items()):
+        direct_type = _direct_param_type(field_type)
+        if direct_type is None:
+            continue
+        option = f"--{field_name.replace('_', '-')}"
+        if direct_type is bool:
+            parser.add_argument(
+                option,
+                dest=field_name,
+                action=argparse.BooleanOptionalAction,
+                default=argparse.SUPPRESS,
+            )
+        elif get_origin(direct_type) is list:
+            parser.add_argument(
+                option,
+                dest=field_name,
+                action="append",
+                default=argparse.SUPPRESS,
+                metavar="VALUE",
+                type=_parse_direct_value(get_args(direct_type)[0]),
+            )
+        else:
+            parser.add_argument(
+                option,
+                dest=field_name,
+                default=argparse.SUPPRESS,
+                metavar="VALUE",
+                type=_parse_direct_value(direct_type),
+            )
 
 
 def _direct_param_values(params_type: Any, args: argparse.Namespace) -> dict:
@@ -478,12 +500,80 @@ def _load_params_file(path: str) -> dict:
     return data
 
 
-def _parse_param_value(value: str) -> Any:
-    """Parse a CLI value as JSON when possible; otherwise retain text."""
+def _params_field_types(params_type: Any) -> dict[str, Any]:
     try:
-        return json.loads(value)
-    except json.JSONDecodeError:
-        return value
+        return get_type_hints(params_type)
+    except (NameError, TypeError):
+        return dict(params_type.__annotations__)
+
+
+def _direct_param_type(field_type: Any) -> Any | None:
+    if field_type in {str, int, float, bool, bytes}:
+        return field_type
+    if get_origin(field_type) is list and get_args(field_type)[0] in {
+        str,
+        int,
+        float,
+        bool,
+        bytes,
+    }:
+        return field_type
+    return None
+
+
+def _parse_direct_value(value_type: type):
+    def parse(value: str) -> Any:
+        if value_type is str:
+            return value
+        if value_type is bytes:
+            try:
+                return base64.b64decode(value, validate=True)
+            except ValueError as exc:
+                raise argparse.ArgumentTypeError("must be valid base64") from exc
+        return value_type(value)
+
+    return parse
+
+
+def _deserialize_param_value(value: Any, field_type: Any) -> Any:
+    origin = get_origin(field_type)
+    args = get_args(field_type)
+    if origin is list:
+        return [_deserialize_param_value(item, args[0]) for item in value]
+    if origin is set:
+        return {_deserialize_param_value(item, args[0]) for item in value}
+    if origin is tuple:
+        return tuple(
+            _deserialize_param_value(item, item_type)
+            for item, item_type in zip(value, args, strict=True)
+        )
+    if origin is dict:
+        return {
+            _deserialize_param_value(key, args[0]): _deserialize_param_value(
+                item, args[1]
+            )
+            for key, item in value.items()
+        }
+    if field_type is bytes and not isinstance(value, bytes):
+        try:
+            return base64.b64decode(value, validate=True)
+        except ValueError as exc:
+            raise CLIUsageError("bytes values must be valid base64") from exc
+    if dataclasses.is_dataclass(field_type) or hasattr(field_type, "_fields"):
+        nested = _params_field_types(field_type)
+        return field_type(
+            **{
+                name: _deserialize_param_value(item, nested[name])
+                for name, item in value.items()
+            }
+        )
+    if isinstance(field_type, type):
+        return field_type(value)
+    return value
+
+
+def _allows_none(field_type: Any) -> bool:
+    return field_type is type(None) or type(None) in get_args(field_type)
 
 
 def _params_field_names(params_type: Any) -> tuple[set[str], set[str]]:
@@ -495,7 +585,10 @@ def _params_field_names(params_type: Any) -> tuple[set[str], set[str]]:
     if hasattr(params_type, "_fields"):
         valid = set(params_type._fields)
         defaults = set(params_type._field_defaults.keys())
-        return valid, valid - defaults
+        field_types = _params_field_types(params_type)
+        return valid, {
+            name for name in valid - defaults if not _allows_none(field_types[name])
+        }
     if dataclasses.is_dataclass(params_type):
         valid: set[str] = set()
         required: set[str] = set()
@@ -506,7 +599,8 @@ def _params_field_names(params_type: Any) -> tuple[set[str], set[str]]:
                 and f.default_factory is dataclasses.MISSING
             ):
                 required.add(f.name)
-        return valid, required
+        field_types = _params_field_types(params_type)
+        return valid, {name for name in required if not _allows_none(field_types[name])}
     raise CLIUsageError(
         f"Pipeline params must be a NamedTuple or @dataclass; got {params_type!r}"
     )
@@ -535,7 +629,16 @@ def _build_params(params_type: Any, file_values: dict, flag_values: dict) -> Any
             f"Missing required params field(s) for {params_type.__name__}: {missing}"
         )
     try:
-        return params_type(**merged)
+        field_types = _params_field_types(params_type)
+        for name, field_type in field_types.items():
+            if name not in merged and _allows_none(field_type):
+                merged[name] = None
+        return params_type(
+            **{
+                name: _deserialize_param_value(value, field_types[name])
+                for name, value in merged.items()
+            }
+        )
     except (TypeError, ValueError) as exc:
         raise CLIUsageError(
             f"Cannot construct {params_type.__name__} from provided params: {exc}"

@@ -34,6 +34,12 @@ from synaflow import OnError
 from tests.cli.conftest import SYNATEST_CATALOG_NAME
 
 
+@dataclasses.dataclass
+class _CliSettings:
+    name: str
+    retries: int
+
+
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
@@ -74,6 +80,165 @@ def test_given_project_cli_with_fixed_catalog_then_list_needs_no_catalog_flag(ca
     captured = capsys.readouterr()
     assert result == 0
     assert "hello" in captured.out
+
+
+def test_given_simple_direct_flags_then_project_cli_builds_typed_params():
+    class Params(NamedTuple):
+        text: str
+        count: int
+        ratio: float
+        enabled: bool = False
+        payload: bytes = b""
+        ids: list[int] = []
+
+    seen = []
+
+    def capture(text, count, ratio, enabled, payload, ids) -> None:
+        seen.append((text, count, ratio, enabled, payload, ids))
+
+    p = pipeline(
+        name="typed_direct",
+        params=Params,
+        steps=[step("capture", fn=capture)],
+    )
+    catalog = PipelineRegistry()
+    catalog.add(p)
+
+    result = SynaflowCli(catalog=catalog).main(
+        [
+            "run",
+            "typed_direct",
+            "--text",
+            "hello",
+            "--count",
+            "3",
+            "--ratio",
+            "1.5",
+            "--enabled",
+            "--payload",
+            "aGk=",
+            "--ids",
+            "2",
+            "--ids",
+            "5",
+        ]
+    )
+
+    assert result == 0
+    assert seen == [("hello", 3, 1.5, True, b"hi", [2, 5])]
+
+
+def test_given_complex_params_file_then_project_cli_deserializes_nested_values(
+    tmp_path,
+):
+    class Params(NamedTuple):
+        settings: _CliSettings
+        tags: set[str]
+
+    seen = []
+
+    def capture(settings, tags) -> None:
+        seen.append((settings, tags))
+
+    p = pipeline(
+        name="complex_json",
+        params=Params,
+        steps=[step("capture", fn=capture)],
+    )
+    catalog = PipelineRegistry()
+    catalog.add(p)
+    params_file = _write_params_file(
+        tmp_path,
+        {"settings": {"name": "daily", "retries": 2}, "tags": ["a", "b"]},
+    )
+
+    result = SynaflowCli(catalog=catalog).main(
+        ["run", "complex_json", "--params-file", str(params_file)]
+    )
+
+    assert result == 0
+    assert seen == [(_CliSettings(name="daily", retries=2), {"a", "b"})]
+
+
+def test_given_collection_params_file_then_cli_deserializes_dict_and_tuple(tmp_path):
+    class Params(NamedTuple):
+        scores: dict[str, int]
+        pair: tuple[int, str]
+
+    seen = []
+
+    def capture(scores, pair) -> None:
+        seen.append((scores, pair))
+
+    p = pipeline(
+        name="collection_json",
+        params=Params,
+        steps=[step("capture", fn=capture)],
+    )
+    catalog = PipelineRegistry()
+    catalog.add(p)
+    params_file = _write_params_file(
+        tmp_path, {"scores": {"first": 3}, "pair": [7, "seven"]}
+    )
+
+    result = SynaflowCli(catalog=catalog).main(
+        ["run", "collection_json", "--params-file", str(params_file)]
+    )
+
+    assert result == 0
+    assert seen == [({"first": 3}, (7, "seven"))]
+
+
+def test_given_bytes_in_params_file_then_cli_decodes_base64(tmp_path):
+    class Params(NamedTuple):
+        payload: bytes
+
+    seen = []
+
+    def capture(payload) -> None:
+        seen.append(payload)
+
+    p = pipeline(
+        name="bytes_json",
+        params=Params,
+        steps=[step("capture", fn=capture)],
+    )
+    catalog = PipelineRegistry()
+    catalog.add(p)
+    params_file = _write_params_file(tmp_path, {"payload": "aGk="})
+
+    result = SynaflowCli(catalog=catalog).main(
+        ["run", "bytes_json", "--params-file", str(params_file)]
+    )
+
+    assert result == 0
+    assert seen == [b"hi"]
+
+
+def test_given_optional_param_without_default_then_cli_supplies_none():
+    class Params(NamedTuple):
+        required: int
+        optional: str | None
+
+    seen = []
+
+    def capture(required, optional) -> None:
+        seen.append((required, optional))
+
+    p = pipeline(
+        name="optional_none",
+        params=Params,
+        steps=[step("capture", fn=capture)],
+    )
+    catalog = PipelineRegistry()
+    catalog.add(p)
+
+    result = SynaflowCli(catalog=catalog).main(
+        ["run", "optional_none", "--required", "7"]
+    )
+
+    assert result == 0
+    assert seen == [(7, None)]
 
 
 def test_given_no_observers_then_project_cli_disables_pipeline_observers():
