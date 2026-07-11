@@ -268,6 +268,56 @@ def test_given_no_observers_then_project_cli_disables_pipeline_observers():
     assert events == []
 
 
+def test_given_global_flag_before_pipeline_name_when_run_then_resolves_pipeline_and_parses_typed_params():
+    """Regression test for issue #118.
+
+    The CLI's bootstrap parser used to fail to extract the pipeline name
+    when a flag like ``--no-observers`` appeared between the ``run``
+    subcommand and the positional pipeline name:
+
+        ["run", "--no-observers", "P", "--x", "1"]
+        # before fix: argparse quirk -> "unrecognized arguments: --x 1"
+        # after fix:  runs with x=1, observers disabled
+
+    Caused by argparse stopping to consume the second ``nargs="?"``
+    positional after seeing an unknown flag. The bootstrap is now a
+    manual scan that tolerates flags in any position.
+    """
+
+    class Params(NamedTuple):
+        x: int = 0
+
+    def consume(x: int) -> None:
+        pass
+
+    p = pipeline(
+        name="alpha",
+        params=Params,
+        steps=[step("consume", fn=consume)],
+        observers=[Observer(lambda _ctx: None)],
+    )
+    catalog = PipelineRegistry()
+    catalog.add(p)
+
+    # Form 1: global flag BEFORE the positional name.
+    result = SynaflowCli(catalog=catalog).main(
+        ["run", "--no-observers", "alpha", "--x", "1"]
+    )
+    assert result == 0
+
+    # Form 2: global flag AFTER the positional name (already worked before).
+    result = SynaflowCli(catalog=catalog).main(
+        ["run", "alpha", "--no-observers", "--x", "2"]
+    )
+    assert result == 0
+
+    # Form 3: multiple unknown flags interleaved.
+    result = SynaflowCli(catalog=catalog).main(
+        ["run", "--no-observers", "alpha", "--x", "3"]
+    )
+    assert result == 0
+
+
 def test_given_run_hooks_then_pre_run_changes_effective_params_and_post_run_sees_success():
     class Params(NamedTuple):
         value: int
