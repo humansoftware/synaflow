@@ -2,6 +2,21 @@
 
 
 
+## v0.32.0 (2026-07-17)
+
+### Feature
+
+* feat: support direct CLI flags for nullable primitive pipeline params (#123)
+
+* feat: support direct CLI flags for nullable primitive pipeline params
+
+* feat: support direct CLI flags for nullable primitive pipeline params
+
+---------
+
+Co-authored-by: Marcelo Elias Del Valle &lt;marcelo@mvalle.br&gt; ([`49d5bca`](https://github.com/humansoftware/synaflow/commit/49d5bcade68f5f7f15a37f466c35eaa4fccc28ae))
+
+
 ## v0.31.2 (2026-07-11)
 
 ### Fix
