@@ -22,7 +22,7 @@ import subprocess
 import sys
 import types
 from pathlib import Path
-from typing import NamedTuple
+from typing import NamedTuple, Optional
 from unittest import mock
 
 import pytest
@@ -38,6 +38,15 @@ from tests.cli.conftest import SYNATEST_CATALOG_NAME
 class _CliSettings:
     name: str
     retries: int
+
+
+class _NullableParams(NamedTuple):
+    portfolio_id: int | None = None
+    force: bool = False
+
+
+class _OptionalParams(NamedTuple):
+    portfolio_id: Optional[int] = None
 
 
 # ---------------------------------------------------------------------------
@@ -126,6 +135,72 @@ def test_given_simple_direct_flags_then_project_cli_builds_typed_params():
 
     assert result == 0
     assert seen == [("hello", 3, 1.5, True, b"hi", [2, 5])]
+
+
+def test_given_nullable_primitive_flags_then_cli_builds_typed_params():
+    seen = []
+
+    def capture(portfolio_id: int | None, force: bool) -> None:
+        seen.append((portfolio_id, force))
+
+    p = pipeline(
+        name="nullable_primitive",
+        params=_NullableParams,
+        steps=[step("capture", fn=capture)],
+    )
+    catalog = PipelineRegistry()
+    catalog.add(p)
+
+    # 1. Supplied flag case
+    result = SynaflowCli(catalog=catalog).main(
+        [
+            "run",
+            "nullable_primitive",
+            "--portfolio-id",
+            "123",
+            "--force",
+        ]
+    )
+    assert result == 0
+    assert seen == [(123, True)]
+
+    # 2. Omitted flag case
+    seen.clear()
+    result = SynaflowCli(catalog=catalog).main(
+        [
+            "run",
+            "nullable_primitive",
+        ]
+    )
+    assert result == 0
+    assert seen == [(None, False)]
+
+
+def test_given_optional_primitive_flags_then_cli_builds_typed_params():
+    seen = []
+
+    def capture(portfolio_id: Optional[int]) -> None:
+        seen.append(portfolio_id)
+
+    p = pipeline(
+        name="optional_primitive",
+        params=_OptionalParams,
+        steps=[step("capture", fn=capture)],
+    )
+    catalog = PipelineRegistry()
+    catalog.add(p)
+
+    # 1. Supplied flag case
+    result = SynaflowCli(catalog=catalog).main(
+        [
+            "run",
+            "optional_primitive",
+            "--portfolio-id",
+            "456",
+        ]
+    )
+    assert result == 0
+    assert seen == [456]
 
 
 def test_given_complex_params_file_then_project_cli_deserializes_nested_values(

@@ -15,8 +15,10 @@ import base64
 import dataclasses
 import json
 import sys
+import types
 from collections.abc import Sequence
-from typing import Any, Callable, Literal, get_args, get_origin, get_type_hints
+from typing import Any, Callable, Literal, Union, get_args, get_origin, get_type_hints
+
 
 from synaflow.core.dag import Dag
 from synaflow.core.definition import PipelineDef
@@ -536,6 +538,13 @@ def _params_field_types(params_type: Any) -> dict[str, Any]:
 
 
 def _direct_param_type(field_type: Any) -> Any | None:
+    origin = get_origin(field_type)
+
+    if origin in (Union, getattr(types, "UnionType", None)):
+        args = get_args(field_type)
+        if len(args) == 2 and type(None) in args:
+            field_type = args[0] if args[1] is type(None) else args[1]
+
     if field_type in {str, int, float, bool, bytes}:
         return field_type
     if get_origin(field_type) is list and get_args(field_type)[0] in {
