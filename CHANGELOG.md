@@ -2,6 +2,39 @@
 
 
 
+## v0.32.2 (2026-07-28)
+
+### Fix
+
+* fix(execution): commit context manager resources before yielding to downstream consumers (#126) (#127)
+
+* fix(execution): commit context manager resources before yielding to downstream consumers (#126)
+
+### Summary
+Fixes #126 where context-manager resources in EACH-mode steps remained uncommitted while yielded items were being processed by downstream consumers, causing stale/uncommitted reads in multi-step outbox pipelines.
+
+### Changes
+- Sync &amp; Async step runners: execute `self.fn(**item_args)` inside the context manager block and save the result, allowing the context manager block (`with ExitStack()`) to exit and commit DB transactions *before* `yield result` passes the item downstream.
+- Corrected exception handling flow when `PipelineStopException` or step execution exceptions occur.
+
+### Tests
+- Added sync &amp; async unit tests verifying that resource context managers commit prior to downstream step execution (`test_cm_resource_exited_before_downstream_consumer_receives_item`).
+- All 798 tests passing in full test suite.
+
+* refactor: simplify error handling — use continue instead of has_error/exc_to_raise flags
+
+* refactor: move try outside with ExitStack + add factory error tests
+
+- Restructure try/except to wrap the with ExitStack block, keeping yield
+  inside try but outside with (commit before yield, errors still handled)
+- Add tests for CM factory errors in EACH mode with OnError.CONTINUE
+  (skips failed item) and OnError.STOP (raises PipelineStopException)
+
+---------
+
+Co-authored-by: Marcelo Elias Del Valle &lt;marcelo@mvalle.br&gt; ([`c6287b0`](https://github.com/humansoftware/synaflow/commit/c6287b0e88bc5329bc4cfb43a5aedcaff83f6204))
+
+
 ## v0.32.1 (2026-07-28)
 
 ### Fix
