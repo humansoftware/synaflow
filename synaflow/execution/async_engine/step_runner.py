@@ -259,36 +259,34 @@ class AsyncStepRunner:
                     if len(completed) == len(unrolled):
                         break
                     invocation_count += 1
-                    async with AsyncExitStack() as item_stack:
-                        for param, factory in self.deferred_resources.items():
-                            val = factory()
-                            if inspect.isawaitable(val):
-                                val = await val
-                            if is_async_context_manager_instance(val):
-                                val = await item_stack.enter_async_context(val)
-                            elif is_sync_context_manager_instance(val):
-                                val = item_stack.enter_context(val)
-                            item_args[param] = val
-                        try:
+                    try:
+                        async with AsyncExitStack() as item_stack:
+                            for param, factory in self.deferred_resources.items():
+                                val = factory()
+                                if inspect.isawaitable(val):
+                                    val = await val
+                                if is_async_context_manager_instance(val):
+                                    val = await item_stack.enter_async_context(val)
+                                elif is_sync_context_manager_instance(val):
+                                    val = item_stack.enter_context(val)
+                                item_args[param] = val
                             result = await self._call_fn(self.fn, item_args)
-                        except PipelineStopException:
-                            raise
-                        except Exception as exc:
-                            error_count += 1
-                            await self.events.handle_error(
-                                self.step_name,
-                                wrap_threshold_raise_if_manual(exc, self.step_name),
-                                success_count=invocation_count - error_count,
-                                error_count=error_count,
-                                completed_all_inputs=False,
-                            )
-                            if self.on_error == OnError.STOP:
-                                raise PipelineStopException(
-                                    step_name=self.step_name, cause=exc
-                                ) from exc
-                            continue
-
-                    yield result
+                        yield result
+                    except PipelineStopException:
+                        raise
+                    except Exception as exc:
+                        error_count += 1
+                        await self.events.handle_error(
+                            self.step_name,
+                            wrap_threshold_raise_if_manual(exc, self.step_name),
+                            success_count=invocation_count - error_count,
+                            error_count=error_count,
+                            completed_all_inputs=False,
+                        )
+                        if self.on_error == OnError.STOP:
+                            raise PipelineStopException(
+                                step_name=self.step_name, cause=exc
+                            ) from exc
                 # pos-loop, before generator ends
                 if has_threshold(self.dag_node):
                     try:

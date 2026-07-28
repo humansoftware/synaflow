@@ -2,7 +2,11 @@ from collections.abc import Generator, Iterator
 from contextlib import contextmanager
 from typing import NamedTuple
 
+import pytest
+
 from synaflow import PipelineRegistry, pipeline, run, step
+from synaflow.core.exceptions import PipelineStopException
+from synaflow.core.types import OnError
 
 
 class Params(NamedTuple):
@@ -186,3 +190,80 @@ def test_cm_resource_exited_before_downstream_consumer_receives_item():
         "TX COMMIT",
     ]
     assert events == expected
+
+
+def test_cm_factory_error_in_each_mode_with_on_error_continue_skips_failed_items():
+    call_count = 0
+
+    @contextmanager
+    def good_cm() -> Iterator[str]:
+        yield "resource"
+
+    def failing_cm_factory() -> str:
+        nonlocal call_count
+        call_count += 1
+        if call_count == 2:
+            raise RuntimeError("factory boom")
+        return good_cm()  # type: ignore
+
+    def numbers(count: int) -> Generator[int, None, None]:
+        yield from range(count)
+
+    results: list[str] = []
+
+    def each_step(numbers: int, res: str) -> str:
+        result = f"{res}-{numbers}"
+        results.append(result)
+        return result
+
+    p = pipeline(
+        name="test_factory_error_continue",
+        params=Params,
+        resources={"res": failing_cm_factory},
+        steps=[
+            step("numbers", fn=numbers),
+            step("each_step", fn=each_step, on_error=OnError.CONTINUE),
+        ],
+    )
+
+    catalog = PipelineRegistry()
+    catalog.add(p)
+    run(catalog.get_dag("test_factory_error_continue"), Params(count=3))
+
+    assert results == ["resource-1", "resource-2"]
+
+
+def test_cm_factory_error_in_each_mode_with_on_error_stop_raises():
+    call_count = 0
+
+    @contextmanager
+    def good_cm() -> Iterator[str]:
+        yield "resource"
+
+    def failing_cm_factory() -> str:
+        nonlocal call_count
+        call_count += 1
+        if call_count == 2:
+            raise RuntimeError("factory boom")
+        return good_cm()  # type: ignore
+
+    def numbers(count: int) -> Generator[int, None, None]:
+        yield from range(count)
+
+    def each_step(numbers: int, res: str) -> str:
+        return f"{res}-{numbers}"
+
+    p = pipeline(
+        name="test_factory_error_stop",
+        params=Params,
+        resources={"res": failing_cm_factory},
+        steps=[
+            step("numbers", fn=numbers),
+            step("each_step", fn=each_step, on_error=OnError.STOP),
+        ],
+    )
+
+    catalog = PipelineRegistry()
+    catalog.add(p)
+    with pytest.raises(PipelineStopException, match="each_step"):
+        run(catalog.get_dag("test_factory_error_stop"), Params(count=3))
