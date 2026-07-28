@@ -1728,8 +1728,8 @@ the step and injects the entered value:</p>
 </ul>
 <p>Important:</p>
 <ul>
-<li>the context wraps only the step call itself</li>
-<li>lazy output consumption after the step returns stays outside that context</li>
+<li>in ALL mode, the context wraps only the step call itself, and lazy output consumption after the step returns stays outside that context</li>
+<li>in EACH mode, each item invocation is an individual step call, so context managers are entered and exited per item (e.g. per-item database transactions)</li>
 </ul>
 <h2 id="common-patterns">Common patterns<a class="headerlink" href="#common-patterns" title="Permanent link">&para;</a></h2>
 <h3 id="shared-pool-fresh-connection-per-step">Shared pool, fresh connection per step<a class="headerlink" href="#shared-pool-fresh-connection-per-step" title="Permanent link">&para;</a></h3>
