@@ -93,8 +93,8 @@ That is the intended pattern for:
 
 Important:
 
-- the context wraps only the step call itself
-- lazy output consumption after the step returns stays outside that context
+- in ALL mode, the context wraps only the step call itself, and lazy output consumption after the step returns stays outside that context
+- in EACH mode, each item invocation is an individual step call, so context managers are entered and exited per item (e.g. per-item database transactions)
 
 ## Common patterns
 

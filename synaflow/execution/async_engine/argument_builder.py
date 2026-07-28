@@ -6,7 +6,7 @@ Resolves dependencies, resource arguments, and materializers for the async engin
 
 import asyncio
 import inspect
-from collections.abc import AsyncGenerator, AsyncIterator
+from collections.abc import AsyncGenerator, AsyncIterator, Callable
 from contextlib import AsyncExitStack
 from typing import Any
 
@@ -61,8 +61,11 @@ class AsyncArgumentBuilder:
         return self._overrides.materializers.resolve(step_name, node.materializer)
 
     async def resolve_resource_argument(
-        self, resource_name: str, resource_stack: AsyncExitStack
-    ) -> Any:
+        self,
+        resource_name: str,
+        resource_stack: AsyncExitStack,
+        is_each_mode: bool = False,
+    ) -> tuple[Any, Callable[[], Any] | None]:
         """Resolve a runtime resource argument."""
         provider = None
         if self._overrides is not None:
@@ -74,14 +77,19 @@ class AsyncArgumentBuilder:
                 f"Pipeline '{self._dag.name}' requires resource '{resource_name}' at runtime."
             )
 
-        value = provider() if callable(provider) else provider
+        factory = provider if callable(provider) else (lambda: provider)
+        value = factory()
         if inspect.isawaitable(value):
             value = await value
         if is_async_context_manager_instance(value):
-            return await resource_stack.enter_async_context(value)
+            if is_each_mode:
+                return None, factory
+            return await resource_stack.enter_async_context(value), None
         if is_sync_context_manager_instance(value):
-            return resource_stack.enter_context(value)
-        return value
+            if is_each_mode:
+                return None, factory
+            return resource_stack.enter_context(value), None
+        return value, None
 
     async def build_arguments(
         self,
@@ -89,7 +97,8 @@ class AsyncArgumentBuilder:
         node: Any,
         unrolled: set[str] | list[str],
         resource_stack: AsyncExitStack,
-    ) -> dict[str, Any]:
+        is_each_mode: bool = False,
+    ) -> tuple[dict[str, Any], dict[str, Any]]:
         """Build argument dictionary for a step.
 
         On exception, any ``AsyncQueueBranch`` opened earlier in this call
@@ -100,15 +109,21 @@ class AsyncArgumentBuilder:
         slot into ``state.outputs``.
         """
         args: dict[str, Any] = {}
+        deferred_resources: dict[str, Any] = {}
         # Track AsyncQueueBranch objects we touched so we can close them on
         # failure.  See Issue #103 (sync_engine/argument_builder.py).
         opened_branches: list[AsyncQueueBranch] = []
         try:
             for dep_name in node.deps:
+                param = node.dataset_param_names.get(dep_name, dep_name)
                 if dep_name in self._dag.resource_factories:
-                    value = await self.resolve_resource_argument(
-                        dep_name, resource_stack
+                    value, factory = await self.resolve_resource_argument(
+                        dep_name, resource_stack, is_each_mode=is_each_mode
                     )
+                    if factory is not None:
+                        deferred_resources[param] = factory
+                    else:
+                        args[param] = value
                 else:
                     value = self._outputs.get_output(dep_name, consumer)
                     if (
@@ -126,9 +141,8 @@ class AsyncArgumentBuilder:
                         origin = getattr(dep_type, "__origin__", dep_type)
                         if origin in (AsyncIterator, AsyncGenerator):
                             value = _list_to_async_gen(value)
-                param = node.dataset_param_names.get(dep_name, dep_name)
-                args[param] = value
-            return args
+                    args[param] = value
+            return args, deferred_resources
         except Exception:
             for branch in opened_branches:
                 try:

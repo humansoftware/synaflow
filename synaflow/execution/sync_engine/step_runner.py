@@ -19,6 +19,9 @@ from synaflow.execution.threshold import (
 from synaflow.execution.runtime_contract_validation import (
     satisfies_sync_iterator_contract,
 )
+from synaflow.execution.context_managers import (
+    is_sync_context_manager_instance,
+)
 from synaflow.execution.sync_engine.lifecycle_stream import LifecycleStream
 from synaflow.execution.sync_handoff import SyncQueueIterator
 
@@ -104,6 +107,7 @@ class StepRunner:
         events: EventDispatcher,
         stats: StepRunStats,
         dag_node: DagNode,
+        deferred_resources: dict[str, Any] | None = None,
         each_mode_deps: list[str] | None = None,
     ) -> None:
         self.step_name = step_name
@@ -113,6 +117,7 @@ class StepRunner:
         self.dataset_param_names = dataset_param_names
         self.arguments = arguments
         self.resource_stack = resource_stack
+        self.deferred_resources = deferred_resources or {}
         self.is_each_mode = is_each_mode
         self.should_drain = should_drain
         self.publisher = publisher
@@ -248,25 +253,31 @@ class StepRunner:
                         break
 
                     invocation_count += 1
-                    try:
-                        yield self.fn(**item_args)
-                    except PipelineStopException:
-                        # Propagate STOP from upstream producer so the consumer
-                        # also stops, even without forced materialization.
-                        raise
-                    except Exception as exc:
-                        error_count += 1
-                        self.events.handle_error(
-                            self.step_name,
-                            wrap_threshold_raise_if_manual(exc, self.step_name),
-                            success_count=invocation_count - error_count,
-                            error_count=error_count,
-                            completed_all_inputs=False,
-                        )
-                        if on_err == OnError.STOP:
-                            raise PipelineStopException(
-                                step_name=self.step_name, cause=exc
-                            ) from exc
+                    with ExitStack() as item_stack:
+                        for param, factory in self.deferred_resources.items():
+                            val = factory()
+                            if is_sync_context_manager_instance(val):
+                                val = item_stack.enter_context(val)
+                            item_args[param] = val
+                        try:
+                            yield self.fn(**item_args)
+                        except PipelineStopException:
+                            # Propagate STOP from upstream producer so the consumer
+                            # also stops, even without forced materialization.
+                            raise
+                        except Exception as exc:
+                            error_count += 1
+                            self.events.handle_error(
+                                self.step_name,
+                                wrap_threshold_raise_if_manual(exc, self.step_name),
+                                success_count=invocation_count - error_count,
+                                error_count=error_count,
+                                completed_all_inputs=False,
+                            )
+                            if on_err == OnError.STOP:
+                                raise PipelineStopException(
+                                    step_name=self.step_name, cause=exc
+                                ) from exc
                 # post-loop, before generator ends
                 if has_threshold(self.dag_node):
                     try:
