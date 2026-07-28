@@ -253,31 +253,30 @@ class StepRunner:
                         break
 
                     invocation_count += 1
-                    with ExitStack() as item_stack:
-                        for param, factory in self.deferred_resources.items():
-                            val = factory()
-                            if is_sync_context_manager_instance(val):
-                                val = item_stack.enter_context(val)
-                            item_args[param] = val
-                        try:
-                            yield self.fn(**item_args)
-                        except PipelineStopException:
-                            # Propagate STOP from upstream producer so the consumer
-                            # also stops, even without forced materialization.
-                            raise
-                        except Exception as exc:
-                            error_count += 1
-                            self.events.handle_error(
-                                self.step_name,
-                                wrap_threshold_raise_if_manual(exc, self.step_name),
-                                success_count=invocation_count - error_count,
-                                error_count=error_count,
-                                completed_all_inputs=False,
-                            )
-                            if on_err == OnError.STOP:
-                                raise PipelineStopException(
-                                    step_name=self.step_name, cause=exc
-                                ) from exc
+                    try:
+                        with ExitStack() as item_stack:
+                            for param, factory in self.deferred_resources.items():
+                                val = factory()
+                                if is_sync_context_manager_instance(val):
+                                    val = item_stack.enter_context(val)
+                                item_args[param] = val
+                            result = self.fn(**item_args)
+                        yield result
+                    except PipelineStopException:
+                        raise
+                    except Exception as exc:
+                        error_count += 1
+                        self.events.handle_error(
+                            self.step_name,
+                            wrap_threshold_raise_if_manual(exc, self.step_name),
+                            success_count=invocation_count - error_count,
+                            error_count=error_count,
+                            completed_all_inputs=False,
+                        )
+                        if on_err == OnError.STOP:
+                            raise PipelineStopException(
+                                step_name=self.step_name, cause=exc
+                            ) from exc
                 # post-loop, before generator ends
                 if has_threshold(self.dag_node):
                     try:
