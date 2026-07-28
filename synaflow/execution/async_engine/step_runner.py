@@ -259,9 +259,6 @@ class AsyncStepRunner:
                     if len(completed) == len(unrolled):
                         break
                     invocation_count += 1
-                    has_error = False
-                    exc_to_raise = None
-                    result = None
                     async with AsyncExitStack() as item_stack:
                         for param, factory in self.deferred_resources.items():
                             val = factory()
@@ -274,10 +271,9 @@ class AsyncStepRunner:
                             item_args[param] = val
                         try:
                             result = await self._call_fn(self.fn, item_args)
-                        except PipelineStopException as exc:
-                            exc_to_raise = exc
+                        except PipelineStopException:
+                            raise
                         except Exception as exc:
-                            has_error = True
                             error_count += 1
                             await self.events.handle_error(
                                 self.step_name,
@@ -287,14 +283,12 @@ class AsyncStepRunner:
                                 completed_all_inputs=False,
                             )
                             if self.on_error == OnError.STOP:
-                                exc_to_raise = PipelineStopException(
+                                raise PipelineStopException(
                                     step_name=self.step_name, cause=exc
-                                )
+                                ) from exc
+                            continue
 
-                    if exc_to_raise is not None:
-                        raise exc_to_raise
-                    if not has_error:
-                        yield result
+                    yield result
                 # pos-loop, before generator ends
                 if has_threshold(self.dag_node):
                     try:
