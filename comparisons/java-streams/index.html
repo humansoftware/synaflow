@@ -1531,9 +1531,9 @@ from collections.abc import Generator, Iterator
 from synaflow import pipeline, step, run, PipelineRegistry</p>
 <p>def producer(count: int) -&gt; Generator[int, None, None]:
     yield from range(count)</p>
-<p>def doubler(producer: int) -&gt; int:       # EACH: map
+<p>def doubler(producer: int) -&gt; int:  # EACH: map
     return producer * 2</p>
-<p>def big_enough(doubler: int) -&gt; int:     # EACH: filter
+<p>def big_enough(doubler: int) -&gt; int:  # EACH: filter
     if doubler &gt; 5:
         yield doubler</p>
 <p>def collector(big_enough: list[int]) -&gt; None:  # collect(toList)
@@ -1602,10 +1602,10 @@ consecutive <code>T → Iterator[T]</code> steps still produce a flat <code>Iter
 <p>```python
 from collections.abc import Generator, Iterator</p>
 <p>def step1() -&gt; Generator[int, None, None]:
-    yield from range(3)       # produces Iterator[int]</p>
+    yield from range(3)  # produces Iterator[int]</p>
 <p>def step2(step1: int) -&gt; Generator[str, None, None]:
-    yield str(step1)          # EACH mode, produces Generator[str]
-    yield str(step1 * 10)     #</p>
+    yield str(step1)  # EACH mode, produces Generator[str]
+    yield str(step1 * 10)  #</p>
 <h1 id="step2s-output-is-listtypestr-flat-list-of-strings">step2's output is ListType(str) → flat list of strings<a class="headerlink" href="#step2s-output-is-listtypestr-flat-list-of-strings" title="Permanent link">&para;</a></h1>
 <h1 id="not-iteratoriteratorstr">NOT Iterator[Iterator[str]]<a class="headerlink" href="#not-iteratoriteratorstr" title="Permanent link">&para;</a></h1>
 </div>
@@ -1717,10 +1717,13 @@ the factory decides the <strong>backend</strong>.</p>
 at the end. SynaFlow materializers can appear <strong>anywhere in the pipeline</strong>, not
 just at the end. A step in the middle can materialize to disk, and downstream
 steps read from that persisted data:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="n">step</span><span class="p">(</span><span class="s2">&quot;cache&quot;</span><span class="p">,</span> <span class="n">fn</span><span class="o">=</span><span class="n">expensive_computation</span><span class="p">,</span>
-<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>     <span class="n">materializer</span><span class="o">=</span><span class="n">disk_materializer</span><span class="p">(</span><span class="s2">&quot;/mnt/ssd&quot;</span><span class="p">),</span>
-<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>     <span class="n">force_materialize</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="n">step</span><span class="p">(</span><span class="s2">&quot;downstream&quot;</span><span class="p">,</span> <span class="n">fn</span><span class="o">=</span><span class="n">downstream</span><span class="p">)</span>  <span class="c1"># reads from cached data</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="n">step</span><span class="p">(</span>
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>    <span class="s2">&quot;cache&quot;</span><span class="p">,</span>
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>    <span class="n">fn</span><span class="o">=</span><span class="n">expensive_computation</span><span class="p">,</span>
+<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>    <span class="n">materializer</span><span class="o">=</span><span class="n">disk_materializer</span><span class="p">(</span><span class="s2">&quot;/mnt/ssd&quot;</span><span class="p">),</span>
+<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>    <span class="n">force_materialize</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="p">)</span>
+<a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="n">step</span><span class="p">(</span><span class="s2">&quot;downstream&quot;</span><span class="p">,</span> <span class="n">fn</span><span class="o">=</span><span class="n">downstream</span><span class="p">)</span>  <span class="c1"># reads from cached data</span>
 </code></pre></div>
 <p>This enables patterns like checkpointing, intermediate persistence, and
 incremental processing that have no equivalent in the Java Streams API.</p>

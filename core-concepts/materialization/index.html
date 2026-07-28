@@ -1532,7 +1532,7 @@ from collections.abc import Generator, Iterator
 from synaflow import pipeline, step, run, PipelineRegistry</p>
 <p>def producer() -&gt; Generator[int, None, None]:
     yield from range(1_000_000)</p>
-<p>def lazy(producer: Iterator[int]) -&gt; None:      # streams — no materialization
+<p>def lazy(producer: Iterator[int]) -&gt; None:  # streams — no materialization
     for x in producer:
         pass</p>
 <p>def cache(producer: Iterator[int]) -&gt; Iterator[int]:
@@ -1543,7 +1543,7 @@ from synaflow import pipeline, step, run, PipelineRegistry</p>
     params=type("P", (NamedTuple,), {}),
     steps=[
         step("producer", fn=producer),
-        step("cache", fn=cache, force_materialize=True),   # ← forces materialization
+        step("cache", fn=cache, force_materialize=True),  # ← forces materialization
         step("lazy", fn=lazy),
     ],
 )
@@ -1735,8 +1735,7 @@ partial output. Configure per-step or per-pipeline:</p>
 <a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a><span class="n">catalog</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">p</span><span class="p">)</span>
 <a id="__codelineno-1-13" name="__codelineno-1-13" href="#__codelineno-1-13"></a>
 <a id="__codelineno-1-14" name="__codelineno-1-14" href="#__codelineno-1-14"></a><span class="c1"># Per-step override</span>
-<a id="__codelineno-1-15" name="__codelineno-1-15" href="#__codelineno-1-15"></a><span class="n">step</span><span class="p">(</span><span class="s2">&quot;critical&quot;</span><span class="p">,</span> <span class="n">fn</span><span class="o">=</span><span class="n">do_work</span><span class="p">,</span>
-<a id="__codelineno-1-16" name="__codelineno-1-16" href="#__codelineno-1-16"></a>     <span class="n">error_materializer</span><span class="o">=</span><span class="n">log_error_materializer</span><span class="p">)</span>
+<a id="__codelineno-1-15" name="__codelineno-1-15" href="#__codelineno-1-15"></a><span class="n">step</span><span class="p">(</span><span class="s2">&quot;critical&quot;</span><span class="p">,</span> <span class="n">fn</span><span class="o">=</span><span class="n">do_work</span><span class="p">,</span> <span class="n">error_materializer</span><span class="o">=</span><span class="n">log_error_materializer</span><span class="p">)</span>
 </code></pre></div>
 <p>Error handlers receive a single error context object with execution metadata
 such as <code>run_id</code>, <code>step_name</code>, <code>mode</code>, <code>on_error</code>, current success/error
@@ -1769,10 +1768,8 @@ a <code>ThresholdExceededException</code> is raised. It propagates out of <code>
 configured observers.</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">synaflow</span><span class="w"> </span><span class="kn">import</span> <span class="n">pipeline</span><span class="p">,</span> <span class="n">step</span>
 <a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>
-<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="n">step</span><span class="p">(</span><span class="s2">&quot;fragile&quot;</span><span class="p">,</span> <span class="n">fn</span><span class="o">=</span><span class="n">process</span><span class="p">,</span>
-<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>     <span class="n">error_threshold_absolute</span><span class="o">=</span><span class="mi">5</span><span class="p">)</span>          <span class="c1"># halt on 5th failure</span>
-<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="n">step</span><span class="p">(</span><span class="s2">&quot;brittle&quot;</span><span class="p">,</span> <span class="n">fn</span><span class="o">=</span><span class="n">validate</span><span class="p">,</span>
-<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>     <span class="n">error_threshold_pct</span><span class="o">=</span><span class="mf">0.3</span><span class="p">)</span>             <span class="c1"># halt when 30%+ failed</span>
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="n">step</span><span class="p">(</span><span class="s2">&quot;fragile&quot;</span><span class="p">,</span> <span class="n">fn</span><span class="o">=</span><span class="n">process</span><span class="p">,</span> <span class="n">error_threshold_absolute</span><span class="o">=</span><span class="mi">5</span><span class="p">)</span>  <span class="c1"># halt on 5th failure</span>
+<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="n">step</span><span class="p">(</span><span class="s2">&quot;brittle&quot;</span><span class="p">,</span> <span class="n">fn</span><span class="o">=</span><span class="n">validate</span><span class="p">,</span> <span class="n">error_threshold_pct</span><span class="o">=</span><span class="mf">0.3</span><span class="p">)</span>  <span class="c1"># halt when 30%+ failed</span>
 </code></pre></div>
 <h3 id="constraints">Constraints<a class="headerlink" href="#constraints" title="Permanent link">&para;</a></h3>
 <ul>

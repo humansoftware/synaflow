@@ -1525,9 +1525,9 @@ from collections.abc import Generator, Iterator
 from synaflow import pipeline, step, run, PipelineRegistry</p>
 <p>def producer(count: int) -&gt; Generator[int, None, None]:
     yield from range(count)</p>
-<p>def doubler(producer: int) -&gt; int:       # EACH: Select
+<p>def doubler(producer: int) -&gt; int:  # EACH: Select
     return producer * 2</p>
-<p>def big_enough(doubler: int) -&gt; int:     # EACH: Where (with yield)
+<p>def big_enough(doubler: int) -&gt; int:  # EACH: Where (with yield)
     if doubler &gt; 5:
         yield doubler</p>
 <p>def collector(big_enough: list[int]) -&gt; None:  # ToList

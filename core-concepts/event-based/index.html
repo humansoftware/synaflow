@@ -1468,14 +1468,17 @@ from synaflow import pipeline, step, run, PipelineRegistry</p>
     name="event_processor",
     params=Window,
     steps=[
-        step("normalize", fn=normalize),     # EACH: one event at a time
-        step("log_each", fn=log_each),       # ALL: receives lazy stream
-        step("aggregate", fn=aggregate),     # ALL: materializes the window
+        step("normalize", fn=normalize),  # EACH: one event at a time
+        step("log_each", fn=log_each),  # ALL: receives lazy stream
+        step("aggregate", fn=aggregate),  # ALL: materializes the window
     ],
 )
 catalog = PipelineRegistry()
 catalog.add(p)</p>
-<p>run(catalog.get_dag("event_processor"), Window(events=[{"id": 1, "amount": 10}, {"id": 2, "amount": 20}]))</p>
+<p>run(
+    catalog.get_dag("event_processor"),
+    Window(events=[{"id": 1, "amount": 10}, {"id": 2, "amount": 20}]),
+)</p>
 </div>
 </div>
 </div>
@@ -1506,7 +1509,10 @@ from synaflow import pipeline, step, async_run, PipelineRegistry</p>
 )
 catalog = PipelineRegistry()
 catalog.add(p)</p>
-<p>async_run(catalog.get_dag("event_processor"), Window(events=[{"id": 1, "amount": 10}, {"id": 2, "amount": 20}]))</p>
+<p>async_run(
+    catalog.get_dag("event_processor"),
+    Window(events=[{"id": 1, "amount": 10}, {"id": 2, "amount": 20}]),
+)</p>
 </div>
 </div>
 </div>

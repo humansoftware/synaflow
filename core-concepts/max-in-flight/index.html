@@ -1970,11 +1970,12 @@ from typing import NamedTuple</p>
 <p>class Params(NamedTuple):
     urls: list[str]</p>
 <p>async def main() -&gt; None:
-    async with httpx.AsyncClient() as client:
-        async def urls(urls: list[str]) -&gt; AsyncGenerator[str, None]:
-            for url in urls:
-                yield url</p>
-<div class="highlight"><pre><span></span><code>    async def fetch(url: str) -&gt; dict:
+    async with httpx.AsyncClient() as client:</p>
+<div class="highlight"><pre><span></span><code>    async def urls(urls: list[str]) -&gt; AsyncGenerator[str, None]:
+        for url in urls:
+            yield url
+
+    async def fetch(url: str) -&gt; dict:
         response = await client.get(url, timeout=10)
         return {
             &quot;url&quot;: url,

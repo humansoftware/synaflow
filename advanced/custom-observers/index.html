@@ -1713,15 +1713,15 @@
 </table>
 <h2 id="per-step-observers">Per-Step Observers<a class="headerlink" href="#per-step-observers" title="Permanent link">&para;</a></h2>
 <p>Attach observers to individual steps for targeted monitoring:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="n">step</span><span class="p">(</span><span class="s2">&quot;critical_step&quot;</span><span class="p">,</span> <span class="n">fn</span><span class="o">=</span><span class="n">do_work</span><span class="p">,</span>
-<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>     <span class="n">observers</span><span class="o">=</span><span class="p">[</span><span class="n">Observer</span><span class="p">(</span><span class="n">alert_if_slow</span><span class="p">)])</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="n">step</span><span class="p">(</span><span class="s2">&quot;critical_step&quot;</span><span class="p">,</span> <span class="n">fn</span><span class="o">=</span><span class="n">do_work</span><span class="p">,</span> <span class="n">observers</span><span class="o">=</span><span class="p">[</span><span class="n">Observer</span><span class="p">(</span><span class="n">alert_if_slow</span><span class="p">)])</span>
 </code></pre></div>
 <h2 id="async-observers">Async Observers<a class="headerlink" href="#async-observers" title="Permanent link">&para;</a></h2>
 <p>Async handlers are detected automatically and awaited:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">async_handler</span><span class="p">(</span><span class="n">ctx</span><span class="p">):</span>
 <a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>    <span class="k">await</span> <span class="n">metrics</span><span class="o">.</span><span class="n">push</span><span class="p">(</span><span class="n">ctx</span><span class="o">.</span><span class="n">step_name</span><span class="p">,</span> <span class="n">ctx</span><span class="o">.</span><span class="n">event</span><span class="o">.</span><span class="n">value</span><span class="p">)</span>
 <a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>
-<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="n">p</span> <span class="o">=</span> <span class="n">pipeline</span><span class="p">(</span><span class="n">observers</span><span class="o">=</span><span class="p">[</span><span class="n">Observer</span><span class="p">(</span><span class="n">async_handler</span><span class="p">)])</span>
+<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>
+<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="n">p</span> <span class="o">=</span> <span class="n">pipeline</span><span class="p">(</span><span class="n">observers</span><span class="o">=</span><span class="p">[</span><span class="n">Observer</span><span class="p">(</span><span class="n">async_handler</span><span class="p">)])</span>
 </code></pre></div>
 <h2 id="failure-isolation">Failure Isolation<a class="headerlink" href="#failure-isolation" title="Permanent link">&para;</a></h2>
 <p>Observer failures are <strong>logged and swallowed</strong> — they never affect pipeline execution. If an observer raises, the pipeline continues normally.</p>

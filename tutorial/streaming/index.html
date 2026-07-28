@@ -1608,7 +1608,9 @@ from synaflow import pipeline, step, async_run, PipelineRegistry</p>
     return list(message)</p>
 <p>async def lowercase(hello: str) -&gt; str:
     return hello.lower()</p>
-<p>async def counter(lowercase: AsyncIterator[str]) -&gt; AsyncGenerator[tuple[str, int], None]:
+<p>async def counter(
+    lowercase: AsyncIterator[str],
+) -&gt; AsyncGenerator[tuple[str, int], None]:
     counts: dict[str, int] = {}
     async for char in lowercase:
         counts[char] = counts.get(char, 0) + 1
