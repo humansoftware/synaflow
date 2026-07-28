@@ -2,6 +2,39 @@
 
 
 
+## v0.32.1 (2026-07-28)
+
+### Fix
+
+* fix(execution): enter and exit context manager resources per item in EACH mode (#124) (#125)
+
+* fix(execution): enter and exit context manager resources per item in EACH mode (#124)
+
+### Summary
+Fixes #124 where context-manager resources in EACH-mode steps were entered once before the first item and exited once after the last item, instead of wrapping each individual item invocation.
+
+### Changes
+- Sync &amp; Async argument builders: defer context manager resolution when step is in EACH mode
+- Sync &amp; Async step runners: wrap item execution with ExitStack / AsyncExitStack inside generate()
+- Sync &amp; Async executors: pass deferred_resources map down to step runners
+- Documentation: update resources.md with EACH mode per-item resource lifecycle rules
+
+### Tests
+- Added sync unit tests in test_runner_each_resource_lifecycle.py
+- Added async unit tests in test_async_runner_each_resource_lifecycle.py
+- Verified test parity gate (test_parity.py) and sync/async parity suites
+
+* refactor(async_engine): use AsyncExitStack.enter_context for sync CMs instead of nested ExitStack
+
+---------
+
+Co-authored-by: Marcelo Elias Del Valle &lt;marcelo@mvalle.br&gt; ([`a23e491`](https://github.com/humansoftware/synaflow/commit/a23e4913be13408fe5b8ac80f7b62b45ff6420d5))
+
+### Style
+
+* style(docs): format markdown code snippets with ruff ([`0059a2b`](https://github.com/humansoftware/synaflow/commit/0059a2b1e2261d7a17d67e0f0ec020d5adb50b92))
+
+
 ## v0.32.0 (2026-07-17)
 
 ### Feature
