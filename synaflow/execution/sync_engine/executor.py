@@ -242,7 +242,10 @@ class PipelineExecutor:
         if not node.fn:
             return
 
-        arguments, resource_stack = self.scope.build_arguments(step_name, node)
+        is_each = node.mode == StepMode.EACH
+        arguments, resource_stack, deferred_resources = self.scope.build_arguments(
+            step_name, node, is_each_mode=is_each
+        )
         unrolled = self.dag.each_inputs(step_name)
 
         stats = StepRunStats()
@@ -255,7 +258,8 @@ class PipelineExecutor:
             dataset_param_names=node.dataset_param_names,
             arguments=arguments,
             resource_stack=resource_stack,
-            is_each_mode=(node.mode == StepMode.EACH),
+            deferred_resources=deferred_resources,
+            is_each_mode=is_each,
             should_drain=(
                 node.output_contract is not None
                 and node.output_contract.drain_policy != "none"

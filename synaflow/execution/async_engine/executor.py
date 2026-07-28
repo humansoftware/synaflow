@@ -207,9 +207,10 @@ class AsyncPipelineExecutor:
             return
 
         unrolled = self.dag.each_inputs(step_name)
+        is_each = node.mode == StepMode.EACH
         resource_stack = AsyncExitStack()
-        arguments = await self.scope.build_arguments(
-            step_name, node, unrolled, resource_stack
+        arguments, deferred_resources = await self.scope.build_arguments(
+            step_name, node, unrolled, resource_stack, is_each_mode=is_each
         )
 
         stats = StepRunStats()
@@ -228,7 +229,8 @@ class AsyncPipelineExecutor:
             dataset_param_names=node.dataset_param_names,
             arguments=arguments,
             resource_stack=resource_stack,
-            is_each_mode=(node.mode == StepMode.EACH),
+            deferred_resources=deferred_resources,
+            is_each_mode=is_each,
             should_drain=(
                 node.output_contract is not None
                 and node.output_contract.drain_policy != "none"
