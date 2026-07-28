@@ -102,8 +102,10 @@ from synaflow import ExecutionOverrides, Observer, PIPELINE_SCOPE
 
 events = []
 
+
 def record(ctx):
     events.append((ctx.event.value, getattr(ctx, "step_name", None)))
+
 
 overrides = ExecutionOverrides.empty(p)
 overrides.observers[PIPELINE_SCOPE] = [Observer(record)]
@@ -135,17 +137,20 @@ from typing import NamedTuple
 from synaflow import pipeline, step, PipelineRegistry
 
 
-class DB:
-    ...
+class DB: ...
+
 
 class Params(NamedTuple):
     user_id: int
 
+
 def get_db() -> DB:
     return DB(...)
 
+
 def load_user(db: DB, user_id: int):
     return db.fetch(user_id)
+
 
 p = pipeline(
     name="users",
@@ -155,7 +160,6 @@ p = pipeline(
 )
 catalog = PipelineRegistry()
 catalog.add(p)
-
 ```
 
 With that declaration, production can run without overrides:
@@ -193,6 +197,7 @@ it before calling the step and injects the entered value:
 
 ```python
 from contextlib import contextmanager
+
 
 @contextmanager
 def get_db() -> DB:
@@ -287,7 +292,9 @@ Good when only one nested compiled step needs different runtime behavior.
 
 ```python
 overrides = ExecutionOverrides.empty(p)
-run(catalog.get_dag("users"), Params(user_id=42), overrides=overrides)  # raises: missing resource "db"
+run(
+    catalog.get_dag("users"), Params(user_id=42), overrides=overrides
+)  # raises: missing resource "db"
 ```
 
 Good for validating production wiring or test harness setup itself.

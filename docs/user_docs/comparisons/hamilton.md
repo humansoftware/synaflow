@@ -20,11 +20,14 @@ the data model underneath is fundamentally different.
     # Step name "items" produces Iterator[User]
     # Parameter "item" (singular) binds to "items" automatically
 
+
     def transform(item: User) -> User:
         return item
 
+
     def collector(transform: list[User]) -> None:
         print(len(transform))
+
 
     p = pipeline(
         steps=[
@@ -40,11 +43,14 @@ the data model underneath is fundamentally different.
     ```python
     # Function name IS the output column — must match exactly
 
+
     def items(users: pd.Series) -> pd.Series:
         return users
 
+
     def transform(items: pd.Series) -> pd.Series:
         return items  # "items" must match function above exactly
+
 
     def collector(transform: pd.Series) -> pd.Series:
         return transform
@@ -69,16 +75,20 @@ the data model underneath is fundamentally different.
     ```python
     from collections.abc import Generator, Iterator
 
-    def producer(count: int) -> Generator[int, None, None]:
-        yield from range(count)          # streams one item at a time
 
-    def doubler(producer: int) -> int:   # EACH mode: called per item
+    def producer(count: int) -> Generator[int, None, None]:
+        yield from range(count)  # streams one item at a time
+
+
+    def doubler(producer: int) -> int:  # EACH mode: called per item
         return producer * 2
 
-    def eager(doubler: list[int]) -> int: # ALL mode: materialize
+
+    def eager(doubler: list[int]) -> int:  # ALL mode: materialize
         return sum(doubler)
 
-    def lazy(doubler: Iterator[int]) -> None: # ALL mode: lazy stream
+
+    def lazy(doubler: Iterator[int]) -> None:  # ALL mode: lazy stream
         for x in doubler:
             print(x)
     ```
@@ -88,14 +98,17 @@ the data model underneath is fundamentally different.
     ```python
     import pandas as pd
 
+
     def producer(count: int) -> pd.Series:
-        return pd.Series(range(count))   # entire column in memory
+        return pd.Series(range(count))  # entire column in memory
+
 
     def doubler(producer: pd.Series) -> pd.Series:
-        return producer * 2              # vectorized over full column
+        return producer * 2  # vectorized over full column
+
 
     def eager(doubler: pd.Series) -> float:
-        return doubler.sum()             # already in memory
+        return doubler.sum()  # already in memory
     ```
 
 ## When to use each

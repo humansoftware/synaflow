@@ -108,6 +108,7 @@ The `Dag` object is self-contained. Anyone can write a runner:
 ```python
 from synaflow.core.dag import Dag
 
+
 class MyRunner:
     def execute(self, dag: Dag, params):
         for level in dag.get_execution_levels():

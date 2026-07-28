@@ -63,8 +63,8 @@ If you force materialization right at the source (`p1`), the stream ceases to be
 pipeline(
     steps=[
         step("p1", p1, mode=StepMode.ALL, force_materialize=True),
-        step("s2", s2), # Eager
-        step("s3", s3), # Lazy
+        step("s2", s2),  # Eager
+        step("s3", s3),  # Lazy
         step("s4", s4),
     ]
 )
@@ -77,8 +77,8 @@ You can introduce a materialization barrier into the lazy paths to act as a temp
 pipeline(
     steps=[
         step("p1", p1),
-        step("s2", s2), # Inherently Eager (e.g. returns a list)
-        step("s3", s3, force_materialize=True), # Forced to be a shield
+        step("s2", s2),  # Inherently Eager (e.g. returns a list)
+        step("s3", s3, force_materialize=True),  # Forced to be a shield
         step("s4", s4),
     ]
 )

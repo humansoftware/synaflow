@@ -108,7 +108,6 @@ That means:
     from synaflow import async_run, pipeline, step, PipelineRegistry
 
 
-
     class Params(NamedTuple):
         urls: list[str]
 
@@ -407,13 +406,13 @@ If you use an HTTP client (like `requests` for sync or `httpx` for async), the c
     from synaflow import async_run, pipeline, step, PipelineRegistry
 
 
-
     class Params(NamedTuple):
         urls: list[str]
 
 
     async def main() -> None:
         async with httpx.AsyncClient() as client:
+
             async def urls(urls: list[str]) -> AsyncGenerator[str, None]:
                 for url in urls:
                     yield url

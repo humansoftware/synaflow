@@ -14,18 +14,23 @@ printing one line per character.
     class Params(NamedTuple):
         message: str
 
+
     def hello(message: str) -> list[str]:
         return list(message)
+
 
     def lowercase(hello: str) -> str:
         return hello.lower()
 
+
     def count_chars(lowercase: list[str]) -> dict[str, int]:
         return dict(Counter(lowercase))
+
 
     def printer(count_chars: dict[str, int]) -> None:
         for char, count in count_chars.items():
             print(f"  {char!r} appears {count} time(s)")
+
 
     p = pipeline(
         name="tutorial",
@@ -54,18 +59,23 @@ printing one line per character.
     class Params(NamedTuple):
         message: str
 
+
     async def hello(message: str) -> list[str]:
         return list(message)
+
 
     async def lowercase(hello: str) -> str:
         return hello.lower()
 
+
     async def count_chars(lowercase: list[str]) -> dict[str, int]:
         return dict(Counter(lowercase))
+
 
     async def printer(count_chars: dict[str, int]) -> None:
         for char, count in count_chars.items():
             print(f"  {char!r} appears {count} time(s)")
+
 
     p = pipeline(
         name="tutorial",

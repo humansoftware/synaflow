@@ -42,11 +42,14 @@ Instead of collecting into a list and then a dict, we can:
     class Params(NamedTuple):
         message: str
 
+
     def hello(message: str) -> list[str]:
         return list(message)
 
+
     def lowercase(hello: str) -> str:
         return hello.lower()
+
 
     def counter(lowercase: Iterator[str]) -> Generator[tuple[str, int], None, None]:
         counts: dict[str, int] = {}
@@ -55,9 +58,11 @@ Instead of collecting into a list and then a dict, we can:
         for pair in counts.items():
             yield pair
 
+
     def printer(counter: Iterator[tuple[str, int]]) -> None:
         for char, count in counter:
             print(f"  {char!r} appears {count} time(s)")
+
 
     p = pipeline(
         name="tutorial",
@@ -87,22 +92,29 @@ Instead of collecting into a list and then a dict, we can:
     class Params(NamedTuple):
         message: str
 
+
     async def hello(message: str) -> list[str]:
         return list(message)
+
 
     async def lowercase(hello: str) -> str:
         return hello.lower()
 
-    async def counter(lowercase: AsyncIterator[str]) -> AsyncGenerator[tuple[str, int], None]:
+
+    async def counter(
+        lowercase: AsyncIterator[str],
+    ) -> AsyncGenerator[tuple[str, int], None]:
         counts: dict[str, int] = {}
         async for char in lowercase:
             counts[char] = counts.get(char, 0) + 1
         for pair in counts.items():
             yield pair
 
+
     async def printer(counter: AsyncIterator[tuple[str, int]]) -> None:
         async for char, count in counter:
             print(f"  {char!r} appears {count} time(s)")
+
 
     p = pipeline(
         name="tutorial",

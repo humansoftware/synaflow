@@ -13,11 +13,14 @@ message into its individual characters and prints them.
     class Params(NamedTuple):
         message: str
 
+
     def hello(message: str) -> list[str]:
         return list(message)
 
+
     def printer(hello: list[str]) -> None:
         print(hello)
+
 
     p = pipeline(
         name="tutorial",
@@ -45,11 +48,14 @@ message into its individual characters and prints them.
     class Params(NamedTuple):
         message: str
 
+
     async def hello(message: str) -> list[str]:
         return list(message)
 
+
     async def printer(hello: list[str]) -> None:
         print(hello)
+
 
     p = pipeline(
         name="tutorial",

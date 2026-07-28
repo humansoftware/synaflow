@@ -19,19 +19,24 @@ from collections.abc import Generator, Iterator
 from typing import NamedTuple
 from synaflow import pipeline, step, run
 
+
 class Params(NamedTuple):
     count: int
 
+
 def producer(count: int) -> Generator[int, None, None]:
     yield from range(count)
+
 
 def transformer(producer: Iterator[int]) -> Generator[int, None, None]:
     for val in producer:
         yield val * 10
 
+
 def consumer(transformer: Iterator[int]) -> None:
     for x in transformer:
         print(f"Consumed: {x}")
+
 
 p = pipeline(
     name="example",

@@ -21,13 +21,15 @@ Stripping common suffixes (`_list`, `_set`, `_dict`, `_tuple`) and pluralizing v
 You don't need to match step names exactly. Any synonym works:
 
 ```python
-def items() -> Generator[User, None, None]:   # step name: "items"
+def items() -> Generator[User, None, None]:  # step name: "items"
     ...
 
-def transform(item: User) -> User:             # singular → binds to "items"
+
+def transform(item: User) -> User:  # singular → binds to "items"
     ...
 
-def collector(items_list: list[User]) -> None: # suffixed → binds to "items"
+
+def collector(items_list: list[User]) -> None:  # suffixed → binds to "items"
     ...
 ```
 

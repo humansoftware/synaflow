@@ -24,17 +24,20 @@ from typing import NamedTuple
 from synaflow import pipeline, step, PipelineRegistry
 
 
-class DB:
-    ...
+class DB: ...
+
 
 class Params(NamedTuple):
     user_id: int
 
+
 def get_db() -> DB:
     return DB(...)
 
+
 def load_user(db: DB, user_id: int):
     return db.fetch(user_id)
+
 
 p = pipeline(
     name="users",
@@ -44,7 +47,6 @@ p = pipeline(
 )
 catalog = PipelineRegistry()
 catalog.add(p)
-
 ```
 
 The return annotation is required. SynaFlow compiles the resource contract from
@@ -60,6 +62,7 @@ If you want reuse, cache it explicitly:
 ```python
 from functools import cache
 
+
 @cache
 def get_pool() -> Pool:
     return create_pool(...)
@@ -74,6 +77,7 @@ the step and injects the entered value:
 
 ```python
 from contextlib import contextmanager
+
 
 @contextmanager
 def get_db() -> DB:
@@ -100,9 +104,11 @@ Important:
 from contextlib import contextmanager
 from functools import cache
 
+
 @cache
 def get_pool() -> Pool:
     return create_pool(...)
+
 
 @contextmanager
 def get_db() -> DB:
@@ -114,6 +120,7 @@ def get_db() -> DB:
 
 ```python
 from contextlib import contextmanager
+
 
 @contextmanager
 def get_tx() -> Transaction:
@@ -132,6 +139,7 @@ def get_tx() -> Transaction:
 
 ```python
 from contextlib import asynccontextmanager
+
 
 @asynccontextmanager
 async def get_tx() -> Transaction:
@@ -170,6 +178,7 @@ And they can return context managers too:
 ```python
 from contextlib import contextmanager
 
+
 @contextmanager
 def fake_tx() -> FakeTransaction:
     tx = FakeTransaction()
@@ -177,6 +186,7 @@ def fake_tx() -> FakeTransaction:
         yield tx
     finally:
         tx.closed = True
+
 
 overrides.resources["tx"] = fake_tx
 ```

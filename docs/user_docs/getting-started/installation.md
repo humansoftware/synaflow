@@ -45,6 +45,7 @@ uvx cookiecutter gh:humansoftware/synaflow --directory=boilerplates/scaffold
 
 ```python
 import synaflow
+
 print(synaflow.__version__)
 ```
 

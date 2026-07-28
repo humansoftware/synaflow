@@ -12,9 +12,11 @@ SynaFlow provides identical semantics for synchronous and asynchronous pipelines
     def producer() -> Generator[int, None, None]:
         yield from range(3)
 
+
     def consumer(producer: Iterator[int]) -> None:
         for x in producer:
             print(x)
+
 
     p = pipeline(
         name="sync_example",
@@ -40,9 +42,11 @@ SynaFlow provides identical semantics for synchronous and asynchronous pipelines
         for i in range(3):
             yield i
 
+
     async def consumer(producer: AsyncIterator[int]) -> None:
         async for x in producer:
             print(x)
+
 
     p = pipeline(
         name="async_example",

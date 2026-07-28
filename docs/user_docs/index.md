@@ -32,16 +32,20 @@ flowchart LR
     class Params(NamedTuple):
         count: int
 
+
     def producer(count: int) -> Generator[int, None, None]:
         yield from range(count)
+
 
     def transformer(producer: Iterator[int]) -> Generator[int, None, None]:
         for val in producer:
             yield val * 10
 
+
     def consumer(transformer: Iterator[int]) -> None:
         for x in transformer:
             print(f"Consumed: {x}")
+
 
     p = pipeline(
         name="example",
@@ -71,17 +75,21 @@ flowchart LR
     class Params(NamedTuple):
         count: int
 
+
     async def producer(count: int) -> AsyncGenerator[int, None]:
         for i in range(count):
             yield i
+
 
     async def transformer(producer: AsyncIterator[int]) -> AsyncGenerator[int, None]:
         async for val in producer:
             yield val * 10
 
+
     async def consumer(transformer: AsyncIterator[int]) -> None:
         async for x in transformer:
             print(f"Consumed: {x}")
+
 
     p = pipeline(
         name="example",
@@ -122,24 +130,30 @@ All in under 30 lines of user code.
     class Params(NamedTuple):
         limit: int = 100_000
 
+
     def items(limit: int) -> Generator[dict, None, None]:
         for i in range(limit):
             yield {"id": i, "category": "AB"[i % 2], "value": i}
 
-    def normalize(item: dict) -> dict:                # EACH: smart-binds to "items"
+
+    def normalize(item: dict) -> dict:  # EACH: smart-binds to "items"
         return {**item, "value": item["value"] / 100}
 
-    def live(normalize: Iterator[dict]) -> None:      # lazy — streams 100k items
-        for ev in normalize:                          # without ever holding them
+
+    def live(normalize: Iterator[dict]) -> None:  # lazy — streams 100k items
+        for ev in normalize:  # without ever holding them
             pass
 
-    def batch(normalize: list[dict]) -> dict:          # eager — materializes
+
+    def batch(normalize: list[dict]) -> dict:  # eager — materializes
         counts = Counter(e["category"] for e in normalize)
         print(f"Totals: {dict(counts)}")
         return counts
 
-    def audit(batch: dict) -> None:                   # force materialize
-        pass                                         # persist audit data
+
+    def audit(batch: dict) -> None:  # force materialize
+        pass  # persist audit data
+
 
     p = pipeline(
         name="realistic",
@@ -169,24 +183,30 @@ All in under 30 lines of user code.
     class Params(NamedTuple):
         limit: int = 100_000
 
+
     async def items(limit: int) -> AsyncGenerator[dict, None]:
         for i in range(limit):
             yield {"id": i, "category": "AB"[i % 2], "value": i}
 
+
     async def normalize(item: dict) -> dict:
         return {**item, "value": item["value"] / 100}
+
 
     async def live(normalize: AsyncIterator[dict]) -> None:
         async for ev in normalize:
             pass
+
 
     async def batch(normalize: list[dict]) -> dict:
         counts = Counter(e["category"] for e in normalize)
         print(f"Totals: {dict(counts)}")
         return counts
 
+
     async def audit(batch: dict) -> None:
         pass
+
 
     p = pipeline(
         name="realistic",
@@ -267,7 +287,7 @@ With SynaFlow, you just match names:
 
 ```python
 def step_a(count: int) -> Generator[int]: ...
-def step_b(step_a: int) -> int: ...        # name matches → auto-wired
+def step_b(step_a: int) -> int: ...  # name matches → auto-wired
 def step_c(step_b: list[int]) -> None: ...  # name matches → auto-wired
 ```
 
@@ -281,8 +301,8 @@ Without SynaFlow, sharing a generator between two consumers means:
 ```python
 # Manual tee: easy to get wrong, hard to read
 g1, g2 = itertools.tee(producer())
-result_a = [x * 2 for x in g1]   # holds everything in memory
-result_b = [x + 1 for x in g2]   # also holds everything
+result_a = [x * 2 for x in g1]  # holds everything in memory
+result_b = [x + 1 for x in g2]  # also holds everything
 ```
 
 With SynaFlow, the framework handles it:
@@ -290,10 +310,13 @@ With SynaFlow, the framework handles it:
 ```python
 def producer() -> Generator[int]: ...
 
-def live(producer: Iterator[int]) -> None:   # lazy — streams, no memory spike
-    for x in producer: process(x)
 
-def batch(producer: list[int]) -> int:       # eager — only this branch materializes
+def live(producer: Iterator[int]) -> None:  # lazy — streams, no memory spike
+    for x in producer:
+        process(x)
+
+
+def batch(producer: list[int]) -> int:  # eager — only this branch materializes
     return sum(producer)
 ```
 
@@ -308,11 +331,13 @@ Knowing *when* and *where* to persist data mid-pipeline usually means writing
 manual I/O inside every function. SynaFlow lets the **consumer decide**:
 
 ```python
-def stream_me(data: Iterator[T]) -> None:    # no materialization
+def stream_me(data: Iterator[T]) -> None:  # no materialization
     ...
 
-def collect_me(data: list[T]) -> None:       # materialize for this branch
+
+def collect_me(data: list[T]) -> None:  # materialize for this branch
     ...
+
 
 step("checkpoint", fn=expensive, force_materialize=True)  # persist regardless
 ```
@@ -329,15 +354,15 @@ Observers give you a single mental model for monitoring:
 def log_metrics(ctx):
     metrics.increment(ctx.step_name, ctx.event.value)
 
+
 p = pipeline(
-    observers=[Observer(log_metrics)],          # pipeline-wide
+    observers=[Observer(log_metrics)],  # pipeline-wide
     steps=[
-        step("critical", fn=do_work,
-             observers=[Observer(send_alert)]), # per-step override
-        step("fragile", fn=parse,
-             on_error=OnError.CONTINUE),        # skip bad items
-        step("fatal", fn=validate,
-             on_error=OnError.STOP),            # halt on failure
+        step(
+            "critical", fn=do_work, observers=[Observer(send_alert)]
+        ),  # per-step override
+        step("fragile", fn=parse, on_error=OnError.CONTINUE),  # skip bad items
+        step("fatal", fn=validate, on_error=OnError.STOP),  # halt on failure
     ],
 )
 ```
