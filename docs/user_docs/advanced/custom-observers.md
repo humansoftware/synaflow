@@ -47,8 +47,7 @@ p = pipeline(
 Attach observers to individual steps for targeted monitoring:
 
 ```python
-step("critical_step", fn=do_work,
-     observers=[Observer(alert_if_slow)])
+step("critical_step", fn=do_work, observers=[Observer(alert_if_slow)])
 ```
 
 ## Async Observers
@@ -58,6 +57,7 @@ Async handlers are detected automatically and awaited:
 ```python
 async def async_handler(ctx):
     await metrics.push(ctx.step_name, ctx.event.value)
+
 
 p = pipeline(observers=[Observer(async_handler)])
 ```

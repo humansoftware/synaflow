@@ -40,15 +40,19 @@ SynaFlow, it chains transformations over data — `Select`, `Where`, `GroupBy`,
     def producer(count: int) -> Generator[int, None, None]:
         yield from range(count)
 
-    def doubler(producer: int) -> int:       # EACH: Select
+
+    def doubler(producer: int) -> int:  # EACH: Select
         return producer * 2
 
-    def big_enough(doubler: int) -> int:     # EACH: Where (with yield)
+
+    def big_enough(doubler: int) -> int:  # EACH: Where (with yield)
         if doubler > 5:
             yield doubler
 
+
     def collector(big_enough: list[int]) -> None:  # ToList
         print(big_enough)
+
 
     p = pipeline(
         name="linq_demo",

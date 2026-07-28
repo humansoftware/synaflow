@@ -19,31 +19,38 @@ or **batched in a time window** (materialized) without changing your business lo
     class Window(NamedTuple):
         events: list[dict] = [{"id": 1, "amount": 10}, {"id": 2, "amount": 20}]
 
+
     # Option 1: process each event individually (EACH mode)
     def normalize(event: dict) -> dict:
         return {**event, "amount": event["amount"] / 100}
+
 
     def log_each(normalize: Iterator[dict]) -> None:
         for ev in normalize:
             print(f"Event: {ev}")
 
+
     # Option 2: process the entire window at once (ALL mode)
     def aggregate(normalize: list[dict]) -> float:
         return sum(e["amount"] for e in normalize)
+
 
     p = pipeline(
         name="event_processor",
         params=Window,
         steps=[
-            step("normalize", fn=normalize),     # EACH: one event at a time
-            step("log_each", fn=log_each),       # ALL: receives lazy stream
-            step("aggregate", fn=aggregate),     # ALL: materializes the window
+            step("normalize", fn=normalize),  # EACH: one event at a time
+            step("log_each", fn=log_each),  # ALL: receives lazy stream
+            step("aggregate", fn=aggregate),  # ALL: materializes the window
         ],
     )
     catalog = PipelineRegistry()
     catalog.add(p)
 
-    run(catalog.get_dag("event_processor"), Window(events=[{"id": 1, "amount": 10}, {"id": 2, "amount": 20}]))
+    run(
+        catalog.get_dag("event_processor"),
+        Window(events=[{"id": 1, "amount": 10}, {"id": 2, "amount": 20}]),
+    )
 ```
 
 === "Async"
@@ -56,15 +63,19 @@ or **batched in a time window** (materialized) without changing your business lo
     class Window(NamedTuple):
         events: list[dict] = [{"id": 1, "amount": 10}, {"id": 2, "amount": 20}]
 
+
     async def normalize(event: dict) -> dict:
         return {**event, "amount": event["amount"] / 100}
+
 
     async def log_each(normalize: AsyncIterator[dict]) -> None:
         async for ev in normalize:
             print(f"Event: {ev}")
 
+
     async def aggregate(normalize: list[dict]) -> float:
         return sum(e["amount"] for e in normalize)
+
 
     p = pipeline(
         name="event_processor",
@@ -78,7 +89,10 @@ or **batched in a time window** (materialized) without changing your business lo
     catalog = PipelineRegistry()
     catalog.add(p)
 
-    async_run(catalog.get_dag("event_processor"), Window(events=[{"id": 1, "amount": 10}, {"id": 2, "amount": 20}]))
+    async_run(
+        catalog.get_dag("event_processor"),
+        Window(events=[{"id": 1, "amount": 10}, {"id": 2, "amount": 20}]),
+    )
 ```
 
 The same `normalize` step serves both consumers — `log_each` streams individual
@@ -109,9 +123,11 @@ natural:
             raise ValueError("skipping corrupt event")
         return {**event, "processed": True}
 
+
     def sink(process: Iterator[dict]) -> None:
         for ev in process:
             print(f"Stored: {ev}")
+
 
     p = pipeline(
         name="idempotent",
@@ -123,7 +139,6 @@ natural:
     )
     catalog = PipelineRegistry()
     catalog.add(p)
-
 ```
 
 === "Async"
@@ -137,9 +152,11 @@ natural:
             raise ValueError("skipping corrupt event")
         return {**event, "processed": True}
 
+
     async def sink(process: AsyncIterator[dict]) -> None:
         async for ev in process:
             print(f"Stored: {ev}")
+
 
     p = pipeline(
         name="idempotent",
@@ -151,7 +168,6 @@ natural:
     )
     catalog = PipelineRegistry()
     catalog.add(p)
-
 ```
 
 Re-run with the same events and you get the same results. The corrupt one is

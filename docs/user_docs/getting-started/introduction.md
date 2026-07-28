@@ -77,12 +77,15 @@ from synaflow import pipeline, step, run, PipelineRegistry
 class Params(NamedTuple):
     count: int
 
+
 def producer(count: int) -> Generator[int, None, None]:
     yield from range(count)
+
 
 def consumer(producer: Iterator[int]) -> None:
     for x in producer:
         print(x)
+
 
 p = pipeline(
     name="quickstart",

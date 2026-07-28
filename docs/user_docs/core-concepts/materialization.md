@@ -18,26 +18,28 @@ what any consumer asks for**.
     def producer() -> Generator[int, None, None]:
         yield from range(1_000_000)
 
-    def lazy(producer: Iterator[int]) -> None:      # streams — no materialization
+
+    def lazy(producer: Iterator[int]) -> None:  # streams — no materialization
         for x in producer:
             pass
+
 
     def cache(producer: Iterator[int]) -> Iterator[int]:
         for x in producer:
             yield x
+
 
     p = pipeline(
         name="materialize_example",
         params=type("P", (NamedTuple,), {}),
         steps=[
             step("producer", fn=producer),
-            step("cache", fn=cache, force_materialize=True),   # ← forces materialization
+            step("cache", fn=cache, force_materialize=True),  # ← forces materialization
             step("lazy", fn=lazy),
         ],
     )
     catalog = PipelineRegistry()
     catalog.add(p)
-
 ```
 
 === "Async"
@@ -51,13 +53,16 @@ what any consumer asks for**.
         for i in range(1_000_000):
             yield i
 
+
     async def lazy(producer: AsyncIterator[int]) -> None:
         async for x in producer:
             pass
 
+
     async def cache(producer: AsyncIterator[int]) -> AsyncIterator[int]:
         async for x in producer:
             yield x
+
 
     p = pipeline(
         name="materialize_example",
@@ -70,7 +75,6 @@ what any consumer asks for**.
     )
     catalog = PipelineRegistry()
     catalog.add(p)
-
 ```
 
 **When to use it:**
@@ -125,14 +129,17 @@ The failing item is discarded and the pipeline continues with the next item.
         for i in range(5):
             yield i
 
+
     def fragile(producer: int) -> int:
         if producer == 2:
             raise ValueError("item 2 is poison")
         return producer * 10
 
+
     def consumer(fragile: Iterator[int]) -> None:
         for x in fragile:
             print(x)
+
 
     p = pipeline(
         name="continue_example",
@@ -160,14 +167,17 @@ The failing item is discarded and the pipeline continues with the next item.
         for i in range(5):
             yield i
 
+
     async def fragile(producer: int) -> int:
         if producer == 2:
             raise ValueError("item 2 is poison")
         return producer * 10
 
+
     async def consumer(fragile: AsyncIterator[int]) -> None:
         async for x in fragile:
             print(x)
+
 
     p = pipeline(
         name="continue_example",
@@ -230,8 +240,7 @@ catalog = PipelineRegistry()
 catalog.add(p)
 
 # Per-step override
-step("critical", fn=do_work,
-     error_materializer=log_error_materializer)
+step("critical", fn=do_work, error_materializer=log_error_materializer)
 ```
 
 Error handlers receive a single error context object with execution metadata
@@ -257,10 +266,8 @@ configured observers.
 ```python
 from synaflow import pipeline, step
 
-step("fragile", fn=process,
-     error_threshold_absolute=5)          # halt on 5th failure
-step("brittle", fn=validate,
-     error_threshold_pct=0.3)             # halt when 30%+ failed
+step("fragile", fn=process, error_threshold_absolute=5)  # halt on 5th failure
+step("brittle", fn=validate, error_threshold_pct=0.3)  # halt when 30%+ failed
 ```
 
 ### Constraints

@@ -41,15 +41,19 @@ critical difference: persistence backends.
     def producer(count: int) -> Generator[int, None, None]:
         yield from range(count)
 
-    def doubler(producer: int) -> int:       # EACH: map
+
+    def doubler(producer: int) -> int:  # EACH: map
         return producer * 2
 
-    def big_enough(doubler: int) -> int:     # EACH: filter
+
+    def big_enough(doubler: int) -> int:  # EACH: filter
         if doubler > 5:
             yield doubler
 
+
     def collector(big_enough: list[int]) -> None:  # collect(toList)
         print(big_enough)
+
 
     p = pipeline(
         name="streams",
@@ -78,15 +82,19 @@ critical difference: persistence backends.
         for i in range(count):
             yield i
 
+
     async def doubler(producer: int) -> int:
         return producer * 2
+
 
     async def big_enough(doubler: int) -> int:
         if doubler > 5:
             yield doubler
 
+
     async def collector(big_enough: list[int]) -> None:
         print(big_enough)
+
 
     p = pipeline(
         name="streams",
@@ -118,12 +126,15 @@ consecutive `T → Iterator[T]` steps still produce a flat `Iterator[T]`:
     ```python
     from collections.abc import Generator, Iterator
 
+
     def step1() -> Generator[int, None, None]:
-        yield from range(3)       # produces Iterator[int]
+        yield from range(3)  # produces Iterator[int]
+
 
     def step2(step1: int) -> Generator[str, None, None]:
-        yield str(step1)          # EACH mode, produces Generator[str]
-        yield str(step1 * 10)     #
+        yield str(step1)  # EACH mode, produces Generator[str]
+        yield str(step1 * 10)  #
+
 
     # step2's output is ListType(str) → flat list of strings
     # NOT Iterator[Iterator[str]]
@@ -134,9 +145,11 @@ consecutive `T → Iterator[T]` steps still produce a flat `Iterator[T]`:
     ```python
     from collections.abc import AsyncGenerator, AsyncIterator
 
+
     async def step1() -> AsyncGenerator[int, None]:
         for i in range(3):
             yield i
+
 
     async def step2(step1: int) -> AsyncGenerator[str, None]:
         yield str(step1)
@@ -177,7 +190,6 @@ p = pipeline(
 )
 catalog = PipelineRegistry()
 catalog.add(p)
-
 ```
 
 The consumer code doesn't change — it still says `def fn(data: list[int])`.
@@ -203,9 +215,12 @@ just at the end. A step in the middle can materialize to disk, and downstream
 steps read from that persisted data:
 
 ```python
-step("cache", fn=expensive_computation,
-     materializer=disk_materializer("/mnt/ssd"),
-     force_materialize=True)
+step(
+    "cache",
+    fn=expensive_computation,
+    materializer=disk_materializer("/mnt/ssd"),
+    force_materialize=True,
+)
 step("downstream", fn=downstream)  # reads from cached data
 ```
 

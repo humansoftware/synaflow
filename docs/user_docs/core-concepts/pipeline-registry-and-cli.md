@@ -41,7 +41,7 @@ catalog.add(hello_pipeline)
 After that:
 
 ```python
-dag = catalog.get_dag("hello")   # already compiled during catalog.add(...)
+dag = catalog.get_dag("hello")  # already compiled during catalog.add(...)
 dag2 = catalog.get_dag("hello")  # same compiled Dag
 ```
 
@@ -209,14 +209,17 @@ the same CLI for everyone. Project-specific entry points built on
 from synaflow import SynaflowCli, PreRunContext, PostRunContext
 from myproject.pipelines import catalog
 
+
 def audit(context: PostRunContext) -> None:
     # Always runs after `run` finishes — on success and on failure.
     log.info("pipeline %s %s", context.pipeline.name, context.outcome.status)
+
 
 def enrich_tenant(context: PreRunContext):
     # Runs after CLI parsing, before the pipeline starts.
     # Return value replaces the params the executor sees.
     return context.params._replace(tenant=os.environ["MYPROJECT_TENANT"])
+
 
 if __name__ == "__main__":
     raise SystemExit(

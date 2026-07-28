@@ -22,15 +22,19 @@ examples for I/O-bound pipelines.
     class Params(NamedTuple):
         count: int = 3
 
+
     def numbers(count: int) -> Generator[int, None, None]:
         yield from range(count)
+
 
     def doubler(number: int) -> int:
         return number * 2
 
+
     def printer(doubler: Iterator[int]) -> None:
         for x in doubler:
             print(f"Consumed: {x}")
+
 
     p = pipeline(
         name="lockstep_demo",
@@ -58,16 +62,20 @@ examples for I/O-bound pipelines.
     class Params(NamedTuple):
         count: int = 3
 
+
     async def numbers(count: int) -> AsyncGenerator[int, None]:
         for i in range(count):
             yield i
 
+
     async def doubler(number: int) -> int:
         return number * 2
+
 
     async def printer(doubler: AsyncIterator[int]) -> None:
         async for x in doubler:
             print(f"Consumed: {x}")
+
 
     p = pipeline(
         name="lockstep_demo",
@@ -261,6 +269,7 @@ flowchart TD
         for x in gen:
             yield x * 10
 
+
     def eager_consumer(gen: list[int]) -> int:
         return sum(gen)
 ```
@@ -271,6 +280,7 @@ flowchart TD
     async def lazy_consumer(gen: AsyncIterator[int]) -> AsyncIterator[int]:
         async for x in gen:
             yield x * 10
+
 
     async def eager_consumer(gen: list[int]) -> int:
         return sum(gen)

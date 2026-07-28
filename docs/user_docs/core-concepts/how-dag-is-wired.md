@@ -16,15 +16,19 @@ There is no manual wiring. This page explains exactly how the mapping works.
     class Params(NamedTuple):
         count: int = 3
 
+
     def numbers(count: int) -> Generator[int, None, None]:
         yield from range(count)
+
 
     def doubler(numbers: Iterator[int]) -> Generator[int, None, None]:
         for x in numbers:
             yield x * 2
 
+
     def printer(doubler: int) -> None:
         print(doubler)
+
 
     p = pipeline(
         name="basic_example",
@@ -37,7 +41,6 @@ There is no manual wiring. This page explains exactly how the mapping works.
     )
     catalog = PipelineRegistry()
     catalog.add(p)
-
 ```
 
 === "Async"
@@ -51,16 +54,20 @@ There is no manual wiring. This page explains exactly how the mapping works.
     class Params(NamedTuple):
         count: int = 3
 
+
     async def numbers(count: int) -> AsyncGenerator[int, None]:
         for i in range(count):
             yield i
+
 
     async def doubler(numbers: AsyncIterator[int]) -> AsyncGenerator[int, None]:
         async for x in numbers:
             yield x * 2
 
+
     async def printer(doubler: int) -> None:
         print(doubler)
+
 
     p = pipeline(
         name="basic_example",
@@ -73,7 +80,6 @@ There is no manual wiring. This page explains exactly how the mapping works.
     )
     catalog = PipelineRegistry()
     catalog.add(p)
-
 ```
 
 This pipeline generates the following DAG:
@@ -98,9 +104,9 @@ Every `step()` declaration creates a **node** in the DAG and a **dataset** that
 holds the step's output. The dataset name is the step's name.
 
 ```python
-step("numbers", fn=numbers)   # creates dataset "numbers"
-step("doubler", fn=doubler)   # creates dataset "doubler"
-step("printer", fn=printer)   # creates dataset "printer"
+step("numbers", fn=numbers)  # creates dataset "numbers"
+step("doubler", fn=doubler)  # creates dataset "doubler"
+step("printer", fn=printer)  # creates dataset "printer"
 ```
 
 Any downstream step can reference these datasets.
@@ -198,6 +204,7 @@ dependencies and do **not** become dataflow nodes:
 
 ```python
 from synaflow import PipelineRegistry
+
 p = pipeline(
     name="users",
     params=Params,
@@ -206,7 +213,6 @@ p = pipeline(
 )
 catalog = PipelineRegistry()
 catalog.add(p)
-
 ```
 
 Here `get_db` is a production resource factory with a return type annotation

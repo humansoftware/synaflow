@@ -28,7 +28,6 @@ p = pipeline(
 )
 catalog = PipelineRegistry()
 catalog.add(p)
-
 ```
 
 ## The DAG JSON

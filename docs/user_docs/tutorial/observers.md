@@ -14,17 +14,22 @@ frequencies, producing a dictionary.
     class Params(NamedTuple):
         message: str
 
+
     def hello(message: str) -> list[str]:
         return list(message)
+
 
     def lowercase(hello: str) -> str:
         return hello.lower()
 
+
     def count_chars(lowercase: list[str]) -> dict[str, int]:
         return dict(Counter(lowercase))
 
+
     def printer(count_chars: dict[str, int]) -> None:
         print(count_chars)
+
 
     p = pipeline(
         name="tutorial",
@@ -54,17 +59,22 @@ frequencies, producing a dictionary.
     class Params(NamedTuple):
         message: str
 
+
     async def hello(message: str) -> list[str]:
         return list(message)
+
 
     async def lowercase(hello: str) -> str:
         return hello.lower()
 
+
     async def count_chars(lowercase: list[str]) -> dict[str, int]:
         return dict(Counter(lowercase))
 
+
     async def printer(count_chars: dict[str, int]) -> None:
         print(count_chars)
+
 
     p = pipeline(
         name="tutorial",

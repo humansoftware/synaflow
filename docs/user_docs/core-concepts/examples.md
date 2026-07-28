@@ -44,7 +44,6 @@ Every SynaFlow pipeline can be visualized with [`scripts/visualize_dag.py`](http
     # Topology:
     # step1 -> step2 -> step3 \
     #       -> step4 --------> step5
-
     ```
 
 === "Async"
@@ -87,7 +86,6 @@ Every SynaFlow pipeline can be visualized with [`scripts/visualize_dag.py`](http
     # Topology:
     # step1 -> step2 -> step3 \
     #       -> step4 --------> step5
-
     ```
 
 [:fontawesome-brands-github: Sync source](https://github.com/humansoftware/synaflow/blob/main//home/mvallebr/git/synaflow/tests/execution/sync_engine/corpus/complex_parallel.py) | [:fontawesome-brands-github: Async source](https://github.com/humansoftware/synaflow/blob/main//home/mvallebr/git/synaflow/tests/execution/async_engine/corpus/complex_parallel.py)
@@ -152,7 +150,6 @@ flowchart TD
     #       \       \
     #        \       -> step5
     #         -> step4 /
-
     ```
 
 === "Async"
@@ -197,7 +194,6 @@ flowchart TD
     #       \       \
     #        \       -> step5
     #         -> step4 /
-
     ```
 
 [:fontawesome-brands-github: Sync source](https://github.com/humansoftware/synaflow/blob/main//home/mvallebr/git/synaflow/tests/execution/sync_engine/corpus/complex_parallel_mixed.py) | [:fontawesome-brands-github: Async source](https://github.com/humansoftware/synaflow/blob/main//home/mvallebr/git/synaflow/tests/execution/async_engine/corpus/complex_parallel_mixed.py)
@@ -226,7 +222,6 @@ flowchart TD
     from typing import Iterator, NamedTuple
 
     from synaflow import include, pipeline, step
-
     ```
 
 === "Async"
@@ -235,7 +230,6 @@ flowchart TD
     from typing import AsyncIterator, NamedTuple
 
     from synaflow import include, pipeline, step
-
     ```
 
 [:fontawesome-brands-github: Sync source](https://github.com/humansoftware/synaflow/blob/main//home/mvallebr/git/synaflow/tests/execution/sync_engine/corpus/deep_sub_pipelines.py) | [:fontawesome-brands-github: Async source](https://github.com/humansoftware/synaflow/blob/main//home/mvallebr/git/synaflow/tests/execution/async_engine/corpus/deep_sub_pipelines.py)
@@ -292,7 +286,6 @@ flowchart TD
 
     def merge(branch_a: int, branch_b: int) -> int:
         return branch_a + branch_b
-
     ```
 
 === "Async"
@@ -321,7 +314,6 @@ flowchart TD
 
     async def merge(branch_a: int, branch_b: int) -> int:
         return branch_a + branch_b
-
     ```
 
 [:fontawesome-brands-github: Sync source](https://github.com/humansoftware/synaflow/blob/main//home/mvallebr/git/synaflow/tests/execution/sync_engine/corpus/diamond.py) | [:fontawesome-brands-github: Async source](https://github.com/humansoftware/synaflow/blob/main//home/mvallebr/git/synaflow/tests/execution/async_engine/corpus/diamond.py)
@@ -373,7 +365,6 @@ flowchart TD
     def consumer(gen: Iterator[int]) -> None:
         for x in gen:
             pass
-
     ```
 
 === "Async"
@@ -407,7 +398,6 @@ flowchart TD
     async def consumer(gen: AsyncIterator[int]) -> None:
         async for x in gen:
             pass
-
     ```
 
 [:fontawesome-brands-github: Sync source](https://github.com/humansoftware/synaflow/blob/main//home/mvallebr/git/synaflow/tests/execution/sync_engine/corpus/error_handling.py) | [:fontawesome-brands-github: Async source](https://github.com/humansoftware/synaflow/blob/main//home/mvallebr/git/synaflow/tests/execution/async_engine/corpus/error_handling.py)
@@ -429,7 +419,6 @@ flowchart TD
     from typing import NamedTuple
 
     from synaflow import StepMode, pipeline, step
-
     ```
 
 === "Async"
@@ -439,7 +428,6 @@ flowchart TD
     from typing import NamedTuple
 
     from synaflow import StepMode, pipeline, step
-
     ```
 
 [:fontawesome-brands-github: Sync source](https://github.com/humansoftware/synaflow/blob/main//home/mvallebr/git/synaflow/tests/execution/sync_engine/corpus/explicit_modes.py) | [:fontawesome-brands-github: Async source](https://github.com/humansoftware/synaflow/blob/main//home/mvallebr/git/synaflow/tests/execution/async_engine/corpus/explicit_modes.py)
@@ -484,7 +472,6 @@ flowchart TD
 
     def consumer(square_numbers: Iterator[int]) -> None:
         pass
-
     ```
 
 === "Async"
@@ -516,7 +503,6 @@ flowchart TD
 
     async def consumer(square_numbers: AsyncIterator[int]) -> None:
         pass
-
     ```
 
 [:fontawesome-brands-github: Sync source](https://github.com/humansoftware/synaflow/blob/main//home/mvallebr/git/synaflow/tests/execution/sync_engine/corpus/fibonacci.py) | [:fontawesome-brands-github: Async source](https://github.com/humansoftware/synaflow/blob/main//home/mvallebr/git/synaflow/tests/execution/async_engine/corpus/fibonacci.py)
@@ -558,7 +544,6 @@ flowchart TD
     def consumer(transformer: Iterator[int]) -> None:
         for x in transformer:
             pass
-
     ```
 
 === "Async"
@@ -586,7 +571,6 @@ flowchart TD
     async def consumer(transformer: AsyncIterator[int]) -> None:
         async for x in transformer:
             pass
-
     ```
 
 [:fontawesome-brands-github: Sync source](https://github.com/humansoftware/synaflow/blob/main//home/mvallebr/git/synaflow/tests/execution/sync_engine/corpus/linear.py) | [:fontawesome-brands-github: Async source](https://github.com/humansoftware/synaflow/blob/main//home/mvallebr/git/synaflow/tests/execution/async_engine/corpus/linear.py)
@@ -611,7 +595,6 @@ flowchart TD
     from typing import NamedTuple
 
     from synaflow import pipeline, step
-
     ```
 
 === "Async"
@@ -621,7 +604,6 @@ flowchart TD
     from typing import NamedTuple
 
     from synaflow import pipeline, step
-
     ```
 
 [:fontawesome-brands-github: Sync source](https://github.com/humansoftware/synaflow/blob/main//home/mvallebr/git/synaflow/tests/execution/sync_engine/corpus/mixed_fanout.py) | [:fontawesome-brands-github: Async source](https://github.com/humansoftware/synaflow/blob/main//home/mvallebr/git/synaflow/tests/execution/async_engine/corpus/mixed_fanout.py)
@@ -688,7 +670,6 @@ flowchart TD
             step("consolidate", fn=consolidate),
         ],
     )
-
     ```
 
 === "Async"
@@ -740,7 +721,6 @@ flowchart TD
             step("consolidate", fn=consolidate),
         ],
     )
-
     ```
 
 [:fontawesome-brands-github: Sync source](https://github.com/humansoftware/synaflow/blob/main//home/mvallebr/git/synaflow/tests/execution/sync_engine/corpus/sub_pipelines.py) | [:fontawesome-brands-github: Async source](https://github.com/humansoftware/synaflow/blob/main//home/mvallebr/git/synaflow/tests/execution/async_engine/corpus/sub_pipelines.py)

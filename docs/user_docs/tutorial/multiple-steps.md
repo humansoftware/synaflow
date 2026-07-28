@@ -13,14 +13,18 @@ Now we insert a step that converts each character to lowercase. This introduces
     class Params(NamedTuple):
         message: str
 
+
     def hello(message: str) -> list[str]:
         return list(message)
+
 
     def lowercase(hello: str) -> str:
         return hello.lower()
 
+
     def printer(lowercase: list[str]) -> None:
         print(lowercase)
+
 
     p = pipeline(
         name="tutorial",
@@ -48,14 +52,18 @@ Now we insert a step that converts each character to lowercase. This introduces
     class Params(NamedTuple):
         message: str
 
+
     async def hello(message: str) -> list[str]:
         return list(message)
+
 
     async def lowercase(hello: str) -> str:
         return hello.lower()
 
+
     async def printer(lowercase: list[str]) -> None:
         print(lowercase)
+
 
     p = pipeline(
         name="tutorial",

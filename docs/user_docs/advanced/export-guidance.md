@@ -60,13 +60,15 @@ for step_name, node in dag_json["steps"].items():
 ```python
 from prefect import flow, task
 
+
 @flow
 def synaflow_to_prefect(dag_json):
     tasks = {}
     for name, node in dag_json["steps"].items():
+
         @task(name=name)
-        def step_fn():
-            ...
+        def step_fn(): ...
+
         tasks[name] = step_fn
 
     for name, node in dag_json["steps"].items():

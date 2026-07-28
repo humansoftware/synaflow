@@ -18,11 +18,13 @@ A materializer is a callable `(Iterator[T]) -> Iterable[T]`:
 ```python
 from collections.abc import Iterator
 
+
 def count_materializer(stream: Iterator[int]) -> list[int]:
     """Materialize and log the count."""
     result = list(stream)
     print(f"Materialized {len(result)} items")
     return result
+
 
 step("consumer", fn=consumer, materializer=count_materializer)
 ```
@@ -35,14 +37,18 @@ For context-aware materialization (e.g., file paths based on pipeline/step names
 from synaflow import PipelineRegistry
 from synaflow.types import MaterializeContext
 
+
 def disk_factory(ctx: MaterializeContext) -> callable:
     path = f"/data/{ctx.pipeline_name}/{ctx.dataset_name}.json"
+
     def disk_materializer(stream):
         data = list(stream)
         with open(path, "w") as f:
             json.dump(data, f)
         return data
+
     return disk_materializer
+
 
 p = pipeline(
     name="my_pipeline",
@@ -52,7 +58,6 @@ p = pipeline(
 )
 catalog = PipelineRegistry()
 catalog.add(p)
-
 ```
 
 The `MaterializeContext` provides:
@@ -70,8 +75,7 @@ When a step fails, error materializers capture the exception and partial output:
 ```python
 from synaflow import log_error_materializer, disk_error_materializer
 
-step("processor", fn=process,
-     error_materializer=disk_error_materializer("/tmp/errors"))
+step("processor", fn=process, error_materializer=disk_error_materializer("/tmp/errors"))
 ```
 
 Error materializer handlers receive a single `ErrorContext` object with the
@@ -79,6 +83,7 @@ execution metadata and the exception.
 
 ```python
 from synaflow import ErrorContext
+
 
 def error_factory(ctx):
     def handle(error_ctx: ErrorContext):

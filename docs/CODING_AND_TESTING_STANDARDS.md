@@ -119,11 +119,11 @@ A corpus pack bundles the specification:
 
 ```python
 pack = PipelinePack(
-    pipeline=pipeline_def,          # the compiled DAG
-    input_params=Params(...),       # input values
-    step_results={...},             # expected output per step
-    json_dag={...},                 # expected serialized DAG structure
-    expected_execution_levels=[...],# expected topological levels
+    pipeline=pipeline_def,  # the compiled DAG
+    input_params=Params(...),  # input values
+    step_results={...},  # expected output per step
+    json_dag={...},  # expected serialized DAG structure
+    expected_execution_levels=[...],  # expected topological levels
 )
 ```
 
