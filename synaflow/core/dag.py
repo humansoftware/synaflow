@@ -324,7 +324,13 @@ class Dag:
                 if degree == 0 and name not in processed
             ]
             if not level:
-                break
+                # Remaining nodes form a cycle.  Fail loud instead of
+                # silently returning a partial topological order.
+                remaining = sorted(set(in_degree) - processed)
+                raise ValueError(
+                    f"Pipeline '{self.name}': dependency cycle detected"
+                    f" among steps: {', '.join(remaining)}"
+                )
             levels.append(level)
             processed.update(level)
 

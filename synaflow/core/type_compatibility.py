@@ -157,21 +157,6 @@ def _check_iterable_producer_compatibility(
     return False
 
 
-def _check_scalar_producer_to_iterable_consumer(
-    producer_type: Any, consumer_type: Any
-) -> bool:
-    producer_inner = get_inner_type(producer_type)
-    consumer_inner = get_inner_type(consumer_type)
-
-    if consumer_inner is None:
-        return True
-
-    if producer_inner is None:
-        return is_type_compatible(producer_type, consumer_inner)
-
-    return is_type_compatible(producer_inner, consumer_inner)
-
-
 def _check_scalar_compatibility(producer_type: Any, consumer_type: Any) -> bool:
     producer_inner = get_inner_type(producer_type)
     if producer_inner is not None:
@@ -180,7 +165,7 @@ def _check_scalar_compatibility(producer_type: Any, consumer_type: Any) -> bool:
 
 
 def _is_union(tp: Any, origin: Any) -> bool:
-    return origin is types.UnionType or origin is __import__("typing").Union
+    return origin is types.UnionType or origin is Union
 
 
 def _is_iterable(tp: Any, origin: Any) -> bool:

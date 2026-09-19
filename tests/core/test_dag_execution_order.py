@@ -307,3 +307,13 @@ def test_given_dag_when_to_dict_then_returns_correct_structure():
     assert result["steps"]["gen"]["mode"] == "each"
     assert result["steps"]["gen"]["deps"] == {"count": "int"}
     assert result["steps"]["gen"]["each_mode_deps"] == ["count"]
+
+
+def test_given_dependency_cycle_when_get_execution_levels_then_raises():
+    dag = Dag(name="cycle")
+    dag.steps = {
+        "a": DagNode(deps={"b": "int"}),
+        "b": DagNode(deps={"a": "int"}),
+    }
+    with pytest.raises(ValueError, match="dependency cycle detected"):
+        dag.get_execution_levels()

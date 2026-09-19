@@ -1,27 +1,24 @@
+"""Composite materializers: chain several materializers (or error
+materializers) so each stage feeds the next.  Factories resolve their
+stages against the usual MaterializeContext and pick a sync or async
+runner based on the resolved stages."""
+
 import inspect
 from collections.abc import Iterator
-from typing import Any
+from typing import Any, Callable
 
+from synaflow.core.adapters import is_async_callable
 from synaflow.core.type_compatibility import is_factory
 
 
-def _is_async_callable(func: Any) -> bool:
-    if func is None:
-        return False
-    if inspect.iscoroutinefunction(func):
-        return True
-    call_method = getattr(func, "__call__", None)
-    if call_method and inspect.iscoroutinefunction(call_method):
-        return True
-    return False
-
-
-def composite_materializer(*materializers):
+def composite_materializer(
+    *materializers: Callable[..., Any],
+) -> Callable[[Any], Callable[..., Any]]:
     def factory(ctx):
         resolved = [
             m(ctx) if is_factory(m) else m for m in materializers if m is not None
         ]
-        any_async = any(_is_async_callable(m) for m in resolved)
+        any_async = any(is_async_callable(m) for m in resolved)
 
         if any_async:
 
@@ -31,7 +28,7 @@ def composite_materializer(*materializers):
 
                 res = None
                 for m in resolved:
-                    if _is_async_callable(m):
+                    if is_async_callable(m):
                         res = await m(value)
                     else:
                         res = m(value)
@@ -56,20 +53,22 @@ def composite_materializer(*materializers):
     return factory
 
 
-def composite_error_materializer(*error_materializers):
+def composite_error_materializer(
+    *error_materializers: Callable[..., Any],
+) -> Callable[[Any], Callable[..., Any]]:
     def factory(ctx):
         resolved = [
             em(ctx) if is_factory(em) else em
             for em in error_materializers
             if em is not None
         ]
-        any_async = any(_is_async_callable(em) for em in resolved)
+        any_async = any(is_async_callable(em) for em in resolved)
 
         if any_async:
 
             async def run_composite_error_materializers_async(error_ctx) -> None:
                 for em in resolved:
-                    if _is_async_callable(em):
+                    if is_async_callable(em):
                         await em(error_ctx)
                     else:
                         res = em(error_ctx)
