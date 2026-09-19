@@ -1,4 +1,9 @@
+"""Small domain types shared by build and run layers: ``OnError``,
+``StepMode``, and the materialization context objects passed to
+factories."""
+
 from __future__ import annotations
+
 
 from dataclasses import dataclass, field
 from enum import Enum

@@ -1,11 +1,14 @@
-from synaflow.core.dag_builder import build_dag
 import asyncio
 import inspect
+from collections.abc import AsyncIterator
 from time import monotonic_ns
 from typing import NamedTuple
 from unittest.mock import AsyncMock as MagicMock
+
 import pytest
+
 from synaflow import async_run, pipeline, step
+from synaflow.core.dag_builder import build_dag
 from synaflow.core.exceptions import PipelineStopException
 from synaflow.core.types import OnError
 
@@ -255,7 +258,7 @@ async def test_given_on_error_continue_when_stream_iteration_fails_then_previous
 
         return handle
 
-    async def source():
+    async def source() -> AsyncIterator[int]:
         yield 1
         raise ValueError("iterboom")
 
@@ -288,7 +291,7 @@ async def test_given_on_error_stop_when_stream_iteration_fails_then_pipeline_sto
 
         return handle
 
-    async def source():
+    async def source() -> AsyncIterator[int]:
         yield 1
         raise ValueError("iterboom")
 

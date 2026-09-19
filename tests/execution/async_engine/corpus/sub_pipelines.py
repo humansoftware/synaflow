@@ -1,7 +1,8 @@
-from tests.common.pipeline_pack import PipelinePack
-from typing import AsyncIterator, NamedTuple
+from collections.abc import AsyncIterator
+from typing import NamedTuple
 
 from synaflow import include, pipeline, step
+from tests.common.pipeline_pack import PipelinePack
 
 
 class BParams(NamedTuple):

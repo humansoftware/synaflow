@@ -1,7 +1,10 @@
-from synaflow.core.dag_builder import build_dag
-from typing import Iterator, NamedTuple
+from collections.abc import Iterator
+from typing import NamedTuple
+
 import pytest
+
 from synaflow import StepMode, include, pipeline, step
+from synaflow.core.dag_builder import build_dag
 
 
 class BParams(NamedTuple):

@@ -1,7 +1,19 @@
-import types
+"""Type compatibility predicates and the default compatibility table.
+Answers every build-time question about producer/consumer type pairs
+(stream, materialized, scalar, factory detection) — the single place
+that knows the type rules."""
+
 import inspect
-from collections.abc import AsyncGenerator, AsyncIterator, Generator, Iterable, Iterator
-from typing import Any, Callable, Tuple, Union, get_args, get_origin
+import types
+from collections.abc import (
+    AsyncGenerator,
+    AsyncIterator,
+    Callable,
+    Generator,
+    Iterable,
+    Iterator,
+)
+from typing import Any, Union, get_args, get_origin
 
 
 def is_factory(func: Callable) -> bool:
@@ -113,7 +125,7 @@ def _is_dict_type(tp: Any) -> bool:
 def _get_dict_pair_type(tp: Any) -> Any:
     args = get_args(tp)
     if len(args) == 2:
-        return Tuple[args[0], args[1]]
+        return tuple[args[0], args[1]]
     return None
 
 
@@ -150,21 +162,6 @@ def _check_iterable_producer_compatibility(
     return False
 
 
-def _check_scalar_producer_to_iterable_consumer(
-    producer_type: Any, consumer_type: Any
-) -> bool:
-    producer_inner = get_inner_type(producer_type)
-    consumer_inner = get_inner_type(consumer_type)
-
-    if consumer_inner is None:
-        return True
-
-    if producer_inner is None:
-        return is_type_compatible(producer_type, consumer_inner)
-
-    return is_type_compatible(producer_inner, consumer_inner)
-
-
 def _check_scalar_compatibility(producer_type: Any, consumer_type: Any) -> bool:
     producer_inner = get_inner_type(producer_type)
     if producer_inner is not None:
@@ -173,7 +170,7 @@ def _check_scalar_compatibility(producer_type: Any, consumer_type: Any) -> bool:
 
 
 def _is_union(tp: Any, origin: Any) -> bool:
-    return origin is types.UnionType or origin is __import__("typing").Union
+    return origin is types.UnionType or origin is Union
 
 
 def _is_iterable(tp: Any, origin: Any) -> bool:

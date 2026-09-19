@@ -24,7 +24,6 @@ import pytest
 
 from synaflow.cli import main
 
-
 PYPROJECT_TOML = Path(__file__).resolve().parents[2] / "pyproject.toml"
 
 

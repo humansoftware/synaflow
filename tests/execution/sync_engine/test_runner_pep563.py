@@ -1,8 +1,10 @@
 from __future__ import annotations
-from synaflow.core.dag_builder import build_dag
+
 from collections.abc import Iterator
 from typing import NamedTuple
+
 from synaflow import pipeline, step
+from synaflow.core.dag_builder import build_dag
 from synaflow.execution.sync_engine.executor import run as sync_run
 
 

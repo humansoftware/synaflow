@@ -1,5 +1,9 @@
-import inspect
+"""Callable-shape helpers: detect async callables (including partials
+and callable objects) and adapt sync callables for await-based engines."""
+
 import functools
+import inspect
+from collections.abc import Callable
 from typing import Any
 
 
@@ -27,7 +31,7 @@ def is_async_callable(handler: Any) -> bool:
     return False
 
 
-def async_adapter(fn):
+def async_adapter(fn: Callable[..., Any]) -> Callable[..., Any]:
     """
     Wraps a synchronous function into an asynchronous one.
 

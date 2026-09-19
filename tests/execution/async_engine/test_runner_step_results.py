@@ -1,12 +1,14 @@
-from synaflow.core.dag_builder import build_dag
 from collections.abc import AsyncIterator, Iterator
+
 import pytest
+
 from synaflow import async_run
+from synaflow.core.dag_builder import build_dag
 from synaflow.execution.async_engine.executor import AsyncPipelineExecutor
 from tests.execution.async_engine.corpus import PACKS as ASYNC_PACKS
 from tests.execution.async_engine.corpus.error_handling import (
-    error_pipeline,
     ErrorHandlingParams,
+    error_pipeline,
     errors_list,
 )
 
@@ -23,6 +25,11 @@ ASYNC_PACK_NAMES = (
 
 
 async def _concrete(value):
+    """Convert iterators to lists; leave scalars and tuples alone.
+
+    A failing iterator propagates its error — a silently truncated
+    "successful" drain could mask a broken step (and produce a passing
+    assertion against an empty expectation)."""
     if value is None:
         return None
     if isinstance(value, AsyncIterator):

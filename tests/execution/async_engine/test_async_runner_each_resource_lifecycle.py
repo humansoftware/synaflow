@@ -4,7 +4,7 @@ from typing import NamedTuple
 
 import pytest
 
-from synaflow import PipelineRegistry, pipeline, async_run, step
+from synaflow import PipelineRegistry, async_run, pipeline, step
 from synaflow.core.exceptions import PipelineStopException
 from synaflow.core.types import OnError
 

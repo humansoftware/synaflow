@@ -1,4 +1,8 @@
+"""Runtime override registries (materializers, resources) resolved
+through the ExecutionOverrides entry point."""
+
 from __future__ import annotations
+
 
 from collections.abc import Iterator, MutableMapping
 from dataclasses import dataclass
@@ -77,14 +81,14 @@ class _OverrideRegistry(MutableMapping[str, Any]):
 
 class MaterializerRegistry(_OverrideRegistry):
     @classmethod
-    def empty(cls, pipeline: PipelineDef) -> "MaterializerRegistry":
+    def empty(cls, pipeline: PipelineDef) -> MaterializerRegistry:
         return cls(
             contract_keys=_materializer_contract_keys(pipeline),
             fallback_values=_materializer_fallback_values(pipeline),
         )
 
     @classmethod
-    def from_production(cls, pipeline: PipelineDef) -> "MaterializerRegistry":
+    def from_production(cls, pipeline: PipelineDef) -> MaterializerRegistry:
         return cls.empty(pipeline)
 
     def _validate_value(self, key: str, value: Any) -> None:
@@ -94,7 +98,7 @@ class MaterializerRegistry(_OverrideRegistry):
 
 class ObserverRegistry(_OverrideRegistry):
     @classmethod
-    def empty(cls, pipeline: PipelineDef) -> "ObserverRegistry":
+    def empty(cls, pipeline: PipelineDef) -> ObserverRegistry:
         contract_keys = _observer_contract_keys(pipeline)
         return cls(
             contract_keys=contract_keys,
@@ -102,7 +106,7 @@ class ObserverRegistry(_OverrideRegistry):
         )
 
     @classmethod
-    def from_production(cls, pipeline: PipelineDef) -> "ObserverRegistry":
+    def from_production(cls, pipeline: PipelineDef) -> ObserverRegistry:
         return cls(
             contract_keys=_observer_contract_keys(pipeline),
             fallback_values=_observer_fallback_values(pipeline),
@@ -132,11 +136,11 @@ class ObserverRegistry(_OverrideRegistry):
 
 class ResourceRegistry(_OverrideRegistry):
     @classmethod
-    def empty(cls, pipeline: PipelineDef) -> "ResourceRegistry":
+    def empty(cls, pipeline: PipelineDef) -> ResourceRegistry:
         return cls(contract_keys=_resource_contract_keys(pipeline))
 
     @classmethod
-    def from_production(cls, pipeline: PipelineDef) -> "ResourceRegistry":
+    def from_production(cls, pipeline: PipelineDef) -> ResourceRegistry:
         return cls.empty(pipeline)
 
     def _validate_value(self, key: str, value: Any) -> None:
@@ -151,7 +155,7 @@ class ExecutionOverrides:
     resources: ResourceRegistry
 
     @classmethod
-    def empty(cls, pipeline: PipelineDef) -> "ExecutionOverrides":
+    def empty(cls, pipeline: PipelineDef) -> ExecutionOverrides:
         return cls(
             materializers=MaterializerRegistry.empty(pipeline),
             observers=ObserverRegistry.empty(pipeline),
@@ -159,7 +163,7 @@ class ExecutionOverrides:
         )
 
     @classmethod
-    def from_production(cls, pipeline: PipelineDef) -> "ExecutionOverrides":
+    def from_production(cls, pipeline: PipelineDef) -> ExecutionOverrides:
         return cls(
             materializers=MaterializerRegistry.from_production(pipeline),
             observers=ObserverRegistry.from_production(pipeline),
@@ -167,7 +171,7 @@ class ExecutionOverrides:
         )
 
     @classmethod
-    def without_observers(cls, pipeline: PipelineDef) -> "ExecutionOverrides":
+    def without_observers(cls, pipeline: PipelineDef) -> ExecutionOverrides:
         """Use production materializers/resources while disabling observers."""
         return cls(
             materializers=MaterializerRegistry.from_production(pipeline),

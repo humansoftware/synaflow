@@ -1,5 +1,6 @@
-import io
 import dataclasses
+import io
+
 from synaflow.serializers.csv import CsvSerializer
 
 

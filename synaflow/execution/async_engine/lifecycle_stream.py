@@ -1,6 +1,9 @@
+"""Async iterator wrapper firing lifecycle callbacks (start/item/end/error)
+as the stream is consumed."""
+
 import inspect
-from collections.abc import AsyncGenerator, AsyncIterator, Generator, Iterator
-from typing import Any, Callable
+from collections.abc import AsyncGenerator, AsyncIterator, Callable, Generator, Iterator
+from typing import Any
 
 
 class AsyncLifecycleStream:

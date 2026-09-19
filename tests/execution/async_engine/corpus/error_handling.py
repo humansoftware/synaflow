@@ -1,8 +1,9 @@
-from synaflow.core.adapters import async_adapter
-from tests.common.pipeline_pack import PipelinePack
 from collections.abc import AsyncGenerator, AsyncIterator
 from typing import NamedTuple
+
 from synaflow import pipeline, step
+from synaflow.core.adapters import async_adapter
+from tests.common.pipeline_pack import PipelinePack
 
 
 class ErrorHandlingParams(NamedTuple):

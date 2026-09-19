@@ -1,4 +1,10 @@
+"""Asynchronous pipeline executor: asyncio-task graph scheduler and
+stream publication through queue-branch pumps.  Must preserve the
+sync engine's observable contract (completion timing, error policy,
+event stream) one-for-one."""
+
 from __future__ import annotations
+
 
 import asyncio
 import logging
@@ -6,8 +12,6 @@ import uuid
 from collections.abc import AsyncGenerator, AsyncIterator, Generator, Iterator
 from contextlib import AsyncExitStack
 from typing import Any
-
-from synaflow.execution.async_engine.lifecycle_stream import AsyncLifecycleStream
 
 from synaflow.core.dag import Dag, DagNode
 from synaflow.core.exceptions import (
@@ -17,22 +21,24 @@ from synaflow.core.exceptions import (
 )
 from synaflow.core.types import OnError, StepMode
 from synaflow.execution.overrides import ExecutionOverrides
+from synaflow.execution.runtime_contract_validation import (
+    satisfies_async_iterator_contract,
+)
+from synaflow.execution.state import ExecutionState
+from synaflow.execution.stats import StepRunStats
 from synaflow.execution.threshold import (
     has_threshold,
 )
-from synaflow.execution.state import ExecutionState
 
 from .argument_builder import AsyncArgumentBuilder
 from .constants import EOF_MARKER
 from .event_dispatch import AsyncEventDispatcher
 from .iterator_utils import AsyncQueueBranch
-from synaflow.execution.stats import StepRunStats
 from .step_runner import (
     AsyncStepRunner,
-    wrap_deferred_output,
     collect_async_iterator,
+    wrap_deferred_output,
 )
-
 
 # ---------------------------------------------------------------------------
 # Runtime helpers
@@ -43,25 +49,21 @@ async def _pump_iterator(
     name: str,
     iterator: Any,
     queues: dict[str, Any],
-    on_error: Any,
-    events: AsyncEventDispatcher | None = None,
 ) -> None:
     try:
         async for item in _safe_iterate(name, iterator):
             for q in queues.values():
                 await q.put(item)
     except StepExecutionError as e:
+        # Mirror the sync engine (SyncFanout.abort): the producer's failure
+        # is delivered in-band to every consumer branch, and each consumer's
+        # runner reports it (handle_error, step failure, or stop) according
+        # to its own on_error policy.  Under OnError.CONTINUE this is not a
+        # silent truncation — the consumer step observes the failure, exactly
+        # as SyncQueueIterator.__next__ raises it on the sync side.
         cause = e.__cause__ or e
-        if events is not None:
-            await events.handle_error(name, cause)
-        if isinstance(cause, ThresholdExceededException):
-            for q in queues.values():
-                await q.put(cause)
-            raise PipelineStopException(step_name=name) from e
-        if on_error == OnError.STOP:
-            for q in queues.values():
-                await q.put(PipelineStopException(step_name=name))
-            raise PipelineStopException(step_name=name) from e
+        for q in queues.values():
+            await q.put(cause)
     finally:
         for q in queues.values():
             await q.put(EOF_MARKER)
@@ -179,10 +181,10 @@ class AsyncPipelineExecutor:
         self.scope.seed_runtime_inputs(params)
 
         await self.events.pipeline_started()
+        completed_cleanly = False
         try:
             await self._run_graph()
-
-            await self.cleanup()
+            completed_cleanly = True
         except PipelineStopException as exc:
             await self.events.pipeline_failed(
                 step_name=exc.step_name,
@@ -198,7 +200,9 @@ class AsyncPipelineExecutor:
         except Exception as exc:
             await self.events.pipeline_failed(step_name=None, exception=exc)
             raise
-        else:
+        finally:
+            await self.cleanup()
+        if completed_cleanly:
             await self.events.pipeline_completed()
 
     async def _run_step(self, step_name: str) -> None:
@@ -282,7 +286,10 @@ class AsyncPipelineExecutor:
                 "Issue #103."
             )
         except Exception:
-            pass
+            logging.getLogger("synaflow").debug(
+                "Ignoring error while awaiting pump tasks during cleanup.",
+                exc_info=True,
+            )
 
     async def _apply_materializer(
         self,
@@ -291,28 +298,54 @@ class AsyncPipelineExecutor:
         materializer: Any,
         consumer_type: Any = None,
     ) -> tuple[Any, bool, BaseException | None]:
-        if materializer is None:
-            if isinstance(value, (AsyncIterator, AsyncGenerator, Iterator, Generator)):
-                node = self.dag[step_name]
+        node = self.dag[step_name]
+        if isinstance(value, (AsyncIterator, AsyncGenerator, Iterator, Generator)):
+            if materializer is None:
                 items, had_error, exc = await collect_async_iterator(
                     step_name, value, node.on_error, self.events
                 )
                 return items, had_error, exc
+
+            # Mirror the sync engine's collect_iterator: the stream is
+            # consumed lazily through an error-handling wrapper, so a
+            # mid-stream item failure fires handle_error and ends the
+            # stream at the valid prefix (had_error=True), while the
+            # materializer's own crash propagates and fails the step.
+            # The materializer keeps lazy access to the stream —
+            # out-of-core materializers are never force-drained.
+            history: list[Any] = []
+            failure: dict[str, Any] = {"had_error": False, "exc": None}
+
+            async def handle_error(exc: BaseException, count: int) -> None:
+                failure["had_error"] = True
+                failure["exc"] = exc
+                await self.events.handle_error(
+                    step_name,
+                    exc,
+                    success_count=count,
+                    error_count=1,
+                    completed_all_inputs=False,
+                )
+                if node.on_error == OnError.STOP:
+                    raise PipelineStopException(step_name=step_name, cause=exc) from exc
+
+            async def prefixed_stream() -> AsyncGenerator[Any, None]:
+                try:
+                    async for item in value:
+                        history.append(item)
+                        yield item
+                except Exception as exc:
+                    # STOP escalates from handle_error; CONTINUE ends the
+                    # stream cleanly at the valid prefix.
+                    await handle_error(exc, len(history))
+                    return
+
+            result = await materializer(prefixed_stream())
+            return result, failure["had_error"], failure["exc"]
+
+        if materializer is None:
             return value, False, None
-
-        # To preserve partial items in case the stream crashes during materialization,
-        # we wrap the stream and record yielded items.
-        history = []
-        if self._is_stream_output(value):
-            value = AsyncLifecycleStream(value, on_item=history.append)
-
-        # Materializer is guaranteed to be async by validation.
-        # It natively handles consuming the stream if needed.
-        try:
-            result = await materializer(value)
-            return result, False, None
-        except Exception as e:
-            return history, True, e
+        return await materializer(value), False, None
 
     async def _materialize_with_events(
         self, step_name: str, output: Any, node: DagNode, consumer_type: Any = None
@@ -332,21 +365,12 @@ class AsyncPipelineExecutor:
                 materializer,
                 consumer_type=consumer_type,
             )
-            if had_error:
-                await self.events.materialization_failed(
-                    step_name,
-                    node,
-                    consumer_type,
-                    mat_name,
-                    exception=exc,
-                )
-            else:
-                await self.events.materialization_completed(
-                    step_name,
-                    node,
-                    consumer_type,
-                    mat_name,
-                )
+            await self.events.materialization_completed(
+                step_name,
+                node,
+                consumer_type,
+                mat_name,
+            )
             return result, had_error, exc
         except PipelineStopException:
             raise
@@ -394,9 +418,31 @@ class AsyncPipelineExecutor:
                 completed_all_inputs=True,
             )
 
-    @staticmethod
-    def _is_stream_output(output: Any) -> bool:
-        return isinstance(output, (Iterator, Generator, AsyncIterator, AsyncGenerator))
+    def _validate_value_output_contract(
+        self, step_name: str, output: Any, output_contract: Any
+    ) -> None:
+        if output_contract.runtime_kind != "value":
+            return
+        if satisfies_async_iterator_contract(output):
+            raise TypeError(
+                f"Step '{step_name}' compiled as a value-producing step but returned "
+                "an asynchronous iterator at runtime."
+            )
+
+    def _validate_stream_output_contract(
+        self, step_name: str, output: Any, output_contract: Any
+    ) -> None:
+        if output_contract.runtime_kind != "async_stream":
+            raise TypeError(
+                f"Step '{step_name}' compiled with runtime kind "
+                f"'{output_contract.runtime_kind}' but reached the async stream "
+                "publish path."
+            )
+        if not satisfies_async_iterator_contract(output):
+            raise TypeError(
+                f"Step '{step_name}' compiled as an async stream but returned "
+                f"{type(output).__name__} at runtime."
+            )
 
     async def _publish_eager_materialized_stream(
         self,
@@ -413,19 +459,10 @@ class AsyncPipelineExecutor:
         items, had_error, exc = await self._materialize_with_events(
             step_name, output, node, consumer_type=consumer_type
         )
-        if had_error:
-            await self._handle_stream_publish_error(step_name, node, exc)
-        for consumer in consumers:
-            self.state.set_output(step_name, items, consumer)
         if deferred:
             await self._emit_step_result(node, step_name, items, stats, had_error, exc)
-
-    async def _handle_stream_publish_error(
-        self, step_name: str, node: DagNode, exc: Exception
-    ) -> None:
-        await self.events.handle_error(step_name, exc)
-        if node.on_error == OnError.STOP:
-            raise PipelineStopException(step_name=step_name, cause=exc) from exc
+        for consumer in consumers:
+            self.state.set_output(step_name, items, consumer)
 
     async def _publish_stream_to_queues(
         self,
@@ -447,8 +484,6 @@ class AsyncPipelineExecutor:
                 step_name,
                 output,
                 queues,
-                node.on_error,
-                self.events,
             )
         )
         self._pump_tasks.append(task)
@@ -457,21 +492,11 @@ class AsyncPipelineExecutor:
         self,
         step_name: str,
         output: Any,
-        node: DagNode,
-        stats: StepRunStats,
-        deferred: bool,
     ) -> None:
-        if self.dag.needs_materialize(step_name):
-            output, had_error, exc = await self._materialize_with_events(
-                step_name, output, node, consumer_type=node.output
-            )
-            if had_error:
-                await self._handle_stream_publish_error(step_name, node, exc)
-        else:
-            had_error = False
-            exc = None
-        if deferred:
-            await self._emit_step_result(node, step_name, output, stats, had_error, exc)
+        # Mirror the sync engine: a terminal lazy stream is stored as the
+        # step output so callers can iterate it after the run completes.
+        # Deferred completion was attached by wrap_deferred_output().
+        self.state.set_output(step_name, output)
 
     async def _publish_scalar_output(
         self,
@@ -482,53 +507,66 @@ class AsyncPipelineExecutor:
         deferred: bool,
     ) -> None:
         if self.dag.needs_materialize(step_name):
-            output, had_error, exc = await self._materialize_with_events(
+            output, _, _ = await self._materialize_with_events(
                 step_name, output, node, consumer_type=node.output
             )
-            if had_error:
-                await self._handle_stream_publish_error(step_name, node, exc)
-        else:
-            had_error = False
-            exc = None
         self.state.set_output(step_name, output)
         if deferred:
-            await self._emit_step_result(node, step_name, output, stats, had_error, exc)
+            await self._emit_step_result(
+                node, step_name, output, stats, had_error=False, exception=None
+            )
 
     async def publish(
         self, step_name: str, output: Any, node: DagNode, stats: StepRunStats
     ) -> None:
-        """Publish the output of a step."""
-        deferred = node.mode == StepMode.EACH or (
-            node.mode == StepMode.ALL and self._is_stream_output(output)
-        )
+        """Publish the output of a step, following the compiled plan.
 
-        if not self._is_stream_output(output):
+        The decision of how to publish (value, materialized, fan-out, or
+        terminal stream) and when the step is complete is compiled into the
+        DAG (``publish_plan`` / ``output_contract``); the executor only
+        branches on that metadata, mirroring the sync engine.
+        """
+        publish_plan = node.publish_plan
+        output_contract = node.output_contract
+        if publish_plan is None or output_contract is None:
+            raise RuntimeError(
+                f"Step '{step_name}' is missing a compiled execution plan."
+            )
+
+        deferred = output_contract.completion_policy == "on_exhaustion"
+
+        if publish_plan.strategy == "publish_value":
+            self._validate_value_output_contract(step_name, output, output_contract)
             await self._publish_scalar_output(step_name, output, node, stats, deferred)
             return
 
-        consumers = self.dag.consumers_of(step_name)
+        self._validate_stream_output_contract(step_name, output, output_contract)
 
-        if self.dag.needs_materialize(step_name):
-            try:
-                await self._publish_eager_materialized_stream(
-                    step_name, output, node, stats, consumers, deferred
-                )
-            except PipelineStopException:
-                raise
-            except Exception as exc:
-                await self._handle_stream_publish_error(step_name, node, exc)
+        if publish_plan.strategy == "publish_materialized":
+            consumers = self.dag.consumers_of(step_name)
+            await self._publish_eager_materialized_stream(
+                step_name, output, node, stats, consumers, deferred
+            )
             return
 
         if deferred:
             output = wrap_deferred_output(step_name, output, node, self.events, stats)
 
-        if consumers:
+        if publish_plan.strategy == "publish_async_fanout":
+            consumers = self.dag.consumers_of(step_name)
             await self._publish_stream_to_queues(
                 step_name, output, node, consumers, deferred
             )
             return
 
-        await self._publish_terminal_stream(step_name, output, node, stats, deferred)
+        if publish_plan.strategy == "publish_stream":
+            await self._publish_terminal_stream(step_name, output)
+            return
+
+        raise RuntimeError(
+            f"Step '{step_name}' has unsupported async publish strategy "
+            f"'{publish_plan.strategy}'."
+        )
 
 
 # ---------------------------------------------------------------------------

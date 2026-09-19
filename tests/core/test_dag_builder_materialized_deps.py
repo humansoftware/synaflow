@@ -1,7 +1,9 @@
-from synaflow.core.dag_builder import build_dag
 from collections.abc import Iterator
 from typing import NamedTuple
+
 from synaflow import pipeline, step
+from synaflow.core.dag_builder import build_dag
+
 from .conftest import EmptyParams, build_minimal_dag
 
 

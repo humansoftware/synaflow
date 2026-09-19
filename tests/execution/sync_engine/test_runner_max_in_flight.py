@@ -1,11 +1,13 @@
-from synaflow.core.dag_builder import build_dag
+import threading
 from collections.abc import Generator, Iterator
 from concurrent.futures import Future, ThreadPoolExecutor
 from time import sleep
-import threading
 from typing import NamedTuple
+
 import pytest
+
 from synaflow import OnError, pipeline, run, step
+from synaflow.core.dag_builder import build_dag
 from synaflow.core.exceptions import PipelineStopException
 
 

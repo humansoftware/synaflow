@@ -1,8 +1,9 @@
-from tests.common.pipeline_pack import PipelinePack
 from collections.abc import AsyncGenerator, AsyncIterator
 from typing import NamedTuple
 
-from synaflow import pipeline, step
+from synaflow import Observer, pipeline, step
+from synaflow.core.adapters import async_adapter
+from tests.common.pipeline_pack import PipelinePack
 
 
 class LinearParams(NamedTuple):
@@ -28,7 +29,11 @@ linear_pipeline = pipeline(
     params=LinearParams,
     steps=[
         step("numbers", fn=numbers),
-        step("transformer", fn=transformer),
+        step(
+            "transformer",
+            fn=transformer,
+            observers=[Observer(async_adapter(lambda ctx: None))],
+        ),
         step("consumer", fn=consumer),
     ],
 )
@@ -64,6 +69,7 @@ pack = PipelinePack(
                 "parent_pipeline": None,
                 "max_in_flight": 1,
                 "dataset_param_names": {"numbers": "number"},
+                "observers": [{"handler_name": "<lambda>", "source": "step"}],
             },
             "consumer": {
                 "deps": {"transformer": "Stream[int]"},

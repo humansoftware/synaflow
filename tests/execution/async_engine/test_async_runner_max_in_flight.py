@@ -1,9 +1,11 @@
-from synaflow.core.dag_builder import build_dag
+import asyncio
 from collections.abc import AsyncGenerator, AsyncIterator
 from typing import NamedTuple
-import asyncio
+
 import pytest
+
 from synaflow import OnError, async_run, pipeline, step
+from synaflow.core.dag_builder import build_dag
 from synaflow.core.exceptions import PipelineStopException
 
 

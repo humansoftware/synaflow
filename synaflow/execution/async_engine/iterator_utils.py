@@ -1,6 +1,6 @@
 import asyncio
+from collections.abc import AsyncGenerator
 from dataclasses import dataclass
-from typing import AsyncGenerator
 
 from .constants import EOF_MARKER
 

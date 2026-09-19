@@ -4,12 +4,13 @@ Covers the spec's 15+ scenarios for the async engine.
 """
 
 from collections.abc import AsyncIterator
-from synaflow.core.dag_builder import build_dag
 from typing import NamedTuple
+
 import pytest
-from synaflow.core.adapters import async_adapter
+
 from synaflow import (
     InvalidThresholdRaiseInEACHStep,
+    Observer,
     PipelineEvent,
     PipelineStopException,
     StepEvent,
@@ -18,20 +19,28 @@ from synaflow import (
     pipeline,
     step,
 )
-from synaflow import Observer
+from synaflow.core.adapters import async_adapter
+from synaflow.core.dag_builder import build_dag
 
 
 def _build_each_pipeline(
     fn, *, error_threshold_absolute=None, error_threshold_pct=None, on_error=None
 ):
-    """Build a 2-step pipeline: numbers -> proc (terminal)."""
+    """Build a 2-step pipeline: numbers -> proc (terminal).
+
+    Mirrors the sync twin (``test_runner_error_threshold.py``): the wrapper
+    ``proc`` binds to the ``numbers`` producer by param name, then delegates
+    to the user-supplied ``fn``."""
 
     class P(NamedTuple):
         items: list[int] = [0, 1, 2, 3, 4]
 
-    async def numbers(items: list[int]):
+    async def numbers(items: list[int]) -> AsyncIterator[int]:
         for x in items:
             yield x
+
+    async def proc(numbers: int) -> int:
+        return await fn(numbers)
 
     p = pipeline(
         name="t",
@@ -40,7 +49,7 @@ def _build_each_pipeline(
             step("numbers", fn=numbers),
             step(
                 "proc",
-                fn=fn,
+                fn=proc,
                 error_threshold_absolute=error_threshold_absolute,
                 error_threshold_pct=error_threshold_pct,
                 on_error=on_error if on_error is not None else "continue",
@@ -222,13 +231,13 @@ async def test_pct_threshold_100_pct_only_fires_on_full_failure():
 @pytest.mark.asyncio
 async def test_threshold_on_empty_stream_does_not_fire():
 
-    async def proc(items: int) -> int:
+    async def proc(number: int) -> int:
         raise ValueError("should not be called")
 
     class P(NamedTuple):
         items: list[int] = []
 
-    async def numbers(items: list[int]):
+    async def numbers(items: list[int]) -> AsyncIterator[int]:
         for x in items:
             yield x
 
@@ -251,10 +260,10 @@ async def test_threshold_on_empty_stream_does_not_fire():
 @pytest.mark.asyncio
 async def test_threshold_counters_reset_per_step():
 
-    async def proc1(items: int) -> int:
-        if items == 0:
+    async def proc1(number: int) -> int:
+        if number == 0:
             raise ValueError("boom")
-        return items
+        return number
 
     async def proc2(proc1: int) -> int:
         if proc1 == 4:
@@ -268,7 +277,7 @@ async def test_threshold_counters_reset_per_step():
     class P(NamedTuple):
         items: list[int] = [0, 1, 2, 3, 4]
 
-    async def numbers(items: list[int]):
+    async def numbers(items: list[int]) -> AsyncIterator[int]:
         for x in items:
             yield x
 
@@ -292,15 +301,15 @@ async def test_observers_receive_failed_events_on_threshold():
     def on_event(ctx):
         events.append((ctx.event, ctx.step_name))
 
-    async def proc(items: int) -> int:
-        if items in (0, 1, 2):
+    async def proc(number: int) -> int:
+        if number in (0, 1, 2):
             raise ValueError("boom")
-        return items
+        return number
 
     class P(NamedTuple):
         items: list[int] = [0, 1, 2, 3, 4]
 
-    async def numbers(items: list[int]):
+    async def numbers(items: list[int]) -> AsyncIterator[int]:
         for x in items:
             yield x
 
@@ -327,15 +336,15 @@ async def test_observers_receive_failed_events_on_threshold():
 @pytest.mark.asyncio
 async def test_threshold_with_force_materialize_respected():
 
-    async def proc(items: int) -> int:
-        if items in (0, 1):
+    async def proc(number: int) -> int:
+        if number in (0, 1):
             raise ValueError("boom")
-        return items
+        return number
 
     class P(NamedTuple):
         items: list[int] = [0, 1, 2, 3, 4]
 
-    async def numbers(items: list[int]):
+    async def numbers(items: list[int]) -> AsyncIterator[int]:
         for x in items:
             yield x
 
@@ -394,10 +403,10 @@ async def test_manual_threshold_exception_in_each_step_wraps_in_validator():
 
         return handle
 
-    async def proc(items: int) -> int:
-        if items == 0:
+    async def proc(number: int) -> int:
+        if number == 0:
             raise ThresholdExceededException("proc", 1, 0)
-        return items
+        return number
 
     async def sink(proc: AsyncIterator[int]) -> None:
         async for _ in proc:
@@ -406,7 +415,7 @@ async def test_manual_threshold_exception_in_each_step_wraps_in_validator():
     class P(NamedTuple):
         items: list[int] = [0, 1, 2]
 
-    async def numbers(items: list[int]):
+    async def numbers(items: list[int]) -> AsyncIterator[int]:
         for x in items:
             yield x
 
@@ -430,11 +439,11 @@ async def test_manual_threshold_exception_in_each_step_wraps_in_validator():
 async def test_on_error_continue_without_threshold_unchanged():
     invocations = []
 
-    async def proc(items: int) -> int:
-        invocations.append(items)
-        if items == 2:
+    async def proc(number: int) -> int:
+        invocations.append(number)
+        if number == 2:
             raise ValueError("boom")
-        return items
+        return number
 
     async def sink(proc: AsyncIterator[int]) -> None:
         async for _ in proc:
@@ -443,7 +452,7 @@ async def test_on_error_continue_without_threshold_unchanged():
     class P(NamedTuple):
         items: list[int] = [0, 1, 2, 3, 4]
 
-    async def numbers(items: list[int]):
+    async def numbers(items: list[int]) -> AsyncIterator[int]:
         for x in items:
             yield x
 
@@ -472,7 +481,7 @@ async def test_on_error_stop_no_longer_forces_materialization():
         except Exception:
             pass
 
-    async def source_fn():
+    async def source_fn() -> AsyncIterator[int]:
         yield 1
         raise ValueError("iterboom")
 

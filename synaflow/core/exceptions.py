@@ -1,3 +1,9 @@
+"""Framework exception hierarchy.  ``PipelineStopException`` carries the
+failing step name and its cause so callers can diagnose stops;
+``ThresholdExceededException`` and its EACH-mode misuse variants
+support the error-threshold contract."""
+
+
 class StepExecutionError(Exception):
     """Raised when user-provided code within a step throws an exception."""
 

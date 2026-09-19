@@ -1,6 +1,7 @@
+import pytest
+
 from synaflow.core.dag_builder import build_dag
 from tests.common.pipeline_pack import PipelinePack
-import pytest
 from tests.execution.async_engine.corpus import PACKS as ASYNC_PACKS
 from tests.execution.sync_engine.corpus import PACKS as SYNC_PACKS
 

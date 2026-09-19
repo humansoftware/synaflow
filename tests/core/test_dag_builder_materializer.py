@@ -1,14 +1,18 @@
-from synaflow.core.dag_builder import build_dag
 from collections.abc import Iterator
-from typing import NamedTuple
-from synaflow.core.types import MaterializeContext
-from .conftest import build_minimal_dag
-from synaflow.core.dag_builder import log_error_materializer_factory
-from synaflow.core.dag_builder import memory_materializer_factory
-import pytest
-from synaflow.core.types import ErrorMaterializeContext
 from dataclasses import dataclass
+from typing import NamedTuple
+
+import pytest
+
 from synaflow import pipeline, step
+from synaflow.core.dag_builder import (
+    build_dag,
+    log_error_materializer_factory,
+    memory_materializer_factory,
+)
+from synaflow.core.types import ErrorMaterializeContext, MaterializeContext
+
+from .conftest import build_minimal_dag
 
 
 def test_given_step_level_materializer_when_dag_built_then_step_materializer_wins():
@@ -252,3 +256,33 @@ def test_given_pipeline_materializer_when_non_builtin_inner_type_used_then_dag_b
         steps=[step("producer", fn=producer), step("consumer", fn=consumer)],
     )
     assert build_dag(p) is not None
+
+
+def test_given_custom_item_type_with_default_memory_factory_when_consumer_wants_list_then_builds_and_materializes():
+    """Regression: the default memory materializer handles custom item
+    types — an obsolete "requires a custom materializer" validation used
+    to sit unreachable in ``_resolve_materializers``.  This locks in that
+    custom types are fine with the built-in factory."""
+
+    @dataclass
+    class Row:
+        id: int
+        name: str
+
+    class Params(NamedTuple):
+        pass
+
+    def producer() -> Iterator[Row]:
+        yield Row(id=1, name="a")
+
+    def consumer(producer: list[Row]) -> int:
+        return len(producer)
+
+    p = pipeline(
+        name="test_default_factory_custom_type",
+        params=Params,
+        steps=[step("producer", fn=producer), step("consumer", fn=consumer)],
+    )
+    dag = build_dag(p)
+    assert dag.needs_materialize("producer") is True
+    assert callable(dag["producer"].materializer)

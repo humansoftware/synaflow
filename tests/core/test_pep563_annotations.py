@@ -28,7 +28,7 @@ def test_given_future_annotations_when_pipeline_built_then_types_resolve_correct
 
 def test_given_undefined_type_annotation_when_get_safe_type_hints_called_then_returns_empty_dict():
 
-    def fn_with_undefined(x: "SomeUndefinedType") -> None:  # noqa: F821
+    def fn_with_undefined(x: SomeUndefinedType) -> None:  # noqa: F821
         pass
 
     assert get_safe_type_hints(fn_with_undefined) == {}
@@ -37,7 +37,7 @@ def test_given_undefined_type_annotation_when_get_safe_type_hints_called_then_re
 def test_given_undefined_type_annotation_in_params_when_initialize_parameters_called_then_falls_back():
 
     class ParamsWithUndefined(NamedTuple):
-        x: "SomeUndefinedType"  # noqa: F821
+        x: SomeUndefinedType  # noqa: F821
 
     nodes = initialize_parameters(ParamsWithUndefined)
     assert "x" in nodes

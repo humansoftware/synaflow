@@ -6,7 +6,7 @@ Resolves dependencies, resource arguments, and materializers for the async engin
 
 import asyncio
 import inspect
-from collections.abc import AsyncGenerator, AsyncIterator, Callable
+from collections.abc import Callable
 from contextlib import AsyncExitStack
 from typing import Any
 
@@ -136,11 +136,14 @@ class AsyncArgumentBuilder:
                     if (
                         isinstance(value, (list, tuple, set))
                         and dep_name not in unrolled
+                        and dep_name in node.async_stream_deps
                     ):
-                        dep_type = node.deps.get(dep_name)
-                        origin = getattr(dep_type, "__origin__", dep_type)
-                        if origin in (AsyncIterator, AsyncGenerator):
-                            value = _list_to_async_gen(value)
+                        # The producer materialized its output, but this
+                        # consumer declared an AsyncIterator/AsyncGenerator
+                        # dependency.  The set of such deps is compiled into
+                        # the DAG (``async_stream_deps``) — no annotation
+                        # re-derivation at run time.
+                        value = _list_to_async_gen(value)
                     args[param] = value
             return args, deferred_resources
         except Exception:

@@ -1,9 +1,10 @@
-from synaflow.core.dag_builder import build_dag
+from collections.abc import AsyncIterator, Generator, Iterator
 from typing import NamedTuple
-from collections.abc import Iterator, AsyncIterator
+
 import pytest
-from synaflow import StepMode, pipeline, step, Observer, OnError
-from collections.abc import Generator
+
+from synaflow import Observer, OnError, StepMode, pipeline, step
+from synaflow.core.dag_builder import build_dag
 
 
 def test_given_sync_step_in_async_pipeline_then_raises():

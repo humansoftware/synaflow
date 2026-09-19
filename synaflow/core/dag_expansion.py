@@ -1,6 +1,9 @@
+"""Macro expansion: flattens ``IncludeStep`` sub-pipelines into flat
+``(scope_id, Step)`` tuples with adapter steps and scoped names."""
+
+import dataclasses
 import functools
 import inspect
-import dataclasses
 from typing import Any
 
 from synaflow.core.definition import IncludeStep, Step

@@ -1,16 +1,17 @@
-from synaflow.core.dag_builder import build_dag
-from typing import Any
-from synaflow.execution.async_engine.executor import AsyncPipelineExecutor
 import inspect
-import pytest
-from typing import AsyncGenerator, AsyncIterator, NamedTuple
-from unittest.mock import AsyncMock as MagicMock
-from synaflow import async_run, pipeline, step
-from synaflow.core.types import OnError
-from synaflow.core.types import MaterializeContext
-from dataclasses import dataclass
+from collections.abc import AsyncGenerator, AsyncIterator
 from collections.abc import AsyncGenerator as AbcAsyncGenerator
 from collections.abc import AsyncIterator as AbcAsyncIterator
+from dataclasses import dataclass
+from typing import Any, NamedTuple
+from unittest.mock import AsyncMock as MagicMock
+
+import pytest
+
+from synaflow import async_run, pipeline, step
+from synaflow.core.dag_builder import build_dag
+from synaflow.core.types import MaterializeContext, OnError
+from synaflow.execution.async_engine.executor import AsyncPipelineExecutor
 
 
 def mock_step(**params: type) -> MagicMock:
@@ -395,8 +396,8 @@ async def test_given_factory_with_context_when_run_then_context_is_injected():
     await async_run(build_dag(my_pipeline), params=P())
     assert len(captured_context) >= 1
     assert captured_context[-1].pipeline_name == "test_context"
-    assert any((c.dataset_name == "items" for c in captured_context))
-    assert any((c.consumer_type == list[int] for c in captured_context))
+    assert any(c.dataset_name == "items" for c in captured_context)
+    assert any(c.consumer_type == list[int] for c in captured_context)
 
 
 async def test_given_mixed_fanout_when_materializer_factory_receives_context_then_consumer_type_is_materialized_consumer_type():
@@ -433,7 +434,7 @@ async def test_given_mixed_fanout_when_materializer_factory_receives_context_the
     await async_run(build_dag(my_pipeline), params=P())
     runtime_contexts = [c for c in captured_context if c.dataset_name == "items"]
     assert runtime_contexts
-    assert all((c.consumer_type == list[int] for c in runtime_contexts))
+    assert all(c.consumer_type == list[int] for c in runtime_contexts)
 
 
 async def test_given_two_unrolled_streams_with_different_lengths_when_run_then_missing_side_is_padded_with_none():

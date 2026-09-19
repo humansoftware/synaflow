@@ -58,7 +58,7 @@ def test_returns_when_no_threads():
     logs: list[tuple] = []
 
     polls = wait_for_workers_after_shutdown(
-        _enumerate_threads=lambda: [],
+        _enumerate_threads=list,
         _is_alive=lambda _t: False,
         _sleep=sleeps.append,
         _monotonic=lambda: 0.0,

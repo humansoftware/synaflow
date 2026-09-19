@@ -1,12 +1,14 @@
-from synaflow.core.dag_builder import build_dag
+from collections.abc import Iterator
 from typing import NamedTuple
+
 import pytest
+
 from synaflow import StepMode, pipeline, step
+from synaflow.core.dag import Dag, DagNode
+from synaflow.core.dag_builder import build_dag
+from synaflow.core.types import OnError
 from tests.execution.async_engine.corpus import PACKS as ASYNC_PACKS
 from tests.execution.sync_engine.corpus import PACKS as SYNC_PACKS
-from synaflow.core.dag import Dag, DagNode
-from collections.abc import Iterator
-from synaflow.core.types import OnError
 
 
 def test_given_output_compatible_but_executed_after_when_built_then_raises():
@@ -105,6 +107,12 @@ def _normalize_exported_dag_for_contract_assertions(dag_dict: dict) -> dict:
                 "output_contract",
                 "consumer_contracts",
                 "publish_plan",
+                # Compiled fn shape and async-stream deps have dedicated
+                # tests in ``test_dag_builder.py`` — exclude from the
+                # execution-order corpus check so the corpus fixtures
+                # don't need a full rewrite.
+                "fn_kind",
+                "async_stream_deps",
                 # Scope metadata has dedicated tests in
                 # ``test_dag_scope_stamping`` — exclude from the
                 # execution-order corpus check so the corpus fixtures
@@ -299,3 +307,13 @@ def test_given_dag_when_to_dict_then_returns_correct_structure():
     assert result["steps"]["gen"]["mode"] == "each"
     assert result["steps"]["gen"]["deps"] == {"count": "int"}
     assert result["steps"]["gen"]["each_mode_deps"] == ["count"]
+
+
+def test_given_dependency_cycle_when_get_execution_levels_then_raises():
+    dag = Dag(name="cycle")
+    dag.steps = {
+        "a": DagNode(deps={"b": "int"}),
+        "b": DagNode(deps={"a": "int"}),
+    }
+    with pytest.raises(ValueError, match="dependency cycle detected"):
+        dag.get_execution_levels()

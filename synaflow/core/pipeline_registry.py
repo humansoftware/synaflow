@@ -63,7 +63,7 @@ class PipelineRegistry(Mapping[str, PipelineDef]):
     @classmethod
     def from_module(
         cls, module_name: str, *, attr: str = "catalog"
-    ) -> "PipelineRegistry":
+    ) -> PipelineRegistry:
         """Import ``module_name`` and return its PipelineRegistry ``attr``."""
         module = importlib.import_module(module_name)
         value = getattr(module, attr)

@@ -1,6 +1,8 @@
-from synaflow.core.dag_builder import build_dag
-from typing import AsyncGenerator, AsyncIterator, NamedTuple
+from collections.abc import AsyncGenerator, AsyncIterator
+from typing import NamedTuple
+
 from synaflow import pipeline, step
+from synaflow.core.dag_builder import build_dag
 from synaflow.execution.async_engine.executor import async_run
 
 

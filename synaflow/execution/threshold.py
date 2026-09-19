@@ -8,9 +8,10 @@ failure. It also handles validation of manually raised threshold exceptions.
 """
 
 from typing import Any
+
 from synaflow.core.exceptions import (
-    ThresholdExceededException,
     InvalidThresholdRaiseInEACHStep,
+    ThresholdExceededException,
 )
 
 

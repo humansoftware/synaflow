@@ -1,4 +1,9 @@
+"""Build-time deadlock prevention: rejects fan-out/fan-in topologies
+that mix lazy and materialized paths, which are mathematically
+guaranteed to deadlock a push-based lockstep runtime."""
+
 import collections
+
 from synaflow.core.dag import DagNode
 from synaflow.core.type_compatibility import is_iterable_type
 

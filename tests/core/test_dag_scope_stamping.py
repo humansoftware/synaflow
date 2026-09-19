@@ -10,8 +10,8 @@ is taken from ``Dag.get_execution_levels`` flattened in returned order
 from typing import NamedTuple
 
 from synaflow import include, pipeline, step
-from synaflow.core.dag_builder import build_dag
 from synaflow.core.dag import Dag
+from synaflow.core.dag_builder import build_dag
 
 
 class Params(NamedTuple):

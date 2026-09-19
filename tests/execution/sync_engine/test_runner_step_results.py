@@ -1,12 +1,14 @@
-from synaflow.core.dag_builder import build_dag
 from collections.abc import Iterator
+
 import pytest
+
 from synaflow import run
+from synaflow.core.dag_builder import build_dag
 from synaflow.execution.sync_engine.executor import PipelineExecutor
 from tests.execution.sync_engine.corpus import PACKS as SYNC_PACKS
 from tests.execution.sync_engine.corpus.error_handling import (
-    error_pipeline,
     ErrorHandlingParams,
+    error_pipeline,
     errors_list,
 )
 
@@ -24,15 +26,13 @@ SYNC_PACK_NAMES = (
 
 
 def _concrete(value):
-    """Convert generators to lists; leave scalars and tuples alone."""
+    """Convert iterators to lists; leave scalars and tuples alone.
+
+    A failing iterator propagates its error — a silently truncated
+    "successful" drain could mask a broken step (and produce a passing
+    assertion against an empty expectation)."""
     if isinstance(value, Iterator):
-        items = []
-        try:
-            for item in value:
-                items.append(item)
-        except Exception:
-            return items
-        return items
+        return list(value)
     return value
 
 

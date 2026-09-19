@@ -1,6 +1,11 @@
+"""Step-level validation and compilation: turns one declared ``Step``
+into a validated, dependency-resolved ``DagNode`` (mode resolution,
+threshold checks, name and base-dataset rules)."""
+
 import inspect
 from typing import Any
 
+from synaflow.core.adapters import is_async_callable
 from synaflow.core.dag import Dag, DagNode, get_safe_type_hints
 from synaflow.core.dag_dependencies import (
     resolve_step_output_type,
@@ -8,7 +13,6 @@ from synaflow.core.dag_dependencies import (
 )
 from synaflow.core.definition import Step
 from synaflow.core.naming import get_base_dataset_name
-from synaflow.core.adapters import is_async_callable
 from synaflow.core.type_compatibility import (
     is_async_stream_type,
     is_iterable_type,
@@ -25,6 +29,14 @@ def validate_step_is_callable(step: Step, pipeline_name: str) -> None:
         )
 
 
+def validate_reserved_step_name(step_name: str, pipeline_name: str) -> None:
+    if "__" in step_name:
+        raise ValueError(
+            f"Pipeline '{pipeline_name}': step name '{step_name}' contains '__',"
+            " which is reserved for sub-pipeline name scoping."
+        )
+
+
 def validate_unique_step_name(
     step_name: str, dag: dict, pipeline_name: str, is_expanded: bool = False
 ) -> None:
@@ -32,11 +44,8 @@ def validate_unique_step_name(
         raise ValueError(
             f"Pipeline '{pipeline_name}': duplicate step name '{step_name}'"
         )
-    if not is_expanded and "__" in step_name:
-        raise ValueError(
-            f"Pipeline '{pipeline_name}': step name '{step_name}' contains '__',"
-            " which is reserved for sub-pipeline name scoping."
-        )
+    if not is_expanded:
+        validate_reserved_step_name(step_name, pipeline_name)
 
 
 def validate_and_compile_step(

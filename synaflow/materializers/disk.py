@@ -1,6 +1,10 @@
-from pathlib import Path
+"""Disk-backed materializer factory: persists materialized collections
+out-of-core through a pluggable serializer."""
+
 from collections.abc import Iterator
+from pathlib import Path
 from typing import Any
+
 from synaflow.core.types import MaterializeContext
 
 

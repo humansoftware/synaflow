@@ -14,9 +14,10 @@ semantics, laziness, or materialization decisions.
 from __future__ import annotations
 
 import logging
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Callable
+from typing import Any
 
 from synaflow.core.types import OnError, StepMode
 

@@ -21,32 +21,39 @@ Design note:
 All functions are stateless — no classes, no self.
 """
 
+import dataclasses
+import inspect
 import logging
 import traceback
-import types as _types
-import dataclasses
-from dataclasses import dataclass
 from collections.abc import (
-    AsyncIterable as AbcAsyncIterable,
-    AsyncIterator as AbcAsyncIterator,
     AsyncGenerator,
-    Iterable as AbcIterable,
-    Iterator as AbcIterator,
-    MutableMapping,
-    MutableSequence,
-    MutableSet,
-)
-from typing import (
-    Any,
     AsyncIterable,
     AsyncIterator,
     Iterable,
     Iterator,
+    MutableMapping,
+    MutableSequence,
+    MutableSet,
+)
+from collections.abc import (
+    AsyncIterable as AbcAsyncIterable,
+)
+from collections.abc import (
+    AsyncIterator as AbcAsyncIterator,
+)
+from collections.abc import (
+    Iterable as AbcIterable,
+)
+from collections.abc import (
+    Iterator as AbcIterator,
+)
+from dataclasses import dataclass
+from typing import (
+    Any,
     NamedTuple,
-    get_args,
 )
 
-from synaflow.core.adapters import async_adapter
+from synaflow.core.adapters import async_adapter, is_async_callable
 from synaflow.core.dag import (
     ConsumerContract,
     Dag,
@@ -55,29 +62,28 @@ from synaflow.core.dag import (
     PublishPlan,
 )
 from synaflow.core.dag_dependencies import initialize_parameters, initialize_resources
-from synaflow.core.definition import (
-    IncludeStep,
-    PipelineDef,
-    Step,
-)
-from synaflow.core.adapters import is_async_callable
 from synaflow.core.dag_expansion import expand_macros
 from synaflow.core.dag_steps import (
     validate_and_compile_step,
     validate_no_duplicate_base_datasets,
     validate_no_unmaterialized_terminal_streams,
+    validate_reserved_step_name,
     validate_step_is_callable,
     validate_sync_async_consistency,
     validate_unique_step_name,
 )
 from synaflow.core.dag_topology import check_circular_dependencies
+from synaflow.core.definition import (
+    IncludeStep,
+    PipelineDef,
+    Step,
+)
 from synaflow.core.lockstep_validation import validate_lockstep_symmetry
 from synaflow.core.observers import (
     Observer,
     ResolvedObserver,
 )
 from synaflow.core.type_compatibility import (
-    get_inner_type,
     is_async_stream_type,
     is_factory,
     is_iterable_type,
@@ -89,7 +95,7 @@ from synaflow.core.type_compatibility import (
 from synaflow.core.types import ErrorMaterializeContext, MaterializeContext, StepMode
 
 
-def _identity(x):
+def _identity(x: Any) -> Any:
     return x
 
 
@@ -173,35 +179,6 @@ def log_error_materializer_factory(ctx: ErrorMaterializeContext):
 log_error_materializer_factory.__name__ = "log_error_materializer"
 
 
-_BUILTIN_TYPES = {int, float, str, bool, bytes, type(None), list, set, tuple, dict}
-
-
-def _is_builtin_type(tp: Any) -> bool:
-    if type(tp) is _types.UnionType:
-        return all(_is_builtin_type(a) for a in get_args(tp))
-
-    origin = getattr(tp, "__origin__", None)
-    if origin is not None:
-        if origin in _BUILTIN_TYPES:
-            return True
-        for b in _BUILTIN_TYPES:
-            try:
-                if issubclass(origin, b):
-                    return True
-            except TypeError:
-                pass
-        return False
-    if tp in _BUILTIN_TYPES:
-        return True
-    for b in _BUILTIN_TYPES:
-        try:
-            if issubclass(tp, b):
-                return True
-        except TypeError:
-            pass
-    return False
-
-
 def _is_stream_output(tp: Any) -> bool:
     return tp is not None and (is_sync_stream_type(tp) or is_async_stream_type(tp))
 
@@ -239,9 +216,13 @@ def _validate_params_type(params: Any, pipeline_name: str) -> None:
 def _validate_declared_step_names(
     steps: list[Step | IncludeStep], pipeline_name: str
 ) -> None:
+    """Fail fast on reserved step names before expansion.  Duplicate
+    detection runs later, over the fully expanded step list (see
+    ``validate_no_duplicate_base_datasets`` and the ``is_expanded``
+    uniqueness pass)."""
     for step in steps:
         if hasattr(step, "name"):
-            validate_unique_step_name(step.name, {}, pipeline_name)
+            validate_reserved_step_name(step.name, pipeline_name)
 
 
 def _validate_resource_names(
@@ -328,138 +309,71 @@ def _collect_pipeline_resources(
     return merged
 
 
-def _validate_no_async_handlers(pipeline_def: PipelineDef, dag) -> None:
-    all_observers: list = list(dag.pipeline_observers)
-    for node in dag.steps.values():
-        all_observers.extend(node.observers)
+def _validate_handler_execution_modes(pipeline_def: PipelineDef, dag) -> None:
+    """Reject handlers whose sync/async shape contradicts the pipeline's
+    execution engine.
 
-    for obs in all_observers:
-        handler = obs.handler
+    One parameterized check covers observers, materializers, error
+    materializers and step functions for both directions — the sync engine
+    rejects async handlers and vice versa.  (Previously two ~65-line
+    near-copies drifted easily.)
+    """
+    pipeline_name = pipeline_def.name
+
+    def describe(handler: Any) -> str:
+        name = getattr(handler, "__name__", str(handler))
+        func = getattr(handler, "func", None)
+        if func is not None:
+            name = f"partial of '{func.__name__}'"
+        return name
+
+    def reject_if_mismatch(what: str, noun: str, label: str, handler: Any) -> None:
         if not callable(handler):
             raise TypeError(
-                f"Pipeline '{pipeline_def.name}': observer handler is not callable."
+                f"Pipeline '{pipeline_name}': {noun} for step '{label}' is not callable."
             )
-        elif is_async_callable(handler):
-            handler_name = getattr(handler, "__name__", str(handler))
-            func = getattr(handler, "func", None)
-            if func is not None:
-                handler_name = f"partial of '{func.__name__}'"
+        actual_async = is_async_callable(handler)
+        expected_async = dag.requires_async_runner
+        if actual_async is expected_async:
+            return
+        shape = "async" if actual_async else "synchronous"
+        mode = "synchronously" if expected_async is False else "asynchronously"
+        hint = (
+            "Use sync handlers or switch to async_run()."
+            if actual_async
+            else "Use async handlers for async pipelines."
+        )
+        if what == "observer handler":
             raise TypeError(
-                f"Pipeline '{pipeline_def.name}': observer handler "
-                f"'{handler_name}' is async but the pipeline runs "
-                f"synchronously. Use sync handlers or switch to async_run()."
+                f"Pipeline '{pipeline_name}': observer handler "
+                f"'{describe(handler)}' is {shape} but the pipeline runs "
+                f"{mode}. {hint}"
             )
+        raise TypeError(
+            f"Pipeline '{pipeline_name}': {what} "
+            f"'{describe(handler)}' is {shape} but the pipeline runs "
+            f"{mode}." + (f" {hint}" if what == "step function" else "")
+        )
+
+    for obs in list(dag.pipeline_observers) + [
+        o for node in dag.steps.values() for o in node.observers
+    ]:
+        reject_if_mismatch("observer handler", "observer handler", "", obs.handler)
 
     for step_name, node in dag.steps.items():
         if node.materializer is not None:
-            if not callable(node.materializer):
-                raise TypeError(
-                    f"Pipeline '{pipeline_def.name}': materializer for step '{step_name}' is not callable."
-                )
-            elif is_async_callable(node.materializer):
-                mat_name = getattr(
-                    node.materializer, "__name__", str(node.materializer)
-                )
-                raise TypeError(
-                    f"Pipeline '{pipeline_def.name}': materializer "
-                    f"'{mat_name}' is async but the pipeline runs "
-                    f"synchronously."
-                )
-
-        if node.error_materializer is not None:
-            if not callable(node.error_materializer):
-                raise TypeError(
-                    f"Pipeline '{pipeline_def.name}': error materializer for step '{step_name}' is not callable."
-                )
-            elif is_async_callable(node.error_materializer):
-                mat_name = getattr(
-                    node.error_materializer, "__name__", str(node.error_materializer)
-                )
-                raise TypeError(
-                    f"Pipeline '{pipeline_def.name}': error_materializer "
-                    f"'{mat_name}' is async but the pipeline runs "
-                    f"synchronously."
-                )
-
-        if node.fn is not None:
-            if not callable(node.fn):
-                raise TypeError(
-                    f"Pipeline '{pipeline_def.name}': step function for step '{step_name}' is not callable."
-                )
-            elif is_async_callable(node.fn):
-                fn_name = getattr(node.fn, "__name__", str(node.fn))
-                raise TypeError(
-                    f"Pipeline '{pipeline_def.name}': step function "
-                    f"'{fn_name}' is async but the pipeline runs "
-                    f"synchronously."
-                )
-
-
-def _validate_no_sync_handlers(pipeline_def: PipelineDef, dag) -> None:
-    all_observers: list = list(dag.pipeline_observers)
-    for node in dag.steps.values():
-        all_observers.extend(node.observers)
-
-    for obs in all_observers:
-        handler = obs.handler
-        if not callable(handler):
-            raise TypeError(
-                f"Pipeline '{pipeline_def.name}': observer handler is not callable."
+            reject_if_mismatch(
+                "materializer", "materializer", step_name, node.materializer
             )
-        elif not is_async_callable(handler):
-            handler_name = getattr(handler, "__name__", str(handler))
-            func = getattr(handler, "func", None)
-            if func is not None:
-                handler_name = f"partial of '{func.__name__}'"
-            raise TypeError(
-                f"Pipeline '{pipeline_def.name}': observer handler "
-                f"'{handler_name}' is synchronous but the pipeline runs "
-                f"asynchronously. Use async handlers for async pipelines."
-            )
-
-    for step_name, node in dag.steps.items():
-        if node.materializer is not None:
-            if not callable(node.materializer):
-                raise TypeError(
-                    f"Pipeline '{pipeline_def.name}': materializer for step '{step_name}' is not callable."
-                )
-            elif not is_async_callable(node.materializer):
-                mat_name = getattr(
-                    node.materializer, "__name__", str(node.materializer)
-                )
-                raise TypeError(
-                    f"Pipeline '{pipeline_def.name}': materializer "
-                    f"'{mat_name}' is synchronous but the pipeline runs "
-                    f"asynchronously."
-                )
-
         if node.error_materializer is not None:
-            if not callable(node.error_materializer):
-                raise TypeError(
-                    f"Pipeline '{pipeline_def.name}': error materializer for step '{step_name}' is not callable."
-                )
-            elif not is_async_callable(node.error_materializer):
-                mat_name = getattr(
-                    node.error_materializer, "__name__", str(node.error_materializer)
-                )
-                raise TypeError(
-                    f"Pipeline '{pipeline_def.name}': error_materializer "
-                    f"'{mat_name}' is synchronous but the pipeline runs "
-                    f"asynchronously."
-                )
-
+            reject_if_mismatch(
+                "error_materializer",
+                "error materializer",
+                step_name,
+                node.error_materializer,
+            )
         if node.fn is not None:
-            if not callable(node.fn):
-                raise TypeError(
-                    f"Pipeline '{pipeline_def.name}': step function for step '{step_name}' is not callable."
-                )
-            elif not is_async_callable(node.fn):
-                fn_name = getattr(node.fn, "__name__", str(node.fn))
-                raise TypeError(
-                    f"Pipeline '{pipeline_def.name}': step function "
-                    f"'{fn_name}' is synchronous but the pipeline runs "
-                    f"asynchronously. Use async handlers for async pipelines."
-                )
+            reject_if_mismatch("step function", "step function", step_name, node.fn)
 
 
 def _resolve_pipeline_observers(
@@ -543,12 +457,7 @@ def _resolve_materializers(
         else:
             if is_scalar:
                 mat = None
-            elif is_stream:
-                if has_consumers:
-                    mat = memory_materializer_factory
-                else:
-                    mat = None
-            elif is_untyped:
+            elif is_stream or is_untyped:
                 if has_consumers:
                     mat = memory_materializer_factory
                 else:
@@ -581,20 +490,6 @@ def _resolve_materializers(
             node.error_materializer = err_mat(err_ctx)
         else:
             node.error_materializer = err_mat
-
-        if (
-            node.output
-            and is_iterable_type(node.output)
-            and node.materializer is memory_materializer_factory
-        ):
-            if dag.needs_materialize(name):
-                inner = get_inner_type(node.output)
-                if inner is not None and not _is_builtin_type(inner):
-                    raise ValueError(
-                        f"Node '{name}': output item type '{inner}' requires a custom"
-                        " materializer. Provide a step-level materializer or a"
-                        " pipeline-level materializer."
-                    )
 
 
 def _plan_materialization(dag: dict[str, DagNode], indexes: _DagBuildIndexes) -> None:
@@ -694,6 +589,24 @@ def _classify_consumer_contract(
     return ConsumerContract(consumer_name=consumer_name, consumption=consumption)
 
 
+def _classify_fn_kind(fn: Any) -> str | None:
+    """Compile the runtime shape of a step function into the DAG.
+
+    Executors must not inspect function internals at run time, so the
+    generator/coroutine distinction is resolved once here and exported in
+    the DAG JSON (``fn_kind``).
+    """
+    if fn is None:
+        return None
+    if inspect.isasyncgenfunction(fn):
+        return "async_generator"
+    if inspect.iscoroutinefunction(fn):
+        return "async"
+    if inspect.isgeneratorfunction(fn):
+        return "sync_generator"
+    return "sync"
+
+
 def _compile_execution_plan(dag: Dag, indexes: _DagBuildIndexes) -> None:
     for producer_name, node in dag.steps.items():
         consumers = indexes.consumers_by_producer.get(producer_name, [])
@@ -704,6 +617,13 @@ def _compile_execution_plan(dag: Dag, indexes: _DagBuildIndexes) -> None:
             for consumer_name in consumers
         ]
         node.consumer_contracts = consumer_contracts
+
+        node.fn_kind = _classify_fn_kind(node.fn)
+        node.async_stream_deps = [
+            dep_name
+            for dep_name, dep_type in node.deps.items()
+            if is_async_stream_type(dep_type)
+        ]
 
         runtime_kind = _classify_output_runtime_kind(dag, node)
         completion_policy = "on_exhaustion" if runtime_kind != "value" else "immediate"
@@ -725,22 +645,26 @@ def _compile_execution_plan(dag: Dag, indexes: _DagBuildIndexes) -> None:
             drain_policy=drain_policy,
         )
 
-        if runtime_kind != "value" and drain_policy != "none":
-            strategy = "publish_value"
-            handoff = "none"
-        elif runtime_kind == "value":
+        if (
+            runtime_kind != "value"
+            and drain_policy != "none"
+            or runtime_kind == "value"
+        ):
             strategy = "publish_value"
             handoff = "none"
         elif node.materialize_output:
             strategy = "publish_materialized"
             handoff = "none"
+        elif runtime_kind == "async_stream":
+            # Async lazy streams are always delivered through queue
+            # branches — a pump task pushes while consumers pull — for one
+            # or many consumers alike (EACH-mode consumers unroll through
+            # queue branches by contract).
+            strategy = "publish_async_fanout"
+            handoff = "async_queue"
         elif len(consumers) > 1:
-            strategy = (
-                "publish_async_fanout"
-                if runtime_kind == "async_stream"
-                else "publish_sync_fanout"
-            )
-            handoff = "async_queue" if runtime_kind == "async_stream" else "sync_fanout"
+            strategy = "publish_sync_fanout"
+            handoff = "sync_fanout"
         else:
             strategy = "publish_stream"
             handoff = (
@@ -931,9 +855,9 @@ def build_dag(pipeline_def: PipelineDef) -> Dag:
     )
 
     if dag_obj.requires_sync_runner or not dag_obj.requires_async_runner:
-        _validate_no_async_handlers(pipeline_def, dag_obj)
+        _validate_handler_execution_modes(pipeline_def, dag_obj)
     else:
-        _validate_no_sync_handlers(pipeline_def, dag_obj)
+        _validate_handler_execution_modes(pipeline_def, dag_obj)
 
     _stamp_scope_metadata(dag_obj, scope_id_by_step_name)
 

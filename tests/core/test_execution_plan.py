@@ -1,9 +1,10 @@
-from synaflow.core.dag_builder import build_dag
-from collections.abc import Iterator
+from collections.abc import AsyncIterator, Iterator
 from concurrent.futures import Future
-from typing import AsyncIterator, NamedTuple
+from typing import NamedTuple
+
 from synaflow import pipeline, step
 from synaflow.core.dag import ConsumerContract
+from synaflow.core.dag_builder import build_dag
 from synaflow.core.types import StepMode
 
 
@@ -56,10 +57,8 @@ def test_given_lazy_fanout_when_dag_built_then_consumer_contracts_and_publish_pl
     assert node.publish_plan.strategy == "publish_sync_fanout"
     assert node.publish_plan.handoff == "sync_fanout"
     assert sorted(
-        (
-            (contract.consumer_name, contract.consumption)
-            for contract in node.consumer_contracts
-        )
+        (contract.consumer_name, contract.consumption)
+        for contract in node.consumer_contracts
     ) == [("a", "stream"), ("b", "stream")]
 
 
@@ -149,7 +148,10 @@ async def _async_consumer_b(producer: AsyncIterator[int]) -> list[int]:
     return [item async for item in producer]
 
 
-def test_given_async_stream_single_consumer_when_dag_built_then_publish_stream_contract_is_compiled():
+def test_given_async_stream_single_consumer_when_dag_built_then_async_queue_plan_is_compiled():
+    """Async lazy streams are always delivered through queue branches —
+    even with a single consumer — because EACH-mode consumers unroll
+    through queue branches by contract."""
     p = pipeline(
         name="test",
         params=Empty,
@@ -164,8 +166,8 @@ def test_given_async_stream_single_consumer_when_dag_built_then_publish_stream_c
     assert node.output_contract.completion_policy == "on_exhaustion"
     assert node.output_contract.drain_policy == "none"
     assert node.publish_plan is not None
-    assert node.publish_plan.strategy == "publish_stream"
-    assert node.publish_plan.handoff == "none"
+    assert node.publish_plan.strategy == "publish_async_fanout"
+    assert node.publish_plan.handoff == "async_queue"
 
 
 def test_given_async_stream_fanout_when_dag_built_then_async_fanout_plan_is_compiled():
@@ -185,10 +187,8 @@ def test_given_async_stream_fanout_when_dag_built_then_async_fanout_plan_is_comp
     assert node.publish_plan.strategy == "publish_async_fanout"
     assert node.publish_plan.handoff == "async_queue"
     assert sorted(
-        (
-            (contract.consumer_name, contract.consumption)
-            for contract in node.consumer_contracts
-        )
+        (contract.consumer_name, contract.consumption)
+        for contract in node.consumer_contracts
     ) == [("a", "stream"), ("b", "stream")]
 
 

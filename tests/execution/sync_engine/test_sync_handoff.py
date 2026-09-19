@@ -1,6 +1,13 @@
 import queue
 import threading
-from synaflow.execution.sync_handoff import SyncFanout, EOF_MARKER
+from collections.abc import Iterator
+
+from synaflow.execution.sync_handoff import EOF_MARKER, SyncFanout
+
+
+def _failing_source() -> Iterator[int]:
+    yield 1
+    raise ValueError("Boom")
 
 
 def test_given_full_branch_queue_when_stream_finishes_then_last_item_is_not_dropped():
@@ -25,6 +32,29 @@ def test_given_full_branch_queue_when_stream_finishes_then_last_item_is_not_drop
 
     it = fanout.lazy_iterator("a")
     items = list(it)
+    assert items == [1]
+
+
+def test_given_full_branch_queue_when_source_fails_then_failure_is_delivered_in_band_before_eof():
+    """Canonical semantics: a source that fails mid-stream delivers the
+    failure to the branch — the consumer observes the error instead of
+    seeing a silently truncated stream.  Mirrors the async engine's
+    ``_pump_iterator`` in-band failure delivery."""
+    fanout = SyncFanout(
+        _failing_source(),
+        max_in_flight=2,
+        branches=["a"],
+    )
+    fanout.start()
+
+    it = fanout.lazy_iterator("a")
+    items = []
+    try:
+        for item in it:
+            items.append(item)
+        raise AssertionError("Should have raised")
+    except ValueError as e:
+        assert str(e) == "Boom"
     assert items == [1]
 
 

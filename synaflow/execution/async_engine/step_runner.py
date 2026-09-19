@@ -1,29 +1,36 @@
+"""Single-step execution for the async engine: invocation (ALL vs EACH
+unroll through queue branches), lifecycle/stats wiring, threshold
+enforcement, and output wrapping before publication."""
+
 import asyncio
 import inspect
-from collections.abc import AsyncGenerator, AsyncIterator, Generator, Iterator
+from collections.abc import AsyncGenerator, AsyncIterator, Callable, Generator, Iterator
 from contextlib import AsyncExitStack
-from typing import Any, Callable
+from typing import Any
 
-from synaflow.core.types import OnError, StepMode
-from synaflow.core.exceptions import PipelineStopException, ThresholdExceededException
 from synaflow.core.dag import DagNode
+from synaflow.core.exceptions import PipelineStopException, ThresholdExceededException
+from synaflow.core.types import OnError, StepMode
+from synaflow.execution.async_engine.constants import EOF_MARKER
+from synaflow.execution.async_engine.event_dispatch import AsyncEventDispatcher
+from synaflow.execution.async_engine.iterator_utils import AsyncQueueBranch
+from synaflow.execution.async_engine.lifecycle_stream import AsyncLifecycleStream
+from synaflow.execution.async_engine.step_lifecycle import AsyncStepLifecycle
 from synaflow.execution.context_managers import (
     is_async_context_manager_instance,
     is_sync_context_manager_instance,
 )
+from synaflow.execution.runtime_contract_validation import (
+    satisfies_async_iterator_contract,
+)
 from synaflow.execution.state import ExecutionState
-from synaflow.execution.async_engine.event_dispatch import AsyncEventDispatcher
-from synaflow.execution.async_engine.step_lifecycle import AsyncStepLifecycle
-from synaflow.execution.async_engine.lifecycle_stream import AsyncLifecycleStream
 from synaflow.execution.stats import StepRunStats
 from synaflow.execution.threshold import (
     check_threshold,
-    wrap_threshold_raise_if_manual,
     compute_completed_all_inputs_for_all,
     has_threshold,
+    wrap_threshold_raise_if_manual,
 )
-from synaflow.execution.async_engine.iterator_utils import AsyncQueueBranch
-from synaflow.execution.async_engine.constants import EOF_MARKER
 
 
 def _wrap_started_stream(
@@ -138,12 +145,17 @@ class AsyncStepRunner:
         node = self.dag_node
         unrolled = self.each_mode_deps or []
         lifecycle = AsyncStepLifecycle(node, step_name, self.events, stats)
+        output_contract = node.output_contract
+        expects_async_stream = (
+            output_contract is not None
+            and output_contract.runtime_kind == "async_stream"
+        )
 
         try:
-            if not unrolled and not inspect.isasyncgenfunction(self.fn):
+            if not unrolled and node.fn_kind != "async_generator":
                 await lifecycle.start()
             output = await self._execute_step(unrolled, lifecycle)
-            if self._is_stream_output(output):
+            if expects_async_stream and satisfies_async_iterator_contract(output):
                 output = _wrap_started_stream(output, lifecycle.start)
             output = self._attach_cleanup(output, self.arguments)
             await self._emit_immediate_completion(output, unrolled, lifecycle)
@@ -157,9 +169,7 @@ class AsyncStepRunner:
             await lifecycle.finish(exception=exc, completed_all_inputs=False)
             raise
         except ThresholdExceededException as exc:
-            if exc.step_name != step_name:
-                pass
-            elif unrolled and has_threshold(node):
+            if exc.step_name != step_name or unrolled and has_threshold(node):
                 pass
             elif not unrolled:
                 completed_all_inputs = compute_completed_all_inputs_for_all(
@@ -187,7 +197,7 @@ class AsyncStepRunner:
             if self.on_error == OnError.STOP:
                 raise PipelineStopException(step_name=step_name, cause=exc) from exc
         finally:
-            if "output" not in locals() or not self._is_stream_output(output):
+            if "output" not in locals() or not expects_async_stream:
                 await self._close_managed_streams(self.arguments)
             await self.resource_stack.aclose()
 
@@ -199,7 +209,8 @@ class AsyncStepRunner:
         return await self._call_fn(self.fn, self.arguments)
 
     async def _call_fn(self, fn: Any, kwargs: dict) -> Any:
-        if inspect.isasyncgenfunction(fn):
+        # fn_kind is compiled by the DAG builder; no runtime introspection.
+        if self.dag_node.fn_kind == "async_generator":
             return fn(**kwargs)
         return await fn(**kwargs)
 
@@ -322,8 +333,10 @@ class AsyncStepRunner:
     async def _emit_immediate_completion(
         self, output: Any, unrolled: list[str], lifecycle: AsyncStepLifecycle
     ) -> None:
-        if unrolled or isinstance(
-            output, (Iterator, Generator, AsyncIterator, AsyncGenerator)
+        output_contract = self.dag_node.output_contract
+        if unrolled or (
+            output_contract is not None
+            and output_contract.completion_policy == "on_exhaustion"
         ):
             return
         success_count = 1
@@ -333,7 +346,12 @@ class AsyncStepRunner:
         await lifecycle.finish(completed_all_inputs=True)
 
     def _attach_cleanup(self, output: Any, arguments: dict[str, Any]) -> Any:
-        if not isinstance(output, (AsyncIterator, AsyncGenerator)):
+        output_contract = self.dag_node.output_contract
+        if (
+            output_contract is None
+            or output_contract.runtime_kind != "async_stream"
+            or not satisfies_async_iterator_contract(output)
+        ):
             return output
 
         async def wrapped() -> AsyncGenerator[Any, None]:
@@ -355,7 +373,3 @@ class AsyncStepRunner:
                     await value.aclose()
                 except Exception:
                     pass
-
-    @staticmethod
-    def _is_stream_output(output: Any) -> bool:
-        return isinstance(output, (Iterator, Generator, AsyncIterator, AsyncGenerator))

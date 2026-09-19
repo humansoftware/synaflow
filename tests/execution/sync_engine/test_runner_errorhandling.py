@@ -1,7 +1,6 @@
 import inspect
-from time import monotonic_ns
-from time import sleep
 from collections.abc import Iterator
+from time import monotonic_ns, sleep
 from typing import NamedTuple
 from unittest.mock import MagicMock
 

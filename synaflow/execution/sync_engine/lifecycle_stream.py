@@ -1,5 +1,8 @@
-from collections.abc import Generator, Iterator
-from typing import Any, Callable
+"""Iterator wrapper firing lifecycle callbacks (start/item/end/error)
+as the stream is consumed."""
+
+from collections.abc import Callable, Generator, Iterator
+from typing import Any
 
 
 class LifecycleStream:
