@@ -2,8 +2,10 @@ import asyncio
 
 import pytest
 
+from synaflow.core.exceptions import FanoutStreamClosedError
 from synaflow.execution.async_engine.constants import EOF_MARKER
 from synaflow.execution.async_engine.executor import _pump_iterator
+from synaflow.execution.async_engine.iterator_utils import AsyncQueueBranch
 
 
 @pytest.mark.asyncio
@@ -164,3 +166,46 @@ async def test_given_full_queue_when_pump_pushes_terminal_and_abort_called_then_
         # raised CancelledError when it next yielded (inside the
         # blocked ``q.put()``).
         pass
+
+
+@pytest.mark.asyncio
+async def test_given_exhausted_branch_when_pulled_again_then_raises_stop_iteration():
+    """An exhausted iterator keeps obeying the iterator protocol."""
+    branch = AsyncQueueBranch(asyncio.Queue(maxsize=2))
+    await branch.put(1)
+    branch.close(reason="exhausted")
+    with pytest.raises(StopAsyncIteration):
+        await branch.__anext__()
+    with pytest.raises(StopAsyncIteration):
+        await branch.__anext__()
+
+
+@pytest.mark.asyncio
+async def test_given_failed_branch_when_pulled_again_then_reraises_same_exception():
+    branch = AsyncQueueBranch(asyncio.Queue(maxsize=2))
+    boom = ValueError("Boom")
+    branch.close(reason="failed")
+    branch._failure = boom
+    with pytest.raises(ValueError, match="Boom"):
+        await branch.__anext__()
+    with pytest.raises(ValueError, match="Boom"):
+        await branch.__anext__()
+
+
+@pytest.mark.asyncio
+async def test_given_manually_closed_branch_when_pulled_then_raises_runtime_error():
+    branch = AsyncQueueBranch(asyncio.Queue(maxsize=2))
+    branch.close()
+    with pytest.raises(RuntimeError, match="closed before being fully consumed"):
+        await branch.__anext__()
+
+
+@pytest.mark.asyncio
+async def test_given_aborted_fanout_when_unconsumed_branch_pulled_then_raises_fanout_closed_error():
+    branch = AsyncQueueBranch(asyncio.Queue(maxsize=1))
+    await branch.put(1)  # fills the queue — terminate must still land the marker
+    branch.terminate(FanoutStreamClosedError())
+    with pytest.raises(FanoutStreamClosedError):
+        await branch.__anext__()
+    with pytest.raises(FanoutStreamClosedError):
+        await branch.__anext__()

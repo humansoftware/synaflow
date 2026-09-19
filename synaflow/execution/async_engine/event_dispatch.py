@@ -262,6 +262,11 @@ class AsyncEventDispatcher:
         if err_mat is None:
             return
 
+        if not callable(err_mat):
+            raise TypeError(
+                f"Error materializer for step '{step_name}' is not callable."
+            )
+
         error_ctx = ErrorContext(
             pipeline_name=self._dag.name,
             dataset_name=step_name,
@@ -274,8 +279,4 @@ class AsyncEventDispatcher:
             error_count=error_count,
             completed_all_inputs=completed_all_inputs,
         )
-        if not callable(err_mat):
-            raise TypeError(
-                f"Error materializer for step '{step_name}' is not callable."
-            )
         await err_mat(error_ctx)

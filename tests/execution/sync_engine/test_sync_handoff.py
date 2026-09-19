@@ -2,6 +2,9 @@ import queue
 import threading
 from collections.abc import Iterator
 
+import pytest
+
+from synaflow.core.exceptions import FanoutStreamClosedError
 from synaflow.execution.sync_handoff import EOF_MARKER, SyncFanout
 
 
@@ -216,3 +219,43 @@ def test_given_full_queue_when_pump_pushes_terminal_and_abort_called_then_pump_e
     assert fanout.join(timeout=5.0), (
         "pump must exit when abort is called while waiting to push terminal"
     )
+
+
+def test_given_exhausted_branch_when_pulled_again_then_raises_stop_iteration():
+    """An exhausted iterator keeps obeying the iterator protocol."""
+    fanout = SyncFanout(iter([1]), max_in_flight=1, branches=["a"])
+    it = fanout.lazy_iterator("a")
+    assert list(it) == [1]
+    try:
+        next(it)
+    except StopIteration:
+        return
+    raise AssertionError("expected StopIteration")
+
+
+def test_given_failed_branch_when_pulled_again_then_reraises_same_exception():
+    fanout = SyncFanout(_failing_source(), max_in_flight=2, branches=["a"])
+    it = fanout.lazy_iterator("a")
+    with pytest.raises(ValueError, match="Boom"):
+        list(it)
+    with pytest.raises(ValueError, match="Boom"):
+        next(it)
+
+
+def test_given_manually_closed_branch_when_pulled_then_raises_runtime_error():
+    """A branch closed before being fully consumed must fail loud on a
+    late pull — blocking forever on a dead pump helps nobody."""
+    fanout = SyncFanout(iter([1, 2, 3]), max_in_flight=2, branches=["a"])
+    it = fanout.lazy_iterator("a")
+    next(it)
+    it.close()
+    with pytest.raises(RuntimeError, match="closed before being fully consumed"):
+        next(it)
+
+
+def test_given_aborted_fanout_when_unconsumed_branch_pulled_then_raises_fanout_closed_error():
+    fanout = SyncFanout(iter([1, 2, 3]), max_in_flight=1, branches=["a"])
+    it = fanout.lazy_iterator("a")
+    fanout.abort(FanoutStreamClosedError())
+    with pytest.raises(FanoutStreamClosedError):
+        next(it)

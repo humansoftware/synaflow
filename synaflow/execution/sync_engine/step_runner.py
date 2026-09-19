@@ -19,6 +19,7 @@ from synaflow.execution.state import ExecutionState
 from synaflow.execution.stats import StepRunStats
 from synaflow.execution.sync_engine.event_dispatch import EventDispatcher
 from synaflow.execution.sync_engine.lifecycle_stream import LifecycleStream
+
 from synaflow.execution.sync_engine.step_lifecycle import StepLifecycle
 from synaflow.execution.sync_handoff import SyncQueueIterator
 from synaflow.execution.threshold import (
@@ -27,6 +28,13 @@ from synaflow.execution.threshold import (
     has_threshold,
     wrap_threshold_raise_if_manual,
 )
+
+
+# Sentinel distinguishing "the step never produced a value" (run failed
+# before assignment) from "the step legitimately produced None" (e.g. a
+# drained EACH step) — an explicit replacement for the previous
+# ``"output" not in locals()`` check.
+_NOT_PRODUCED = object()
 
 
 def _wrap_started_stream(
@@ -147,6 +155,7 @@ class StepRunner:
             output_contract is not None
             and output_contract.runtime_kind == "sync_stream"
         )
+        output: Any = _NOT_PRODUCED
 
         try:
             if not unrolled and self.dag_node.fn_kind != "sync_generator":
@@ -200,7 +209,7 @@ class StepRunner:
                     step_name=self.step_name, cause=exc
                 ) from exc
         finally:
-            if "output" not in locals() or not expects_sync_stream:
+            if output is _NOT_PRODUCED or not expects_sync_stream:
                 self._close_managed_streams(self.arguments)
             self.resource_stack.close()
 

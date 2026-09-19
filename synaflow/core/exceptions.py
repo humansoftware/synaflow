@@ -89,3 +89,15 @@ class InvalidThresholdRaiseInEACHStep(Exception):
         self.step_name = step_name
         self.original_exception = original
         self.__cause__ = original
+
+
+class FanoutStreamClosedError(RuntimeError):
+    """Raised when a fan-out branch stream is drained after the pipeline
+    run has finished without the branch ever being fully consumed.
+
+    Both executors terminate live branch queues on cleanup so a late
+    consumer fails loudly instead of blocking forever on a dead pump (or
+    silently receiving a truncated stream).  Keep a materialized
+    (``list``/``set``/``dict``) output if you need the data after the
+    run.
+    """

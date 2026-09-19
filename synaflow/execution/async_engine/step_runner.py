@@ -14,6 +14,7 @@ from synaflow.core.types import OnError, StepMode
 from synaflow.execution.async_engine.constants import EOF_MARKER
 from synaflow.execution.async_engine.event_dispatch import AsyncEventDispatcher
 from synaflow.execution.async_engine.iterator_utils import AsyncQueueBranch
+
 from synaflow.execution.async_engine.lifecycle_stream import AsyncLifecycleStream
 from synaflow.execution.async_engine.step_lifecycle import AsyncStepLifecycle
 from synaflow.execution.context_managers import (
@@ -31,6 +32,13 @@ from synaflow.execution.threshold import (
     has_threshold,
     wrap_threshold_raise_if_manual,
 )
+
+
+# Sentinel distinguishing "the step never produced a value" (run failed
+# before assignment) from "the step legitimately produced None" (e.g. a
+# drained EACH step) — an explicit replacement for the previous
+# ``"output" not in locals()`` check.
+_NOT_PRODUCED = object()
 
 
 def _wrap_started_stream(
@@ -150,6 +158,7 @@ class AsyncStepRunner:
             output_contract is not None
             and output_contract.runtime_kind == "async_stream"
         )
+        output: Any = _NOT_PRODUCED
 
         try:
             if not unrolled and node.fn_kind != "async_generator":
@@ -197,7 +206,7 @@ class AsyncStepRunner:
             if self.on_error == OnError.STOP:
                 raise PipelineStopException(step_name=step_name, cause=exc) from exc
         finally:
-            if "output" not in locals() or not expects_async_stream:
+            if output is _NOT_PRODUCED or not expects_async_stream:
                 await self._close_managed_streams(self.arguments)
             await self.resource_stack.aclose()
 

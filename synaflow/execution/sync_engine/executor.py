@@ -13,6 +13,7 @@ from typing import Any
 
 from synaflow.core.dag import Dag, DagNode
 from synaflow.core.exceptions import (
+    FanoutStreamClosedError,
     PipelineStopException,
     ThresholdExceededException,
 )
@@ -51,6 +52,7 @@ def wait_for_workers_after_shutdown(
     thread_name_prefix: str = "synaflow-worker",
     log_every_seconds: float = 60.0,
     poll_seconds: float = 0.5,
+    log_grace_seconds: float = 2.0,
     *,
     _enumerate_threads: Callable[[], list[threading.Thread]] = threading.enumerate,
     _is_alive: Callable[[threading.Thread], bool] = threading.Thread.is_alive,
@@ -68,6 +70,12 @@ def wait_for_workers_after_shutdown(
     for threads that persist, with worker names and the process PID for
     diagnostics.
 
+    ``log_grace_seconds`` suppresses the warning for workers that exit
+    quickly on their own — the first poll usually still sees workers
+    mid-teardown, and warning about a 0.1s teardown destroys trust in
+    the diagnostic.  Only workers still alive after the grace window
+    are reported.
+
     If user code is blocked indefinitely, this function blocks
     indefinitely too — the contract is that the *user* is responsible
     for step progress.  The user-visible log line is the diagnostic.
@@ -75,6 +83,7 @@ def wait_for_workers_after_shutdown(
     if _process_pid is None:
         _process_pid = os.getpid()
 
+    wait_started_at = _monotonic()
     last_log_at: float | None = None
     polls = 0
     while True:
@@ -87,7 +96,10 @@ def wait_for_workers_after_shutdown(
         if not alive:
             return polls
         now = _monotonic()
-        if last_log_at is None or now - last_log_at >= log_every_seconds:
+        in_grace = now - wait_started_at < log_grace_seconds
+        if not in_grace and (
+            last_log_at is None or now - last_log_at >= log_every_seconds
+        ):
             _log(
                 "synaflow waiting for %d worker thread(s) (pid=%d): %s. "
                 "These workers are blocked inside user code (step "
@@ -116,12 +128,14 @@ class PipelineExecutor:
         resource_factories: dict[str, Any] | None = None,
         worker_shutdown_poll_seconds: float = 0.5,
         worker_shutdown_log_every_seconds: float = 60.0,
+        worker_shutdown_log_grace_seconds: float = 2.0,
     ):
         self.dag = dag
         self._overrides = overrides
         self._resource_factories = dict(resource_factories or {})
         self._worker_shutdown_poll_seconds = worker_shutdown_poll_seconds
         self._worker_shutdown_log_every_seconds = worker_shutdown_log_every_seconds
+        self._worker_shutdown_log_grace_seconds = worker_shutdown_log_grace_seconds
         self.run_id = str(uuid.uuid4())
 
         self.state = ExecutionState(self.dag)
@@ -236,6 +250,7 @@ class PipelineExecutor:
             wait_for_workers_after_shutdown(
                 poll_seconds=self._worker_shutdown_poll_seconds,
                 log_every_seconds=self._worker_shutdown_log_every_seconds,
+                log_grace_seconds=self._worker_shutdown_log_grace_seconds,
             )
 
         if fatal_error is not None:
@@ -339,6 +354,15 @@ class PipelineExecutor:
         # ``next(source)`` blocked on I/O).  We bound the wait per fanout
         # and log when a pump does not exit in time; the orphaned pump is
         # daemon so it does not block process exit.
+        #
+        # abort() first: by cleanup time the graph is done, so any pump
+        # still running is terminated and every branch queue receives a
+        # terminal marker — a late drain of an unconsumed branch (e.g.
+        # via ``executor.outputs`` after ``run()``) raises
+        # FanoutStreamClosedError instead of blocking forever on a dead
+        # pump or silently returning a truncated stream.
+        for fanout in self._active_fanouts:
+            fanout.abort(FanoutStreamClosedError())
         for fanout in self._active_fanouts:
             exited = fanout.join(timeout=1.0)
             if not exited:

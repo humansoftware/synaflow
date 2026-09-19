@@ -15,6 +15,7 @@ from typing import Any
 
 from synaflow.core.dag import Dag, DagNode
 from synaflow.core.exceptions import (
+    FanoutStreamClosedError,
     PipelineStopException,
     StepExecutionError,
     ThresholdExceededException,
@@ -119,6 +120,7 @@ class AsyncPipelineExecutor:
         self.run_id = str(uuid.uuid4())
         self.events = AsyncEventDispatcher(self.dag, self.run_id, self._overrides)
         self._pump_tasks: list[asyncio.Task] = []
+        self._branch_queues: list[AsyncQueueBranch] = []
 
     @property
     def outputs(self) -> dict[str, Any]:
@@ -290,6 +292,13 @@ class AsyncPipelineExecutor:
                 "Ignoring error while awaiting pump tasks during cleanup.",
                 exc_info=True,
             )
+        finally:
+            # Mirror the sync engine: after the run, any branch queue that
+            # was never fully consumed is terminal-ized so a late consumer
+            # (e.g. draining ``executor.outputs``) fails loudly instead of
+            # blocking forever on a queue nobody feeds.
+            for branch in self._branch_queues:
+                branch.terminate(FanoutStreamClosedError())
 
     async def _apply_materializer(
         self,
@@ -479,6 +488,7 @@ class AsyncPipelineExecutor:
         }
         for consumer, queue in queues.items():
             self.state.set_output(step_name, queue, consumer)
+        self._branch_queues.extend(queues.values())
         task = asyncio.create_task(
             _pump_iterator(
                 step_name,

@@ -32,11 +32,37 @@ from synaflow.core.types import OnError, StepMode
 
 
 def get_safe_type_hints(fn: Any) -> dict[str, Any]:
-    """Safely resolve type hints, returning empty dict on failure."""
+    """Resolve type hints, tolerating unannotated callables.
+
+    When resolution *fails* but the callable clearly declares annotations,
+    raising is the fail-loud contract: silently returning ``{}`` would
+    skip every validation that depends on the hints.  Only a callable
+    with no annotations at all resolves to an empty map.
+    """
     try:
         return typing.get_type_hints(fn, include_extras=True)
     except (NameError, TypeError):
+        pass
+    try:
+        sig = inspect.signature(fn)
+    except (TypeError, ValueError):
         return {}
+    declares_annotations = (
+        any(
+            parameter.annotation is not inspect.Parameter.empty
+            for parameter in sig.parameters.values()
+        )
+        or sig.return_annotation is not inspect.Parameter.empty
+    )
+    if declares_annotations:
+        name = getattr(fn, "__name__", repr(fn))
+        raise ValueError(
+            f"Could not resolve the type hints of '{name}'.  A referenced"
+            " name is probably undefined in the module namespace; fix or"
+            " remove the annotations — unresolvable hints silently disable"
+            " DAG validation."
+        )
+    return {}
 
 
 def resolve_resource_output_type(resource_name: str, factory: Any) -> Any:

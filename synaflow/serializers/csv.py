@@ -32,7 +32,9 @@ class CsvSerializer:
 
         if isinstance(first_row, Mapping):
             fnames = self.fieldnames or list(first_row.keys())
-            writer = csv.DictWriter(file, fieldnames=fnames, delimiter=self.delimiter)
+            writer = csv.DictWriter(
+                file, fieldnames=fnames, delimiter=self.delimiter, restval=""
+            )
             writer.writeheader()
             for r in converted_rows:
                 if isinstance(r, Mapping):

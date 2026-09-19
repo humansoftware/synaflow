@@ -94,6 +94,7 @@ def test_logs_once_then_returns_when_workers_clear_first_poll():
     sleeps: list[float] = []
 
     polls = wait_for_workers_after_shutdown(
+        log_grace_seconds=0.0,
         _enumerate_threads=lambda: [t],
         _is_alive=_alive_for_first_n_polls(1),
         _sleep=sleeps.append,
@@ -122,6 +123,7 @@ def test_logs_each_log_window_until_workers_clear():
     # (mono=0.0) and poll 3 (mono=1.0, gap=1.0≥log_every).
     polls = wait_for_workers_after_shutdown(
         log_every_seconds=1.0,
+        log_grace_seconds=0.0,
         _enumerate_threads=lambda: [t],
         _is_alive=_alive_for_first_n_polls(3),
         _sleep=lambda s: (sleeps.append(s), mono.update({"now": mono["now"] + s})),
@@ -146,6 +148,7 @@ def test_logs_at_most_once_per_window_even_with_many_short_polls():
     # then cleared.  After 5 polls mono=2.5 < 10, so only 1 log.
     polls = wait_for_workers_after_shutdown(
         log_every_seconds=10.0,
+        log_grace_seconds=0.0,
         _enumerate_threads=lambda: [t],
         _is_alive=_alive_for_first_n_polls(4),
         _sleep=lambda s: (sleeps.append(s), mono.update({"now": mono["now"] + s})),
@@ -165,6 +168,7 @@ def test_logs_multiple_workers_in_single_line():
     sleeps: list[float] = []
 
     polls = wait_for_workers_after_shutdown(
+        log_grace_seconds=0.0,
         _enumerate_threads=lambda: [a, b],
         _is_alive=_alive_for_first_n_polls(1),
         _sleep=sleeps.append,
@@ -188,6 +192,7 @@ def test_process_pid_defaults_to_os_getpid():
         seen_pids.append(pid)
 
     wait_for_workers_after_shutdown(
+        log_grace_seconds=0.0,
         _enumerate_threads=lambda: [t],
         _is_alive=_alive_for_first_n_polls(1),
         _sleep=lambda _s: None,
@@ -234,3 +239,50 @@ def test_poll_seconds_passed_through_to_sleep():
     )
     assert polls == 3
     assert sleeps == [0.25, 0.25]
+
+
+def test_workers_clearing_within_grace_never_log():
+    """Workers that exit during the grace window produce no warning —
+    the first poll almost always still sees mid-teardown workers, and
+    warning about a 0.1s teardown destroys trust in the diagnostic."""
+    t = _make_thread("synaflow-worker_0")
+    logs: list[tuple] = []
+    sleeps: list[float] = []
+    mono = {"now": 0.0}
+
+    polls = wait_for_workers_after_shutdown(
+        log_grace_seconds=2.0,
+        _enumerate_threads=lambda: [t],
+        _is_alive=_alive_for_first_n_polls(3),
+        _sleep=lambda s: (sleeps.append(s), mono.update({"now": mono["now"] + s})),
+        _monotonic=lambda: mono["now"],
+        _log=lambda *a, **kw: logs.append((a, kw)),
+        _process_pid=1,
+    )
+    assert polls == 4
+    assert logs == []
+
+
+def test_workers_persisting_past_grace_log_once_at_first_poll_after_grace():
+    """Once past the grace window, the warning fires on the first poll
+    and then respects the log window."""
+    t = _make_thread("synaflow-worker_0")
+    logs: list[tuple] = []
+    sleeps: list[float] = []
+    mono = {"now": 0.0}
+
+    # grace=1.0s, log_every=10s, poll=0.5s.  Polls at t=0.0/0.5 (in
+    # grace, no log), t=1.0 (past grace → log), t=1.5 (window not
+    # elapsed → no log), then cleared.
+    polls = wait_for_workers_after_shutdown(
+        log_grace_seconds=1.0,
+        log_every_seconds=10.0,
+        _enumerate_threads=lambda: [t],
+        _is_alive=_alive_for_first_n_polls(4),
+        _sleep=lambda s: (sleeps.append(s), mono.update({"now": mono["now"] + s})),
+        _monotonic=lambda: mono["now"],
+        _log=lambda *a, **kw: logs.append((a, kw)),
+        _process_pid=1,
+    )
+    assert polls == 5
+    assert len(logs) == 1
