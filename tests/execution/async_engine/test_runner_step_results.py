@@ -25,6 +25,11 @@ ASYNC_PACK_NAMES = (
 
 
 async def _concrete(value):
+    """Convert iterators to lists; leave scalars and tuples alone.
+
+    A failing iterator propagates its error — a silently truncated
+    "successful" drain could mask a broken step (and produce a passing
+    assertion against an empty expectation)."""
     if value is None:
         return None
     if isinstance(value, AsyncIterator):

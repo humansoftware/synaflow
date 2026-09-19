@@ -1,23 +1,24 @@
-import asyncio
-
 import pytest
 
 from synaflow.core.dag_builder import build_dag
-from synaflow.execution.async_engine.executor import async_run
 from synaflow.execution.sync_engine.executor import run as sync_run
 
 
-@pytest.fixture(params=["sync"])
-def run_pipeline(request):
-    if request.param == "sync":
+@pytest.fixture
+def run_pipeline():
+    """Run a pipeline through the sync engine.
 
-        def wrapper(pipeline, params, **kwargs):
-            return sync_run(build_dag(pipeline), params, **kwargs)
+    NOTE: this fixture is intentionally sync-only.  Pipelines are
+    engine-specific by contract — a sync pipeline (plain ``def`` steps,
+    ``Iterator`` streams) is rejected by ``async_run`` and vice versa —
+    so a single parameterized fixture cannot execute the same
+    definition on both engines.  Sync/async parity is guaranteed by the
+    mirrored engine test directories (name-checked by
+    ``tests/core/test_parity.py``) plus the corpus packs, which exist in
+    sync and async flavors with identical topology.
+    """
 
-        return wrapper
-    elif request.param == "async":
+    def wrapper(pipeline, params, **kwargs):
+        return sync_run(build_dag(pipeline), params, **kwargs)
 
-        def wrapper(pipeline, params, **kwargs):
-            return asyncio.run(async_run(build_dag(pipeline), params, **kwargs))
-
-        return wrapper
+    return wrapper

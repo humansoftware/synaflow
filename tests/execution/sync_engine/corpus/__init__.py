@@ -10,6 +10,7 @@ from . import (
     linear,
     max_in_flight_threadpool,
     mixed_fanout,
+    nested_fanout,
     sub_pipelines,
 )
 
@@ -22,6 +23,7 @@ _MODULES = [
     explicit_modes,
     mixed_fanout,
     max_in_flight_threadpool,
+    nested_fanout,
     sub_pipelines,
     deep_sub_pipelines,
     error_handling,

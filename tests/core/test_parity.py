@@ -2,6 +2,9 @@ import ast
 import os
 from pathlib import Path
 
+from tests.execution.async_engine.corpus import PACKS as ASYNC_PACKS
+from tests.execution.sync_engine.corpus import PACKS as SYNC_PACKS
+
 
 def get_test_functions_in_dir(directory: Path) -> set[str]:
     test_funcs = set()
@@ -168,3 +171,20 @@ def test_sync_async_test_parity():
         error_msg.append(f"Tests found in async but missing in sync: {missing_in_sync}")
 
     assert not error_msg, "\n".join(error_msg)
+
+
+def test_corpus_pack_sets_are_symmetric():
+    """Every corpus pack (specification) must exist in both engine
+    flavors, except documented engine-specific packs."""
+    sync_names = {name.removeprefix("sync_") for name in SYNC_PACKS}
+    async_names = {name.removeprefix("async_") for name in ASYNC_PACKS}
+
+    # Engine-specific by nature: thread-pool concurrency is a sync-only
+    # mechanism (documented in test_parity above).
+    sync_names.discard("max_in_flight_threadpool")
+
+    assert sync_names == async_names, (
+        f"Corpus packs drifted between engines. sync-only:"
+        f" {sorted(sync_names - async_names)}, async-only:"
+        f" {sorted(async_names - sync_names)}"
+    )

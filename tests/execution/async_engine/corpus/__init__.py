@@ -9,6 +9,7 @@ from . import (
     fibonacci,
     linear,
     mixed_fanout,
+    nested_fanout,
     sub_pipelines,
 )
 
@@ -20,6 +21,7 @@ _MODULES = [
     complex_parallel_mixed,
     explicit_modes,
     mixed_fanout,
+    nested_fanout,
     sub_pipelines,
     deep_sub_pipelines,
     error_handling,
