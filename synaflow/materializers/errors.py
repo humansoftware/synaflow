@@ -1,3 +1,6 @@
+"""Error-materializer helpers: structured error sinks that receive an
+``ErrorContext`` per failure instead of raw exceptions."""
+
 import traceback
 from pathlib import Path
 from typing import Any

@@ -1,3 +1,6 @@
+"""Macro expansion: flattens ``IncludeStep`` sub-pipelines into flat
+``(scope_id, Step)`` tuples with adapter steps and scoped names."""
+
 import dataclasses
 import functools
 import inspect

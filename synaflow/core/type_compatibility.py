@@ -1,3 +1,8 @@
+"""Type compatibility predicates and the default compatibility table.
+Answers every build-time question about producer/consumer type pairs
+(stream, materialized, scalar, factory detection) — the single place
+that knows the type rules."""
+
 import inspect
 import types
 from collections.abc import (

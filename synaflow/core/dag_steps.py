@@ -1,3 +1,7 @@
+"""Step-level validation and compilation: turns one declared ``Step``
+into a validated, dependency-resolved ``DagNode`` (mode resolution,
+threshold checks, name and base-dataset rules)."""
+
 import inspect
 from typing import Any
 

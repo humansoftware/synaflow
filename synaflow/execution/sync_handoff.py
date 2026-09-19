@@ -1,4 +1,9 @@
+"""Bounded synchronous producer/consumer handoff: a pump thread feeds
+per-consumer bounded queues so multiple lazy consumers can read one
+stream in lockstep (the sync analog of tee)."""
+
 from __future__ import annotations
+
 
 import queue
 import threading

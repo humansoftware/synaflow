@@ -1,3 +1,7 @@
+"""Single-step execution for the sync engine: invocation (ALL vs EACH
+unroll), lifecycle/stats wiring, threshold enforcement, and output
+wrapping before publication."""
+
 from collections.abc import Callable, Generator, Iterator
 from contextlib import ExitStack
 from typing import Any

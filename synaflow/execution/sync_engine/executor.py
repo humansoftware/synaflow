@@ -1,3 +1,7 @@
+"""Synchronous pipeline executor: a thread-pool graph scheduler plus
+stream publication (fan-out, materialization, bounded handoff).
+This engine is the behavioral reference for the async engine."""
+
 import logging
 import os
 import threading

@@ -1,3 +1,6 @@
+"""Graph-level topology checks that need the whole compiled dag
+(circular-dependency detection)."""
+
 from synaflow.core.dag import Dag, DagNode
 
 

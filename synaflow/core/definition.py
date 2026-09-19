@@ -1,4 +1,8 @@
+"""User-facing declaration dataclasses: ``PipelineDef``/``Step``/``IncludeStep``.
+Everything here is design-time input; nothing is compiled."""
+
 from __future__ import annotations
+
 
 from collections.abc import Callable
 from dataclasses import dataclass, field

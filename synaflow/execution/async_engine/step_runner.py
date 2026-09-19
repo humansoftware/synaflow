@@ -1,3 +1,7 @@
+"""Single-step execution for the async engine: invocation (ALL vs EACH
+unroll through queue branches), lifecycle/stats wiring, threshold
+enforcement, and output wrapping before publication."""
+
 import asyncio
 import inspect
 from collections.abc import AsyncGenerator, AsyncIterator, Callable, Generator, Iterator

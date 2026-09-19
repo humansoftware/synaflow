@@ -1,3 +1,7 @@
+"""Per-step runtime counters shared between the runner and the
+lifecycle event payloads."""
+
+
 class StepRunStats:
     def __init__(self) -> None:
         self.success_count = 0

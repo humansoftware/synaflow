@@ -95,7 +95,7 @@ from synaflow.core.type_compatibility import (
 from synaflow.core.types import ErrorMaterializeContext, MaterializeContext, StepMode
 
 
-def _identity(x):
+def _identity(x: Any) -> Any:
     return x
 
 

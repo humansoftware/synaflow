@@ -1,4 +1,8 @@
+"""Runtime override registries (materializers, resources) resolved
+through the ExecutionOverrides entry point."""
+
 from __future__ import annotations
+
 
 from collections.abc import Iterator, MutableMapping
 from dataclasses import dataclass

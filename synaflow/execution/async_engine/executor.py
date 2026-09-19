@@ -1,4 +1,10 @@
+"""Asynchronous pipeline executor: asyncio-task graph scheduler and
+stream publication through queue-branch pumps.  Must preserve the
+sync engine's observable contract (completion timing, error policy,
+event stream) one-for-one."""
+
 from __future__ import annotations
+
 
 import asyncio
 import logging
