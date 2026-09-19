@@ -1,11 +1,13 @@
-from typing import NamedTuple
-from dataclasses import dataclass
-import pytest
-from synaflow import StepMode, pipeline, step
-from synaflow.core.definition import include
-from synaflow.core.dag_builder import build_dag
 from collections.abc import Iterator
+from dataclasses import dataclass
+from typing import NamedTuple
+
+import pytest
+
+from synaflow import StepMode, pipeline, step
 from synaflow.core.dag import Dag
+from synaflow.core.dag_builder import build_dag
+from synaflow.core.definition import include
 
 
 def test_given_scalar_params_when_constructed_then_passes():

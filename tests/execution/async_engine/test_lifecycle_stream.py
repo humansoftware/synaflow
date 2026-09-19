@@ -1,15 +1,17 @@
 from collections.abc import AsyncGenerator, Generator
-from typing import Any
-import pytest
-from synaflow.execution.async_engine.lifecycle_stream import AsyncLifecycleStream
-from synaflow.execution.stats import StepRunStats
 from contextlib import AsyncExitStack
+from typing import Any
 from unittest.mock import AsyncMock, MagicMock
+
+import pytest
+
 from synaflow.core.dag import DagNode
+from synaflow.core.types import OnError, StepMode
+from synaflow.execution.async_engine.lifecycle_stream import AsyncLifecycleStream
 from synaflow.execution.async_engine.step_runner import (
     AsyncStepRunner,
 )
-from synaflow.core.types import OnError, StepMode
+from synaflow.execution.stats import StepRunStats
 
 
 @pytest.mark.asyncio

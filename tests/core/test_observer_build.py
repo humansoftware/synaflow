@@ -1,11 +1,13 @@
-from synaflow.core.dag_builder import build_dag
-from typing import NamedTuple
-import pytest
-from synaflow import Observer, include, pipeline, step
-from synaflow.core.definition import PipelineDef, Step
-from synaflow.core.dag import _serialize_observers, _serialize_pipeline_observers
-from synaflow.core.observers import ResolvedObserver
 import functools
+from typing import NamedTuple
+
+import pytest
+
+from synaflow import Observer, include, pipeline, step
+from synaflow.core.dag import _serialize_observers, _serialize_pipeline_observers
+from synaflow.core.dag_builder import build_dag
+from synaflow.core.definition import PipelineDef, Step
+from synaflow.core.observers import ResolvedObserver
 
 
 class Params(NamedTuple):
@@ -72,7 +74,7 @@ def test_given_pipeline_observers_when_build_then_all_steps_inherit_them():
     for name in ("a", "b"):
         node_obs = build_dag(p)[name].observers
         assert len(node_obs) >= 1
-        assert any((o.handler is h for o in node_obs))
+        assert any(o.handler is h for o in node_obs)
 
 
 def test_given_step_observers_when_build_then_dagnode_has_them():
@@ -84,7 +86,7 @@ def test_given_step_observers_when_build_then_dagnode_has_them():
     )
     node_obs = build_dag(p)["a"].observers
     assert len(node_obs) >= 1
-    assert any((o.handler is h for o in node_obs))
+    assert any(o.handler is h for o in node_obs)
 
 
 def test_given_pipeline_and_step_observers_when_build_then_effective_is_union():

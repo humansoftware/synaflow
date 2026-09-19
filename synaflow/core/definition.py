@@ -1,7 +1,8 @@
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import Any, Callable
+from typing import Any
 
 from synaflow.core.observers import Observer
 from synaflow.core.types import OnError, StepMode, StepParams
@@ -32,7 +33,7 @@ class Step(BaseStep):
 
 @dataclass
 class IncludeStep(BaseStep):
-    pipeline: "PipelineDef"
+    pipeline: PipelineDef
     description: str = ""
 
 

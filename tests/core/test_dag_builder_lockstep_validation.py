@@ -1,7 +1,9 @@
 import time
-from typing import Generator, Iterator, NamedTuple
+from collections.abc import Generator, Iterator
+from typing import NamedTuple
 
 import pytest
+
 from synaflow import pipeline, step
 from synaflow.core.dag import DagNode
 from synaflow.core.dag_builder import build_dag

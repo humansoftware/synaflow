@@ -1,13 +1,14 @@
-from synaflow.core.dag_builder import build_dag
-from synaflow.core.adapters import async_adapter
+from collections.abc import AsyncGenerator, Iterator
 from contextlib import asynccontextmanager, contextmanager
-from typing import AsyncGenerator, Iterator, NamedTuple
+from typing import NamedTuple
 from unittest.mock import MagicMock
+
 import pytest
+
 from synaflow import (
+    PIPELINE_SCOPE,
     ExecutionOverrides,
     Observer,
-    PIPELINE_SCOPE,
     PipelineEvent,
     ResourceRegistry,
     Scope,
@@ -17,6 +18,8 @@ from synaflow import (
     pipeline,
     step,
 )
+from synaflow.core.adapters import async_adapter
+from synaflow.core.dag_builder import build_dag
 
 
 def test_given_materializer_override_when_sync_run_then_override_is_used(run_pipeline):

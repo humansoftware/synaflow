@@ -1,9 +1,11 @@
-from synaflow.core.dag_builder import build_dag
-from typing import AsyncIterator, NamedTuple
+from collections.abc import AsyncIterator
+from typing import NamedTuple
+
 import pytest
-from synaflow import include, pipeline, step
+
+from synaflow import async_run, include, pipeline, step
+from synaflow.core.dag_builder import build_dag
 from synaflow.execution.async_engine.executor import AsyncPipelineExecutor
-from synaflow import async_run
 
 
 class BParams(NamedTuple):

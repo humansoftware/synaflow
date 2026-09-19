@@ -1,29 +1,28 @@
-import inspect
 from collections.abc import Callable, Generator, Iterator
-from typing import Any
 from contextlib import ExitStack
+from typing import Any
 
-from synaflow.core.types import OnError, StepMode
-from synaflow.core.exceptions import PipelineStopException, ThresholdExceededException
 from synaflow.core.dag import DagNode
-from synaflow.execution.state import ExecutionState
-from synaflow.execution.sync_engine.event_dispatch import EventDispatcher
-from synaflow.execution.sync_engine.step_lifecycle import StepLifecycle
-from synaflow.execution.stats import StepRunStats
-from synaflow.execution.threshold import (
-    check_threshold,
-    wrap_threshold_raise_if_manual,
-    compute_completed_all_inputs_for_all,
-    has_threshold,
+from synaflow.core.exceptions import PipelineStopException, ThresholdExceededException
+from synaflow.core.types import OnError, StepMode
+from synaflow.execution.context_managers import (
+    is_sync_context_manager_instance,
 )
 from synaflow.execution.runtime_contract_validation import (
     satisfies_sync_iterator_contract,
 )
-from synaflow.execution.context_managers import (
-    is_sync_context_manager_instance,
-)
+from synaflow.execution.state import ExecutionState
+from synaflow.execution.stats import StepRunStats
+from synaflow.execution.sync_engine.event_dispatch import EventDispatcher
 from synaflow.execution.sync_engine.lifecycle_stream import LifecycleStream
+from synaflow.execution.sync_engine.step_lifecycle import StepLifecycle
 from synaflow.execution.sync_handoff import SyncQueueIterator
+from synaflow.execution.threshold import (
+    check_threshold,
+    compute_completed_all_inputs_for_all,
+    has_threshold,
+    wrap_threshold_raise_if_manual,
+)
 
 
 def _wrap_started_stream(
@@ -146,7 +145,7 @@ class StepRunner:
         )
 
         try:
-            if not unrolled and not inspect.isgeneratorfunction(self.fn):
+            if not unrolled and self.dag_node.fn_kind != "sync_generator":
                 lifecycle.start()
             output = self._execute_step(unrolled, lifecycle)
             if expects_sync_stream and satisfies_sync_iterator_contract(output):

@@ -1,11 +1,12 @@
 "Build-time validation for error_threshold_absolute and error_threshold_pct."
 
-from synaflow.core.dag_builder import build_dag
-from typing import NamedTuple
-import pytest
-from synaflow import OnError, StepMode, pipeline, step
 from collections.abc import Iterator
-from synaflow import include
+from typing import NamedTuple
+
+import pytest
+
+from synaflow import OnError, StepMode, include, pipeline, step
+from synaflow.core.dag_builder import build_dag
 
 
 class IntListParams(NamedTuple):

@@ -6,10 +6,8 @@ step-level observers. It triggers lifecycle events (started, completed, failed)
 and handles error contexts during pipeline execution.
 """
 
-from synaflow.core.dag import Dag, DagNode
-from synaflow.execution.overrides import ExecutionOverrides
 from synaflow.core.constants import PIPELINE_SCOPE
-from synaflow.core.types import ErrorContext
+from synaflow.core.dag import Dag, DagNode
 from synaflow.core.observers import (
     MaterializationCompletedContext,
     MaterializationEvent,
@@ -25,6 +23,8 @@ from synaflow.core.observers import (
     StepStartedContext,
     dispatch_observers,
 )
+from synaflow.core.types import ErrorContext
+from synaflow.execution.overrides import ExecutionOverrides
 
 
 class EventDispatcher:

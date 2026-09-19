@@ -16,9 +16,8 @@ import dataclasses
 import json
 import sys
 import types
-from collections.abc import Sequence
-from typing import Any, Callable, Literal, Union, get_args, get_origin, get_type_hints
-
+from collections.abc import Callable, Sequence
+from typing import Any, Literal, Union, get_args, get_origin, get_type_hints
 
 from synaflow.core.dag import Dag
 from synaflow.core.definition import PipelineDef

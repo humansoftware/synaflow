@@ -1,13 +1,15 @@
-from synaflow.core.dag_builder import build_dag
 import inspect
-from typing import NamedTuple
+from collections.abc import Iterator
 from dataclasses import dataclass
+from typing import NamedTuple
 from unittest.mock import AsyncMock as MagicMock
-from synaflow.core.dag import Dag, DagNode, OutputContract, PublishPlan
-from synaflow.core.types import OnError, StepMode
-from synaflow import async_run, pipeline, step
-from typing import Iterator
+
 import pytest
+
+from synaflow import async_run, pipeline, step
+from synaflow.core.dag import Dag, DagNode, OutputContract, PublishPlan
+from synaflow.core.dag_builder import build_dag
+from synaflow.core.types import OnError, StepMode
 from synaflow.execution.async_engine.executor import AsyncPipelineExecutor
 
 

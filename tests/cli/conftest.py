@@ -18,8 +18,7 @@ import types
 from collections.abc import Iterator
 from pathlib import Path
 
-import pytest  # noqa: F401  -- fixtures defined below
-
+import pytest
 
 SYNATEST_CATALOG_NAME = "synaflow_cli_test_catalog"
 SYNATEST_CATALOG_BODY = textwrap.dedent(

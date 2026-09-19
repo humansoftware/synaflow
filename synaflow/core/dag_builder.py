@@ -21,32 +21,41 @@ Design note:
 All functions are stateless — no classes, no self.
 """
 
+import dataclasses
+import inspect
 import logging
 import traceback
 import types as _types
-import dataclasses
-from dataclasses import dataclass
 from collections.abc import (
-    AsyncIterable as AbcAsyncIterable,
-    AsyncIterator as AbcAsyncIterator,
     AsyncGenerator,
-    Iterable as AbcIterable,
-    Iterator as AbcIterator,
-    MutableMapping,
-    MutableSequence,
-    MutableSet,
-)
-from typing import (
-    Any,
     AsyncIterable,
     AsyncIterator,
     Iterable,
     Iterator,
+    MutableMapping,
+    MutableSequence,
+    MutableSet,
+)
+from collections.abc import (
+    AsyncIterable as AbcAsyncIterable,
+)
+from collections.abc import (
+    AsyncIterator as AbcAsyncIterator,
+)
+from collections.abc import (
+    Iterable as AbcIterable,
+)
+from collections.abc import (
+    Iterator as AbcIterator,
+)
+from dataclasses import dataclass
+from typing import (
+    Any,
     NamedTuple,
     get_args,
 )
 
-from synaflow.core.adapters import async_adapter
+from synaflow.core.adapters import async_adapter, is_async_callable
 from synaflow.core.dag import (
     ConsumerContract,
     Dag,
@@ -55,12 +64,6 @@ from synaflow.core.dag import (
     PublishPlan,
 )
 from synaflow.core.dag_dependencies import initialize_parameters, initialize_resources
-from synaflow.core.definition import (
-    IncludeStep,
-    PipelineDef,
-    Step,
-)
-from synaflow.core.adapters import is_async_callable
 from synaflow.core.dag_expansion import expand_macros
 from synaflow.core.dag_steps import (
     validate_and_compile_step,
@@ -71,6 +74,11 @@ from synaflow.core.dag_steps import (
     validate_unique_step_name,
 )
 from synaflow.core.dag_topology import check_circular_dependencies
+from synaflow.core.definition import (
+    IncludeStep,
+    PipelineDef,
+    Step,
+)
 from synaflow.core.lockstep_validation import validate_lockstep_symmetry
 from synaflow.core.observers import (
     Observer,
@@ -543,12 +551,7 @@ def _resolve_materializers(
         else:
             if is_scalar:
                 mat = None
-            elif is_stream:
-                if has_consumers:
-                    mat = memory_materializer_factory
-                else:
-                    mat = None
-            elif is_untyped:
+            elif is_stream or is_untyped:
                 if has_consumers:
                     mat = memory_materializer_factory
                 else:
@@ -694,6 +697,24 @@ def _classify_consumer_contract(
     return ConsumerContract(consumer_name=consumer_name, consumption=consumption)
 
 
+def _classify_fn_kind(fn: Any) -> str | None:
+    """Compile the runtime shape of a step function into the DAG.
+
+    Executors must not inspect function internals at run time, so the
+    generator/coroutine distinction is resolved once here and exported in
+    the DAG JSON (``fn_kind``).
+    """
+    if fn is None:
+        return None
+    if inspect.isasyncgenfunction(fn):
+        return "async_generator"
+    if inspect.iscoroutinefunction(fn):
+        return "async"
+    if inspect.isgeneratorfunction(fn):
+        return "sync_generator"
+    return "sync"
+
+
 def _compile_execution_plan(dag: Dag, indexes: _DagBuildIndexes) -> None:
     for producer_name, node in dag.steps.items():
         consumers = indexes.consumers_by_producer.get(producer_name, [])
@@ -704,6 +725,13 @@ def _compile_execution_plan(dag: Dag, indexes: _DagBuildIndexes) -> None:
             for consumer_name in consumers
         ]
         node.consumer_contracts = consumer_contracts
+
+        node.fn_kind = _classify_fn_kind(node.fn)
+        node.async_stream_deps = [
+            dep_name
+            for dep_name, dep_type in node.deps.items()
+            if is_async_stream_type(dep_type)
+        ]
 
         runtime_kind = _classify_output_runtime_kind(dag, node)
         completion_policy = "on_exhaustion" if runtime_kind != "value" else "immediate"
@@ -725,22 +753,26 @@ def _compile_execution_plan(dag: Dag, indexes: _DagBuildIndexes) -> None:
             drain_policy=drain_policy,
         )
 
-        if runtime_kind != "value" and drain_policy != "none":
-            strategy = "publish_value"
-            handoff = "none"
-        elif runtime_kind == "value":
+        if (
+            runtime_kind != "value"
+            and drain_policy != "none"
+            or runtime_kind == "value"
+        ):
             strategy = "publish_value"
             handoff = "none"
         elif node.materialize_output:
             strategy = "publish_materialized"
             handoff = "none"
+        elif runtime_kind == "async_stream":
+            # Async lazy streams are always delivered through queue
+            # branches — a pump task pushes while consumers pull — for one
+            # or many consumers alike (EACH-mode consumers unroll through
+            # queue branches by contract).
+            strategy = "publish_async_fanout"
+            handoff = "async_queue"
         elif len(consumers) > 1:
-            strategy = (
-                "publish_async_fanout"
-                if runtime_kind == "async_stream"
-                else "publish_sync_fanout"
-            )
-            handoff = "async_queue" if runtime_kind == "async_stream" else "sync_fanout"
+            strategy = "publish_sync_fanout"
+            handoff = "sync_fanout"
         else:
             strategy = "publish_stream"
             handoff = (

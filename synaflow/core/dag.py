@@ -21,11 +21,11 @@ Methods on Dag (all stateless queries over the graph):
 Both are @dataclass — plain data with behaviour, no hidden state.
 """
 
-from dataclasses import asdict, dataclass, field
-from typing import Any, Callable, Literal
-
 import inspect
 import typing
+from collections.abc import Callable
+from dataclasses import asdict, dataclass, field
+from typing import Any, Literal
 
 from synaflow.core.type_compatibility import get_type_name
 from synaflow.core.types import OnError, StepMode
@@ -118,6 +118,14 @@ class DagNode:
     output_contract: OutputContract | None = None
     consumer_contracts: list[ConsumerContract] = field(default_factory=list)
     publish_plan: PublishPlan | None = None
+    # Compiled runtime shape of the step function ("sync", "sync_generator",
+    # "async" or "async_generator").  Executors consult this instead of
+    # re-inspecting the callable at run time.
+    fn_kind: str | None = None
+    # Dependencies whose declared type is AsyncIterator/AsyncGenerator, so
+    # the async argument builder converts materialized values without
+    # re-deriving the decision from annotations at run time.
+    async_stream_deps: list[str] = field(default_factory=list)
     # Scope metadata stamped once during ``build_dag`` after the
     # full dag is constructed (see ``_stamp_scope_metadata``).
     pipeline_scope: str = ""
@@ -165,6 +173,10 @@ class DagNode:
             ret["consumer_contracts"] = [asdict(c) for c in self.consumer_contracts]
         if self.publish_plan is not None:
             ret["publish_plan"] = asdict(self.publish_plan)
+        if self.fn_kind is not None:
+            ret["fn_kind"] = self.fn_kind
+        if self.async_stream_deps:
+            ret["async_stream_deps"] = list(self.async_stream_deps)
         ret["pipeline_scope"] = self.pipeline_scope
         ret["step_index_in_scope"] = self.step_index_in_scope
         ret["step_total_in_scope"] = self.step_total_in_scope

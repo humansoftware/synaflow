@@ -1,5 +1,5 @@
-import inspect
 import functools
+import inspect
 from typing import Any
 
 

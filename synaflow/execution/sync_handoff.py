@@ -2,10 +2,9 @@ from __future__ import annotations
 
 import queue
 import threading
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from dataclasses import dataclass
-from typing import Any, Callable
-
+from typing import Any
 
 EOF_MARKER = object()
 
@@ -18,7 +17,7 @@ class ExceptionMarker:
 class SyncQueueIterator(Iterator):
     """Blocking iterator over a bounded queue-backed branch."""
 
-    def __init__(self, branch_name: str, q: queue.Queue, owner: "SyncFanout") -> None:
+    def __init__(self, branch_name: str, q: queue.Queue, owner: SyncFanout) -> None:
         self._branch_name = branch_name
         self._queue = q
         self._owner = owner

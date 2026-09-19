@@ -1,10 +1,11 @@
 from collections.abc import Generator, Iterator
-from dataclasses import dataclass
 from concurrent.futures import Future
+from dataclasses import dataclass
 from typing import Any, NamedTuple
+
 import pytest
-from synaflow.core.type_compatibility import is_type_compatible
-from synaflow.core.type_compatibility import ListType
+
+from synaflow.core.type_compatibility import ListType, is_type_compatible
 
 
 @dataclass

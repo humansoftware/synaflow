@@ -1,15 +1,14 @@
 from __future__ import annotations
 
+import dataclasses
 import inspect
 import types
 import typing
-import dataclasses
 from typing import Any, NamedTuple, Union
 
 from synaflow.core.dag import DagNode, resolve_resource_output_type
 from synaflow.core.definition import Step
 from synaflow.core.naming import get_base_dataset_name
-from synaflow.core.types import StepMode
 from synaflow.core.type_compatibility import (
     ListType,
     get_type_name,
@@ -17,6 +16,7 @@ from synaflow.core.type_compatibility import (
     is_sync_stream_type,
     is_type_compatible,
 )
+from synaflow.core.types import StepMode
 
 
 def initialize_parameters(params: type[NamedTuple]) -> dict[str, DagNode]:
@@ -69,9 +69,7 @@ def validate_and_resolve_dependencies(
         if consumer_type is inspect.Parameter.empty:
             consumer_type = None
 
-        if param_name in resources:
-            producer_name = param_name
-        elif param_name in produced:
+        if param_name in resources or param_name in produced:
             producer_name = param_name
         else:
             param_base = get_base_dataset_name(param_name)

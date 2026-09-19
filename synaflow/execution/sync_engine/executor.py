@@ -12,28 +12,28 @@ from synaflow.core.exceptions import (
     PipelineStopException,
     ThresholdExceededException,
 )
-from synaflow.execution.sync_engine.event_dispatch import EventDispatcher
 from synaflow.core.types import (
     StepMode,
 )
-from synaflow.execution.overrides import ExecutionOverrides
-from synaflow.execution.threshold import (
-    has_threshold,
-)
-from synaflow.execution.sync_handoff import SyncFanout
 from synaflow.execution.bounded_iterator import BoundedIterator
+from synaflow.execution.overrides import ExecutionOverrides
 from synaflow.execution.runtime_contract_validation import (
     satisfies_sync_iterator_contract,
 )
 from synaflow.execution.state import ExecutionState
-from .argument_builder import ArgumentBuilder
 from synaflow.execution.stats import StepRunStats
+from synaflow.execution.sync_engine.event_dispatch import EventDispatcher
+from synaflow.execution.sync_handoff import SyncFanout
+from synaflow.execution.threshold import (
+    has_threshold,
+)
+
+from .argument_builder import ArgumentBuilder
 from .step_runner import (
     StepRunner,
     collect_iterator,
     wrap_deferred_output,
 )
-
 
 # ---------------------------------------------------------------------------
 # Worker-thread lifecycle

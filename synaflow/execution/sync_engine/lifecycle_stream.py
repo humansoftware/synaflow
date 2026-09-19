@@ -1,5 +1,5 @@
-from collections.abc import Generator, Iterator
-from typing import Any, Callable
+from collections.abc import Callable, Generator, Iterator
+from typing import Any
 
 
 class LifecycleStream:

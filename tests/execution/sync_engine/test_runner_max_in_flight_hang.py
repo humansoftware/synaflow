@@ -16,11 +16,12 @@ timeout.  The assertions expect the pipeline to EXIT within the timeout —
 the framework bug is fixed.
 """
 
-from synaflow.core.dag_builder import build_dag
 import threading
 from collections.abc import Iterator
 from typing import NamedTuple
+
 from synaflow import OnError, pipeline, run, step
+from synaflow.core.dag_builder import build_dag
 from synaflow.core.exceptions import PipelineStopException
 from synaflow.execution.sync_engine import PipelineExecutor
 

@@ -1,7 +1,7 @@
-from tests.common.pipeline_pack import PipelinePack
 from typing import NamedTuple
 
 from synaflow import pipeline, step
+from tests.common.pipeline_pack import PipelinePack
 
 
 class DiamondParams(NamedTuple):

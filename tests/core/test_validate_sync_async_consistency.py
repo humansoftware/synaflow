@@ -1,7 +1,9 @@
+from collections.abc import AsyncIterator, Iterator
+
 import pytest
-from collections.abc import Iterator, AsyncIterator
-from synaflow.core.dag_steps import validate_sync_async_consistency
+
 from synaflow.core.dag import Dag, DagNode
+from synaflow.core.dag_steps import validate_sync_async_consistency
 
 
 def test_given_sync_only_dag_when_validated_then_sets_sync_runner():

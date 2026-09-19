@@ -11,14 +11,16 @@ result (or the exception captured by ``run_with_timeout``); when the bug is
 present, the timeout fires and we report a hang.
 """
 
-from synaflow.core.dag_builder import build_dag
 import asyncio
 from collections.abc import AsyncGenerator, AsyncIterator
 from typing import NamedTuple
+
 import pytest
+
 from synaflow import OnError, async_run, pipeline, step
-from synaflow.execution.async_engine.executor import AsyncPipelineExecutor
+from synaflow.core.dag_builder import build_dag
 from synaflow.core.exceptions import PipelineStopException
+from synaflow.execution.async_engine.executor import AsyncPipelineExecutor
 
 
 class EmptyParams(NamedTuple):

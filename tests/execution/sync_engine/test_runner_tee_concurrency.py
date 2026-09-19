@@ -1,5 +1,6 @@
-from typing import NamedTuple, Iterator
 import time
+from collections.abc import Iterator
+from typing import NamedTuple
 
 from synaflow import pipeline, step
 from synaflow.core.types import StepMode

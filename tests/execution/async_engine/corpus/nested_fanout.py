@@ -1,5 +1,6 @@
 from collections.abc import AsyncIterator
 from typing import NamedTuple
+
 from synaflow import pipeline, step
 
 

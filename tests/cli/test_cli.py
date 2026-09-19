@@ -22,15 +22,22 @@ import subprocess
 import sys
 import types
 from pathlib import Path
-from typing import NamedTuple, Optional
+from typing import NamedTuple
 from unittest import mock
 
 import pytest
 
-from synaflow import Observer, PipelineRegistry, SynaflowCli, cli, pipeline, step
+from synaflow import (
+    Observer,
+    OnError,
+    PipelineRegistry,
+    SynaflowCli,
+    cli,
+    pipeline,
+    step,
+)
 from synaflow.cli import CLIUsageError, main
 from synaflow.core.exceptions import PipelineStopException
-from synaflow import OnError
 from tests.cli.conftest import SYNATEST_CATALOG_NAME
 
 
@@ -46,7 +53,7 @@ class _NullableParams(NamedTuple):
 
 
 class _OptionalParams(NamedTuple):
-    portfolio_id: Optional[int] = None
+    portfolio_id: int | None = None
 
 
 # ---------------------------------------------------------------------------
@@ -179,7 +186,7 @@ def test_given_nullable_primitive_flags_then_cli_builds_typed_params():
 def test_given_optional_primitive_flags_then_cli_builds_typed_params():
     seen = []
 
-    def capture(portfolio_id: Optional[int]) -> None:
+    def capture(portfolio_id: int | None) -> None:
         seen.append(portfolio_id)
 
     p = pipeline(
@@ -896,12 +903,14 @@ def test_given_load_catalog_transitive_dep_missing_then_propagates():
     fake_exc.name = "some_unrelated_dep"
     # The actual import happens in PipelineRegistry.from_module, which
     # uses synaflow.core.pipeline_registry.importlib.import_module.
-    with mock.patch(
-        "synaflow.core.pipeline_registry.importlib.import_module",
-        side_effect=fake_exc,
+    with (
+        mock.patch(
+            "synaflow.core.pipeline_registry.importlib.import_module",
+            side_effect=fake_exc,
+        ),
+        pytest.raises(ModuleNotFoundError, match="some_unrelated_dep"),
     ):
-        with pytest.raises(ModuleNotFoundError, match="some_unrelated_dep"):
-            cli._load_catalog("myproject.pipelines")
+        cli._load_catalog("myproject.pipelines")
 
 
 # ---------------------------------------------------------------------------

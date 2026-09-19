@@ -3,12 +3,14 @@
 Covers the spec's 15+ scenarios for the sync engine.
 """
 
-from synaflow.core.dag_builder import build_dag
 from collections.abc import Iterator
 from typing import NamedTuple
+
 import pytest
+
 from synaflow import (
     InvalidThresholdRaiseInEACHStep,
+    Observer,
     PipelineEvent,
     PipelineStopException,
     StepEvent,
@@ -17,7 +19,7 @@ from synaflow import (
     run,
     step,
 )
-from synaflow import Observer
+from synaflow.core.dag_builder import build_dag
 
 
 def _build_each_pipeline(

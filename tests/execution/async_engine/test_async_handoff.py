@@ -1,8 +1,9 @@
 import asyncio
+
 import pytest
 
-from synaflow.execution.async_engine.executor import _pump_iterator
 from synaflow.execution.async_engine.constants import EOF_MARKER
+from synaflow.execution.async_engine.executor import _pump_iterator
 
 
 @pytest.mark.asyncio
@@ -12,9 +13,7 @@ async def test_given_full_branch_queue_when_stream_finishes_then_last_item_is_no
     async def source():
         yield 1
 
-    pump_task = asyncio.create_task(
-        _pump_iterator("step", source(), queues, on_error=None)
-    )
+    pump_task = asyncio.create_task(_pump_iterator("step", source(), queues))
 
     for _ in range(5):
         await asyncio.sleep(0)
@@ -29,25 +28,28 @@ async def test_given_full_branch_queue_when_stream_finishes_then_last_item_is_no
 
 
 @pytest.mark.asyncio
-async def test_given_full_branch_queue_when_aborted_then_exception_is_raised_and_unconsumed_dropped():
-    queues = {"a": asyncio.Queue(maxsize=1)}
+async def test_given_full_branch_queue_when_source_fails_then_failure_is_delivered_in_band_before_eof():
+    """Canonical semantics (sync parity): a source that fails mid-stream
+    delivers the failure to the branch before EOF — the consumer observes
+    the error instead of seeing a silently truncated stream."""
+    queues = {"a": asyncio.Queue(maxsize=2)}
 
     async def source():
         yield 1
         raise ValueError("Boom")
 
-    pump_task = asyncio.create_task(
-        _pump_iterator("step", source(), queues, on_error=None)
-    )
+    pump_task = asyncio.create_task(_pump_iterator("step", source(), queues))
 
     for _ in range(5):
         await asyncio.sleep(0)
 
     item1 = await queues["a"].get()
     item2 = await queues["a"].get()
+    item3 = await queues["a"].get()
 
     assert item1 == 1
-    assert item2 is EOF_MARKER
+    assert isinstance(item2, ValueError)
+    assert item3 is EOF_MARKER
 
     # Just ensure the task completes without deadlocking
     await pump_task
@@ -67,9 +69,7 @@ async def test_given_fanout_with_normal_exhaustion_when_pump_finishes_then_join_
         for i in range(5):
             yield i
 
-    pump_task = asyncio.create_task(
-        _pump_iterator("step", source(), queues, on_error=None)
-    )
+    pump_task = asyncio.create_task(_pump_iterator("step", source(), queues))
     done, _ = await asyncio.wait({pump_task}, timeout=5.0)
     assert pump_task in done, "pump task must complete within the timeout"
 
@@ -88,9 +88,7 @@ async def test_given_fanout_under_external_abort_when_source_exhausts_then_join_
         for i in range(10):
             yield i
 
-    pump_task = asyncio.create_task(
-        _pump_iterator("step", source(), queues, on_error=None)
-    )
+    pump_task = asyncio.create_task(_pump_iterator("step", source(), queues))
 
     # Let the pump push at least one item, then cancel to simulate an
     # external abort race.
@@ -121,9 +119,7 @@ async def test_given_fanout_with_blocked_source_when_source_never_yields_then_jo
         await triggered.wait()
         yield 1  # never reached within the test timeout
 
-    pump_task = asyncio.create_task(
-        _pump_iterator("step", blocked_source(), queues, on_error=None)
-    )
+    pump_task = asyncio.create_task(_pump_iterator("step", blocked_source(), queues))
 
     # ``asyncio.wait`` does not cancel on timeout; it just reports
     # which tasks completed.  The pump is blocked inside the source
@@ -150,9 +146,7 @@ async def test_given_full_queue_when_pump_pushes_terminal_and_abort_called_then_
     async def source():
         yield 1
 
-    pump_task = asyncio.create_task(
-        _pump_iterator("step", source(), queues, on_error=None)
-    )
+    pump_task = asyncio.create_task(_pump_iterator("step", source(), queues))
 
     # pump pushes item 1 → queue full.  Source exhausts.  Pump enters
     # the ``finally`` block and blocks on ``await q.put(EOF_MARKER)``

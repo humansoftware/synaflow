@@ -1,8 +1,8 @@
-from tests.common.pipeline_pack import PipelinePack
 from collections.abc import Generator, Iterator
 from typing import NamedTuple
 
 from synaflow import Observer, pipeline, step
+from tests.common.pipeline_pack import PipelinePack
 
 
 class LinearParams(NamedTuple):

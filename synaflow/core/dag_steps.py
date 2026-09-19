@@ -1,6 +1,7 @@
 import inspect
 from typing import Any
 
+from synaflow.core.adapters import is_async_callable
 from synaflow.core.dag import Dag, DagNode, get_safe_type_hints
 from synaflow.core.dag_dependencies import (
     resolve_step_output_type,
@@ -8,7 +9,6 @@ from synaflow.core.dag_dependencies import (
 )
 from synaflow.core.definition import Step
 from synaflow.core.naming import get_base_dataset_name
-from synaflow.core.adapters import is_async_callable
 from synaflow.core.type_compatibility import (
     is_async_stream_type,
     is_iterable_type,

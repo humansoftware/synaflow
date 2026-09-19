@@ -2,10 +2,9 @@ import traceback
 from pathlib import Path
 from typing import Any
 
+from synaflow.core.dag_builder import log_error_materializer_factory
 from synaflow.core.types import ErrorMaterializeContext, ErrorRecord
 from synaflow.serializers import csv_serializer, json_serializer
-
-from synaflow.core.dag_builder import log_error_materializer_factory
 
 
 def log_error_materializer():

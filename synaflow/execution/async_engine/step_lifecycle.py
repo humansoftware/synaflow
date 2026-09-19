@@ -1,7 +1,7 @@
 from synaflow.core.dag import DagNode
 from synaflow.core.exceptions import PipelineStopException
-from synaflow.execution.stats import StepRunStats
 from synaflow.execution.async_engine.event_dispatch import AsyncEventDispatcher
+from synaflow.execution.stats import StepRunStats
 
 
 class AsyncStepLifecycle:

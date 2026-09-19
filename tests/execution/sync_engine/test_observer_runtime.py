@@ -1,8 +1,10 @@
-from synaflow.core.dag_builder import build_dag
 import logging
+from collections.abc import Iterator
 from collections.abc import Iterator as Iter
-from typing import Iterator, NamedTuple
+from typing import NamedTuple
+
 import pytest
+
 from synaflow import (
     MaterializationEvent,
     Observer,
@@ -13,6 +15,7 @@ from synaflow import (
     run,
     step,
 )
+from synaflow.core.dag_builder import build_dag
 from synaflow.core.observers import (
     MaterializationStartedContext,
     PipelineFailedContext,

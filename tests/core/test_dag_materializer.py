@@ -1,7 +1,10 @@
-from synaflow.core.dag_builder import build_dag
-from typing import AsyncGenerator, Generator, NamedTuple
+from collections.abc import AsyncGenerator, Generator
+from typing import NamedTuple
+
 import pytest
+
 from synaflow import pipeline, step
+from synaflow.core.dag_builder import build_dag
 
 
 class P(NamedTuple):

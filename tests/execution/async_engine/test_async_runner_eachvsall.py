@@ -1,9 +1,10 @@
-from synaflow.core.dag_builder import build_dag
 import inspect
 from typing import NamedTuple
 from unittest.mock import AsyncMock as MagicMock
 from unittest.mock import call
+
 from synaflow import async_run, pipeline, step
+from synaflow.core.dag_builder import build_dag
 
 
 def mock_step(**params: type) -> MagicMock:

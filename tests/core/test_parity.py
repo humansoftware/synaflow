@@ -13,13 +13,12 @@ def get_test_functions_in_dir(directory: Path) -> set[str]:
                     try:
                         tree = ast.parse(file.read())
                         for node in ast.walk(tree):
-                            if isinstance(
-                                node, ast.FunctionDef
-                            ) and node.name.startswith("test_"):
-                                test_funcs.add(node.name)
-                            elif isinstance(
-                                node, ast.AsyncFunctionDef
-                            ) and node.name.startswith("test_"):
+                            if (
+                                isinstance(node, ast.FunctionDef)
+                                and node.name.startswith("test_")
+                                or isinstance(node, ast.AsyncFunctionDef)
+                                and node.name.startswith("test_")
+                            ):
                                 test_funcs.add(node.name)
                     except SyntaxError:
                         continue
@@ -57,6 +56,10 @@ def test_sync_async_test_parity():
         (
             "test_given_max_in_flight_fanout_when_terminal_consumers_do_not_iterate_then_run_completes",
             "Tests the sync-only SyncFanout lazy-start/queue handoff path when terminal consumers never iterate. The async engine uses a different queue/task handoff mechanism.",
+        ),
+        (
+            "test_given_full_branch_queue_when_aborted_then_exception_is_raised_and_unconsumed_dropped",
+            "Tests the sync-only SyncFanout.abort(exception) delivery API. The async engine aborts by cancelling pump tasks, which is covered by the async-only cancel tests.",
         ),
         (
             "test_given_fanout_to_submit_and_await_barrier_when_max_in_flight_then_await_steps_drain",

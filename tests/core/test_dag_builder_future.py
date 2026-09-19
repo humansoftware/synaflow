@@ -1,8 +1,10 @@
 "\nTests for expected DagBuilder behavior not yet implemented.\nxfail = expected to fail until implemented.\n"
 
-from synaflow.core.dag_builder import build_dag
 from collections.abc import Iterator
 from typing import NamedTuple
+
+from synaflow.core.dag_builder import build_dag
+
 from .conftest import build_minimal_dag
 
 

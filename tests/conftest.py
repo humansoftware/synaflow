@@ -3,8 +3,8 @@ import asyncio
 import pytest
 
 from synaflow.core.dag_builder import build_dag
-from synaflow.execution.sync_engine.executor import run as sync_run
 from synaflow.execution.async_engine.executor import async_run
+from synaflow.execution.sync_engine.executor import run as sync_run
 
 
 @pytest.fixture(params=["sync"])

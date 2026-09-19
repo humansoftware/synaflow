@@ -1,7 +1,14 @@
-import types
 import inspect
-from collections.abc import AsyncGenerator, AsyncIterator, Generator, Iterable, Iterator
-from typing import Any, Callable, Tuple, Union, get_args, get_origin
+import types
+from collections.abc import (
+    AsyncGenerator,
+    AsyncIterator,
+    Callable,
+    Generator,
+    Iterable,
+    Iterator,
+)
+from typing import Any, Union, get_args, get_origin
 
 
 def is_factory(func: Callable) -> bool:
@@ -113,7 +120,7 @@ def _is_dict_type(tp: Any) -> bool:
 def _get_dict_pair_type(tp: Any) -> Any:
     args = get_args(tp)
     if len(args) == 2:
-        return Tuple[args[0], args[1]]
+        return tuple[args[0], args[1]]
     return None
 
 

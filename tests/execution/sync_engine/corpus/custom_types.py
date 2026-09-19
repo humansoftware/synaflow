@@ -1,9 +1,9 @@
-from tests.common.pipeline_pack import PipelinePack
 from collections.abc import Generator
-from typing import NamedTuple
 from dataclasses import dataclass
+from typing import NamedTuple
 
 from synaflow import pipeline, step
+from tests.common.pipeline_pack import PipelinePack
 
 
 @dataclass

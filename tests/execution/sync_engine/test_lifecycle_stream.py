@@ -1,13 +1,15 @@
 from collections.abc import Generator
-from typing import Any
-import pytest
-from synaflow.execution.sync_engine.lifecycle_stream import LifecycleStream
-from synaflow.execution.stats import StepRunStats
 from contextlib import ExitStack
+from typing import Any
 from unittest.mock import MagicMock
+
+import pytest
+
 from synaflow.core.dag import DagNode
-from synaflow.execution.sync_engine.step_runner import StepRunner
 from synaflow.core.types import OnError, StepMode
+from synaflow.execution.stats import StepRunStats
+from synaflow.execution.sync_engine.lifecycle_stream import LifecycleStream
+from synaflow.execution.sync_engine.step_runner import StepRunner
 
 
 def test_lifecycle_stream() -> None:

@@ -1,8 +1,10 @@
-from synaflow.core.dag_builder import build_dag
 import pytest
+
+from synaflow.core.dag_builder import build_dag
+from synaflow.core.type_compatibility import is_iterable_type
+
 from ._dag_builder_data import COMPATIBILITY_TABLE
 from .conftest import build_minimal_dag
-from synaflow.core.type_compatibility import is_iterable_type
 
 
 @pytest.mark.parametrize("case", COMPATIBILITY_TABLE, ids=lambda c: c["label"])

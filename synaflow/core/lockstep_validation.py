@@ -1,4 +1,5 @@
 import collections
+
 from synaflow.core.dag import DagNode
 from synaflow.core.type_compatibility import is_iterable_type
 

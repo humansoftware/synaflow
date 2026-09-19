@@ -1,12 +1,14 @@
-from synaflow.core.dag_builder import build_dag
 from collections.abc import AsyncIterator, Iterator
+
 import pytest
+
 from synaflow import async_run
+from synaflow.core.dag_builder import build_dag
 from synaflow.execution.async_engine.executor import AsyncPipelineExecutor
 from tests.execution.async_engine.corpus import PACKS as ASYNC_PACKS
 from tests.execution.async_engine.corpus.error_handling import (
-    error_pipeline,
     ErrorHandlingParams,
+    error_pipeline,
     errors_list,
 )
 

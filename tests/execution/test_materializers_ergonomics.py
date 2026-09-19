@@ -1,11 +1,15 @@
-from synaflow.core.dag_builder import build_dag
-from synaflow.core.adapters import async_adapter
+import asyncio
 import json
 import pickle
+from collections.abc import AsyncIterator, Iterator
+from typing import NamedTuple
+
 import pytest
-import asyncio
-from typing import NamedTuple, Iterator
-from synaflow import pipeline, step, run, async_run, OnError
+
+from synaflow import OnError, async_run, include, pipeline, run, step
+from synaflow.core.adapters import async_adapter
+from synaflow.core.dag_builder import build_dag
+from synaflow.core.types import ErrorMaterializeContext
 from synaflow.materializers.composite import (
     composite_error_materializer,
     composite_materializer,
@@ -13,15 +17,12 @@ from synaflow.materializers.composite import (
 from synaflow.materializers.disk import disk_materializer
 from synaflow.materializers.errors import disk_error_materializer
 from synaflow.serializers import (
+    csv_serializer,
     json_serializer,
     jsonl_serializer,
-    csv_serializer,
-    text_serializer,
     pickle_serializer,
+    text_serializer,
 )
-from synaflow.core.types import ErrorMaterializeContext
-from collections.abc import AsyncIterator
-from synaflow import include
 
 
 def test_given_step_level_error_materializer_when_dag_built_then_accepted():
@@ -452,7 +453,7 @@ async def test_given_async_stream_and_lazy_consumer_with_force_materialize_then_
 
         return concrete
 
-    async def gen():
+    async def gen() -> AsyncIterator[int]:
         yield 1
 
     async def consumer(gen: AsyncIterator[int]):

@@ -1,11 +1,12 @@
-from synaflow.core.dag_builder import build_dag
 import inspect
-from typing import Generator, Iterator, NamedTuple
-from unittest.mock import MagicMock
-from synaflow import pipeline, step
-from synaflow.core.types import OnError
-from synaflow.core.types import MaterializeContext
+from collections.abc import Generator, Iterator
 from dataclasses import dataclass
+from typing import NamedTuple
+from unittest.mock import MagicMock
+
+from synaflow import pipeline, step
+from synaflow.core.dag_builder import build_dag
+from synaflow.core.types import MaterializeContext, OnError
 
 
 def mock_step(**params: type) -> MagicMock:
@@ -463,8 +464,8 @@ def test_given_factory_with_context_when_run_then_context_is_injected(run_pipeli
     run_pipeline(my_pipeline, params=P())
     assert len(captured_context) >= 1
     assert captured_context[-1].pipeline_name == "test_context"
-    assert any((c.dataset_name == "items" for c in captured_context))
-    assert any((c.consumer_type == list[int] for c in captured_context))
+    assert any(c.dataset_name == "items" for c in captured_context)
+    assert any(c.consumer_type == list[int] for c in captured_context)
 
 
 def test_given_mixed_fanout_when_materializer_factory_receives_context_then_consumer_type_is_materialized_consumer_type(
@@ -498,7 +499,7 @@ def test_given_mixed_fanout_when_materializer_factory_receives_context_then_cons
     run_pipeline(my_pipeline, params=P())
     runtime_contexts = [c for c in captured_context if c.dataset_name == "items"]
     assert runtime_contexts
-    assert all((c.consumer_type == list[int] for c in runtime_contexts))
+    assert all(c.consumer_type == list[int] for c in runtime_contexts)
 
 
 def test_given_two_unrolled_streams_with_different_lengths_when_run_then_missing_side_is_padded_with_none(

@@ -1,14 +1,18 @@
-from synaflow.core.dag_builder import build_dag
 from collections.abc import Iterator
-from typing import NamedTuple
-from synaflow.core.types import MaterializeContext
-from .conftest import build_minimal_dag
-from synaflow.core.dag_builder import log_error_materializer_factory
-from synaflow.core.dag_builder import memory_materializer_factory
-import pytest
-from synaflow.core.types import ErrorMaterializeContext
 from dataclasses import dataclass
+from typing import NamedTuple
+
+import pytest
+
 from synaflow import pipeline, step
+from synaflow.core.dag_builder import (
+    build_dag,
+    log_error_materializer_factory,
+    memory_materializer_factory,
+)
+from synaflow.core.types import ErrorMaterializeContext, MaterializeContext
+
+from .conftest import build_minimal_dag
 
 
 def test_given_step_level_materializer_when_dag_built_then_step_materializer_wins():
