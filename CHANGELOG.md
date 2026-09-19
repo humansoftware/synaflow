@@ -2,6 +2,96 @@
 
 
 
+## v0.32.3 (2026-09-19)
+
+### Fix
+
+* fix(execution): align async engine with sync engine semantics (audit follow-up) (#133)
+
+* fix(execution): align async engine with sync engine semantics (sync is canonical)
+
+Body: ports the async engine onto the sync engine&#39;s observable contract.
+
+- publish() routes on compiled publish_plan.strategy and completion_policy
+- output contracts validated at publish (TypeError), like sync
+- materializer crashes propagate; mid-stream item failures keep sync prefix semantics (valid prefix + had_error) with lazy out-of-core access preserved
+- producer failures delivered in-band to consumers under any on_error policy (no silent truncation under CONTINUE)
+- PipelineStopException queued to consumers carries its cause
+- execute() awaits cleanup in finally; cleanup() logs instead of silent pass
+- terminal lazy streams stored in executor.outputs like sync
+- builder compiles fn_kind + async_stream_deps; runtimes consult metadata, not runtime introspection
+- builder compiles publish_async_fanout for single-consumer async streams (EACH consumers unroll via queue branches)
+- dropped dead _is_stream_output helpers
+
+Tests updated to canonical contract: annotated under-annotated async generators, fixed the async threshold helper that silently disconnected producer from consumer (broken copy of sync twin), mirrored in-band failure handoff test in sync.
+
+* refactor(core): remove dead builder code, collapse duplicated validators, fail loud on cycles
+
+- delete the unreachable &#39;requires a custom materializer&#39; validation in
+  _resolve_materializers (the factory identity it checked had already
+  been resolved away) together with its now-unused _is_builtin_type
+  helper; a regression test locks in that the default memory factory
+  handles custom item types
+- collapse _validate_no_async_handlers/_validate_no_sync_handlers
+  (~130 near-duplicate lines) into one parameterized
+  _validate_handler_execution_modes; error messages preserved
+- replace the vacuous _validate_declared_step_names duplicate-name call
+  (it passed an empty dag, so only the reserved check could fire) with
+  an explicit validate_reserved_step_name; duplicate detection stays in
+  the expanded pass where it works
+- get_execution_levels now raises a descriptive ValueError when the
+  remaining nodes form a cycle instead of silently returning a partial
+  topological order (regression test added)
+- delete dead _check_scalar_producer_to_iterable_consumer
+- drop the __import__(&#34;typing&#34;).Union hack; reuse core
+  is_async_callable in composite materializers (superset: also detects
+  partials and async callable objects)
+- add module docstring to composite.py
+
+* test(corpus): register orphaned nested_fanout packs, fix async linear drift, harden corpus hygiene
+
+- nested_fanout corpus packs existed in both engines but were never
+  registered in _MODULES — dead specification.  Both packs are now
+  complete (frozen json_dag, execution levels, step results) and
+  registered; the build-time corpus tests now cover the nested
+  fan-out/fan-in topology.  NOTE: executing this topology currently
+  deadlocks the sync engine (workers block) — tracked separately; the
+  runtime step-results assertions stay unregistered until that is
+  fixed (see step_results explicit pack lists)
+- fix real sync/async drift in the linear corpus pack: the async twin
+  silently dropped the step-level observer its sync twin declares
+  (with the frozen observers json entry) — mirrored with an
+  async-adapted handler
+- add a corpus symmetry meta-test: pack sets must match across engines
+  (modulo the documented sync-only threadpool pack) so an orphaned or
+  engine-missing pack can never happen silently again
+- test_runner_step_results (both engines): a failing iterator now
+  propagates instead of being swallowed into a truncated &#39;passing&#39; list
+- conftest run_pipeline fixture: document why it is sync-only
+  (pipelines are engine-specific by contract; parity lives in the
+  twins + corpus + meta-test) and drop the misleading dead async branch
+- PipelinePack.expected_dag was never populated and never read: removed
+- test_dag_builder_future docstring no longer claims xfail semantics
+  for passing contract tests
+
+* style: module docstrings, English state.py docs, small type-hint gaps
+
+- add purposeful module docstrings to the modules flagged in the audit
+  (core build/validation modules, both executors and step runners,
+  handoff, stats, overrides, materializers)
+- translate ExecutionState docstrings to English (language consistency)
+  and make seed() fail loud on unsupported params types instead of
+  crashing on AttributeError (plain dict now accepted)
+- type the previously untyped _identity / async_adapter signatures
+- add direct unit tests for ExecutionState (seeding, consumer-scoped
+  keys, inputs_available) — previously covered only transitively; live
+  under tests/execution/ since the module is engine-agnostic
+
+---------
+
+Co-authored-by: Marcelo Elias Del Valle &lt;marcelo@mvalle.br&gt; ([`0b4097a`](https://github.com/humansoftware/synaflow/commit/0b4097a9afa732633db27144b592d53d3db17eb9))
+
+
 ## v0.32.2 (2026-07-28)
 
 ### Fix
