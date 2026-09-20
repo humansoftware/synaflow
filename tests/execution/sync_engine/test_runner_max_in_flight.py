@@ -244,7 +244,7 @@ def test_given_fanout_to_submit_and_await_barrier_when_max_in_flight_then_await_
     assert completed == ["done"]
 
 
-def test_given_max_in_flight_when_producer_does_not_exceed_bounded_ahead():
+def test_given_max_in_flight_when_producer_runs_then_producer_never_exceeds_bounded_ahead():
     """With max_in_flight=3, the BoundedIterator limits producer advancement."""
 
     def producer(count: int) -> Generator[int, None, None]:
@@ -623,7 +623,7 @@ def test_given_threadpool_start_and_await_when_max_in_flight_5_then_only_five_ta
     assert not thread.is_alive()
 
 
-def test_runner_contract_uses_dag_node_max_in_flight_not_step_max_in_flight():
+def test_given_max_in_flight_when_runner_contract_built_then_uses_dag_node_value():
     produced: list[int] = []
     consumed: list[int] = []
     max_seen_ahead = 0

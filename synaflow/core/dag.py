@@ -1,11 +1,19 @@
 """
-The Directed Acyclic Graph: the compiled, immutable model of a pipeline.
+The Directed Acyclic Graph: the compiled model of a pipeline.
 
 Dag     — the top-level container: name, params (input types), steps (nodes),
           and computed metadata (runner requirements, error materializer).
-DagNode — one step in the graph: function, input types (deps), output type,
-          error policy, materializer, and whether its output must be
-          materialized before publication to downstream consumers.
+DagNode — one step in the graph.  Its fields layer in four groups (kept
+          contiguous below): identity (fn/deps/output), user policy
+          (on_error, mode, materializer, thresholds, ...), compiled
+          contracts frozen by the builder (output_contract, publish_plan,
+          fn_kind, ...), and private diagnostics the executors must not
+          consult.
+
+"Immutability" lives at the decision level: every runtime-relevant
+decision is compiled at build time into frozen contract dataclasses
+(OutputContract, ConsumerContract, PublishPlan); the dataclasses
+themselves are plain mutable records filled in once by ``build_dag``.
 
 Design note:
   Runtime decisions must be driven by producer-level materialization only.
@@ -13,7 +21,7 @@ Design note:
   but executors must not inspect them. If a producer is marked as needing
   materialization, all of its consumers read from the materialized output.
 
-Methods on Dag (all stateless queries over the graph):
+Queries on Dag (all stateless over the graph):
   - consumers_of(step_name) → list of step names that depend on it
   - get_execution_levels()   → topological levels for parallel execution
   - to_dict()                → JSON-serializable representation
@@ -122,25 +130,44 @@ class PublishPlan:
 
 @dataclass
 class DagNode:
+    """One compiled step.
+
+    Fields are grouped by concern, in the order they become known:
+
+    * **Identity** — what the step *is* (function, resolved input/output
+      types).  Set once by ``validate_and_compile_step``.
+    * **User policy** — what the user *asked for* (error handling, mode,
+      materializer, thresholds).  Copied from the declared ``Step``.
+    * **Build-time compiled contracts** — frozen decisions the executors
+      consult instead of re-deriving (materialization plan, publication
+      plan, function shape).  All build-time-knowable facts belong here,
+      never in runtime introspection.
+    * **Private diagnostics** — builder-internal detail kept for JSON
+      export and debugging; executors must not branch on it (see
+      ``docs/MATERIALIZATION_RUNTIME_CONTRACT.md``).
+    * **Scope metadata** — stamped once after the whole dag is built.
+    """
+
+    # -- Identity --------------------------------------------------------
     fn: Callable | None = None
     deps: dict[str, Any] = field(default_factory=dict)
     output: Any = None
+
+    # -- User policy ------------------------------------------------------
     on_error: OnError | None = None
     mode: StepMode = StepMode.ALL
     materializer: Callable | None = None
-    _materialized_deps: list[str] = field(default_factory=list)
-    _materialize_reasons: list[str] = field(default_factory=list)
-    materialize_output: bool = False
-    each_mode_deps: list[str] = field(default_factory=list)
-    force_materialize: bool = False
-    pipeline: str | None = None
-    parent_pipeline: str | None = None
     error_materializer: Callable | None = None
     observers: list = field(default_factory=list)
-    dataset_param_names: dict[str, str] = field(default_factory=dict)
+    force_materialize: bool = False
     max_in_flight: int = 1
     error_threshold_absolute: int | None = None
     error_threshold_pct: float | None = None
+
+    # -- Compiled contracts (builder-owned; executors only read) ----------
+    materialize_output: bool = False
+    each_mode_deps: list[str] = field(default_factory=list)
+    dataset_param_names: dict[str, str] = field(default_factory=dict)
     output_contract: OutputContract | None = None
     consumer_contracts: list[ConsumerContract] = field(default_factory=list)
     publish_plan: PublishPlan | None = None
@@ -152,20 +179,18 @@ class DagNode:
     # the async argument builder converts materialized values without
     # re-deriving the decision from annotations at run time.
     async_stream_deps: list[str] = field(default_factory=list)
-    # Scope metadata stamped once during ``build_dag`` after the
-    # full dag is constructed (see ``_stamp_scope_metadata``).
+
+    # -- Private diagnostics (not runtime policy) -------------------------
+    _materialized_deps: list[str] = field(default_factory=list)
+    _materialize_reasons: list[str] = field(default_factory=list)
+
+    # -- Scope metadata (stamped once during ``build_dag``; see
+    # ``_stamp_scope_metadata``) ------------------------------------------
+    pipeline: str | None = None
+    parent_pipeline: str | None = None
     pipeline_scope: str = ""
     step_index_in_scope: int = 0
     step_total_in_scope: int = 0
-
-    def __getitem__(self, key):
-        return getattr(self, key)
-
-    def __setitem__(self, key, value):
-        setattr(self, key, value)
-
-    def get(self, key, default=None):
-        return getattr(self, key, default)
 
     def to_serializable(self) -> dict:
         mat = self.materializer
@@ -274,9 +299,6 @@ class Dag:
         if key in self.params:
             return DagNode(output=self.params[key])
         return default
-
-    def pop(self, key, *args):
-        return self.steps.pop(key, *args)
 
     def to_dict(self) -> dict:
         result = {

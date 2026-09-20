@@ -15,7 +15,9 @@ from synaflow.execution.stats import StepRunStats
 
 
 @pytest.mark.asyncio
-async def test_lifecycle_stream() -> None:
+async def test_given_stream_with_callbacks_when_consumed_then_lifecycle_events_fire() -> (
+    None
+):
     events: list[str] = []
 
     async def on_start() -> None:
@@ -58,7 +60,7 @@ async def test_lifecycle_stream() -> None:
 
 
 @pytest.mark.asyncio
-async def test_lifecycle_stream_multiple_calls_after_terminal_state() -> None:
+async def test_given_terminal_state_when_iterated_again_then_stream_is_stable() -> None:
     events: list[str] = []
 
     async def on_start() -> None:
@@ -112,7 +114,9 @@ async def test_lifecycle_stream_multiple_calls_after_terminal_state() -> None:
 
 
 @pytest.mark.asyncio
-async def test_lifecycle_stream_on_start_fails() -> None:
+async def test_given_on_start_callback_failing_when_stream_starts_then_error_propagates() -> (
+    None
+):
     # 1. Async callback
     events: list[str] = []
 
@@ -149,7 +153,7 @@ async def test_lifecycle_stream_on_start_fails() -> None:
 
 
 @pytest.mark.asyncio
-async def test_lifecycle_stream_empty() -> None:
+async def test_given_empty_stream_when_consumed_then_on_end_fires_with_zero() -> None:
     # 1. Async source
     events: list[str] = []
 
@@ -177,7 +181,9 @@ async def test_lifecycle_stream_empty() -> None:
 
 
 @pytest.mark.asyncio
-async def test_lifecycle_stream_immediate_error() -> None:
+async def test_given_stream_erroring_on_first_item_when_consumed_then_on_error_fires() -> (
+    None
+):
     # 1. Async source
     events: list[str] = []
 
@@ -211,7 +217,7 @@ async def test_lifecycle_stream_immediate_error() -> None:
     assert events == ["start", "error:ValueError:0"]
 
 
-def test_step_run_stats() -> None:
+def test_given_step_run_when_stats_collected_then_counters_exposed() -> None:
 
     stats = StepRunStats()
     assert stats.success_count == 0
@@ -226,7 +232,7 @@ def test_step_run_stats() -> None:
 
 
 @pytest.mark.asyncio
-async def test_step_runner_simple() -> None:
+async def test_given_simple_step_when_run_then_lifecycle_completes() -> None:
 
     stats = StepRunStats()
     ran = []

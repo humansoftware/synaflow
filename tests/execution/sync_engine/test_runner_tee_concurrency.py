@@ -6,7 +6,9 @@ from synaflow import pipeline, step
 from synaflow.core.types import StepMode
 
 
-def test_itertools_tee_concurrent_reentry_crash(run_pipeline):
+def test_given_itertools_tee_reentry_when_consumed_concurrently_then_crash_protected(
+    run_pipeline,
+):
     class P(NamedTuple):
         pass
 

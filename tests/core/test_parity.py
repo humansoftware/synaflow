@@ -49,7 +49,7 @@ def test_sync_async_test_parity():
             "Tests ThreadPoolExecutor sync concurrency behavior. The async engine concurrency is managed natively by asyncio Tasks/Semaphores, tested under different async-specific names.",
         ),
         (
-            "test_itertools_tee_concurrent_reentry_crash",
+            "test_given_itertools_tee_reentry_when_consumed_concurrently_then_crash_protected",
             "Specifically tests concurrency crash protection using the standard library's itertools.tee which is sync-only. The async engine does not use itertools.tee.",
         ),
         (
@@ -72,51 +72,51 @@ def test_sync_async_test_parity():
         # The async engine does not use a ThreadPoolExecutor; worker lifecycle
         # is governed by the asyncio event loop.
         (
-            "test_returns_when_no_threads",
+            "test_given_no_worker_threads_when_waiting_then_returns_on_first_poll",
             "Unit test for the sync-only ``wait_for_workers_after_shutdown`` helper.",
         ),
         (
-            "test_filters_threads_outside_prefix",
+            "test_given_threads_outside_prefix_when_enumerating_then_they_are_ignored",
             "Unit test for the sync-only ``wait_for_workers_after_shutdown`` helper.",
         ),
         (
-            "test_logs_once_then_returns_when_workers_clear_first_poll",
+            "test_given_worker_alive_on_first_poll_when_it_clears_then_logs_once_and_returns",
             "Unit test for the sync-only ``wait_for_workers_after_shutdown`` helper.",
         ),
         (
-            "test_logs_each_log_window_until_workers_clear",
+            "test_given_persistent_workers_when_log_window_elapses_then_logs_once_per_window",
             "Unit test for the sync-only ``wait_for_workers_after_shutdown`` helper.",
         ),
         (
-            "test_logs_at_most_once_per_window_even_with_many_short_polls",
+            "test_given_many_polls_inside_one_window_when_workers_persist_then_logs_at_most_once",
             "Unit test for the sync-only ``wait_for_workers_after_shutdown`` helper.",
         ),
         (
-            "test_logs_multiple_workers_in_single_line",
+            "test_given_multiple_alive_workers_when_logging_then_all_names_in_single_line",
             "Unit test for the sync-only ``wait_for_workers_after_shutdown`` helper.",
         ),
         (
-            "test_process_pid_defaults_to_os_getpid",
+            "test_given_no_pid_override_when_logging_then_defaults_to_os_getpid",
             "Unit test for the sync-only ``wait_for_workers_after_shutdown`` helper.",
         ),
         (
-            "test_custom_thread_name_prefix_is_honoured",
+            "test_given_custom_thread_prefix_when_waiting_then_only_matching_threads_counted",
             "Unit test for the sync-only ``wait_for_workers_after_shutdown`` helper.",
         ),
         (
-            "test_poll_seconds_passed_through_to_sleep",
+            "test_given_poll_seconds_when_waiting_then_passed_through_to_sleep",
             "Unit test for the sync-only ``wait_for_workers_after_shutdown`` helper.",
         ),
         (
-            "test_workers_clearing_within_grace_never_log",
+            "test_given_workers_clearing_within_grace_when_waiting_then_no_warning_logged",
             "Unit test for the sync-only ``wait_for_workers_after_shutdown`` helper.",
         ),
         (
-            "test_workers_persisting_past_grace_log_once_at_first_poll_after_grace",
+            "test_given_workers_persisting_past_grace_when_waiting_then_logs_once_after_grace",
             "Unit test for the sync-only ``wait_for_workers_after_shutdown`` helper.",
         ),
         (
-            "test_given_async_dag_passed_to_sync_run_then_raises_engine_mismatch",
+            "test_given_async_dag_when_passed_to_sync_run_then_raises_engine_mismatch",
             "Engine-mismatch test is per-engine by nature: sync engine rejects "
             "an async Dag. The async equivalent is its own test in the async dir.",
         ),
@@ -149,11 +149,11 @@ def test_sync_async_test_parity():
             "Tests awaiting a callable object with an async def __call__. The sync engine does not support async observer handlers.",
         ),
         (
-            "test_given_terminal_stream_with_no_observers_bypass_validation",
+            "test_given_terminal_stream_when_no_observers_registered_then_validation_bypassed",
             "Tests async-only validation bypass for unobserved terminal async streams. Sync engine doesn't have an equivalent bypass because all sync generator outputs are consumed or validated under sync rules.",
         ),
         (
-            "test_given_sync_dag_passed_to_async_run_then_raises_engine_mismatch",
+            "test_given_sync_dag_when_passed_to_async_run_then_raises_engine_mismatch",
             "Engine-mismatch test is per-engine by nature: async engine rejects "
             "a sync Dag. The sync equivalent is its own test in the sync dir.",
         ),

@@ -54,9 +54,9 @@ def test_pipeline_compiles_flattened_dag():
     assert "my_text_processor__func_b1" in dag
     assert "my_text_processor" in dag
     assert "consolidate" in dag
-    assert "my_text_processor__adapter" in dag["my_text_processor__func_b1"]["deps"]
-    assert "my_text_processor__func_b1" in dag["my_text_processor"]["deps"]
-    assert "my_text_processor" in dag["consolidate"]["deps"]
+    assert "my_text_processor__adapter" in dag["my_text_processor__func_b1"].deps
+    assert "my_text_processor__func_b1" in dag["my_text_processor"].deps
+    assert "my_text_processor" in dag["consolidate"].deps
 
 
 def test_include_step_requires_return_type_hint():

@@ -12,7 +12,7 @@ from synaflow.execution.sync_engine.lifecycle_stream import LifecycleStream
 from synaflow.execution.sync_engine.step_runner import StepRunner
 
 
-def test_lifecycle_stream() -> None:
+def test_given_stream_with_callbacks_when_consumed_then_lifecycle_events_fire() -> None:
     events: list[str] = []
 
     def on_start() -> None:
@@ -51,7 +51,7 @@ def test_lifecycle_stream() -> None:
     assert events == ["start", "item:10", "error:1"]
 
 
-def test_lifecycle_stream_multiple_calls_after_terminal_state() -> None:
+def test_given_terminal_state_when_iterated_again_then_stream_is_stable() -> None:
     events: list[str] = []
 
     def on_start() -> None:
@@ -104,7 +104,9 @@ def test_lifecycle_stream_multiple_calls_after_terminal_state() -> None:
     assert events == ["start", "item:10", "error:1"]
 
 
-def test_lifecycle_stream_on_start_fails() -> None:
+def test_given_on_start_callback_failing_when_stream_starts_then_error_propagates() -> (
+    None
+):
     events: list[str] = []
 
     def on_start() -> None:
@@ -138,7 +140,7 @@ def test_lifecycle_stream_on_start_fails() -> None:
     assert events == ["start_fail", "error:RuntimeError:0"]
 
 
-def test_lifecycle_stream_empty() -> None:
+def test_given_empty_stream_when_consumed_then_on_end_fires_with_zero() -> None:
     events: list[str] = []
 
     def on_start() -> None:
@@ -153,7 +155,9 @@ def test_lifecycle_stream_empty() -> None:
     assert events == ["start", "end:0"]
 
 
-def test_lifecycle_stream_immediate_error() -> None:
+def test_given_stream_erroring_on_first_item_when_consumed_then_on_error_fires() -> (
+    None
+):
     events: list[str] = []
 
     def on_start() -> None:
@@ -173,7 +177,7 @@ def test_lifecycle_stream_immediate_error() -> None:
     assert events == ["start", "error:ValueError:0"]
 
 
-def test_step_run_stats() -> None:
+def test_given_step_run_when_stats_collected_then_counters_exposed() -> None:
 
     stats = StepRunStats()
     assert stats.success_count == 0
@@ -187,7 +191,7 @@ def test_step_run_stats() -> None:
     assert stats.invocation_count == 3
 
 
-def test_step_runner_simple() -> None:
+def test_given_simple_step_when_run_then_lifecycle_completes() -> None:
 
     stats = StepRunStats()
     ran = []

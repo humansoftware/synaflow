@@ -60,7 +60,7 @@ def _build_each_pipeline(
 
 
 @pytest.mark.asyncio
-async def test_absolute_threshold_not_exceeded_completes_normally():
+async def test_given_absolute_threshold_under_limit_when_stream_completes_then_no_exception():
 
     async def proc(items: int) -> int:
         if items == 2:
@@ -72,7 +72,7 @@ async def test_absolute_threshold_not_exceeded_completes_normally():
 
 
 @pytest.mark.asyncio
-async def test_absolute_threshold_exceeded_raises():
+async def test_given_absolute_threshold_exceeded_when_errors_surpass_limit_then_threshold_raises():
 
     async def proc(items: int) -> int:
         if items in (1, 2, 3):
@@ -88,7 +88,7 @@ async def test_absolute_threshold_exceeded_raises():
 
 
 @pytest.mark.asyncio
-async def test_pct_threshold_not_exceeded_completes_normally():
+async def test_given_pct_threshold_under_limit_when_stream_completes_then_no_exception():
 
     async def proc(items: int) -> int:
         if items == 2:
@@ -100,7 +100,7 @@ async def test_pct_threshold_not_exceeded_completes_normally():
 
 
 @pytest.mark.asyncio
-async def test_pct_threshold_exceeded_raises():
+async def test_given_pct_threshold_exceeded_when_error_rate_surpasses_limit_then_threshold_raises():
 
     async def proc(items: int) -> int:
         if items in (1, 2, 3):
@@ -116,7 +116,7 @@ async def test_pct_threshold_exceeded_raises():
 
 
 @pytest.mark.asyncio
-async def test_pct_threshold_with_multiple_each_deps_uses_step_invocations():
+async def test_given_pct_threshold_with_multiple_each_deps_when_computed_then_uses_step_invocation_count():
 
     async def producer_a(n: int) -> AsyncIterator[int]:
         for i in range(n):
@@ -155,7 +155,7 @@ async def test_pct_threshold_with_multiple_each_deps_uses_step_invocations():
 
 
 @pytest.mark.asyncio
-async def test_both_thresholds_either_triggers():
+async def test_given_absolute_and_pct_thresholds_when_either_is_exceeded_then_threshold_raises():
 
     async def proc(items: int) -> int:
         if items == 0:
@@ -169,7 +169,7 @@ async def test_both_thresholds_either_triggers():
 
 
 @pytest.mark.asyncio
-async def test_threshold_fires_after_all_consumed_not_mid_stream():
+async def test_given_threshold_when_limit_crossed_then_fires_after_stream_consumed_not_mid_stream():
     invocations = []
 
     async def proc(items: int) -> int:
@@ -185,7 +185,7 @@ async def test_threshold_fires_after_all_consumed_not_mid_stream():
 
 
 @pytest.mark.asyncio
-async def test_pct_threshold_boundary_exact_match_triggers():
+async def test_given_error_rate_exactly_at_pct_limit_when_reached_then_threshold_triggers():
 
     async def proc(items: int) -> int:
         if items in (0, 1):
@@ -198,7 +198,7 @@ async def test_pct_threshold_boundary_exact_match_triggers():
 
 
 @pytest.mark.asyncio
-async def test_pct_threshold_boundary_just_below_no_trigger():
+async def test_given_error_rate_just_below_pct_limit_when_stream_ends_then_threshold_does_not_trigger():
 
     async def proc(items: int) -> int:
         if items == 0:
@@ -210,7 +210,7 @@ async def test_pct_threshold_boundary_just_below_no_trigger():
 
 
 @pytest.mark.asyncio
-async def test_pct_threshold_100_pct_only_fires_on_full_failure():
+async def test_given_100_pct_threshold_when_any_item_succeeds_then_threshold_does_not_trigger():
 
     async def proc(items: int) -> int:
         if items in (0, 1, 2, 3):
@@ -229,7 +229,7 @@ async def test_pct_threshold_100_pct_only_fires_on_full_failure():
 
 
 @pytest.mark.asyncio
-async def test_threshold_on_empty_stream_does_not_fire():
+async def test_given_threshold_on_empty_stream_when_nothing_runs_then_threshold_does_not_fire():
 
     async def proc(number: int) -> int:
         raise ValueError("should not be called")
@@ -258,7 +258,7 @@ async def test_threshold_on_empty_stream_does_not_fire():
 
 
 @pytest.mark.asyncio
-async def test_threshold_counters_reset_per_step():
+async def test_given_multiple_steps_with_thresholds_when_both_fail_then_counters_reset_per_step():
 
     async def proc1(number: int) -> int:
         if number == 0:
@@ -295,7 +295,7 @@ async def test_threshold_counters_reset_per_step():
 
 
 @pytest.mark.asyncio
-async def test_observers_receive_failed_events_on_threshold():
+async def test_given_threshold_fires_when_observers_registered_then_they_receive_failed_events():
     events: list[tuple] = []
 
     def on_event(ctx):
@@ -334,7 +334,7 @@ async def test_observers_receive_failed_events_on_threshold():
 
 
 @pytest.mark.asyncio
-async def test_threshold_with_force_materialize_respected():
+async def test_given_threshold_with_force_materialize_when_stream_fails_then_threshold_still_enforced():
 
     async def proc(number: int) -> int:
         if number in (0, 1):
@@ -362,7 +362,7 @@ async def test_threshold_with_force_materialize_respected():
 
 
 @pytest.mark.asyncio
-async def test_manual_threshold_exception_in_all_step_escape_hatch():
+async def test_given_manual_threshold_raise_in_all_step_when_caught_then_escape_hatch_preserved():
     handled = []
 
     def error_factory(ctx):
@@ -393,7 +393,7 @@ async def test_manual_threshold_exception_in_all_step_escape_hatch():
 
 
 @pytest.mark.asyncio
-async def test_manual_threshold_exception_in_each_step_wraps_in_validator():
+async def test_given_manual_threshold_raise_in_each_step_when_caught_then_wrapped_in_validator():
     handled = []
 
     def error_factory(ctx):
@@ -436,7 +436,7 @@ async def test_manual_threshold_exception_in_each_step_wraps_in_validator():
 
 
 @pytest.mark.asyncio
-async def test_on_error_continue_without_threshold_unchanged():
+async def test_given_on_error_continue_without_threshold_when_item_fails_then_stream_continues():
     invocations = []
 
     async def proc(number: int) -> int:
@@ -470,7 +470,7 @@ async def test_on_error_continue_without_threshold_unchanged():
 
 
 @pytest.mark.asyncio
-async def test_on_error_stop_no_longer_forces_materialization():
+async def test_given_on_error_stop_when_stream_iteration_fails_then_lazy_delivery_preserved():
     captured_type = []
 
     async def sink(source: AsyncIterator[int]):

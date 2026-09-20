@@ -13,7 +13,7 @@ class Params(NamedTuple):
     count: int = 3
 
 
-def test_cm_resource_entered_and_exited_per_item_in_each_mode():
+def test_given_cm_resource_in_each_mode_when_item_processed_then_entered_and_exited_per_item():
     events = []
 
     @contextmanager
@@ -62,7 +62,7 @@ def test_cm_resource_entered_and_exited_per_item_in_each_mode():
     assert events == expected
 
 
-def test_plain_resource_resolved_once_in_each_mode():
+def test_given_plain_resource_in_each_mode_when_multiple_items_then_resolved_once():
     factory_calls = 0
 
     def plain_factory() -> str:
@@ -93,7 +93,7 @@ def test_plain_resource_resolved_once_in_each_mode():
     assert factory_calls == 1
 
 
-def test_cm_resource_in_all_mode_entered_once():
+def test_given_cm_resource_in_all_mode_when_step_runs_then_entered_once():
     events = []
 
     @contextmanager
@@ -132,7 +132,7 @@ def test_cm_resource_in_all_mode_entered_once():
     assert events == expected
 
 
-def test_cm_resource_exited_before_downstream_consumer_receives_item():
+def test_given_cm_resource_in_each_mode_when_yielding_downstream_then_exited_before_consumer_receives():
     events = []
 
     @contextmanager
@@ -192,7 +192,7 @@ def test_cm_resource_exited_before_downstream_consumer_receives_item():
     assert events == expected
 
 
-def test_cm_factory_error_in_each_mode_with_on_error_continue_skips_failed_items():
+def test_given_cm_factory_error_in_each_mode_with_on_error_continue_when_factory_fails_then_failed_items_skipped():
     call_count = 0
 
     @contextmanager
@@ -233,7 +233,7 @@ def test_cm_factory_error_in_each_mode_with_on_error_continue_skips_failed_items
     assert results == ["resource-1", "resource-2"]
 
 
-def test_cm_factory_error_in_each_mode_with_on_error_stop_raises():
+def test_given_cm_factory_error_in_each_mode_with_on_error_stop_when_factory_fails_then_raises():
     call_count = 0
 
     @contextmanager

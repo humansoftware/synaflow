@@ -39,7 +39,7 @@ def consolidate(my_text_processor: list[int]) -> int:
     return sum(my_text_processor)
 
 
-def test_runner_executes_flattened_pipeline_each_mode():
+def test_given_included_pipeline_in_each_mode_when_run_then_flattened_pipeline_executes():
     pipe_a = pipeline(
         name="MainPipeline",
         params=AParams,

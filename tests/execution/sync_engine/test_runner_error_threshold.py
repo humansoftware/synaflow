@@ -60,7 +60,7 @@ def _build_each_pipeline(
     return (p, P)
 
 
-def test_absolute_threshold_not_exceeded_completes_normally():
+def test_given_absolute_threshold_under_limit_when_stream_completes_then_no_exception():
 
     def proc(items: int) -> int:
         if items == 2:
@@ -71,7 +71,7 @@ def test_absolute_threshold_not_exceeded_completes_normally():
     run(build_dag(p), P())
 
 
-def test_absolute_threshold_exceeded_raises():
+def test_given_absolute_threshold_exceeded_when_errors_surpass_limit_then_threshold_raises():
 
     def proc(items: int) -> int:
         if items in (1, 2, 3):
@@ -86,7 +86,7 @@ def test_absolute_threshold_exceeded_raises():
     assert exc_info.value.threshold_absolute == 2
 
 
-def test_pct_threshold_not_exceeded_completes_normally():
+def test_given_pct_threshold_under_limit_when_stream_completes_then_no_exception():
 
     def proc(items: int) -> int:
         if items == 2:
@@ -97,7 +97,7 @@ def test_pct_threshold_not_exceeded_completes_normally():
     run(build_dag(p), P())
 
 
-def test_pct_threshold_exceeded_raises():
+def test_given_pct_threshold_exceeded_when_error_rate_surpasses_limit_then_threshold_raises():
 
     def proc(items: int) -> int:
         if items in (1, 2, 3):
@@ -112,7 +112,7 @@ def test_pct_threshold_exceeded_raises():
     assert exc_info.value.threshold_pct == 0.5
 
 
-def test_pct_threshold_with_multiple_each_deps_uses_step_invocations():
+def test_given_pct_threshold_with_multiple_each_deps_when_computed_then_uses_step_invocation_count():
     """Threshold counts invocations of the step, not per-dep.
 
     Producer: each consumes ONE int. Consumer with 2 deps sees a *stream
@@ -158,7 +158,7 @@ def test_pct_threshold_with_multiple_each_deps_uses_step_invocations():
     assert exc_info.value.success_count == 4
 
 
-def test_both_thresholds_either_triggers():
+def test_given_absolute_and_pct_thresholds_when_either_is_exceeded_then_threshold_raises():
 
     def proc(items: int) -> int:
         if items == 0:
@@ -171,7 +171,7 @@ def test_both_thresholds_either_triggers():
     run(build_dag(p), P())
 
 
-def test_threshold_fires_after_all_consumed_not_mid_stream():
+def test_given_threshold_when_limit_crossed_then_fires_after_stream_consumed_not_mid_stream():
     """On a 5-item stream with 1 error and threshold=0.2, the exception
     is only raised at the end (after all 5 items processed), not when the
     1st error occurs."""
@@ -189,7 +189,7 @@ def test_threshold_fires_after_all_consumed_not_mid_stream():
     assert invocations == [0, 1, 2, 3, 4]
 
 
-def test_pct_threshold_boundary_exact_match_triggers():
+def test_given_error_rate_exactly_at_pct_limit_when_reached_then_threshold_triggers():
 
     def proc(items: int) -> int:
         if items in (0, 1):
@@ -201,7 +201,7 @@ def test_pct_threshold_boundary_exact_match_triggers():
         run(build_dag(p), P())
 
 
-def test_pct_threshold_boundary_just_below_no_trigger():
+def test_given_error_rate_just_below_pct_limit_when_stream_ends_then_threshold_does_not_trigger():
 
     def proc(items: int) -> int:
         if items == 0:
@@ -212,7 +212,7 @@ def test_pct_threshold_boundary_just_below_no_trigger():
     run(build_dag(p), P())
 
 
-def test_pct_threshold_100_pct_only_fires_on_full_failure():
+def test_given_100_pct_threshold_when_any_item_succeeds_then_threshold_does_not_trigger():
 
     def proc(items: int) -> int:
         if items in (0, 1, 2, 3):
@@ -230,7 +230,7 @@ def test_pct_threshold_100_pct_only_fires_on_full_failure():
         run(build_dag(p2), P2())
 
 
-def test_threshold_on_empty_stream_does_not_fire():
+def test_given_threshold_on_empty_stream_when_nothing_runs_then_threshold_does_not_fire():
     """0 invocations: pct check has the `invocation_count > 0` guard,
     abs check has 0 errors so no trigger."""
 
@@ -260,7 +260,7 @@ def test_threshold_on_empty_stream_does_not_fire():
     run(build_dag(p), P())
 
 
-def test_threshold_counters_reset_per_step():
+def test_given_multiple_steps_with_thresholds_when_both_fail_then_counters_reset_per_step():
     """Two EACH steps with thresholds: counters are independent."""
 
     def proc1(numbers: int) -> int:
@@ -297,7 +297,7 @@ def test_threshold_counters_reset_per_step():
     run(build_dag(p), P())
 
 
-def test_observers_receive_failed_events_on_threshold():
+def test_given_threshold_fires_when_observers_registered_then_they_receive_failed_events():
     """Threshold exceeded emits StepEvent.FAILED + PipelineEvent.FAILED."""
     events: list[tuple] = []
 
@@ -336,7 +336,7 @@ def test_observers_receive_failed_events_on_threshold():
     assert pipeline_failed[0][1] == "proc"
 
 
-def test_threshold_with_force_materialize_respected():
+def test_given_threshold_with_force_materialize_when_stream_fails_then_threshold_still_enforced():
     """force_materialize=True does not interfere with threshold tracking."""
 
     def proc(numbers: int) -> int:
@@ -364,7 +364,7 @@ def test_threshold_with_force_materialize_respected():
     assert exc_info.value.error_count == 2
 
 
-def test_manual_threshold_exception_in_all_step_escape_hatch():
+def test_given_manual_threshold_raise_in_all_step_when_caught_then_escape_hatch_preserved():
     """A user can manually raise ThresholdExceededException from inside an
     ALL-mode step (the documented escape hatch). The error materializer is
     called with the original exception, and a StepEvent.FAILED is dispatched."""
@@ -403,7 +403,7 @@ def test_manual_threshold_exception_in_all_step_escape_hatch():
     assert exc_info.value.success_count == 7
 
 
-def test_manual_threshold_exception_in_each_step_wraps_in_validator():
+def test_given_manual_threshold_raise_in_each_step_when_caught_then_wrapped_in_validator():
     """Manually raising ThresholdExceededException inside an EACH fn() is
     misuse: the executor wraps it in InvalidThresholdRaiseInEACHStep for
     the error materializer, and treats it as a normal per-item error."""
@@ -448,7 +448,7 @@ def test_manual_threshold_exception_in_each_step_wraps_in_validator():
     assert isinstance(handled[0].original_exception, ThresholdExceededException)
 
 
-def test_on_error_continue_without_threshold_unchanged():
+def test_given_on_error_continue_without_threshold_when_item_fails_then_stream_continues():
     """Without threshold: a step with on_error=CONTINUE and per-item errors
     just runs to completion (errors are skipped, pipeline succeeds)."""
     invocations = []
@@ -483,7 +483,7 @@ def test_on_error_continue_without_threshold_unchanged():
     assert invocations == [0, 1, 2, 3, 4]
 
 
-def test_on_error_stop_no_longer_forces_materialization():
+def test_given_on_error_stop_when_stream_iteration_fails_then_lazy_delivery_preserved():
     """Without force_materialize, on_error=STOP on a stream producer
     no longer materializes -- the stream is published directly to the
     consumer. The consumer (sink) gets the iterator, not a materialized list."""
