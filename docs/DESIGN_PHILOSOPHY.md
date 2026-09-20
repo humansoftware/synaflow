@@ -284,4 +284,16 @@ For uneven multi-stream each-mode, exhaustion is modeled with `None` padding rat
 
 ---
 
+### 3.17. Bounded Lockstep Consumption Contract
+
+**Decision:** When a lazy stream fans out to multiple consumers, every consumer of that producer must advance its branch **in lockstep**. A step that consumes two sibling fan-out branches must interleave them (zip pattern, as `mixed_fanout` demonstrates); it must **not** drain one branch fully before starting the other.
+
+**Reason:** The handoff between producer and consumers is bounded (`max_in_flight`, default 1). Sequential sibling consumption creates circular backpressure that is *mathematically guaranteed* to deadlock a bounded push runtime: the unread branch's queue fills, the producer's pump blocks on it, and the branch being drained starves — while the consumer waits on the drained branch before ever touching the full one. Lifting the bound to "fix" this would require unbounded buffering, contradicting the one-item-per-step memory model.
+
+**Concrete failure:** the `complex_parallel` corpus topology (`step1 → {step2→step3, step4} → step5`, where `step5` drains `step3` fully and only then `step4`) deadlocks **both engines** — a structural property, not a scheduler bug. These packs are therefore excluded from the runtime corpus with an explicit, symmetric-checked exclusion list (`tests/execution/test_corpus_runtime.py`); every other pack executes on both engines.
+
+**Consequence:** the framework cannot statically inspect step bodies to detect sequential consumption, so this contract is documented here and enforced socially. The runtime diagnostic is `wait_for_workers_after_shutdown`'s grace-windowed warning naming the stuck workers.
+
+---
+
 *(This document should be iteratively evolved whenever a new architectural contract is established in the Synaflow codebase).*

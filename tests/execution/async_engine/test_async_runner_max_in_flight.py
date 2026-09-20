@@ -119,7 +119,7 @@ async def test_given_max_in_flight_when_on_error_continue_then_still_works():
 
 
 @pytest.mark.asyncio
-async def test_given_max_in_flight_when_producer_does_not_exceed_bounded_ahead():
+async def test_given_max_in_flight_when_producer_runs_then_producer_never_exceeds_bounded_ahead():
     produced: list[int] = []
     consumed: list[int] = []
     max_seen_ahead = 0
@@ -483,7 +483,7 @@ async def test_given_fanout_lazy_and_eager_when_producer_stream_fails_then_pipel
 
 
 @pytest.mark.asyncio
-async def test_runner_contract_uses_dag_node_max_in_flight_not_step_max_in_flight():
+async def test_given_max_in_flight_when_runner_contract_built_then_uses_dag_node_value():
     produced: list[int] = []
     consumed: list[int] = []
     max_seen_ahead = 0

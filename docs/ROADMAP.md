@@ -20,6 +20,9 @@ This roadmap outlines the planned features and architectural evolutions for the 
 - **Test Coverage CI** — Dual metrics (Total vs Patch coverage), 80% patch threshold, non-blocking GitHub status checks, and pre-commit hooks
 - **Semantic Naming & Smart Binding** — Base Dataset name normalization via `inflect`, smart binding for dependency resolution, duplicate dataset/param detection, `dataset_param_names` in DAG JSON
 - **Documentation Portal** — MkDocs-Material site on GitHub Pages, sync/async code tabs, Mermaid DAG visualizations, step-by-step tutorial
+- **Sync/async parity enforcement** — async engine converged onto sync semantics (compiled `publish_plan`/`output_contract` routing, output-contract validation, loud materializer crashes, in-band producer failure delivery, cleanup-on-failure); builder compiles `fn_kind`/`async_stream_deps`; corpus-symmetry and name-parity meta-tests plus a unified runtime corpus (`test_corpus_runtime.py`) covering every pack on its engine
+- **Loud post-run stream semantics** — fan-out branches drained after `run()` raise `FanoutStreamClosedError` instead of blocking on a dead pump; bounded-lockstep consumption contract documented (§3.17) with `complex_parallel*` excluded from the runtime corpus by design
+- **Fail-loud build validation** — unresolvable declared annotations raise; include return annotations validated by type inspection; dependency cycles raise in `get_execution_levels`; explicit `mark_as_factory` marker protocol for materializer factories
 
 ## 🚧 In Progress / Next
 

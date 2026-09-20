@@ -143,7 +143,7 @@ def test_given_async_error_pipeline_when_run_then_error_materializer_registers()
     assert async_errors_list == ["gen failed"]
 
 
-def test_runtime_exclusions_are_documented_and_symmetric():
+def test_given_runtime_exclusions_when_checked_then_they_exist_in_both_engines():
     """Every excluded topology must exist (and be excluded) in BOTH
     engines — a one-engine exclusion hides an engine-specific bug."""
     for base in RUNTIME_EXCLUDED:

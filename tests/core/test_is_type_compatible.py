@@ -5,7 +5,12 @@ from typing import Any, NamedTuple
 
 import pytest
 
-from synaflow.core.type_compatibility import ListType, is_type_compatible
+from synaflow.core.type_compatibility import (
+    ListType,
+    is_factory,
+    is_type_compatible,
+    mark_as_factory,
+)
 
 
 @dataclass
@@ -81,3 +86,24 @@ def test_given_bare_containers_when_checking_compatibility_then_returns_expected
 def test_given_list_type_with_none_when_checking_compatibility_then_returns_false():
 
     assert is_type_compatible(ListType(None), list) is False
+
+
+def test_given_marked_callable_when_is_factory_then_true_even_without_ctx_signature():
+    """The explicit marker is additive: signature sniffing stays the
+    default, but callables whose signature cannot be sniffed (partials
+    over plain callables, callable objects) can be tagged explicitly."""
+
+    def plain_materializer(value):
+        return value
+
+    assert is_factory(plain_materializer) is False
+
+    mark_as_factory(plain_materializer)
+    assert is_factory(plain_materializer) is True
+
+
+def test_given_ctx_parameter_when_is_factory_then_sniffing_still_default():
+    def factory_with_ctx(ctx):
+        return list
+
+    assert is_factory(factory_with_ctx) is True

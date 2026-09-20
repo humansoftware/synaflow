@@ -33,7 +33,7 @@ def _async_dag() -> Dag:
     return dag
 
 
-def test_given_dag_argument_then_runs():
+def test_given_dag_argument_when_run_then_pipeline_executes():
     """``run()`` consumes a prebuilt Dag; no compile step is reached.
 
     With the signature narrowed to ``Dag`` only, runtime has no
@@ -65,7 +65,7 @@ def test_given_dag_argument_then_runs():
         run(dag, P(x=7))
 
 
-def test_given_async_dag_passed_to_sync_run_then_raises_engine_mismatch():
+def test_given_async_dag_when_passed_to_sync_run_then_raises_engine_mismatch():
     dag = _async_dag()
     with pytest.raises(RuntimeError, match="async_run"):
         run(dag, P(x=7))

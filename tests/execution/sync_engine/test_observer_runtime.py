@@ -55,7 +55,7 @@ class EventRecorder:
             self.events.append((type(ctx).__name__, ctx))
 
 
-def test_given_pipeline_run_id_is_consistent_and_unique_per_run():
+def test_given_two_runs_when_pipeline_run_id_observed_then_unique_per_run_and_consistent_within():
     rec = EventRecorder()
 
     def dummy(values: list[int]) -> int:
@@ -122,7 +122,7 @@ def test_given_pipeline_observer_when_step_fails_stop_then_failed_emitted():
     assert isinstance(ctx.exception, ValueError)
 
 
-def test_given_pipeline_failed_context_then_has_fields():
+def test_given_pipeline_failed_context_when_built_then_has_fields():
     rec = EventRecorder(PipelineEvent.FAILED)
 
     def failing(values: list[int]) -> int:
@@ -159,7 +159,7 @@ def test_given_all_mode_step_when_succeeds_then_started_and_completed_emitted():
     assert names.index("StepStartedContext") < names.index("StepCompletedContext")
 
 
-def test_given_all_mode_step_completed_then_counts_correct():
+def test_given_all_mode_step_when_completed_then_success_counts_correct():
     rec = EventRecorder(StepEvent.COMPLETED)
 
     def identity(values: list[int]) -> int:
@@ -346,7 +346,7 @@ def test_given_step_with_list_consumer_when_materialized_then_events_emitted():
     assert mat_start < mat_complete
 
 
-def test_given_materialization_context_then_has_fields():
+def test_given_materialization_context_when_built_then_has_fields():
     rec = EventRecorder(MaterializationEvent.STARTED)
 
     def gen(values: list[int]) -> Iterator[int]:
@@ -595,7 +595,7 @@ def test_given_lazy_generator_step_when_observed_then_step_started_event_fires_o
     assert state["step_started_event_fired"] is True
 
 
-def test_given_pipeline_started_context_exposes_scope_step_totals():
+def test_given_pipeline_started_context_when_scope_totals_exist_then_exposes_them():
     """PipelineStartedContext.scope_step_totals exposes the dag-level
     dict to consumers so they can detect scope completion without
     waiting for the last step event."""
@@ -631,7 +631,7 @@ def test_given_pipeline_started_context_exposes_scope_step_totals():
     assert started.scope_step_totals == {"pl_started": 2, "pl_started__first": 1}
 
 
-def test_given_pipeline_started_context_default_scope_step_totals_is_empty_dict():
+def test_given_pipeline_started_context_when_no_scope_totals_then_defaults_to_empty_dict():
     """Constructing PipelineStartedContext without the kwarg
     yields an empty dict — keeps backward compatibility for code that
     builds contexts directly (e.g., tests, mock observers)."""
@@ -831,7 +831,7 @@ def test_given_nested_includes_then_each_scope_completes_at_its_total():
     assert set(agg.completion_order) == {"R", "R__outer", "R__outer__inner"}
 
 
-def test_given_step_started_context_carries_dag_node_scope_metadata():
+def test_given_step_started_context_when_built_then_carries_dag_node_scope_metadata():
     """Regression: StepStartedContext must surface the DagNode's stamped
     scope fields (``pipeline_scope``, ``step_index_in_scope``,
     ``step_total_in_scope``). Issue #105 — without these, the bug
@@ -868,7 +868,7 @@ def test_given_step_started_context_carries_dag_node_scope_metadata():
     assert started_by_step["second"].step_total_in_scope == 2
 
 
-def test_given_step_failed_context_carries_dag_node_scope_metadata():
+def test_given_step_failed_context_when_built_then_carries_dag_node_scope_metadata():
     """Regression: StepFailedContext must also carry the DagNode's
     stamped scope fields. Issue #105 — a failing step must still be
     identifiable by its scope, index, and total."""

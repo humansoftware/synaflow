@@ -63,7 +63,7 @@ class EventRecorder:
 
 
 @pytest.mark.asyncio
-async def test_given_pipeline_run_id_is_consistent_and_unique_per_run():
+async def test_given_two_runs_when_pipeline_run_id_observed_then_unique_per_run_and_consistent_within():
     rec = EventRecorder()
 
     async def dummy(values: list[int]) -> int:
@@ -134,7 +134,7 @@ async def test_given_pipeline_observer_when_step_fails_stop_then_failed_emitted(
 
 
 @pytest.mark.asyncio
-async def test_given_pipeline_failed_context_then_has_fields():
+async def test_given_pipeline_failed_context_when_built_then_has_fields():
     rec = EventRecorder(PipelineEvent.FAILED)
 
     async def failing(values: list[int]) -> int:
@@ -173,7 +173,7 @@ async def test_given_all_mode_step_when_succeeds_then_started_and_completed_emit
 
 
 @pytest.mark.asyncio
-async def test_given_all_mode_step_completed_then_counts_correct():
+async def test_given_all_mode_step_when_completed_then_success_counts_correct():
     rec = EventRecorder(StepEvent.COMPLETED)
 
     async def identity(values: list[int]) -> int:
@@ -370,7 +370,7 @@ async def test_given_step_with_list_consumer_when_materialized_then_events_emitt
 
 
 @pytest.mark.asyncio
-async def test_given_materialization_context_then_has_fields():
+async def test_given_materialization_context_when_built_then_has_fields():
     rec = EventRecorder(MaterializationEvent.STARTED)
 
     async def gen(values: list[int]) -> AsyncIterator[int]:
@@ -710,7 +710,7 @@ async def test_given_lazy_generator_step_when_observed_then_step_started_event_f
 
 
 @pytest.mark.asyncio
-async def test_given_pipeline_started_context_exposes_scope_step_totals():
+async def test_given_pipeline_started_context_when_scope_totals_exist_then_exposes_them():
     """PipelineStartedContext.scope_step_totals exposes the dag-level
     dict (async parity of sync test)."""
 
@@ -746,7 +746,7 @@ async def test_given_pipeline_started_context_exposes_scope_step_totals():
 
 
 @pytest.mark.asyncio
-async def test_given_pipeline_started_context_default_scope_step_totals_is_empty_dict():
+async def test_given_pipeline_started_context_when_no_scope_totals_then_defaults_to_empty_dict():
     """Constructing PipelineStartedContext without the kwarg
     yields an empty dict — async parity."""
     ctx = PipelineStartedContext(
@@ -932,7 +932,7 @@ async def test_given_nested_includes_then_each_scope_completes_at_its_total():
 
 
 @pytest.mark.asyncio
-async def test_given_step_started_context_carries_dag_node_scope_metadata():
+async def test_given_step_started_context_when_built_then_carries_dag_node_scope_metadata():
     """Async regression: StepStartedContext surfaces DagNode scope."""
 
     class _Scope(NamedTuple):
@@ -967,7 +967,7 @@ async def test_given_step_started_context_carries_dag_node_scope_metadata():
 
 
 @pytest.mark.asyncio
-async def test_given_step_failed_context_carries_dag_node_scope_metadata():
+async def test_given_step_failed_context_when_built_then_carries_dag_node_scope_metadata():
     """Async regression: StepFailedContext also carries DagNode scope."""
 
     class _Scope(NamedTuple):

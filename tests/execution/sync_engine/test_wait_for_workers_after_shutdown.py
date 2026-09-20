@@ -52,7 +52,7 @@ def _logged_once_after(seconds: float) -> Any:
     return log, monotonic, advance, log_at
 
 
-def test_returns_when_no_threads():
+def test_given_no_worker_threads_when_waiting_then_returns_on_first_poll():
     """No threads → return 1 poll, no sleep, no log."""
     sleeps: list[float] = []
     logs: list[tuple] = []
@@ -70,7 +70,7 @@ def test_returns_when_no_threads():
     assert logs == []
 
 
-def test_filters_threads_outside_prefix():
+def test_given_threads_outside_prefix_when_enumerating_then_they_are_ignored():
     """Threads not matching the prefix are skipped, even when is_alive=True."""
     other = _make_thread("other-pool-worker_0")
     logs: list[tuple] = []
@@ -87,7 +87,7 @@ def test_filters_threads_outside_prefix():
     assert logs == []
 
 
-def test_logs_once_then_returns_when_workers_clear_first_poll():
+def test_given_worker_alive_on_first_poll_when_it_clears_then_logs_once_and_returns():
     """Worker is alive on poll 1 → log; cleared on poll 2 → return 2."""
     t = _make_thread("synaflow-worker_0")
     logs: list[tuple] = []
@@ -112,7 +112,7 @@ def test_logs_once_then_returns_when_workers_clear_first_poll():
     assert "step function" in args[0]
 
 
-def test_logs_each_log_window_until_workers_clear():
+def test_given_persistent_workers_when_log_window_elapses_then_logs_once_per_window():
     """Workers persist across log windows: log fires once per window."""
     t = _make_thread("synaflow-worker_0")
     logs: list[tuple] = []
@@ -136,7 +136,7 @@ def test_logs_each_log_window_until_workers_clear():
     assert len(logs) == 2
 
 
-def test_logs_at_most_once_per_window_even_with_many_short_polls():
+def test_given_many_polls_inside_one_window_when_workers_persist_then_logs_at_most_once():
     """Polls inside one log window produce only the first log line."""
     t = _make_thread("synaflow-worker_0")
     logs: list[tuple] = []
@@ -160,7 +160,7 @@ def test_logs_at_most_once_per_window_even_with_many_short_polls():
     assert len(logs) == 1
 
 
-def test_logs_multiple_workers_in_single_line():
+def test_given_multiple_alive_workers_when_logging_then_all_names_in_single_line():
     """Multiple alive workers → all names appear in one log line."""
     a = _make_thread("synaflow-worker_0")
     b = _make_thread("synaflow-worker_1")
@@ -183,7 +183,7 @@ def test_logs_multiple_workers_in_single_line():
     assert sorted(args[3]) == ["synaflow-worker_0", "synaflow-worker_1"]
 
 
-def test_process_pid_defaults_to_os_getpid():
+def test_given_no_pid_override_when_logging_then_defaults_to_os_getpid():
     """``_process_pid=None`` resolves to ``os.getpid()`` at call time."""
     seen_pids: list[int] = []
     t = _make_thread("synaflow-worker_0")
@@ -203,7 +203,7 @@ def test_process_pid_defaults_to_os_getpid():
     assert seen_pids == [os.getpid()]
 
 
-def test_custom_thread_name_prefix_is_honoured():
+def test_given_custom_thread_prefix_when_waiting_then_only_matching_threads_counted():
     """``thread_name_prefix`` filters out unrelated threads."""
     not_matching = _make_thread("synaflow-worker_0")
     logs: list[tuple] = []
@@ -221,7 +221,7 @@ def test_custom_thread_name_prefix_is_honoured():
     assert logs == []
 
 
-def test_poll_seconds_passed_through_to_sleep():
+def test_given_poll_seconds_when_waiting_then_passed_through_to_sleep():
     """Sleep is called with the configured ``poll_seconds`` value."""
     sleeps: list[float] = []
     t = _make_thread("synaflow-worker_0")
@@ -241,7 +241,7 @@ def test_poll_seconds_passed_through_to_sleep():
     assert sleeps == [0.25, 0.25]
 
 
-def test_workers_clearing_within_grace_never_log():
+def test_given_workers_clearing_within_grace_when_waiting_then_no_warning_logged():
     """Workers that exit during the grace window produce no warning —
     the first poll almost always still sees mid-teardown workers, and
     warning about a 0.1s teardown destroys trust in the diagnostic."""
@@ -263,7 +263,7 @@ def test_workers_clearing_within_grace_never_log():
     assert logs == []
 
 
-def test_workers_persisting_past_grace_log_once_at_first_poll_after_grace():
+def test_given_workers_persisting_past_grace_when_waiting_then_logs_once_after_grace():
     """Once past the grace window, the warning fires on the first poll
     and then respects the log window."""
     t = _make_thread("synaflow-worker_0")

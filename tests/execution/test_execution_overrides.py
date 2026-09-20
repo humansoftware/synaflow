@@ -245,7 +245,7 @@ def test_given_execution_overrides_from_production_when_observers_not_overridden
     assert step_events == ["StepStartedContext", "StepCompletedContext"]
 
 
-def test_given_without_observers_then_pipeline_and_step_observers_are_disabled(
+def test_given_no_observers_registered_when_events_dispatch_then_nothing_recorded(
     run_pipeline,
 ):
     class Params(NamedTuple):

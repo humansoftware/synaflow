@@ -14,7 +14,7 @@ class Params(NamedTuple):
 
 
 @pytest.mark.asyncio
-async def test_cm_resource_entered_and_exited_per_item_in_each_mode():
+async def test_given_cm_resource_in_each_mode_when_item_processed_then_entered_and_exited_per_item():
     events = []
 
     @asynccontextmanager
@@ -65,7 +65,7 @@ async def test_cm_resource_entered_and_exited_per_item_in_each_mode():
 
 
 @pytest.mark.asyncio
-async def test_plain_resource_resolved_once_in_each_mode():
+async def test_given_plain_resource_in_each_mode_when_multiple_items_then_resolved_once():
     factory_calls = 0
 
     def plain_factory() -> str:
@@ -98,7 +98,7 @@ async def test_plain_resource_resolved_once_in_each_mode():
 
 
 @pytest.mark.asyncio
-async def test_cm_resource_in_all_mode_entered_once():
+async def test_given_cm_resource_in_all_mode_when_step_runs_then_entered_once():
     events = []
 
     @asynccontextmanager
@@ -138,7 +138,7 @@ async def test_cm_resource_in_all_mode_entered_once():
 
 
 @pytest.mark.asyncio
-async def test_cm_resource_exited_before_downstream_consumer_receives_item():
+async def test_given_cm_resource_in_each_mode_when_yielding_downstream_then_exited_before_consumer_receives():
     events = []
 
     @asynccontextmanager
@@ -202,7 +202,7 @@ async def test_cm_resource_exited_before_downstream_consumer_receives_item():
 
 
 @pytest.mark.asyncio
-async def test_cm_factory_error_in_each_mode_with_on_error_continue_skips_failed_items():
+async def test_given_cm_factory_error_in_each_mode_with_on_error_continue_when_factory_fails_then_failed_items_skipped():
     call_count = 0
 
     @asynccontextmanager
@@ -247,7 +247,7 @@ async def test_cm_factory_error_in_each_mode_with_on_error_continue_skips_failed
 
 
 @pytest.mark.asyncio
-async def test_cm_factory_error_in_each_mode_with_on_error_stop_raises():
+async def test_given_cm_factory_error_in_each_mode_with_on_error_stop_when_factory_fails_then_raises():
     call_count = 0
 
     @asynccontextmanager

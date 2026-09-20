@@ -16,7 +16,25 @@ from collections.abc import (
 from typing import Any, Union, get_args, get_origin
 
 
+FACTORY_MARKER = "__synaflow_factory__"
+
+
+def mark_as_factory(func: Callable) -> Callable:
+    """Explicitly tag ``func`` as a materializer factory.
+
+    ``is_factory`` normally sniffs the signature (a ``ctx``/``context``
+    parameter or a ``MaterializeContext`` annotation).  Callables whose
+    signature cannot be sniffed reliably — a callable class instance, a
+    ``functools.partial`` over a plain callable — can be tagged with this
+    marker instead.  Sniffing remains the default; the marker is additive.
+    """
+    setattr(func, FACTORY_MARKER, True)
+    return func
+
+
 def is_factory(func: Callable) -> bool:
+    if getattr(func, FACTORY_MARKER, False):
+        return True
     if not callable(func):
         return False
     try:

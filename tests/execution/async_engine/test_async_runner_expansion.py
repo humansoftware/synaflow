@@ -42,7 +42,7 @@ async def consolidar(meu_processador_b: list[int]) -> int:
 
 
 @pytest.mark.asyncio
-async def test_runner_executes_flattened_pipeline_each_mode():
+async def test_given_included_pipeline_in_each_mode_when_run_then_flattened_pipeline_executes():
     pipe_a = pipeline(
         name="MainPipeline",
         params=AParams,

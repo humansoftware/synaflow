@@ -745,7 +745,7 @@ async def test_given_multilevel_each_fanout_when_run_then_completes_without_mate
 
 
 @pytest.mark.asyncio
-async def test_given_terminal_stream_with_no_observers_bypass_validation():
+async def test_given_terminal_stream_when_no_observers_registered_then_validation_bypassed():
 
     class DummyParams(NamedTuple):
         values: list[int]
