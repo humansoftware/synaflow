@@ -2,6 +2,65 @@
 
 
 
+## v0.32.4 (2026-09-20)
+
+### Fix
+
+* fix(execution): loud post-run stream semantics, unified runtime corpus, fail-loud hints (#134)
+
+Follow-ups #128, #129, #131, #132 (behavioral items only).
+
+#128 — post-run stream ergonomics (corrected diagnosis: no scheduler
+deadlock; the original repro hung draining executor.outputs after the run):
+- SyncQueueIterator tracks why it closed: exhausted branches keep
+  raising StopIteration, failed branches re-raise their error, and a
+  branch closed before being fully consumed raises a descriptive
+  RuntimeError instead of blocking forever on a dead pump
+- executor cleanup aborts live fan-outs with FanoutStreamClosedError
+  (new, in core.exceptions) so a late drain of an unconsumed branch
+  fails loud; AsyncQueueBranch gains the same closed-state semantics
+  and terminate(); async cleanup terminal-izes tracked branches
+- wait_for_workers_after_shutdown gains a log grace window (2s default):
+  the first poll almost always sees mid-teardown workers, and warning
+  about a 0.1s teardown destroyed trust in the diagnostic
+- nested_fanout pack step_results corrected to the observable contract
+  (terminal drained EACH steps publish None)
+
+#129 — unified runtime corpus:
+- new tests/execution/test_corpus_runtime.py executes every registered
+  pack on its own engine and asserts frozen step_results (replaces the
+  two hand-maintained per-engine pack lists; engine step_results test
+  files removed; error-materializer registration tests moved here)
+- exclusions are explicit and symmetry-checked: complex_parallel and
+  complex_parallel_mixed deadlock BOTH engines by design — their
+  terminal step consumes sibling fan-out branches sequentially, which
+  circular-backpressures a bounded lockstep handoff (issue #128)
+
+#131 — fail-loud build validation (non-breaking parts):
+- include-cycle detection unified (dag_expansion.validate_no_include_cycle)
+- include return-annotation validated by type inspection instead of a
+  name substring (aliases validate; look-alike names no longer pass);
+  unresolvable string annotations keep the tolerant fallback
+- get_safe_type_hints raises when a callable declares annotations that
+  cannot be resolved — silent {} disabled all DAG validation; only
+  fully-unannotated callables resolve to {}
+
+#132 — small smells:
+- AsyncQueueBranch.put blocks on the queue properly (wait_for-bounded)
+  instead of a 1ms hot sleep loop
+- CsvSerializer fills ragged rows with restval=&#34;&#34;
+- async error dispatch checks callable(err_mat) before building the
+  context, mirroring sync
+- both step runners replace the &#34;output&#34; not in locals() trick with an
+  explicit _NOT_PRODUCED sentinel (identical semantics)
+
+Tests: 832 passing (was 816). Suite grows by the runtime corpus (24
+pack/engine cases), close-semantics unit tests for both handoffs, and
+the hints contract tests.
+
+Co-authored-by: Marcelo Elias Del Valle &lt;marcelo@mvalle.br&gt; ([`0d5e0c5`](https://github.com/humansoftware/synaflow/commit/0d5e0c5475500ac6001245624a81418dff1ad4c3))
+
+
 ## v0.32.3 (2026-09-19)
 
 ### Fix
