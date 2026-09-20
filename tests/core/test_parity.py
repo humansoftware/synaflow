@@ -108,6 +108,14 @@ def test_sync_async_test_parity():
             "Unit test for the sync-only ``wait_for_workers_after_shutdown`` helper.",
         ),
         (
+            "test_workers_clearing_within_grace_never_log",
+            "Unit test for the sync-only ``wait_for_workers_after_shutdown`` helper.",
+        ),
+        (
+            "test_workers_persisting_past_grace_log_once_at_first_poll_after_grace",
+            "Unit test for the sync-only ``wait_for_workers_after_shutdown`` helper.",
+        ),
+        (
             "test_given_async_dag_passed_to_sync_run_then_raises_engine_mismatch",
             "Engine-mismatch test is per-engine by nature: sync engine rejects "
             "an async Dag. The async equivalent is its own test in the async dir.",

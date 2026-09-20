@@ -135,14 +135,13 @@ pack = PipelinePack(
     },
     pipeline=nested_fanout_pipeline,
     input_params=Params(count=10),
+    # Observable post-run outputs: terminal EACH steps are drained
+    # internally by the runner, so they publish None.  Stream-intermediate
+    # steps are consumed by their downstream steps during the run and are
+    # skipped by the runtime corpus test (consumers + not materialized).
     step_results={
-        "generator": list(range(10)),
-        "stage1_a": list(range(10)),
-        "stage1_b": [i * 2 for i in range(10)],
-        "stage2_a": [i + 1 for i in range(10)],
-        "stage2_b": [i * 2 + 2 for i in range(10)],
-        # stage3 zips stage2_a/stage2_b per item: (i + 1) + (2i + 2)
-        "stage3": [3 * (i + 1) for i in range(10)],
+        "stage1_b": None,
+        "stage3": None,
     },
     expected_execution_levels=[
         ["generator"],

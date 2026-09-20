@@ -20,33 +20,53 @@ class ExceptionMarker:
 
 
 class SyncQueueIterator(Iterator):
-    """Blocking iterator over a bounded queue-backed branch."""
+    """Blocking iterator over a bounded queue-backed branch.
+
+    Tracks *why* it closed so that a late ``next()`` after the pipeline
+    run has finished raises a loud ``RuntimeError`` instead of blocking
+    forever on a queue whose pump thread is already gone.
+    """
 
     def __init__(self, branch_name: str, q: queue.Queue, owner: SyncFanout) -> None:
         self._branch_name = branch_name
         self._queue = q
         self._owner = owner
         self._closed = False
+        self._close_reason: str | None = None
+        self._failure: BaseException | None = None
 
     def __iter__(self):
         self._owner.ensure_started()
         return self
 
     def __next__(self):
+        if self._closed:
+            if self._close_reason == "exhausted":
+                raise StopIteration
+            if self._close_reason == "failed" and self._failure is not None:
+                raise self._failure
+            raise RuntimeError(
+                f"Branch '{self._branch_name}' of a fan-out stream was closed"
+                " before being fully consumed.  Fan-out branch streams are only"
+                " valid while the pipeline is running; keep a materialized"
+                " (list/set/dict) output if you need the data after run()."
+            )
         self._owner.ensure_started()
         item = self._queue.get()
         if item is EOF_MARKER:
-            self.close()
+            self.close(reason="exhausted")
             raise StopIteration
         if isinstance(item, ExceptionMarker):
-            self.close()
+            self.close(reason="failed")
+            self._failure = item.exception
             raise item.exception
         return item
 
-    def close(self) -> None:
+    def close(self, reason: str = "closed") -> None:
         if self._closed:
             return
         self._closed = True
+        self._close_reason = reason
         self._owner.close_branch(self._branch_name)
 
     def __del__(self) -> None:  # pragma: no cover - best-effort cleanup only

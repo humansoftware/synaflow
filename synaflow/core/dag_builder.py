@@ -62,7 +62,7 @@ from synaflow.core.dag import (
     PublishPlan,
 )
 from synaflow.core.dag_dependencies import initialize_parameters, initialize_resources
-from synaflow.core.dag_expansion import expand_macros
+from synaflow.core.dag_expansion import expand_macros, validate_no_include_cycle
 from synaflow.core.dag_steps import (
     validate_and_compile_step,
     validate_no_duplicate_base_datasets,
@@ -293,10 +293,7 @@ def _collect_pipeline_resources(
             continue
 
         sub_pipeline = step.pipeline
-        if sub_pipeline.name in include_chain:
-            raise ValueError(
-                f"Infinite cycle detected: Pipeline '{sub_pipeline.name}' is already in the inclusion chain '{'.'.join(include_chain)}'"
-            )
+        validate_no_include_cycle(sub_pipeline.name, include_chain)
 
         sub_resources = _collect_pipeline_resources(
             pipeline_name,

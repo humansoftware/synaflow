@@ -4,8 +4,9 @@
 import dataclasses
 import functools
 import inspect
-from typing import Any
+from typing import Any, get_args, get_origin
 
+from synaflow.core.dag import get_safe_type_hints
 from synaflow.core.definition import IncludeStep, Step
 from synaflow.core.observers import ResolvedObserver
 from synaflow.core.types import OnError
@@ -64,6 +65,17 @@ def _resolve_include_observers(
     ] + [ResolvedObserver(handler=obs.handler, source="step") for obs in step_observers]
 
 
+def validate_no_include_cycle(
+    pipeline_name: str, include_chain: "list[str] | tuple[str, ...]"
+) -> None:
+    """Reject including a pipeline that is already in the inclusion chain."""
+    if pipeline_name in include_chain:
+        raise ValueError(
+            f"Infinite cycle detected: Pipeline '{pipeline_name}' is already"
+            f" in the inclusion chain '{'.'.join(include_chain)}'"
+        )
+
+
 def _build_parent_chain(
     current_pipeline_name: str | None,
     parent_chain: str | None,
@@ -80,11 +92,9 @@ def _validate_include_step(
     new_parent_chain: str | None,
 ) -> None:
     sub_pipeline = include_step.pipeline
-    current_chain_parts = new_parent_chain.split(".") if new_parent_chain else []
-    if sub_pipeline.name in current_chain_parts:
-        raise ValueError(
-            f"Infinite cycle detected: Pipeline '{sub_pipeline.name}' is already in the inclusion chain '{new_parent_chain}'"
-        )
+    validate_no_include_cycle(
+        sub_pipeline.name, new_parent_chain.split(".") if new_parent_chain else []
+    )
 
     if not sub_pipeline.exports:
         raise ValueError(
@@ -97,11 +107,45 @@ def _validate_include_step(
             f"Include step '{include_step.name}' must have a return type hint matching '{sub_pipeline.params.__name__}' or an Iterable of it."
         )
 
-    annotation_str = str(sig.return_annotation)
-    if sub_pipeline.params.__name__ not in annotation_str:
+    if not _return_annotation_accepts(include_step.fn, sig, sub_pipeline.params):
+        annotation_str = str(sig.return_annotation)
         raise ValueError(
             f"Include step '{include_step.name}' must return '{sub_pipeline.params.__name__}' or an Iterable of it. Got '{annotation_str}'"
         )
+
+
+def _return_annotation_accepts(
+    fn: Any, sig: inspect.Signature, params_class: Any
+) -> bool:
+    """True when the include step's return annotation is the sub-pipeline
+    params class itself, or an iterable/collection of it.
+
+    Resolves string annotations (PEP 563 / quoted) through the module's
+    namespace so aliased imports validate correctly — unlike the previous
+    substring check, a type merely *containing* the params name in its
+    name no longer passes.
+    """
+    try:
+        hints = get_safe_type_hints(fn)
+    except ValueError:
+        return False
+    return_type = hints.get("return", sig.return_annotation)
+
+    if isinstance(return_type, str):
+        # Unresolvable string annotation: fall back to the name check.
+        return params_class.__name__ in return_type
+    return _annotation_mentions(return_type, params_class)
+
+
+def _annotation_mentions(annotation: Any, params_class: Any) -> bool:
+    if annotation is params_class:
+        return True
+    origin = get_origin(annotation)
+    if origin is not None:
+        return any(
+            _annotation_mentions(arg, params_class) for arg in get_args(annotation)
+        )
+    return False
 
 
 def _build_adapter_step(
